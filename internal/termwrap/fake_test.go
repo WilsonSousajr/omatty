@@ -48,12 +48,26 @@ func TestFake_FocusAndClose(t *testing.T) {
 	}
 }
 
-func TestFake_InitAndUpdateAreInert(t *testing.T) {
+// Init returns a command rather than nil. The old assertion here required
+// nil, which encoded the bug in issue #33: a Fake that returns nothing lets a
+// model whose Init discards terminals look correct. The Fake must behave like
+// bubbleterm, whose Init returns the poll that keeps the terminal reading.
+func TestFake_InitRecordsTheCallAndReturnsACommand(t *testing.T) {
 	f := termwrap.NewFake("")
 
-	if cmd := f.Init(); cmd != nil {
-		t.Errorf("Init() = %v, want nil", cmd)
+	cmd := f.Init()
+
+	if !f.Inited {
+		t.Error("Inited = false after Init(), want true")
 	}
+	if cmd == nil {
+		t.Error("Init() = nil; a terminal that returns no command is never pumped")
+	}
+}
+
+func TestFake_UpdateRecordsTheMessage(t *testing.T) {
+	f := termwrap.NewFake("")
+
 	if cmd := f.Update("a message"); cmd != nil {
 		t.Errorf("Update() = %v, want nil", cmd)
 	}

@@ -22,6 +22,9 @@ type Fake struct {
 	Width, Height int
 	// Closed reports whether Close has been called.
 	Closed bool
+	// Inited reports whether Init has been called. A terminal that is never
+	// initialised never reads from its PTY (issue #33).
+	Inited bool
 
 	view    string
 	focused bool
@@ -30,8 +33,12 @@ type Fake struct {
 // NewFake returns a Fake whose View always renders view.
 func NewFake(view string) *Fake { return &Fake{view: view} }
 
-// Init does nothing; a Fake has no process to start.
-func (f *Fake) Init() tea.Cmd { return nil }
+// Init records the call. A Fake has no process, but the model must still
+// initialise every terminal it owns.
+func (f *Fake) Init() tea.Cmd {
+	f.Inited = true
+	return func() tea.Msg { return nil }
+}
 
 // Update records msg instead of driving an emulator.
 func (f *Fake) Update(msg tea.Msg) tea.Cmd {

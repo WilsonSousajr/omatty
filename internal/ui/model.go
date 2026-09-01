@@ -98,9 +98,19 @@ func (m *Model) SelectedProject() string {
 	return ""
 }
 
-// Init starts nothing: terminals are started by the supervisor before the
-// model is built.
-func (m *Model) Init() tea.Cmd { return nil }
+// Init starts every session's terminal reading from its PTY.
+//
+// bubbleterm.Init returns a self-rescheduling blocking poll; without it no
+// terminal ever reads anything and every pane stays blank (issue #33).
+func (m *Model) Init() tea.Cmd {
+	cmds := make([]tea.Cmd, 0, len(m.terms))
+	for _, term := range m.terms {
+		if cmd := term.Init(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+	return tea.Batch(cmds...)
+}
 
 // Update routes messages to one handler per type, so it stays a router and
 // stays inside the 20-line function limit.
@@ -111,7 +121,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		return m, m.onResize(msg)
 	}
-	return m, nil
+	// Everything else is emulator traffic. Broadcast it: each bubbleterm
+	// ignores messages from other emulators, and the message that re-arms a
+	// poll must reach the terminal that scheduled it. Unfocused sessions are
+	// pumped too, or they stop reading their PTYs (issue #33). Keys are
+	// deliberately not broadcast - they belong to the focused session only.
+	return m, m.broadcast(msg)
+}
+
+// broadcast forwards msg to every terminal and batches whatever they return.
+func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
+	cmds := make([]tea.Cmd, 0, len(m.terms))
+	for _, term := range m.terms {
+		if cmd := term.Update(msg); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+	return tea.Batch(cmds...)
 }
 
 // onKey applies invariant 1: with the terminal focused every key reaches the
@@ -174,7 +200,7 @@ func (m *Model) onPromptKey(key string) tea.Cmd {
 	case "esc":
 		m.prompt = Prompt{}
 	case "enter":
-		m.submitPrompt()
+		return m.submitPrompt()
 	case "backspace":
 		m.prompt.Buffer = trimLastRune(m.prompt.Buffer)
 	default:
@@ -187,9 +213,9 @@ func (m *Model) onPromptKey(key string) tea.Cmd {
 
 // submitPrompt creates the session. An empty title leaves the prompt open
 // rather than registering a nameless session.
-func (m *Model) submitPrompt() {
+func (m *Model) submitPrompt() tea.Cmd {
 	if m.prompt.Buffer == "" {
-		return
+		return nil
 	}
 	branch := ""
 	if m.prompt.Worktree {
@@ -199,31 +225,36 @@ func (m *Model) submitPrompt() {
 	project := m.SelectedProject()
 	title := m.prompt.Buffer
 	m.prompt = Prompt{}
-	if err := m.addSession(project, title, branch); err != nil {
+	cmd, err := m.addSession(project, title, branch)
+	if err != nil {
 		slog.Error("creating session",
 			"project", project, "title", title, "branch", branch, "err", err)
 		m.lastErr = err.Error()
+		return nil
 	}
+	return cmd
 }
 
 // addSession registers the session, starts its terminal, and rebuilds the
 // sidebar so it is visible and focused immediately (issue #32). A session
 // whose terminal will not start is not added: it would be a row you cannot
 // focus.
-func (m *Model) addSession(project, title, branch string) error {
+func (m *Model) addSession(project, title, branch string) (tea.Cmd, error) {
 	sess, err := m.create(project, title, branch)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	term, err := m.start(sess)
 	if err != nil {
-		return fmt.Errorf("starting session %s: %w", sess.ID, err)
+		return nil, fmt.Errorf("starting session %s: %w", sess.ID, err)
 	}
 	m.terms[sess.ID] = term
 	m.state.Sessions = append(m.state.Sessions, sess)
 	m.sidebar = NewSidebar(SidebarRows(m.state, nil))
 	m.selectSession(sess.ID)
-	return nil
+	// The new terminal needs its own poll started; the others already have
+	// theirs (issue #33).
+	return term.Init(), nil
 }
 
 // selectSession moves the cursor onto id, so a freshly created session is the
