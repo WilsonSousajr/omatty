@@ -70,3 +70,23 @@ func TestStartTerminals_EmptyRegistryStartsNothing(t *testing.T) {
 		t.Errorf("started %d terminals with %d factory calls, want 0 and 0", len(terms), called)
 	}
 }
+
+// Invariant 6: every started terminal is guarded, so one emulator panic
+// cannot take down the app.
+func TestStartTerminals_WrapsEveryTerminalInAGuard(t *testing.T) {
+	factory := func(int, int, *exec.Cmd) (termwrap.Terminal, error) {
+		return termwrap.NewFake(""), nil
+	}
+
+	terms, err := ui.StartTerminals(
+		twoProjectState(), supervisor.NewLauncher("claude", "/h.json"), factory, 80, 24)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for id, term := range terms {
+		if _, ok := term.(*termwrap.Guard); !ok {
+			t.Errorf("session %s got %T, want a *termwrap.Guard", id, term)
+		}
+	}
+}

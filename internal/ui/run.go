@@ -20,7 +20,8 @@ func StartTerminals(
 		if err != nil {
 			return nil, fmt.Errorf("ui: starting terminal for session %s: %w", sess.ID, err)
 		}
-		terms[sess.ID] = term
+		// Invariant 6: one emulator panic must not take down the app.
+		terms[sess.ID] = termwrap.NewGuard(term)
 	}
 	return terms, nil
 }
