@@ -241,6 +241,8 @@ message and explain why the behaviour it asserted was never correct.
 
 ## Documentation map
 
+- `docs/ROADMAP.md` — milestones M1-M7, what is in each and why, and what was
+  deliberately cut. Read it before proposing a feature.
 - `docs/superpowers/specs/2026-09-01-omatty-design.md` — the design this repo
   implements.
 - `docs/ARCHITECTURE.md` — data flow, package breakdown, invariant rationale.
