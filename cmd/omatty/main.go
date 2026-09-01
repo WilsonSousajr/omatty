@@ -1,21 +1,34 @@
 // Command omatty runs the terminal ADE: multiple projects and multiple
 // parallel Claude Code sessions in one window.
+//
+// Usage:
+//
+//	omatty                            run the TUI
+//	omatty add [dir]                  register the repository containing dir
+//	omatty new <project> <title> [branch]  create a session
+//
+// A branch argument puts the session in a fresh worktree; without one it runs
+// in the project's main checkout.
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/google/uuid"
 
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
 
-// defaultSize is used until the terminal reports its real dimensions in the
-// first WindowSizeMsg.
+// defaultWidth and defaultHeight are used until the terminal reports its real
+// dimensions in the first WindowSizeMsg.
 const (
 	defaultWidth  = 80
 	defaultHeight = 24
@@ -24,6 +37,9 @@ const (
 func main() {
 	if err := run(); err != nil {
 		slog.Error("omatty exited", "err", err)
+		// Subcommands report to the operator; the TUI owns stdout only while
+		// it is running, and by here it has stopped.
+		_, _ = fmt.Fprintln(os.Stderr, "omatty:", err)
 		os.Exit(1)
 	}
 }
@@ -36,12 +52,77 @@ func run() error {
 	if err := openLog(home); err != nil {
 		return err
 	}
-	state, err := registry.NewStore(paths.StateFile(home)).Load()
+	store := registry.NewStore(paths.StateFile(home))
+	if len(os.Args) < 2 {
+		return runTUI(home, store)
+	}
+	return dispatch(os.Args[1], os.Args[2:], home, store)
+}
+
+// dispatch runs a subcommand. `add` registers a repository; `new` creates a
+// session, with a branch argument meaning "in a fresh worktree".
+func dispatch(cmd string, args []string, home string, store *registry.Store) error {
+	switch cmd {
+	case "add":
+		return addProject(store, args)
+	case "new":
+		return newSession(store, home, args)
+	default:
+		return fmt.Errorf("unknown command %q (want add, new, or no argument)", cmd)
+	}
+}
+
+func addProject(store *registry.Store, args []string) error {
+	dir, err := argOrCwd(args)
+	if err != nil {
+		return err
+	}
+	p, err := registry.AddProject(store, vcs.NewCLI(), dir)
+	if err != nil {
+		return err
+	}
+	report("registered " + p.Name + " at " + p.Root)
+	return nil
+}
+
+func newSession(store *registry.Store, home string, args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("new: want <project> <title> [branch], got %v", args)
+	}
+	branch := ""
+	if len(args) > 2 {
+		branch = args[2]
+	}
+	c := registry.NewCreator(vcs.NewCLI(), home, uuid.NewString)
+	sess, err := registry.AddSession(store, c, args[0], args[1], branch)
+	if err != nil {
+		return err
+	}
+	report("created session " + sess.ID + " in " + sess.Dir)
+	return nil
+}
+
+func runTUI(home string, store *registry.Store) error {
+	state, err := store.Load()
 	if err != nil {
 		return err
 	}
 	launcher := supervisor.NewLauncher("claude", paths.HooksFile(home))
 	return ui.Run(state, launcher, termwrap.Start, defaultWidth, defaultHeight)
+}
+
+func argOrCwd(args []string) (string, error) {
+	if len(args) > 0 {
+		return args[0], nil
+	}
+	return os.Getwd()
+}
+
+// report writes plain-text CLI output. Subcommands exit before the TUI
+// starts, so stdout is theirs; forbidigo bans fmt.Print* to keep invariant 5
+// enforceable, hence the explicit writer.
+func report(line string) {
+	_, _ = fmt.Fprintln(os.Stdout, line)
 }
 
 // openLog points slog at a file. Invariant 5: stdout belongs to the TUI, so
