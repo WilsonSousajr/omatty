@@ -173,15 +173,38 @@ emits scripted ANSI and JSONL and stands in for it everywhere.
 
 ## Project tracking and Git workflow
 
-- **Work is tracked on the GitHub Project board.** Everything syncs with the
-  remote — no local-only branches, no unpushed work at end of session.
+- **Work is tracked on the GitHub Project board** (`omatty`, project 13).
+  Everything syncs with the remote — no local-only branches, no unpushed work
+  at end of session.
 - **Orient yourself by issues.** Read the issue before starting. If work is not
-  covered by an issue, open one first.
+  covered by an issue, open one first, label it, and put it on the board.
+- **Every issue and PR goes on the board**, in exactly one column:
+
+  | Column | Means |
+  |---|---|
+  | Backlog | Captured. Not committed to a milestone yet. |
+  | Sprint Backlog | Committed to the current milestone; ready to pick up. |
+  | In Progress | Being worked on right now. One per person. |
+  | Review | PR open, awaiting review or CI. |
+  | Done | Merged and verified — the gate passed on CI, not just locally. |
+
+  Move the card when the state changes, not in a batch at the end.
+- **Labels.** Every issue carries one type label and one milestone label; add an
+  `area:*` label per package it touches.
+
+  - Type: `feat` `fix` `docs` `test` `refactor` `perf` `chore` `build` `ci` —
+    the same set as the commit-message types, so a `feat`-labelled issue
+    produces `feat(#N):` commits.
+  - Milestone: `M1` `M2` `M3` `M4`.
+  - Area: `area:paths` `area:registry` `area:vcs` `area:termwrap`
+    `area:supervisor` `area:keys` `area:ui` `area:cmd`.
+  - Flags: `invariant` (changing this touches a cross-cutting invariant —
+    argue it explicitly, never assume it is safe), `regression` (needs a test
+    that fails before the fix), `blocked`.
 - **Commit messages:** `type(#issue_number): message`
   e.g. `feat(#12): tail session JSONL for status events`
 - **PR titles use the same pattern**; the body links the issue and states what
   changed, why, and how it was verified.
-- Types: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `chore`, `build`, `ci`.
 - **Every bug found gets an issue and a regression test**, even if fixed at once.
 - **PR evaluation:** report pros, cons, and a recommended fix, then ask for
   approval before merging or pushing PR changes.
