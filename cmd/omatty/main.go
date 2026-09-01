@@ -108,7 +108,25 @@ func runTUI(home string, store *registry.Store) error {
 		return err
 	}
 	launcher := supervisor.NewLauncher("claude", paths.HooksFile(home))
-	return ui.Run(state, launcher, termwrap.Start, defaultWidth, defaultHeight)
+	return ui.Run(state, launcher, termwrap.Start, defaultWidth, defaultHeight,
+		sessionCreator(home, store))
+}
+
+// sessionCreator adapts registry.AddSession to ui.CreateFunc. The project
+// comes from the cursor, so a session created while looking at one repository
+// never lands in another.
+//
+// The session is registered but not started: starting it needs a terminal
+// factory inside the running program, which M2 wires up along with status.
+func sessionCreator(home string, store *registry.Store) ui.CreateFunc {
+	c := registry.NewCreator(vcs.NewCLI(), home, uuid.NewString)
+	return func(project, title, branch string) error {
+		if project == "" {
+			return fmt.Errorf("no project selected; run `omatty add <dir>` first")
+		}
+		_, err := registry.AddSession(store, c, project, title, branch)
+		return err
+	}
 }
 
 func argOrCwd(args []string) (string, error) {

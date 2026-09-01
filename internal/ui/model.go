@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"log/slog"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -19,27 +20,47 @@ const (
 	diffWidth    = 40
 )
 
+// CreateFunc registers a new session in project. branch is empty for a
+// session on the project's main checkout.
+type CreateFunc func(project, title, branch string) error
+
+// Prompt is the pending new-session input. The zero value means no prompt.
+type Prompt struct {
+	Active bool
+	// Worktree is true when the prompt was opened with N, meaning the buffer
+	// names a branch to create a worktree on.
+	Worktree bool
+	Buffer   string
+}
+
 // Model is omatty's root Bubble Tea model.
 //
-//	m := ui.NewModel(state, terms)
+//	m := ui.NewModel(state, terms, create)
 //	tea.NewProgram(m).Run()
 type Model struct {
 	sidebar *Sidebar
 	terms   map[string]termwrap.Terminal
 	router  *keys.Router
+	create  CreateFunc
+	prompt  Prompt
+	lastErr string
 	width   int
 	height  int
 }
 
 // NewModel builds the root model over a registered state and one Terminal
 // per session id.
-func NewModel(st registry.State, terms map[string]termwrap.Terminal) *Model {
+func NewModel(st registry.State, terms map[string]termwrap.Terminal, create CreateFunc) *Model {
 	return &Model{
 		sidebar: NewSidebar(SidebarRows(st, nil)),
 		terms:   terms,
 		router:  keys.NewRouter(Leader),
+		create:  create,
 	}
 }
+
+// Prompt returns the pending new-session input, if any.
+func (m *Model) Prompt() Prompt { return m.prompt }
 
 // Focused returns the selected session's id, or "" when none is selected.
 func (m *Model) Focused() string {
@@ -48,6 +69,19 @@ func (m *Model) Focused() string {
 		return ""
 	}
 	return row.Session.ID
+}
+
+// SelectedProject returns the project the cursor is in. With no session
+// selected it falls back to the first project header, so creating the very
+// first session still lands somewhere sensible.
+func (m *Model) SelectedProject() string {
+	if row, ok := m.sidebar.Selected(); ok {
+		return row.Project
+	}
+	if rows := m.sidebar.Rows(); len(rows) > 0 {
+		return rows[0].Project
+	}
+	return ""
 }
 
 // Init starts nothing: terminals are started by the supervisor before the
@@ -84,17 +118,73 @@ func (m *Model) onKey(msg tea.KeyPressMsg) tea.Cmd {
 	}
 }
 
-// command runs an omatty command key, pressed after the leader.
+// command runs an omatty command key, pressed after the leader or while a
+// prompt is open.
 func (m *Model) command(key string) tea.Cmd {
+	if m.prompt.Active {
+		return m.onPromptKey(key)
+	}
 	switch key {
 	case "j":
 		m.sidebar.MoveDown()
 	case "k":
 		m.sidebar.MoveUp()
+	case "n":
+		m.prompt = Prompt{Active: true}
+	// Keystroke() spells a shifted letter "shift+N"; the bare "N" is accepted
+	// too because not every terminal reports the modifier.
+	case "shift+N", "N":
+		m.prompt = Prompt{Active: true, Worktree: true}
 	case "q":
 		return tea.Quit
 	}
 	return nil
+}
+
+// onPromptKey edits the prompt buffer. A worktree prompt uses the buffer as
+// both the session title and the branch name.
+func (m *Model) onPromptKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.prompt = Prompt{}
+	case "enter":
+		m.submitPrompt()
+	case "backspace":
+		m.prompt.Buffer = trimLastRune(m.prompt.Buffer)
+	default:
+		if len([]rune(key)) == 1 {
+			m.prompt.Buffer += key
+		}
+	}
+	return nil
+}
+
+// submitPrompt creates the session. An empty title leaves the prompt open
+// rather than registering a nameless session.
+func (m *Model) submitPrompt() {
+	if m.prompt.Buffer == "" {
+		return
+	}
+	branch := ""
+	if m.prompt.Worktree {
+		branch = m.prompt.Buffer
+	}
+	m.lastErr = ""
+	project := m.SelectedProject()
+	if err := m.create(project, m.prompt.Buffer, branch); err != nil {
+		slog.Error("creating session",
+			"project", project, "title", m.prompt.Buffer, "branch", branch, "err", err)
+		m.lastErr = err.Error()
+	}
+	m.prompt = Prompt{}
+}
+
+func trimLastRune(s string) string {
+	r := []rune(s)
+	if len(r) == 0 {
+		return s
+	}
+	return string(r[:len(r)-1])
 }
 
 // onResize gives the terminal pane whatever the sidebar and diff pane leave.
@@ -117,7 +207,13 @@ func (m *Model) terminalWidth() int {
 	return w
 }
 
+// focusedTerminal returns nil while a prompt is open, which is what keeps
+// prompt keys out of the PTY without special-casing the router: an unfocused
+// terminal already routes every key to omatty.
 func (m *Model) focusedTerminal() termwrap.Terminal {
+	if m.prompt.Active {
+		return nil
+	}
 	id := m.Focused()
 	if id == "" {
 		return nil
@@ -132,12 +228,29 @@ func (m *Model) View() tea.View {
 		b.WriteString(renderRow(row))
 		b.WriteByte('\n')
 	}
+	if m.prompt.Active {
+		b.WriteString(m.promptLine())
+	}
+	if m.lastErr != "" {
+		b.WriteString("error: " + m.lastErr + "\n")
+	}
 	if term := m.focusedTerminal(); term != nil {
 		b.WriteString(term.View())
 		return tea.NewView(b.String())
 	}
-	b.WriteString("no sessions - press " + Leader + " n to create one")
+	if !m.prompt.Active {
+		b.WriteString("no sessions - press " + Leader + " n to create one")
+	}
 	return tea.NewView(b.String())
+}
+
+// promptLine renders the open new-session prompt.
+func (m *Model) promptLine() string {
+	label := "new session title"
+	if m.prompt.Worktree {
+		label = "new branch (worktree)"
+	}
+	return label + ": " + m.prompt.Buffer + "_\n"
 }
 
 func renderRow(row Row) string {

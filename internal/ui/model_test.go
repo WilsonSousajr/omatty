@@ -9,6 +9,8 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
+func noCreate(string, string, string) error { return nil }
+
 func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap.Fake) {
 	t.Helper()
 	fakes := map[string]*termwrap.Fake{
@@ -26,7 +28,7 @@ func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap
 func modelWithFakes(t *testing.T) (*ui.Model, map[string]*termwrap.Fake) {
 	t.Helper()
 	terms, fakes := fakeTerms(t)
-	return ui.NewModel(twoProjectState(), terms), fakes
+	return ui.NewModel(twoProjectState(), terms, noCreate), fakes
 }
 
 func press(m *ui.Model, k tea.KeyPressMsg) { m.Update(k) }
@@ -150,7 +152,7 @@ func TestModel_WindowResizeGivesTheTerminalWhatThePanesLeave(t *testing.T) {
 }
 
 func TestModel_NoSessionsRendersWithoutPanicking(t *testing.T) {
-	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{})
+	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate)
 
 	press(m, special(tea.KeyEscape))
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
