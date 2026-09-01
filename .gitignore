@@ -1,0 +1,3 @@
+# Built binary at the repo root only - a bare "omatty" would also match cmd/omatty/.
+/omatty
+cover.out

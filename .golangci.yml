@@ -1,0 +1,30 @@
+version: "2"
+linters:
+  enable:
+    - funlen
+    - dupl
+    - gocyclo
+    - revive
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    - forbidigo
+  settings:
+    funlen:
+      lines: 20
+      statements: 15
+    dupl:
+      threshold: 100
+    gocyclo:
+      min-complexity: 10
+    forbidigo:
+      forbid:
+        # Invariant 5: stdout belongs to the TUI.
+        - pattern: '^fmt\.Print.*$'
+          msg: "stdout belongs to the TUI (invariant 5) - use slog to the file handler"
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [funlen, dupl, forbidigo]
