@@ -107,7 +107,13 @@ func runTUI(home string, store *registry.Store) error {
 	if err != nil {
 		return err
 	}
-	launcher := supervisor.NewLauncher("claude", paths.HooksFile(home))
+	// claude refuses to start when --settings names a missing file, which
+	// leaves every session with a dead PTY (issue #31).
+	hooks := paths.HooksFile(home)
+	if err := supervisor.EnsureHooksFile(hooks); err != nil {
+		return err
+	}
+	launcher := supervisor.NewLauncher("claude", hooks)
 	return ui.Run(state, launcher, termwrap.Start, defaultWidth, defaultHeight,
 		sessionCreator(home, store))
 }
@@ -120,12 +126,11 @@ func runTUI(home string, store *registry.Store) error {
 // factory inside the running program, which M2 wires up along with status.
 func sessionCreator(home string, store *registry.Store) ui.CreateFunc {
 	c := registry.NewCreator(vcs.NewCLI(), home, uuid.NewString)
-	return func(project, title, branch string) error {
+	return func(project, title, branch string) (registry.Session, error) {
 		if project == "" {
-			return fmt.Errorf("no project selected; run `omatty add <dir>` first")
+			return registry.Session{}, fmt.Errorf("no project selected; run `omatty add <dir>` first")
 		}
-		_, err := registry.AddSession(store, c, project, title, branch)
-		return err
+		return registry.AddSession(store, c, project, title, branch)
 	}
 }
 
