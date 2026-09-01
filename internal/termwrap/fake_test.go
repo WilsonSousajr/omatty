@@ -54,7 +54,10 @@ func TestFake_InitAndUpdateAreInert(t *testing.T) {
 	if cmd := f.Init(); cmd != nil {
 		t.Errorf("Init() = %v, want nil", cmd)
 	}
-	if cmd := f.Update(nil); cmd != nil {
+	if cmd := f.Update("a message"); cmd != nil {
 		t.Errorf("Update() = %v, want nil", cmd)
+	}
+	if len(f.Msgs) != 1 || f.Msgs[0] != "a message" {
+		t.Errorf("Msgs = %v, want one recorded message", f.Msgs)
 	}
 }

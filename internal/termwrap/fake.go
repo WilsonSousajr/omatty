@@ -11,8 +11,13 @@ import (
 //	f := termwrap.NewFake("session one")
 //	model := ui.NewModel(state, map[string]termwrap.Terminal{"s1": f})
 type Fake struct {
-	// Sent holds every string passed to SendInput, in order.
+	// Sent holds every string passed to SendInput, in order. Review
+	// submission uses SendInput; keystrokes do not.
 	Sent []string
+	// Msgs holds every message passed to Update, in order. Keystrokes reach
+	// a terminal this way, because bubbleterm does its own key-to-escape
+	// translation.
+	Msgs []tea.Msg
 	// Width and Height record the last Resize.
 	Width, Height int
 	// Closed reports whether Close has been called.
@@ -28,8 +33,11 @@ func NewFake(view string) *Fake { return &Fake{view: view} }
 // Init does nothing; a Fake has no process to start.
 func (f *Fake) Init() tea.Cmd { return nil }
 
-// Update ignores every message.
-func (f *Fake) Update(tea.Msg) tea.Cmd { return nil }
+// Update records msg instead of driving an emulator.
+func (f *Fake) Update(msg tea.Msg) tea.Cmd {
+	f.Msgs = append(f.Msgs, msg)
+	return nil
+}
 
 // View returns the fixed frame given to NewFake.
 func (f *Fake) View() string { return f.view }
