@@ -139,20 +139,24 @@ func TestModel_ViewShowsEveryProjectAndTheFocusedSession(t *testing.T) {
 	}
 }
 
-func TestModel_WindowResizeGivesTheTerminalWhatThePanesLeave(t *testing.T) {
+// This asserted the opposite until issue #34: that the terminal was narrower
+// than the window and got its full height. Both were wrong. The sidebar is
+// rendered *above* the terminal, not beside it, so it costs rows and not
+// columns, and no diff pane exists to take the other 40.
+func TestModel_WindowResizePropagatesToTheFocusedTerminal(t *testing.T) {
 	m, fakes := modelWithFakes(t)
 
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	f := fakes["s1"]
-	if f.Width == 0 || f.Height == 0 {
-		t.Fatalf("focused terminal size = %dx%d, want a propagated resize", f.Width, f.Height)
+	if f.Width != 120 {
+		t.Errorf("terminal width %d, want the full 120: nothing is rendered beside it", f.Width)
 	}
-	if f.Width >= 120 {
-		t.Errorf("terminal width %d, want less than the window's 120 (sidebar and diff take space)", f.Width)
+	if f.Height >= 40 {
+		t.Errorf("terminal height %d, want less than 40: the sidebar and footer take rows", f.Height)
 	}
-	if f.Height != 40 {
-		t.Errorf("terminal height %d, want the full 40", f.Height)
+	if fakes["s2"].Width != 0 {
+		t.Errorf("an unfocused terminal was resized to %d, want untouched", fakes["s2"].Width)
 	}
 }
 

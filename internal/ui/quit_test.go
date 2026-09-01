@@ -129,3 +129,32 @@ func TestModel_footerNamesTheNavigationKeys_issue30(t *testing.T) {
 		}
 	}
 }
+
+// Regression, issue #34: the terminal width reserved 64 columns for a sidebar
+// rendered above it and a diff pane that does not exist, so claude was told it
+// had width-64 while the rest of the screen sat blank.
+func TestModel_terminalGetsTheFullWidthWhenNothingSitsBesideIt_issue34(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	if got := fakes["s1"].Width; got != 100 {
+		t.Errorf("terminal width = %d, want the full 100; %d columns are reserved for "+
+			"panes that are not rendered", got, 100-got)
+	}
+	if got := fakes["s1"].Height; got >= 30 {
+		t.Errorf("terminal height = %d, want less than 30 (sidebar and footer take rows)", got)
+	}
+}
+
+// The sidebar and footer are rendered above and below, so they cost rows.
+func TestModel_terminalHeightLeavesRoomForSidebarAndFooter_issue34(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	// 4 sidebar rows (2 projects + 3 sessions is 5 lines) + 1 footer.
+	if got := fakes["s1"].Height; got < 10 || got > 28 {
+		t.Errorf("terminal height = %d, want a sensible remainder of 30", got)
+	}
+}

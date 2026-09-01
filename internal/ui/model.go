@@ -14,12 +14,9 @@ import (
 // Leader is the one key omatty intercepts while the terminal has focus.
 const Leader = "ctrl+o"
 
-// Widths of the panes that flank the terminal. Fixed for M1; the terminal
-// takes whatever is left.
-const (
-	sidebarWidth = 24
-	diffWidth    = 40
-)
+// footerRows is the chrome below the terminal. The sidebar is rendered above
+// it and its height is counted from the actual row count.
+const footerRows = 1
 
 // CreateFunc registers a new session in project and returns it. branch is
 // empty for a session on the project's main checkout.
@@ -288,17 +285,19 @@ func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
 	if term == nil {
 		return nil
 	}
-	return term.Resize(m.terminalWidth(), msg.Height)
+	return term.Resize(m.width, m.terminalHeight())
 }
 
-// terminalWidth is what remains of the window after the flanking panes, with
-// a floor so a narrow window still renders something.
-func (m *Model) terminalWidth() int {
-	w := m.width - sidebarWidth - diffWidth
-	if w < 20 {
-		return 20
+// terminalHeight is what the window leaves after the sidebar above and the
+// footer below. The terminal takes the full width: nothing is rendered beside
+// it yet, and reserving columns for a diff pane that does not exist left
+// claude wrapping at width-64 with the rest of the screen blank (issue #34).
+func (m *Model) terminalHeight() int {
+	h := m.height - len(m.sidebar.Rows()) - footerRows
+	if h < 4 {
+		return 4
 	}
-	return w
+	return h
 }
 
 // focusedTerminal returns nil while a prompt is open, which is what keeps
