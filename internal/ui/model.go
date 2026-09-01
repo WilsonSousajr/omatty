@@ -236,30 +236,47 @@ func (m *Model) focusedTerminal() termwrap.Terminal {
 // View renders the sidebar above the focused session's terminal.
 func (m *Model) View() tea.View {
 	var b strings.Builder
-	for _, row := range m.sidebar.Rows() {
-		b.WriteString(renderRow(row))
-		b.WriteByte('\n')
-	}
+	b.WriteString(m.renderSidebar())
 	if m.prompt.Active {
 		b.WriteString(m.promptLine())
 	}
 	if m.lastErr != "" {
 		b.WriteString("error: " + m.lastErr + "\n")
 	}
-	if term := m.focusedTerminal(); term != nil {
-		b.WriteString(term.View())
-		return tea.NewView(b.String())
-	}
-	if !m.prompt.Active {
-		b.WriteString(m.emptyStateHint())
-	}
-	b.WriteString(quitHint)
+	b.WriteString(m.renderBody())
 	return tea.NewView(b.String())
 }
 
-// quitHint is always shown when no session fills the pane, so the exit is
-// never a thing you have to already know (issue #28).
-const quitHint = "ctrl+c or " + Leader + " q to quit\n"
+func (m *Model) renderSidebar() string {
+	var b strings.Builder
+	for _, row := range m.sidebar.Rows() {
+		b.WriteString(renderRow(row))
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+// renderBody is the focused session's terminal, or the empty-state guidance
+// when there is none. Both end in a keymap so the exit is never hidden.
+func (m *Model) renderBody() string {
+	if term := m.focusedTerminal(); term != nil {
+		return term.View() + "\n" + footer
+	}
+	var b strings.Builder
+	if !m.prompt.Active {
+		b.WriteString(m.emptyStateHint())
+	}
+	// With no session focused ctrl+c also quits, which is worth saying because
+	// it is the reflex an operator reaches for first (issue #28).
+	b.WriteString("ctrl+c or " + Leader + " q to quit\n")
+	return b.String()
+}
+
+// footer is the keymap, rendered on every frame. It stays visible while a
+// session fills the pane because that is exactly the state where ctrl+c
+// belongs to Claude and `ctrl+o q` is the only exit (issues #28, #30).
+const footer = Leader + " j/k switch  " + Leader + " n new  " +
+	Leader + " N worktree  " + Leader + " q quit"
 
 // emptyStateHint names the next useful action. With no projects registered,
 // creating a session can only fail, so it points at `omatty add` instead.

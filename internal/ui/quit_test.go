@@ -97,3 +97,35 @@ func TestModel_ViewShowsHowToQuit_issue28(t *testing.T) {
 		t.Errorf("View() never says how to quit:\n%s", got)
 	}
 }
+
+// Regression, issue #30: with a session focused, ctrl+c belongs to Claude, so
+// `ctrl+o q` is the only exit - which made it the state where the hint was
+// most needed and least visible.
+func TestModel_keyHintsStayVisibleWithASessionFocused_issue30(t *testing.T) {
+	m, _ := modelWithFakes(t)
+
+	got := m.View().Content
+
+	if !strings.Contains(got, "session one") {
+		t.Fatalf("precondition failed: no session is focused:\n%s", got)
+	}
+	if !strings.Contains(got, "quit") {
+		t.Errorf("View() hides the exit while a session is focused:\n%s", got)
+	}
+	if !strings.Contains(got, ui.Leader+" q") {
+		t.Errorf("View() does not name the working quit key:\n%s", got)
+	}
+}
+
+// The footer is the keymap, so the other commands belong there too.
+func TestModel_footerNamesTheNavigationKeys_issue30(t *testing.T) {
+	m, _ := modelWithFakes(t)
+
+	got := m.View().Content
+
+	for _, want := range []string{ui.Leader + " j", ui.Leader + " n"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("footer does not mention %q:\n%s", want, got)
+		}
+	}
+}
