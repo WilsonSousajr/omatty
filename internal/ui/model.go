@@ -121,9 +121,21 @@ func (m *Model) onKey(msg tea.KeyPressMsg) tea.Cmd {
 // command runs an omatty command key, pressed after the leader or while a
 // prompt is open.
 func (m *Model) command(key string) tea.Cmd {
+	// ctrl+c is the unconditional escape hatch, checked before the prompt so
+	// an open prompt cannot trap the operator (issue #28). With a session
+	// focused this is never reached: ctrl+c belongs to Claude, which uses it
+	// to interrupt a turn (invariant 1).
+	if key == "ctrl+c" {
+		return tea.Quit
+	}
 	if m.prompt.Active {
 		return m.onPromptKey(key)
 	}
+	return m.navigate(key)
+}
+
+// navigate runs a command key while no prompt is open.
+func (m *Model) navigate(key string) tea.Cmd {
 	switch key {
 	case "j":
 		m.sidebar.MoveDown()
@@ -239,9 +251,23 @@ func (m *Model) View() tea.View {
 		return tea.NewView(b.String())
 	}
 	if !m.prompt.Active {
-		b.WriteString("no sessions - press " + Leader + " n to create one")
+		b.WriteString(m.emptyStateHint())
 	}
+	b.WriteString(quitHint)
 	return tea.NewView(b.String())
+}
+
+// quitHint is always shown when no session fills the pane, so the exit is
+// never a thing you have to already know (issue #28).
+const quitHint = "ctrl+c or " + Leader + " q to quit\n"
+
+// emptyStateHint names the next useful action. With no projects registered,
+// creating a session can only fail, so it points at `omatty add` instead.
+func (m *Model) emptyStateHint() string {
+	if len(m.sidebar.Rows()) == 0 {
+		return "no projects - run `omatty add <dir>` to register one\n"
+	}
+	return "no sessions - press " + Leader + " n to create one\n"
 }
 
 // promptLine renders the open new-session prompt.

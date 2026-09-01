@@ -1,0 +1,99 @@
+package ui_test
+
+import (
+	"strings"
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/termwrap"
+	"github.com/WilsonSousajr/omatty/internal/ui"
+)
+
+func isQuit(cmd tea.Cmd) bool {
+	if cmd == nil {
+		return false
+	}
+	_, ok := cmd().(tea.QuitMsg)
+	return ok
+}
+
+// Regression, issue #28: with no session focused every key routes to
+// command(), which had no ctrl+c case, so the program had no reachable exit.
+// Bubble Tea v2 does not quit on ctrl+c by itself.
+func TestModel_ctrlCQuitsWhenNoSessionIsFocused_issue28(t *testing.T) {
+	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate)
+
+	_, cmd := m.Update(ctrl('c'))
+
+	if !isQuit(cmd) {
+		t.Fatal("ctrl+c did not quit with no session focused; the program is unquittable")
+	}
+}
+
+// The same trap exists while a prompt is open: the terminal is deliberately
+// unfocused there, so ctrl+c must still be an escape hatch.
+func TestModel_ctrlCQuitsWhileAPromptIsOpen_issue28(t *testing.T) {
+	m, _ := modelWithFakes(t)
+	press(m, ctrl('o'))
+	press(m, key('n'))
+	if !m.Prompt().Active {
+		t.Fatal("prompt did not open")
+	}
+
+	_, cmd := m.Update(ctrl('c'))
+
+	if !isQuit(cmd) {
+		t.Error("ctrl+c did not quit while a prompt was open")
+	}
+}
+
+// Invariant 1 must not regress: with a session focused, ctrl+c belongs to
+// Claude, which uses it to interrupt a turn. It must never quit omatty.
+func TestModel_ctrlCStillReachesAFocusedSession_issue28(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+
+	_, cmd := m.Update(ctrl('c'))
+
+	if isQuit(cmd) {
+		t.Error("ctrl+c quit omatty instead of reaching the focused session")
+	}
+	if len(fakes["s1"].Msgs) != 1 {
+		t.Errorf("focused session received %d messages, want 1", len(fakes["s1"].Msgs))
+	}
+}
+
+// With no projects registered, pressing n can only fail. Say so up front
+// rather than after the failure.
+func TestModel_emptyRegistryPointsAtOmattyAdd_issue28(t *testing.T) {
+	m := ui.NewModel(registry.State{}, map[string]termwrap.Terminal{}, noCreate)
+
+	got := m.View().Content
+
+	if !strings.Contains(got, "omatty add") {
+		t.Errorf("empty-state hint does not mention `omatty add`:\n%s", got)
+	}
+}
+
+// A project with no sessions is a different empty state: creating one will
+// work, so the hint should say how.
+func TestModel_projectWithNoSessionsPointsAtTheNewSessionKey_issue28(t *testing.T) {
+	st := registry.State{Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}}}
+	m := ui.NewModel(st, map[string]termwrap.Terminal{}, noCreate)
+
+	got := m.View().Content
+
+	if !strings.Contains(got, ui.Leader+" n") {
+		t.Errorf("hint does not mention the new-session key:\n%s", got)
+	}
+}
+
+// The quit keys must be discoverable; an operator who cannot find the exit
+// has to kill the process.
+func TestModel_ViewShowsHowToQuit_issue28(t *testing.T) {
+	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate)
+
+	if got := m.View().Content; !strings.Contains(got, "quit") {
+		t.Errorf("View() never says how to quit:\n%s", got)
+	}
+}
