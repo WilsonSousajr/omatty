@@ -148,8 +148,6 @@ emits scripted ANSI and JSONL and stands in for it everywhere.
 
 - **TDD is mandatory.** Write the failing test first. Every new function gets a
   test.
-- **Every bug fix gets a regression test** that fails before the fix and passes
-  after. Name it with the issue number: `TestRouter_leaderSwallowed_issue42`.
 - **Coverage gate is 90%** over `./internal/...`. The gate does not move.
 - Tests are **F.I.R.S.T** — fast, independent, repeatable, self-validating,
   timely. No `time.Sleep` for synchronization; no test depends on another's
@@ -161,6 +159,35 @@ emits scripted ANSI and JSONL and stands in for it everywhere.
   `~/.omatty`.
 - Golden-frame tests for `termwrap`: recorded ANSI in, asserted cell grid out.
 - End-to-end via `teatest` against `testdata/fake-claude`.
+
+### Every bug gets a regression test. No exceptions.
+
+A bug that was fixed without a test is a bug that is coming back. The test is
+not paperwork after the fix — it is how you know you fixed the right thing.
+
+**The procedure, in this order:**
+
+1. **Reproduce it as a failing test first.** Before touching the production
+   code, write a test that fails *because of this bug*.
+2. **Run it and read the failure.** It must fail for the bug's reason, not
+   because of a typo, a compile error, or a missing import. A test that fails
+   for the wrong reason proves nothing.
+3. **Only now fix the code.**
+4. **Run it again and watch it pass.** If it passed before your fix, it was
+   never testing the bug — go back to step 1.
+
+**Name it after the bug**, with the issue number, so the next reader knows why
+it exists: `TestRouter_leaderSwallowedWhileUnfocused_issue42`.
+
+**This applies to every bug, however it was found** — reported by a user, spotted
+in review, caught by CI, or noticed by you in your own uncommitted work. "I
+found it before I committed it" is not an exemption: the bug was reachable, so
+something can reach it again.
+
+**Never delete or weaken a regression test.** If one starts failing, the bug is
+back; fix the code. If one is genuinely wrong, say so explicitly in the commit
+message and explain why the behaviour it asserted was never correct.
+
 
 ## Security considerations
 
@@ -205,7 +232,9 @@ emits scripted ANSI and JSONL and stands in for it everywhere.
   e.g. `feat(#12): tail session JSONL for status events`
 - **PR titles use the same pattern**; the body links the issue and states what
   changed, why, and how it was verified.
-- **Every bug found gets an issue and a regression test**, even if fixed at once.
+- **Every bug found gets an issue and a regression test**, even if you fix it
+  immediately. Label the issue `regression`; follow the procedure under
+  "Every bug gets a regression test" above.
 - **PR evaluation:** report pros, cons, and a recommended fix, then ask for
   approval before merging or pushing PR changes.
 - No version bumps or release tags without explicit approval.
