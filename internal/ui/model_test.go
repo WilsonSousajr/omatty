@@ -5,11 +5,16 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
-func noCreate(string, string, string) error { return nil }
+func noCreate(_, title, branch string) (registry.Session, error) {
+	return registry.Session{ID: "created", Title: title, Branch: branch}, nil
+}
+
+func noStart(registry.Session) (termwrap.Terminal, error) { return termwrap.NewFake(""), nil }
 
 func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap.Fake) {
 	t.Helper()
@@ -28,7 +33,7 @@ func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap
 func modelWithFakes(t *testing.T) (*ui.Model, map[string]*termwrap.Fake) {
 	t.Helper()
 	terms, fakes := fakeTerms(t)
-	return ui.NewModel(twoProjectState(), terms, noCreate), fakes
+	return ui.NewModel(twoProjectState(), terms, noCreate, noStart), fakes
 }
 
 func press(m *ui.Model, k tea.KeyPressMsg) { m.Update(k) }
@@ -152,7 +157,7 @@ func TestModel_WindowResizeGivesTheTerminalWhatThePanesLeave(t *testing.T) {
 }
 
 func TestModel_NoSessionsRendersWithoutPanicking(t *testing.T) {
-	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate)
+	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate, noStart)
 
 	press(m, special(tea.KeyEscape))
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})

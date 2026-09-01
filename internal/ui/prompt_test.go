@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -19,16 +20,19 @@ type recordCreate struct {
 	Err     error
 }
 
-func (r *recordCreate) fn(project, title, branch string) error {
+func (r *recordCreate) fn(project, title, branch string) (registry.Session, error) {
 	r.Calls++
 	r.Project, r.Title, r.Branch = project, title, branch
-	return r.Err
+	if r.Err != nil {
+		return registry.Session{}, r.Err
+	}
+	return registry.Session{ID: "created", Project: project, Title: title, Branch: branch}, nil
 }
 
 func modelWithCreate(t *testing.T, c *recordCreate) (*ui.Model, map[string]*termwrap.Fake) {
 	t.Helper()
 	terms, fakes := fakeTerms(t)
-	return ui.NewModel(twoProjectState(), terms, c.fn), fakes
+	return ui.NewModel(twoProjectState(), terms, c.fn, noStart), fakes
 }
 
 func TestModel_leaderNOpensAWorktreePrompt(t *testing.T) {

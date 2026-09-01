@@ -27,7 +27,8 @@ func StartTerminals(
 }
 
 // Run starts every session's terminal and runs the TUI until the user quits.
-// create is called when the operator finishes a new-session prompt.
+// create is called when the operator finishes a new-session prompt; the model
+// starts that session's terminal itself through the same launcher.
 func Run(
 	st registry.State, l *supervisor.Launcher, f termwrap.Factory, w, h int,
 	create CreateFunc,
@@ -36,7 +37,14 @@ func Run(
 	if err != nil {
 		return err
 	}
-	if _, err := tea.NewProgram(NewModel(st, terms, create)).Run(); err != nil {
+	start := func(sess registry.Session) (termwrap.Terminal, error) {
+		term, startErr := l.Start(f, sess, w, h)
+		if startErr != nil {
+			return nil, startErr
+		}
+		return termwrap.NewGuard(term), nil // invariant 6
+	}
+	if _, err := tea.NewProgram(NewModel(st, terms, create, start)).Run(); err != nil {
 		return fmt.Errorf("ui: running the program with %d sessions: %w", len(terms), err)
 	}
 	return nil

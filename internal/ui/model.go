@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -20,9 +21,13 @@ const (
 	diffWidth    = 40
 )
 
-// CreateFunc registers a new session in project. branch is empty for a
-// session on the project's main checkout.
-type CreateFunc func(project, title, branch string) error
+// CreateFunc registers a new session in project and returns it. branch is
+// empty for a session on the project's main checkout.
+type CreateFunc func(project, title, branch string) (registry.Session, error)
+
+// StartFunc launches the embedded terminal for a session. Injected so the
+// model can start a session created at runtime without knowing how.
+type StartFunc func(sess registry.Session) (termwrap.Terminal, error)
 
 // Prompt is the pending new-session input. The zero value means no prompt.
 type Prompt struct {
@@ -38,10 +43,14 @@ type Prompt struct {
 //	m := ui.NewModel(state, terms, create)
 //	tea.NewProgram(m).Run()
 type Model struct {
+	// state is held so a session created at runtime can be folded in and the
+	// sidebar rebuilt (issue #32).
+	state   registry.State
 	sidebar *Sidebar
 	terms   map[string]termwrap.Terminal
 	router  *keys.Router
 	create  CreateFunc
+	start   StartFunc
 	prompt  Prompt
 	lastErr string
 	width   int
@@ -50,12 +59,17 @@ type Model struct {
 
 // NewModel builds the root model over a registered state and one Terminal
 // per session id.
-func NewModel(st registry.State, terms map[string]termwrap.Terminal, create CreateFunc) *Model {
+func NewModel(
+	st registry.State, terms map[string]termwrap.Terminal,
+	create CreateFunc, start StartFunc,
+) *Model {
 	return &Model{
+		state:   st,
 		sidebar: NewSidebar(SidebarRows(st, nil)),
 		terms:   terms,
 		router:  keys.NewRouter(Leader),
 		create:  create,
+		start:   start,
 	}
 }
 
@@ -183,12 +197,49 @@ func (m *Model) submitPrompt() {
 	}
 	m.lastErr = ""
 	project := m.SelectedProject()
-	if err := m.create(project, m.prompt.Buffer, branch); err != nil {
+	title := m.prompt.Buffer
+	m.prompt = Prompt{}
+	if err := m.addSession(project, title, branch); err != nil {
 		slog.Error("creating session",
-			"project", project, "title", m.prompt.Buffer, "branch", branch, "err", err)
+			"project", project, "title", title, "branch", branch, "err", err)
 		m.lastErr = err.Error()
 	}
-	m.prompt = Prompt{}
+}
+
+// addSession registers the session, starts its terminal, and rebuilds the
+// sidebar so it is visible and focused immediately (issue #32). A session
+// whose terminal will not start is not added: it would be a row you cannot
+// focus.
+func (m *Model) addSession(project, title, branch string) error {
+	sess, err := m.create(project, title, branch)
+	if err != nil {
+		return err
+	}
+	term, err := m.start(sess)
+	if err != nil {
+		return fmt.Errorf("starting session %s: %w", sess.ID, err)
+	}
+	m.terms[sess.ID] = term
+	m.state.Sessions = append(m.state.Sessions, sess)
+	m.sidebar = NewSidebar(SidebarRows(m.state, nil))
+	m.selectSession(sess.ID)
+	return nil
+}
+
+// selectSession moves the cursor onto id, so a freshly created session is the
+// one you are looking at.
+func (m *Model) selectSession(id string) {
+	for {
+		row, ok := m.sidebar.Selected()
+		if !ok || row.Session.ID == id {
+			return
+		}
+		before := row.Session.ID
+		m.sidebar.MoveDown()
+		if next, _ := m.sidebar.Selected(); next.Session.ID == before {
+			return // reached the end without finding it
+		}
+	}
 }
 
 func trimLastRune(s string) string {

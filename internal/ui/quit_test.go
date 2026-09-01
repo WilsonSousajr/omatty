@@ -22,7 +22,7 @@ func isQuit(cmd tea.Cmd) bool {
 // command(), which had no ctrl+c case, so the program had no reachable exit.
 // Bubble Tea v2 does not quit on ctrl+c by itself.
 func TestModel_ctrlCQuitsWhenNoSessionIsFocused_issue28(t *testing.T) {
-	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate)
+	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate, noStart)
 
 	_, cmd := m.Update(ctrl('c'))
 
@@ -66,7 +66,7 @@ func TestModel_ctrlCStillReachesAFocusedSession_issue28(t *testing.T) {
 // With no projects registered, pressing n can only fail. Say so up front
 // rather than after the failure.
 func TestModel_emptyRegistryPointsAtOmattyAdd_issue28(t *testing.T) {
-	m := ui.NewModel(registry.State{}, map[string]termwrap.Terminal{}, noCreate)
+	m := ui.NewModel(registry.State{}, map[string]termwrap.Terminal{}, noCreate, noStart)
 
 	got := m.View().Content
 
@@ -79,7 +79,7 @@ func TestModel_emptyRegistryPointsAtOmattyAdd_issue28(t *testing.T) {
 // work, so the hint should say how.
 func TestModel_projectWithNoSessionsPointsAtTheNewSessionKey_issue28(t *testing.T) {
 	st := registry.State{Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}}}
-	m := ui.NewModel(st, map[string]termwrap.Terminal{}, noCreate)
+	m := ui.NewModel(st, map[string]termwrap.Terminal{}, noCreate, noStart)
 
 	got := m.View().Content
 
@@ -91,7 +91,7 @@ func TestModel_projectWithNoSessionsPointsAtTheNewSessionKey_issue28(t *testing.
 // The quit keys must be discoverable; an operator who cannot find the exit
 // has to kill the process.
 func TestModel_ViewShowsHowToQuit_issue28(t *testing.T) {
-	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate)
+	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate, noStart)
 
 	if got := m.View().Content; !strings.Contains(got, "quit") {
 		t.Errorf("View() never says how to quit:\n%s", got)
