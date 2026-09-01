@@ -14,7 +14,9 @@ import (
 func AddProject(s *Store, git vcs.Git, dir string) (Project, error) {
 	root, err := git.RepoRoot(dir)
 	if err != nil {
-		return Project{}, fmt.Errorf("registry: %q is not inside a git repository: %w", dir, err)
+		// Deliberately does not assert the cause: the path may be missing, a
+		// file, or a directory that simply is not a repository (issue #29).
+		return Project{}, fmt.Errorf("registry: cannot register %q: %w", dir, err)
 	}
 	st, err := s.Load()
 	if err != nil {

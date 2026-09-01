@@ -7,7 +7,10 @@ package vcs
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -31,6 +34,9 @@ func NewCLI() *CLI { return &CLI{bin: "git"} }
 // run executes git in dir and returns trimmed stdout. Failures carry git's
 // own stderr, which is the only useful diagnostic a caller can act on.
 func (c *CLI) run(dir string, args ...string) (string, error) {
+	if err := checkDir(dir); err != nil {
+		return "", err
+	}
 	cmd := exec.Command(c.bin, args...)
 	cmd.Dir = dir
 	var stderr bytes.Buffer
@@ -41,6 +47,24 @@ func (c *CLI) run(dir string, args ...string) (string, error) {
 			strings.Join(args, " "), dir, strings.TrimSpace(stderr.String()), err)
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// checkDir rejects a bad path before exec. exec.Cmd only fails when it tries
+// to chdir, so without this the caller is told "fork/exec /opt/homebrew/bin/
+// git: not a directory" - which blames the git binary for the caller's path
+// (issue #29).
+func checkDir(dir string) error {
+	info, err := os.Stat(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("vcs: %q does not exist", dir)
+	}
+	if err != nil {
+		return fmt.Errorf("vcs: cannot read %q: %w", dir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("vcs: %q is not a directory", dir)
+	}
+	return nil
 }
 
 // RepoRoot returns the top level of the working tree containing dir.
