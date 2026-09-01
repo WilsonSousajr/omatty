@@ -16,10 +16,15 @@ Session status, diff review with inline comments, and the file tree are M2–M4.
 ## Install
 
 ```bash
-go build -o omatty ./cmd/omatty
+go install ./cmd/omatty
 ```
 
-Requires Go 1.26, `git`, and `claude` on your PATH.
+Requires Go 1.26, `git`, and `claude` on your PATH, with `$(go env GOPATH)/bin`
+on your PATH too.
+
+Install rather than `go build -o omatty`: a binary left in the working tree
+goes stale the moment you rebuild anywhere else, and `./omatty` will happily
+run last week's code while the tests pass on this week's.
 
 ## Use
 
