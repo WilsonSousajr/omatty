@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/hooks"
@@ -15,6 +17,15 @@ import (
 // maxLine bounds a single hook payload read from the socket, matching the cap
 // in the hook writer. A payload larger than this is dropped, not buffered.
 const maxLine = 64 << 10
+
+// readTimeout bounds how long a connected hook may take to send its line. A
+// hook writes immediately, so a slower peer is stuck or hostile and must not
+// hold a slot (issue #67).
+const readTimeout = 2 * time.Second
+
+// maxInFlight bounds concurrent connections. A hook is one line, so a burst
+// beyond this waits in the kernel backlog rather than spawning goroutines.
+const maxInFlight = 32
 
 // kindByEvent maps a hook event name to its status event. Notification is
 // absent here because it depends on notification_type.
@@ -51,8 +62,16 @@ func notificationKind(notifType string) (Kind, bool) {
 
 // Listener turns hook connections on a unix socket into Events.
 type Listener struct {
-	ln    net.Listener
-	clock func() time.Time
+	ln      net.Listener
+	clock   func() time.Time
+	sink    chan<- Event
+	stop    chan struct{}
+	slots   chan struct{}
+	wg      sync.WaitGroup
+	once    sync.Once
+	mu      sync.Mutex
+	conns   map[net.Conn]struct{}
+	dropped atomic.Int64
 }
 
 // Listen accepts hook connections on path and sends an Event per valid payload
@@ -62,6 +81,9 @@ type Listener struct {
 //	l, err := watcher.Listen(paths.HookSocket(home), events, time.Now)
 //	defer l.Close()
 func Listen(path string, sink chan<- Event, clock func() time.Time) (*Listener, error) {
+	if err := refuseIfLive(path); err != nil {
+		return nil, err
+	}
 	// A leftover socket file from a previous run makes bind fail; remove it.
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("watcher: clearing stale socket %q: %w", path, err)
@@ -74,29 +96,72 @@ func Listen(path string, sink chan<- Event, clock func() time.Time) (*Listener, 
 		_ = ln.Close()
 		return nil, fmt.Errorf("watcher: securing socket %q: %w", path, err)
 	}
-	l := &Listener{ln: ln, clock: clock}
-	go l.accept(sink)
+	l := &Listener{ln: ln, clock: clock, sink: sink, stop: make(chan struct{}),
+		slots: make(chan struct{}, maxInFlight), conns: map[net.Conn]struct{}{}}
+	l.wg.Add(1)
+	go l.accept()
 	return l, nil
 }
 
-// Close stops accepting connections.
-func (l *Listener) Close() error { return l.ln.Close() }
+// refuseIfLive returns an error when another omatty already answers on path,
+// so a second instance degrades to tailer-only instead of stealing the socket
+// from the first (issue #68). A stale file from a dead process does not
+// answer and is removed as before.
+func refuseIfLive(path string) error {
+	c, err := net.DialTimeout("unix", path, 200*time.Millisecond)
+	if err != nil {
+		return nil
+	}
+	_ = c.Close()
+	return fmt.Errorf("watcher: another omatty is listening on %q; hook status is disabled in this instance", path)
+}
 
-func (l *Listener) accept(sink chan<- Event) {
+// Close stops accepting, closes every in-flight connection, and waits for the
+// goroutines to exit (issue #67).
+func (l *Listener) Close() error {
+	var err error
+	l.once.Do(func() {
+		close(l.stop)
+		err = l.ln.Close()
+		l.closeConns()
+	})
+	l.wg.Wait()
+	return err
+}
+
+// Dropped counts hook events that found the sink full. A non-zero value
+// means the UI fell behind; the tailer has since restored the truth.
+func (l *Listener) Dropped() int64 { return l.dropped.Load() }
+
+func (l *Listener) accept() {
+	defer l.wg.Done()
+	defer recoverServe("accept loop")
 	for {
 		conn, err := l.ln.Accept()
 		if err != nil {
 			return // listener closed
 		}
-		l.handle(conn, sink)
+		select {
+		case l.slots <- struct{}{}:
+		case <-l.stop:
+			_ = conn.Close()
+			return
+		}
+		l.track(conn, true)
+		l.wg.Add(1)
+		go l.serve(conn)
 	}
 }
 
-// handle reads one bounded line from conn and, if it is a tracked event,
-// sends it. One connection per hook, so serving inline keeps ordering and
-// avoids unbounded goroutines under a burst (invariant 5's spirit).
-func (l *Listener) handle(conn net.Conn, sink chan<- Event) {
+// serve reads one bounded line from conn within readTimeout and, if it is a
+// tracked event, offers it to the sink. One connection per hook.
+func (l *Listener) serve(conn net.Conn) {
+	defer l.wg.Done()
+	defer func() { <-l.slots }()
+	defer recoverServe("connection")
+	defer l.track(conn, false)
 	defer func() { _ = conn.Close() }()
+	_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
 	line, ok := readLine(conn)
 	if !ok {
 		return
@@ -106,7 +171,45 @@ func (l *Listener) handle(conn net.Conn, sink chan<- Event) {
 		return
 	}
 	if kind, ok := KindOf(p); ok {
-		sink <- Event{SessionID: p.SessionID, Kind: kind, At: l.clock(), Tool: p.ToolName}
+		l.offer(Event{SessionID: p.SessionID, Kind: kind, At: l.clock(), Tool: p.ToolName})
+	}
+}
+
+// offer sends without blocking. A full sink means the UI is behind; the
+// tailer restores the truth within a second, so dropping a hook event costs
+// only latency, while blocking would stall every hook on the machine.
+func (l *Listener) offer(ev Event) {
+	select {
+	case l.sink <- ev:
+	default:
+		l.dropped.Add(1)
+		slog.Debug("hook event dropped, sink full", "session", ev.SessionID)
+	}
+}
+
+func (l *Listener) track(conn net.Conn, add bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if add {
+		l.conns[conn] = struct{}{}
+		return
+	}
+	delete(l.conns, conn)
+}
+
+func (l *Listener) closeConns() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for c := range l.conns {
+		_ = c.Close()
+	}
+}
+
+// recoverServe keeps a panic inside one connection (invariant 6). Branch F
+// unifies this with the tailer's guard.
+func recoverServe(role string) {
+	if r := recover(); r != nil {
+		slog.Error("hook listener panicked", "role", role, "panic", r)
 	}
 }
 
