@@ -17,7 +17,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | | Milestone | Status |
 |---|---|---|
 | M1 | Skeleton | **Done.** #36, #35, #15 closed; merged to develop. |
-| M2 | Status | Next. Issues #17-#20, #37-#39 in Backlog. |
+| M2 | Status | **Done.** Live glyphs, age, tokens, notifications; merged to develop. |
 | M3 | Review | Planned. Issues #21-#23 in Backlog. |
 | M4 | Lifecycle | Planned. Issues #15, #40-#42 in Backlog. |
 | M5 | File tree | Planned. Issue #24 in Backlog. |
@@ -87,8 +87,12 @@ The last three ride on the tailer and are each about a day. They are in M2
 rather than a follow-on because they are the same data shown three ways, and
 status without "for how long" is half a feature.
 
-**Done when:** you can glance at the sidebar and know which session is
-waiting on a permission prompt, and how long it has been waiting.
+**Done:** the sidebar shows a live glyph and age per session and the focused
+box shows tokens; a permission prompt turns the glyph to `!` within a second,
+and a backgrounded session that needs you fires a desktop notification. Hooks
+plus a JSONL tailer feed it (invariant 2); a failed socket degrades to
+tailer-only (#49). Verified with a cross-process e2e test of the real hook
+binary.
 
 ## M3 - Review
 
