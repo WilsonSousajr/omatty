@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/keys"
+	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
@@ -52,6 +53,8 @@ type Model struct {
 	events    <-chan watcher.Event
 	clock     func() time.Time
 	tailStart func(registry.Session)
+	notifier  notify.Notifier
+	hasFocus  bool
 	prompt    Prompt
 	lastErr   string
 	width     int
@@ -65,14 +68,15 @@ func NewModel(
 	create CreateFunc, start StartFunc,
 ) *Model {
 	return &Model{
-		state:   st,
-		sidebar: NewSidebar(SidebarRows(st, nil)),
-		terms:   terms,
-		router:  keys.NewRouter(Leader),
-		create:  create,
-		start:   start,
-		status:  map[string]watcher.SessionState{},
-		clock:   time.Now,
+		state:    st,
+		sidebar:  NewSidebar(SidebarRows(st, nil)),
+		terms:    terms,
+		router:   keys.NewRouter(Leader),
+		create:   create,
+		start:    start,
+		status:   map[string]watcher.SessionState{},
+		clock:    time.Now,
+		hasFocus: true,
 		// Until the first WindowSizeMsg arrives the frame is laid out for a
 		// conventional terminal rather than a 0x0 one, which would floor every
 		// pane and truncate the text in it.
@@ -86,6 +90,10 @@ func (m *Model) Prompt() Prompt { return m.prompt }
 
 // StatusMsg carries one watcher event into the model's Update loop.
 type StatusMsg watcher.Event
+
+// SetNotifier sets the desktop notifier used when a backgrounded session needs
+// attention. Absent, notifications are simply not sent.
+func (m *Model) SetNotifier(n notify.Notifier) { m.notifier = n }
 
 // SetTailStarter registers a callback that starts a transcript tailer for a
 // session created at runtime, so a new session gets status and tokens too.
@@ -158,6 +166,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.onResize(msg)
 	case StatusMsg:
 		return m, m.onStatus(msg)
+	case tea.FocusMsg:
+		m.hasFocus = true
+	case tea.BlurMsg:
+		m.hasFocus = false
 	}
 	// Everything else is emulator traffic. Broadcast it: each bubbleterm
 	// ignores messages from other emulators, and the message that re-arms a
@@ -171,9 +183,46 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // wait. Newer-wins lives in watcher.Apply; the model just stores the result.
 func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 	e := watcher.Event(ev)
-	m.status[e.SessionID] = watcher.Apply(m.status[e.SessionID], e)
+	before := m.status[e.SessionID].Status
+	after := watcher.Apply(m.status[e.SessionID], e)
+	m.status[e.SessionID] = after
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
+	m.maybeNotify(e.SessionID, before, after.Status)
 	return m.waitForEvent()
+}
+
+// maybeNotify posts a desktop notification when a session first enters a state
+// that needs the operator - waiting or done - while omatty is backgrounded.
+// A repeated state does not re-notify (before != after guards it).
+func (m *Model) maybeNotify(id string, before, after registry.Status) {
+	if m.notifier == nil || m.hasFocus || before == after {
+		return
+	}
+	body, ok := needsYou(id, m.sessionTitle(id), after)
+	if ok {
+		_ = m.notifier.Notify("omatty", body)
+	}
+}
+
+func (m *Model) sessionTitle(id string) string {
+	for i := range m.state.Sessions {
+		if m.state.Sessions[i].ID == id {
+			return m.state.Sessions[i].Title
+		}
+	}
+	return id
+}
+
+// needsYou returns the notification body for a status that wants attention.
+func needsYou(_, title string, status registry.Status) (string, bool) {
+	switch status {
+	case registry.StatusWaiting:
+		return title + " needs you", true
+	case registry.StatusDone:
+		return title + " finished", true
+	default:
+		return "", false
+	}
 }
 
 // statusMap projects the per-session state down to the status the sidebar
@@ -426,6 +475,7 @@ func (m *Model) View() tea.View {
 		m.renderTerminal(termW, termH))
 	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, panes, m.renderFooter()))
 	v.AltScreen = true
+	v.ReportFocus = true // so FocusMsg/BlurMsg drive notifications
 	return v
 }
 

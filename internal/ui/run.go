@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
@@ -74,6 +75,7 @@ func wireStatus(
 	tailers := StartTailers(st, tail)
 	model := NewModel(st, terms, create, start)
 	model.SetEvents(events, time.Now)
+	model.SetNotifier(notify.Osascript{})
 	model.SetTailStarter(func(sess registry.Session) { tailers = append(tailers, tail(sess)) })
 	return model, func() { closeAll(tailers) }
 }
