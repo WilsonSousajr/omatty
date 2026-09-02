@@ -114,6 +114,24 @@ func DeriveFromTail(entries []Entry) (registry.Status, time.Time) {
 	return registry.StatusIdle, time.Time{}
 }
 
+// DeriveKind is DeriveFromTail as an event Kind, for the tailer to feed
+// through Apply alongside hook events. ok is false when the tail says nothing
+// (only noise so far).
+func DeriveKind(entries []Entry) (Kind, time.Time, bool) {
+	for i := len(entries) - 1; i >= 0; i-- {
+		e := entries[i]
+		switch {
+		case e.Type == "user" && (e.UserIsPrompt || e.ToolResult):
+			return PromptSubmitted, e.At, true
+		case e.Type == "assistant" && e.ToolUse:
+			return ToolStarted, e.At, true
+		case e.Type == "assistant" && e.StopReason == "end_turn":
+			return TurnEnded, e.At, true
+		}
+	}
+	return 0, time.Time{}, false
+}
+
 // SumUsage totals the token counters across all assistant entries.
 func SumUsage(entries []Entry) Tokens {
 	var t Tokens
