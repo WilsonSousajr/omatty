@@ -16,6 +16,9 @@ const (
 	StatusWaiting  Status = "waiting"
 	StatusDone     Status = "done"
 	StatusError    Status = "error"
+	// StatusExited means claude quit (SessionEnd). Not an error and not idle:
+	// the operator needs to know ctrl+o r applies.
+	StatusExited Status = "exited"
 )
 
 // Project is a registered git repository.

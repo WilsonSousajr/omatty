@@ -4,35 +4,55 @@ package supervisor
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 
+	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
 
 // Launcher builds and starts the claude process for a session.
 //
-//	l := supervisor.NewLauncher("claude", paths.HooksFile(home))
+//	l := supervisor.NewLauncher("claude", paths.HooksFile(home), home)
 //	term, err := l.Start(termwrap.Start, sess, 80, 24)
 type Launcher struct {
 	bin       string
 	hooksFile string
+	home      string
 }
 
 // NewLauncher returns a Launcher invoking bin with hooksFile as its settings.
-func NewLauncher(bin, hooksFile string) *Launcher {
-	return &Launcher{bin: bin, hooksFile: hooksFile}
+// home is where claude keeps transcripts; it decides between a fresh start
+// and a resume.
+func NewLauncher(bin, hooksFile, home string) *Launcher {
+	return &Launcher{bin: bin, hooksFile: hooksFile, home: home}
 }
 
 // Command returns the process omatty starts for a session.
 //
-// --session-id lets omatty compute the transcript path (invariant 2) and
-// resume after a crash; --settings keeps hooks in omatty's own file so the
-// user's ~/.claude/settings.json is untouched (invariant 3).
+// A session that has never spoken starts with --session-id, which lets omatty
+// choose the uuid and so know the transcript path (invariant 2). Once a
+// transcript exists claude refuses that flag - "Session ID <uuid> is already
+// in use" - because the transcript itself is the claim; there is no lock file.
+// So a session with a transcript is started with --resume instead (issue #36).
+// Either way --settings names omatty's own file, never the user's (invariant 3).
 func (l *Launcher) Command(sessionID, dir string) *exec.Cmd {
-	cmd := exec.Command(l.bin, "--session-id", sessionID, "--settings", l.hooksFile)
+	flag := "--session-id"
+	if HasTranscript(l.home, dir, sessionID) {
+		flag = "--resume"
+	}
+	cmd := exec.Command(l.bin, flag, sessionID, "--settings", l.hooksFile)
 	cmd.Dir = dir
 	return cmd
+}
+
+// HasTranscript reports whether claude has written a transcript for the
+// session, which is the condition under which it must be resumed rather than
+// started (issue #36).
+func HasTranscript(home, dir, sessionID string) bool {
+	info, err := os.Stat(paths.Transcript(home, dir, sessionID))
+	return err == nil && !info.IsDir()
 }
 
 // Start launches the session's process inside a w by h embedded terminal.

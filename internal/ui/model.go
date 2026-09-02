@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
@@ -13,10 +14,6 @@ import (
 
 // Leader is the one key omatty intercepts while the terminal has focus.
 const Leader = "ctrl+o"
-
-// footerRows is the chrome below the terminal. The sidebar is rendered above
-// it and its height is counted from the actual row count.
-const footerRows = 1
 
 // CreateFunc registers a new session in project and returns it. branch is
 // empty for a session on the project's main checkout.
@@ -67,6 +64,11 @@ func NewModel(
 		router:  keys.NewRouter(Leader),
 		create:  create,
 		start:   start,
+		// Until the first WindowSizeMsg arrives the frame is laid out for a
+		// conventional terminal rather than a 0x0 one, which would floor every
+		// pane and truncate the text in it.
+		width:  defaultWidth,
+		height: defaultHeight,
 	}
 }
 
@@ -144,6 +146,7 @@ func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
 // does its own key-to-escape translation, so forwarding msg.String() would
 // type the literal word "esc" into Claude.
 func (m *Model) onKey(msg tea.KeyPressMsg) tea.Cmd {
+	m.lastErr = "" // any keypress acknowledges the last error
 	term := m.focusedTerminal()
 	switch m.router.Next(msg.Keystroke(), term != nil) {
 	case keys.ToTerminal:
@@ -184,10 +187,35 @@ func (m *Model) navigate(key string) tea.Cmd {
 	// too because not every terminal reports the modifier.
 	case "shift+N", "N":
 		m.prompt = Prompt{Active: true, Worktree: true}
+	case "r":
+		return m.restartFocused()
 	case "q":
 		return tea.Quit
 	}
 	return nil
+}
+
+// restartFocused relaunches the focused session's process in place (issue
+// #15). It covers a crashed pane and a claude that exited. The old terminal
+// is closed only after the new one starts, so a failed restart never leaves
+// the pane empty; the launcher resumes the transcript (#36) so nothing is
+// lost.
+func (m *Model) restartFocused() tea.Cmd {
+	row, ok := m.sidebar.Selected()
+	if !ok {
+		return nil
+	}
+	sess := *row.Session
+	term, err := m.start(sess)
+	if err != nil {
+		m.lastErr = fmt.Sprintf("restarting %s: %v", sess.Title, err)
+		return nil
+	}
+	if old := m.terms[sess.ID]; old != nil {
+		_ = old.Close()
+	}
+	m.terms[sess.ID] = term
+	return tea.Batch(term.Init(), term.Resize(PaneSize(m.width, m.height)))
 }
 
 // onPromptKey edits the prompt buffer. A worktree prompt uses the buffer as
@@ -285,19 +313,7 @@ func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
 	if term == nil {
 		return nil
 	}
-	return term.Resize(m.width, m.terminalHeight())
-}
-
-// terminalHeight is what the window leaves after the sidebar above and the
-// footer below. The terminal takes the full width: nothing is rendered beside
-// it yet, and reserving columns for a diff pane that does not exist left
-// claude wrapping at width-64 with the rest of the screen blank (issue #34).
-func (m *Model) terminalHeight() int {
-	h := m.height - len(m.sidebar.Rows()) - footerRows
-	if h < 4 {
-		return 4
-	}
-	return h
+	return term.Resize(PaneSize(msg.Width, msg.Height))
 }
 
 // focusedTerminal returns nil while a prompt is open, which is what keeps
@@ -314,58 +330,19 @@ func (m *Model) focusedTerminal() termwrap.Terminal {
 	return m.terms[id]
 }
 
-// View renders the sidebar above the focused session's terminal.
-func (m *Model) View() tea.View {
-	var b strings.Builder
-	b.WriteString(m.renderSidebar())
-	if m.prompt.Active {
-		b.WriteString(m.promptLine())
-	}
-	if m.lastErr != "" {
-		b.WriteString("error: " + m.lastErr + "\n")
-	}
-	b.WriteString(m.renderBody())
-	return tea.NewView(b.String())
-}
-
-func (m *Model) renderSidebar() string {
-	var b strings.Builder
-	for _, row := range m.sidebar.Rows() {
-		b.WriteString(renderRow(row))
-		b.WriteByte('\n')
-	}
-	return b.String()
-}
-
-// renderBody is the focused session's terminal, or the empty-state guidance
-// when there is none. Both end in a keymap so the exit is never hidden.
-func (m *Model) renderBody() string {
-	if term := m.focusedTerminal(); term != nil {
-		return term.View() + "\n" + footer
-	}
-	var b strings.Builder
-	if !m.prompt.Active {
-		b.WriteString(m.emptyStateHint())
-	}
-	// With no session focused ctrl+c also quits, which is worth saying because
-	// it is the reflex an operator reaches for first (issue #28).
-	b.WriteString("ctrl+c or " + Leader + " q to quit\n")
-	return b.String()
-}
-
 // footer is the keymap, rendered on every frame. It stays visible while a
 // session fills the pane because that is exactly the state where ctrl+c
 // belongs to Claude and `ctrl+o q` is the only exit (issues #28, #30).
 const footer = Leader + " j/k switch  " + Leader + " n new  " +
-	Leader + " N worktree  " + Leader + " q quit"
+	Leader + " N worktree  " + Leader + " r restart  " + Leader + " q quit"
 
 // emptyStateHint names the next useful action. With no projects registered,
 // creating a session can only fail, so it points at `omatty add` instead.
 func (m *Model) emptyStateHint() string {
 	if len(m.sidebar.Rows()) == 0 {
-		return "no projects - run `omatty add <dir>` to register one\n"
+		return "no projects - run `omatty add <dir>` to register one"
 	}
-	return "no sessions - press " + Leader + " n to create one\n"
+	return "no sessions - press " + Leader + " n to create one"
 }
 
 // promptLine renders the open new-session prompt.
@@ -374,14 +351,102 @@ func (m *Model) promptLine() string {
 	if m.prompt.Worktree {
 		label = "new branch (worktree)"
 	}
-	return label + ": " + m.prompt.Buffer + "_\n"
+	return label + ": " + m.prompt.Buffer + "_"
 }
 
-func renderRow(row Row) string {
-	if row.Session == nil {
-		return "> " + row.Project
+// View lays the sidebar beside the focused session's terminal, with the
+// keymap underneath (issue #35). Both boxes are sized exactly before the
+// border is applied, so lipgloss adds precisely one column and row per side
+// and the frame never exceeds the window.
+func (m *Model) View() tea.View {
+	termW, termH := PaneSize(m.width, m.height)
+	panes := lipgloss.JoinHorizontal(lipgloss.Top,
+		m.renderSidebar(termH),
+		m.renderTerminal(termW, termH))
+	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, panes, m.renderFooter()))
+	v.AltScreen = true
+	return v
+}
+
+// renderSidebar boxes the project/session rows at exactly SidebarWidth.
+func (m *Model) renderSidebar(rows int) string {
+	inner := SidebarWidth - 2
+	lines := make([]string, 0, rows)
+	lines = append(lines, headerStyle.Render(padRight("projects", inner)))
+	for _, row := range m.sidebar.Rows() {
+		lines = append(lines, m.renderRow(row, inner))
 	}
-	return "  " + statusGlyph(row.Status) + " " + row.Session.Title
+	return paneBox(false).Render(fitBlock(lines, inner, rows))
+}
+
+// renderTerminal boxes the focused terminal, or the empty-state guidance.
+func (m *Model) renderTerminal(w, h int) string {
+	if term := m.focusedTerminal(); term != nil {
+		return paneBox(true).Render(fitBlock(strings.Split(term.View(), "\n"), w, h))
+	}
+	lines := []string{""}
+	if m.prompt.Active {
+		lines = append(lines, m.promptLine())
+	} else {
+		lines = append(lines, m.emptyStateHint())
+	}
+	// With no session focused ctrl+c also quits, which is worth saying because
+	// it is the reflex an operator reaches for first (issue #28).
+	lines = append(lines, "", "ctrl+c or "+Leader+" q to quit")
+	return paneBox(m.prompt.Active).Render(fitBlock(lines, w, h))
+}
+
+// renderFooter shows the keymap, or the last error until the next keypress.
+// Errors live here rather than in a pane so they are visible whether or not
+// a session has focus.
+func (m *Model) renderFooter() string {
+	if m.lastErr != "" {
+		return errorStyle.Render(fitLine(" error: "+m.lastErr, m.width))
+	}
+	return footerStyle.Render(padRight(" "+footer, m.width))
+}
+
+// renderRow draws one sidebar line: a project header, or a session with its
+// focus marker and coloured status glyph.
+func (m *Model) renderRow(row Row, width int) string {
+	if row.Session == nil {
+		return mutedStyle.Render(padRight("> "+row.Project, width))
+	}
+	marker := "  "
+	if sel, ok := m.sidebar.Selected(); ok && sel.Session.ID == row.Session.ID {
+		marker = "» "
+	}
+	glyph := glyphStyle(row.Status).Render(statusGlyph(row.Status))
+	return marker + glyph + " " + padRight(row.Session.Title, width-4)
+}
+
+// fitBlock forces lines to exactly width x height so a border lands
+// precisely: short lines are padded, long ones cut, missing rows added.
+func fitBlock(lines []string, width, height int) string {
+	out := make([]string, height)
+	for i := range out {
+		if i < len(lines) {
+			out[i] = fitLine(lines[i], width)
+			continue
+		}
+		out[i] = strings.Repeat(" ", width)
+	}
+	return strings.Join(out, "\n")
+}
+
+func fitLine(s string, width int) string {
+	if lipgloss.Width(s) > width {
+		return lipgloss.NewStyle().MaxWidth(width).Render(s)
+	}
+	return padRight(s, width)
+}
+
+// padRight is ANSI-aware: it measures visible width, not bytes.
+func padRight(s string, width int) string {
+	if n := width - lipgloss.Width(s); n > 0 {
+		return s + strings.Repeat(" ", n)
+	}
+	return s
 }
 
 func statusGlyph(s registry.Status) string {
@@ -396,6 +461,8 @@ func statusGlyph(s registry.Status) string {
 		return "+"
 	case registry.StatusError:
 		return "x"
+	case registry.StatusExited:
+		return "∅"
 	default:
 		return "-"
 	}

@@ -71,6 +71,19 @@ go test ./... -race
 Tests never invoke the real `claude` binary or the network. `testdata/fake-claude`
 emits scripted ANSI and JSONL and stands in for it everywhere.
 
+The gate is necessary, not sufficient: M1's three worst bugs (#31, #33, #36)
+all passed it, because every test substituted a fake for claude and the wiring
+between real parts was never exercised. So **every milestone also ends with a
+smoke test of the real binary in a real, sized PTY**, which a person reads:
+
+```bash
+go run ./testdata/ptyrun omatty                              # 100x30, ctrl+o q after 8s
+PTY_COLS=60 PTY_ROWS=20 PTY_KEYS=$'\x0fj\x0fq' go run ./testdata/ptyrun omatty
+```
+
+`testdata/` is outside `./...` by Go convention, so the harness is deliberately
+not in the gate.
+
 ## Code style guidelines
 
 - **Functions 4–20 lines.** Longer means it does more than one thing — split it.
