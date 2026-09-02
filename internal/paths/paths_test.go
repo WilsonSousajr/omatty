@@ -27,6 +27,19 @@ func TestTranscriptSlug(t *testing.T) {
 			dir:  "/Users/will/Work/Guia/api-guiaflix/.worktrees/p2-questoes",
 			want: "-Users-will-Work-Guia-api-guiaflix--worktrees-p2-questoes",
 		},
+		{
+			// Regression, issue #60: claude replaces every character outside
+			// [a-zA-Z0-9]; omatty mapped only '/' and '.', so this project's
+			// transcript was never found and its status stayed blank forever.
+			name: "space and underscore become dashes",
+			dir:  "/Users/will/Documents/University/2026.1/LAB SD/my_proj",
+			want: "-Users-will-Documents-University-2026-1-LAB-SD-my-proj",
+		},
+		{
+			name: "unicode and punctuation become dashes",
+			dir:  "/Users/will/Ação (v2)+notes",
+			want: "-Users-will-A--o--v2--notes",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
