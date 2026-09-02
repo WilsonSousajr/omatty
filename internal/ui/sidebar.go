@@ -60,6 +60,27 @@ func NewSidebar(rows []Row) *Sidebar {
 // Rows returns the rows in display order, for rendering.
 func (s *Sidebar) Rows() []Row { return s.rows }
 
+// SetRows replaces the rows while keeping the cursor on the same session if it
+// is still present, so a live status update does not move the selection.
+func (s *Sidebar) SetRows(rows []Row) {
+	var selectedID string
+	if sel, ok := s.Selected(); ok {
+		selectedID = sel.Session.ID
+	}
+	s.rows = rows
+	s.cursor = -1
+	s.MoveDown()
+	if selectedID == "" {
+		return
+	}
+	for i, r := range rows {
+		if r.Session != nil && r.Session.ID == selectedID {
+			s.cursor = i
+			return
+		}
+	}
+}
+
 // Selected returns the session row under the cursor. ok is false when the
 // sidebar holds no sessions.
 func (s *Sidebar) Selected() (Row, bool) {

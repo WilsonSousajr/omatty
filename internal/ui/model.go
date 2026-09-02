@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/keys"
+	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // Leader is the one key omatty intercepts while the terminal has focus.
@@ -45,10 +48,17 @@ type Model struct {
 	router  *keys.Router
 	create  CreateFunc
 	start   StartFunc
-	prompt  Prompt
-	lastErr string
-	width   int
-	height  int
+	// status is the live per-session state from the watcher; events feeds it.
+	status    map[string]watcher.SessionState
+	events    <-chan watcher.Event
+	clock     func() time.Time
+	tailStart func(registry.Session)
+	notifier  notify.Notifier
+	hasFocus  bool
+	prompt    Prompt
+	lastErr   string
+	width     int
+	height    int
 }
 
 // NewModel builds the root model over a registered state and one Terminal
@@ -58,12 +68,15 @@ func NewModel(
 	create CreateFunc, start StartFunc,
 ) *Model {
 	return &Model{
-		state:   st,
-		sidebar: NewSidebar(SidebarRows(st, nil)),
-		terms:   terms,
-		router:  keys.NewRouter(Leader),
-		create:  create,
-		start:   start,
+		state:    st,
+		sidebar:  NewSidebar(SidebarRows(st, nil)),
+		terms:    terms,
+		router:   keys.NewRouter(Leader),
+		create:   create,
+		start:    start,
+		status:   map[string]watcher.SessionState{},
+		clock:    time.Now,
+		hasFocus: true,
 		// Until the first WindowSizeMsg arrives the frame is laid out for a
 		// conventional terminal rather than a 0x0 one, which would floor every
 		// pane and truncate the text in it.
@@ -74,6 +87,35 @@ func NewModel(
 
 // Prompt returns the pending new-session input, if any.
 func (m *Model) Prompt() Prompt { return m.prompt }
+
+// StatusMsg carries one watcher event into the model's Update loop.
+type StatusMsg watcher.Event
+
+// SetNotifier sets the desktop notifier used when a backgrounded session needs
+// attention. Absent, notifications are simply not sent.
+func (m *Model) SetNotifier(n notify.Notifier) { m.notifier = n }
+
+// SetTailStarter registers a callback that starts a transcript tailer for a
+// session created at runtime, so a new session gets status and tokens too.
+func (m *Model) SetTailStarter(start func(registry.Session)) { m.tailStart = start }
+
+// SetEvents attaches the live status stream and the clock the sidebar ages
+// against. Called by Run; tests that exercise status call it too.
+func (m *Model) SetEvents(events <-chan watcher.Event, clock func() time.Time) {
+	m.events = events
+	if clock != nil {
+		m.clock = clock
+	}
+}
+
+// waitForEvent blocks on the next status event and delivers it as a StatusMsg.
+// nil events (a model built without a watcher) simply never fires.
+func (m *Model) waitForEvent() tea.Cmd {
+	if m.events == nil {
+		return nil
+	}
+	return func() tea.Msg { return StatusMsg(<-m.events) }
+}
 
 // Focused returns the selected session's id, or "" when none is selected.
 func (m *Model) Focused() string {
@@ -102,11 +144,14 @@ func (m *Model) SelectedProject() string {
 // bubbleterm.Init returns a self-rescheduling blocking poll; without it no
 // terminal ever reads anything and every pane stays blank (issue #33).
 func (m *Model) Init() tea.Cmd {
-	cmds := make([]tea.Cmd, 0, len(m.terms))
+	cmds := make([]tea.Cmd, 0, len(m.terms)+1)
 	for _, term := range m.terms {
 		if cmd := term.Init(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+	}
+	if cmd := m.waitForEvent(); cmd != nil {
+		cmds = append(cmds, cmd)
 	}
 	return tea.Batch(cmds...)
 }
@@ -119,6 +164,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.onKey(msg)
 	case tea.WindowSizeMsg:
 		return m, m.onResize(msg)
+	case StatusMsg:
+		return m, m.onStatus(msg)
+	case tea.FocusMsg:
+		m.hasFocus = true
+	case tea.BlurMsg:
+		m.hasFocus = false
 	}
 	// Everything else is emulator traffic. Broadcast it: each bubbleterm
 	// ignores messages from other emulators, and the message that re-arms a
@@ -126,6 +177,62 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// pumped too, or they stop reading their PTYs (issue #33). Keys are
 	// deliberately not broadcast - they belong to the focused session only.
 	return m, m.broadcast(msg)
+}
+
+// onStatus folds a watcher event into the session's state and re-arms the
+// wait. Newer-wins lives in watcher.Apply; the model just stores the result.
+func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
+	e := watcher.Event(ev)
+	before := m.status[e.SessionID].Status
+	after := watcher.Apply(m.status[e.SessionID], e)
+	m.status[e.SessionID] = after
+	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
+	m.maybeNotify(e.SessionID, before, after.Status)
+	return m.waitForEvent()
+}
+
+// maybeNotify posts a desktop notification when a session first enters a state
+// that needs the operator - waiting or done - while omatty is backgrounded.
+// A repeated state does not re-notify (before != after guards it).
+func (m *Model) maybeNotify(id string, before, after registry.Status) {
+	if m.notifier == nil || m.hasFocus || before == after {
+		return
+	}
+	body, ok := needsYou(id, m.sessionTitle(id), after)
+	if ok {
+		_ = m.notifier.Notify("omatty", body)
+	}
+}
+
+func (m *Model) sessionTitle(id string) string {
+	for i := range m.state.Sessions {
+		if m.state.Sessions[i].ID == id {
+			return m.state.Sessions[i].Title
+		}
+	}
+	return id
+}
+
+// needsYou returns the notification body for a status that wants attention.
+func needsYou(_, title string, status registry.Status) (string, bool) {
+	switch status {
+	case registry.StatusWaiting:
+		return title + " needs you", true
+	case registry.StatusDone:
+		return title + " finished", true
+	default:
+		return "", false
+	}
+}
+
+// statusMap projects the per-session state down to the status the sidebar
+// needs.
+func (m *Model) statusMap() map[string]registry.Status {
+	out := make(map[string]registry.Status, len(m.status))
+	for id, st := range m.status {
+		out[id] = st.Status
+	}
+	return out
 }
 
 // broadcast forwards msg to every terminal and batches whatever they return.
@@ -275,8 +382,11 @@ func (m *Model) addSession(project, title, branch string) (tea.Cmd, error) {
 	}
 	m.terms[sess.ID] = term
 	m.state.Sessions = append(m.state.Sessions, sess)
-	m.sidebar = NewSidebar(SidebarRows(m.state, nil))
+	m.sidebar = NewSidebar(SidebarRows(m.state, m.statusMap()))
 	m.selectSession(sess.ID)
+	if m.tailStart != nil {
+		m.tailStart(sess)
+	}
 	// The new terminal needs its own poll started; the others already have
 	// theirs (issue #33).
 	return term.Init(), nil
@@ -365,6 +475,7 @@ func (m *Model) View() tea.View {
 		m.renderTerminal(termW, termH))
 	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, panes, m.renderFooter()))
 	v.AltScreen = true
+	v.ReportFocus = true // so FocusMsg/BlurMsg drive notifications
 	return v
 }
 
@@ -382,7 +493,8 @@ func (m *Model) renderSidebar(rows int) string {
 // renderTerminal boxes the focused terminal, or the empty-state guidance.
 func (m *Model) renderTerminal(w, h int) string {
 	if term := m.focusedTerminal(); term != nil {
-		return paneBox(true).Render(fitBlock(strings.Split(term.View(), "\n"), w, h))
+		body := fitBlock(strings.Split(term.View(), "\n"), w, h-1)
+		return paneBox(true).Render(m.terminalTitle(w) + "\n" + body)
 	}
 	lines := []string{""}
 	if m.prompt.Active {
@@ -394,6 +506,27 @@ func (m *Model) renderTerminal(w, h int) string {
 	// it is the reflex an operator reaches for first (issue #28).
 	lines = append(lines, "", "ctrl+c or "+Leader+" q to quit")
 	return paneBox(m.prompt.Active).Render(fitBlock(lines, w, h))
+}
+
+// terminalTitle is the header line inside the focused session's box: its
+// title, coloured status, age and cumulative tokens.
+func (m *Model) terminalTitle(w int) string {
+	row, ok := m.sidebar.Selected()
+	if !ok {
+		return padRight("", w)
+	}
+	st := m.status[row.Session.ID]
+	parts := row.Session.Title
+	if st.Status != "" {
+		parts += " · " + glyphStyle(st.Status).Render(statusGlyph(st.Status)+" "+string(st.Status))
+	}
+	if age := AgeString(m.clock(), st.At); age != "" {
+		parts += " " + age
+	}
+	if st.Tokens.In+st.Tokens.Out > 0 {
+		parts += " · " + mutedStyle.Render(KString(st.Tokens.In)+" in / "+KString(st.Tokens.Out)+" out")
+	}
+	return headerStyle.Render(fitLine(parts, w))
 }
 
 // renderFooter shows the keymap, or the last error until the next keypress.
@@ -417,7 +550,12 @@ func (m *Model) renderRow(row Row, width int) string {
 		marker = "» "
 	}
 	glyph := glyphStyle(row.Status).Render(statusGlyph(row.Status))
-	return marker + glyph + " " + padRight(row.Session.Title, width-4)
+	age := ""
+	if st, ok := m.status[row.Session.ID]; ok {
+		age = AgeString(m.clock(), st.At)
+	}
+	title := padRight(row.Session.Title, width-4-len(age)-1)
+	return marker + glyph + " " + title + " " + mutedStyle.Render(age)
 }
 
 // fitBlock forces lines to exactly width x height so a border lands

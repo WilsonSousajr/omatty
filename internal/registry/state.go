@@ -47,3 +47,6 @@ type State struct {
 	Projects []Project `json:"projects"`
 	Sessions []Session `json:"sessions"`
 }
+
+// String returns the status value, e.g. for a test's subtest name.
+func (s Status) String() string { return string(s) }

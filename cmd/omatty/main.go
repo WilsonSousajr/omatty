@@ -16,9 +16,11 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/WilsonSousajr/omatty/internal/hooks"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
@@ -63,6 +65,11 @@ func run() error {
 // session, with a branch argument meaning "in a fresh worktree".
 func dispatch(cmd string, args []string, home string, store *registry.Store) error {
 	switch cmd {
+	case "hook":
+		// Invariant 11: never fail, never print. A hook that errors or writes
+		// would stall or corrupt every claude session on the machine.
+		_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second)
+		return nil
 	case "add":
 		return addProject(store, args)
 	case "new":
@@ -107,14 +114,23 @@ func runTUI(home string, store *registry.Store) error {
 	if err != nil {
 		return err
 	}
-	// claude refuses to start when --settings names a missing file, which
-	// leaves every session with a dead PTY (issue #31).
-	hooks := paths.HooksFile(home)
-	if err := supervisor.EnsureHooksFile(hooks); err != nil {
+	// Regenerate the hooks file so it names the running binary (paths change
+	// with `go install`). claude also refuses --settings on a missing file
+	// (issue #31), so this must run before any session starts.
+	hooksFile := paths.HooksFile(home)
+	bin, err := os.Executable()
+	if err != nil {
 		return err
 	}
-	launcher := supervisor.NewLauncher("claude", hooks, home)
-	return ui.Run(state, launcher, termwrap.Start, defaultWidth, defaultHeight,
+	content, err := hooks.Render(bin)
+	if err != nil {
+		return err
+	}
+	if err := supervisor.WriteHooksFile(hooksFile, content); err != nil {
+		return err
+	}
+	launcher := supervisor.NewLauncher("claude", hooksFile, home)
+	return ui.Run(home, state, launcher, termwrap.Start, defaultWidth, defaultHeight,
 		sessionCreator(home, store))
 }
 

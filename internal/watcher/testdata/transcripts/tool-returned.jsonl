@@ -1,0 +1,2 @@
+{"type":"assistant","timestamp":"2026-09-02T12:00:02.000Z","message":{"role":"assistant","stop_reason":"tool_use","content":[{"type":"tool_use","id":"t1","name":"Edit","input":{}}],"usage":{"input_tokens":100,"output_tokens":20}}}
+{"type":"user","timestamp":"2026-09-02T12:00:03.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}

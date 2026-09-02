@@ -1,39 +1,26 @@
 package supervisor
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 )
 
-// defaultHooks is omatty's settings file before M2 fills in the real hooks.
-// It is deliberately minimal: invariant 3 says omatty ships its own settings
-// rather than touching the user's, and --settings is additive, so an empty
-// hooks block changes nothing about how claude behaves.
-const defaultHooks = "{\n  \"hooks\": {}\n}\n"
-
-// EnsureHooksFile writes omatty's settings file if it is absent.
+// WriteHooksFile writes omatty's settings file, overwriting any existing one.
 //
-// claude refuses to start when --settings names a missing file ("Error:
-// Settings file not found"), which left every session with a dead PTY behind
-// its sidebar row (issue #31). An existing file is never overwritten: it is
-// omatty's, but an operator may still have edited it.
+// This reverses #31's "never overwrite": the file names the omatty binary by
+// absolute path, which changes with `go install`, so it must be regenerated on
+// every start. The file is ~/.omatty/hooks.json, documented as omatty's own —
+// invariant 3 is about the user's ~/.claude/settings.json, which is untouched.
 //
-//	if err := supervisor.EnsureHooksFile(paths.HooksFile(home)); err != nil { ... }
-func EnsureHooksFile(path string) error {
-	switch _, err := os.Stat(path); {
-	case err == nil:
-		return nil
-	case !errors.Is(err, fs.ErrNotExist):
-		return fmt.Errorf("supervisor: cannot read hooks file %q: %w", path, err)
-	}
+//	content, _ := hooks.Render(binPath)
+//	supervisor.WriteHooksFile(paths.HooksFile(home), content)
+func WriteHooksFile(path string, content []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("supervisor: creating hooks directory %q: %w", dir, err)
 	}
-	if err := os.WriteFile(path, []byte(defaultHooks), 0o600); err != nil {
+	if err := os.WriteFile(path, content, 0o600); err != nil {
 		return fmt.Errorf("supervisor: writing hooks file %q: %w", path, err)
 	}
 	return nil
