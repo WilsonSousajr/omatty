@@ -423,7 +423,12 @@ func trimLastRune(s string) string {
 }
 
 // onResize gives the terminal pane whatever the sidebar and diff pane leave.
+// Off a tty bubbletea reports 0x0, which would floor every pane; the default
+// stands instead (issue #74).
 func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
+	if msg.Width == 0 || msg.Height == 0 {
+		return nil
+	}
 	m.width, m.height = msg.Width, msg.Height
 	return m.resizeFocused()
 }

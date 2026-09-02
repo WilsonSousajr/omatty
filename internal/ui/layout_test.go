@@ -118,3 +118,15 @@ func TestPTYSize_IsOneRowShorterThanThePane_issue75(t *testing.T) {
 		t.Errorf("PTYSize(120, 40) = (%d, %d), want (90, 36): PaneSize 90x37 minus the title row", w, h)
 	}
 }
+
+// Regression, issue #74: off a tty bubbletea reports a 0x0 window, which
+// clobbered the 80x24 default and floored every pane to 20x4.
+func TestModel_IgnoresAZeroWindowSize_issue74(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+
+	m.Update(tea.WindowSizeMsg{Width: 0, Height: 0})
+
+	if fakes["s1"].Width != 0 {
+		t.Errorf("a 0x0 window resized the terminal to %dx%d; it must be ignored", fakes["s1"].Width, fakes["s1"].Height)
+	}
+}
