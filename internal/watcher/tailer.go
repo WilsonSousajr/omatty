@@ -12,6 +12,14 @@ import (
 // Only the tail matters, so there is no reason to grow without limit.
 const ringSize = 32
 
+// maxPollBytes bounds one read, so a large delta is consumed in chunks
+// rather than allocated at once (issue #64).
+const maxPollBytes = 1 << 20
+
+// maxLineBytes bounds a single JSONL line. A longer one - a tool returning a
+// huge file - is discarded whole rather than buffered without limit.
+const maxLineBytes = 1 << 20
+
 // Tailer polls one session's transcript and emits status and usage events as
 // the file grows. It is the source of truth on attach (omatty may start after
 // a session is mid-turn), the self-heal when a hook was missed, and the only
@@ -27,6 +35,7 @@ type Tailer struct {
 	usage       Tokens  // cumulative across the whole file
 	lastUsageID string  // the response whose usage was last counted (issue #59)
 	partial     []byte  // a trailing line not yet terminated by \n
+	skipping    bool    // inside a line over maxLineBytes; discard to the next newline
 	stop        chan struct{}
 	once        sync.Once
 }
@@ -70,13 +79,28 @@ func (tl *Tailer) Poll() {
 	}
 	defer func() { _ = f.Close() }()
 	tl.reconcileTruncation(f)
-	fresh, err := readFrom(f, tl.offset)
-	if err != nil || len(fresh) == 0 {
-		return
+	if tl.drain(f) {
+		tl.emit()
 	}
-	tl.offset += int64(len(fresh))
-	tl.consume(fresh)
-	tl.emit()
+}
+
+// drain reads everything appended since the last poll in chunks of at most
+// maxPollBytes, so a large delta costs a bounded buffer rather than an
+// allocation its own size (issue #64). It reports whether anything was read.
+func (tl *Tailer) drain(f *os.File) bool {
+	read := false
+	for {
+		fresh, err := readFrom(f, tl.offset)
+		if err != nil || len(fresh) == 0 {
+			return read
+		}
+		read = true
+		tl.offset += int64(len(fresh))
+		tl.consume(fresh)
+		if len(fresh) < maxPollBytes {
+			return true
+		}
+	}
 }
 
 // reconcileTruncation resets the read offset when the file shrank, which
@@ -84,12 +108,13 @@ func (tl *Tailer) Poll() {
 func (tl *Tailer) reconcileTruncation(f *os.File) {
 	if info, err := f.Stat(); err == nil && info.Size() < tl.offset {
 		tl.offset, tl.usage, tl.ring, tl.partial = 0, Tokens{}, nil, nil
-		tl.lastUsageID = ""
+		tl.lastUsageID, tl.skipping = "", false
 	}
 }
 
 // consume parses complete lines out of the fresh bytes, carrying any trailing
-// partial line to the next poll so a line split across reads is not lost.
+// partial line to the next poll so a line split across reads is not lost. A
+// line over maxLineBytes, complete or not, is dropped (issue #64).
 func (tl *Tailer) consume(fresh []byte) {
 	buf := append(tl.partial, fresh...)
 	for {
@@ -97,8 +122,14 @@ func (tl *Tailer) consume(fresh []byte) {
 		if i < 0 {
 			break
 		}
-		tl.ingest(buf[:i])
+		if !tl.skipping && i <= maxLineBytes {
+			tl.ingest(buf[:i])
+		}
+		tl.skipping = false
 		buf = buf[i+1:]
+	}
+	if len(buf) > maxLineBytes {
+		tl.skipping, buf = true, nil
 	}
 	tl.partial = append([]byte(nil), buf...)
 }
@@ -135,5 +166,5 @@ func readFrom(f *os.File, offset int64) ([]byte, error) {
 	if _, err := f.Seek(offset, io.SeekStart); err != nil {
 		return nil, err
 	}
-	return io.ReadAll(f)
+	return io.ReadAll(io.LimitReader(f, maxPollBytes))
 }
