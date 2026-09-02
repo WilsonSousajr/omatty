@@ -22,9 +22,10 @@ const Leader = "ctrl+o"
 // empty for a session on the project's main checkout.
 type CreateFunc func(project, title, branch string) (registry.Session, error)
 
-// StartFunc launches the embedded terminal for a session. Injected so the
-// model can start a session created at runtime without knowing how.
-type StartFunc func(sess registry.Session) (termwrap.Terminal, error)
+// StartFunc launches the embedded terminal for a session at w by h. Injected
+// so the model can start a session created at runtime without knowing how;
+// the size is a parameter so it is never frozen at startup (issue #73).
+type StartFunc func(sess registry.Session, w, h int) (termwrap.Terminal, error)
 
 // Prompt is the pending new-session input. The zero value means no prompt.
 type Prompt struct {
@@ -286,8 +287,10 @@ func (m *Model) navigate(key string) tea.Cmd {
 	switch key {
 	case "j":
 		m.sidebar.MoveDown()
+		return m.resizeFocused()
 	case "k":
 		m.sidebar.MoveUp()
+		return m.resizeFocused()
 	case "n":
 		m.prompt = Prompt{Active: true}
 	// Keystroke() spells a shifted letter "shift+N"; the bare "N" is accepted
@@ -313,7 +316,8 @@ func (m *Model) restartFocused() tea.Cmd {
 		return nil
 	}
 	sess := *row.Session
-	term, err := m.start(sess)
+	w, h := m.ptySize()
+	term, err := m.start(sess, w, h)
 	if err != nil {
 		m.lastErr = fmt.Sprintf("restarting %s: %v", sess.Title, err)
 		return nil
@@ -322,7 +326,8 @@ func (m *Model) restartFocused() tea.Cmd {
 		_ = old.Close()
 	}
 	m.terms[sess.ID] = term
-	return tea.Batch(term.Init(), term.Resize(PTYSize(m.width, m.height)))
+	// Born at the live size, so no Resize races claude's startup (issue #73).
+	return term.Init()
 }
 
 // onPromptKey edits the prompt buffer. A worktree prompt uses the buffer as
@@ -376,7 +381,8 @@ func (m *Model) addSession(project, title, branch string) (tea.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
-	term, err := m.start(sess)
+	w, h := m.ptySize()
+	term, err := m.start(sess, w, h)
 	if err != nil {
 		return nil, fmt.Errorf("starting session %s: %w", sess.ID, err)
 	}
@@ -419,11 +425,21 @@ func trimLastRune(s string) string {
 // onResize gives the terminal pane whatever the sidebar and diff pane leave.
 func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
 	m.width, m.height = msg.Width, msg.Height
+	return m.resizeFocused()
+}
+
+// ptySize is the live embedded-terminal size for the current window.
+func (m *Model) ptySize() (int, int) { return PTYSize(m.width, m.height) }
+
+// resizeFocused sizes the newly focused terminal to the pane. Only the
+// focused terminal follows the window (issue #34), so the one just focused
+// may still be at the size it was born or last focused at (issue #73).
+func (m *Model) resizeFocused() tea.Cmd {
 	term := m.focusedTerminal()
 	if term == nil {
 		return nil
 	}
-	return term.Resize(PTYSize(msg.Width, msg.Height))
+	return term.Resize(m.ptySize())
 }
 
 // focusedTerminal returns nil while a prompt is open, which is what keeps

@@ -49,7 +49,7 @@ func Run(
 	if err != nil {
 		return err
 	}
-	start := guardedStarter(l, f, w, h)
+	start := guardedStarter(l, f)
 	events := make(chan watcher.Event, eventBuffer)
 	closeListener := startListener(home, events)
 	defer closeListener()
@@ -95,12 +95,10 @@ func wireStatus(
 }
 
 // guardedStarter starts a session's terminal wrapped in a panic guard
-// (invariant 6). Used both for the initial sessions and for one created at
-// runtime.
-func guardedStarter(l *supervisor.Launcher, f termwrap.Factory, w, h int) StartFunc {
-	pw, ph := PTYSize(w, h)
-	return func(sess registry.Session) (termwrap.Terminal, error) {
-		term, err := l.Start(f, sess, pw, ph)
+// (invariant 6). The model passes the live pane size on every call.
+func guardedStarter(l *supervisor.Launcher, f termwrap.Factory) StartFunc {
+	return func(sess registry.Session, w, h int) (termwrap.Terminal, error) {
+		term, err := l.Start(f, sess, w, h)
 		if err != nil {
 			return nil, err
 		}
