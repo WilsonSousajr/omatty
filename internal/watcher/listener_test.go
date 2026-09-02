@@ -156,3 +156,15 @@ func dial(t *testing.T, path, payload string) {
 		t.Fatal(err)
 	}
 }
+
+// Regression, issue #49: a socket that cannot bind (path too long, no
+// permission) must be a recoverable error the caller can log and skip, not a
+// nil listener that later panics.
+func TestListen_UnbindablePathReturnsAnError_issue49(t *testing.T) {
+	// A path well over the macOS sun_path cap (~104 bytes).
+	long := filepath.Join(shortDir(t), string(make([]byte, 120)))
+	_, err := watcher.Listen(long, make(chan watcher.Event, 1), time.Now)
+	if err == nil {
+		t.Fatal("Listen on an oversized path returned nil error, want a failure the caller can handle")
+	}
+}

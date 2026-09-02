@@ -46,6 +46,28 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 
 `esc`, `shift+tab`, `ctrl+r` and `ctrl+c` all reach Claude untouched.
 
+## Session status
+
+Each sidebar row shows what its session is doing and how long it has been in
+that state, and the focused session's header shows its cumulative token usage.
+
+| Glyph | Meaning |
+|---|---|
+| `-` | idle |
+| `*` | thinking |
+| `@` | running a tool |
+| `!` | **waiting on you** (a permission prompt) |
+| `+` | turn finished |
+| `∅` | claude exited (`ctrl+o r` restarts it) |
+
+When a session starts waiting on you or finishes a turn while omatty is in the
+background, you get a desktop notification. On macOS you may need to allow
+notifications from your terminal app in System Settings once.
+
+Status comes from Claude Code hooks (written to `~/.omatty/hooks.json`, never
+your own `~/.claude/settings.json`) and from each session's transcript. If the
+hook socket cannot be created, omatty still shows status from the transcript.
+
 State lives in `~/.omatty/state.json`, worktrees in `~/.omatty/wt/`, logs in
 `~/.omatty/logs/`. Your `~/.claude/settings.json` is never read or written.
 

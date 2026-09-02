@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -47,14 +48,24 @@ func Run(
 	}
 	start := guardedStarter(l, f, w, h)
 	events := make(chan watcher.Event, eventBuffer)
-	listener, err := watcher.Listen(paths.HookSocket(home), events, time.Now)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = listener.Close() }()
+	closeListener := startListener(home, events)
+	defer closeListener()
 	model, closeTailers := wireStatus(home, st, terms, create, start, events)
 	defer closeTailers()
 	return runProgram(model, len(terms))
+}
+
+// startListener opens the hook socket, or logs and degrades to tailer-only if
+// it cannot bind (issue #49). The listener is the low-latency source; the
+// tailer is the source of truth, so a lost socket costs only the instant
+// hook-driven "waiting" glyph, never the whole app.
+func startListener(home string, events chan<- watcher.Event) func() {
+	l, err := watcher.Listen(paths.HookSocket(home), events, time.Now)
+	if err != nil {
+		slog.Warn("hook socket unavailable; status comes from the transcript only", "err", err)
+		return func() {}
+	}
+	return func() { _ = l.Close() }
 }
 
 // runProgram runs the bubbletea program to completion.
