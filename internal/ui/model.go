@@ -187,10 +187,35 @@ func (m *Model) navigate(key string) tea.Cmd {
 	// too because not every terminal reports the modifier.
 	case "shift+N", "N":
 		m.prompt = Prompt{Active: true, Worktree: true}
+	case "r":
+		return m.restartFocused()
 	case "q":
 		return tea.Quit
 	}
 	return nil
+}
+
+// restartFocused relaunches the focused session's process in place (issue
+// #15). It covers a crashed pane and a claude that exited. The old terminal
+// is closed only after the new one starts, so a failed restart never leaves
+// the pane empty; the launcher resumes the transcript (#36) so nothing is
+// lost.
+func (m *Model) restartFocused() tea.Cmd {
+	row, ok := m.sidebar.Selected()
+	if !ok {
+		return nil
+	}
+	sess := *row.Session
+	term, err := m.start(sess)
+	if err != nil {
+		m.lastErr = fmt.Sprintf("restarting %s: %v", sess.Title, err)
+		return nil
+	}
+	if old := m.terms[sess.ID]; old != nil {
+		_ = old.Close()
+	}
+	m.terms[sess.ID] = term
+	return tea.Batch(term.Init(), term.Resize(PaneSize(m.width, m.height)))
 }
 
 // onPromptKey edits the prompt buffer. A worktree prompt uses the buffer as
