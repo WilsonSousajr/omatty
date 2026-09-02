@@ -286,11 +286,9 @@ func (m *Model) command(key string) tea.Cmd {
 func (m *Model) navigate(key string) tea.Cmd {
 	switch key {
 	case "j":
-		m.sidebar.MoveDown()
-		return m.resizeFocused()
+		return m.moveCursor(m.sidebar.MoveDown)
 	case "k":
-		m.sidebar.MoveUp()
-		return m.resizeFocused()
+		return m.moveCursor(m.sidebar.MoveUp)
 	case "n":
 		m.prompt = Prompt{Active: true}
 	// Keystroke() spells a shifted letter "shift+N"; the bare "N" is accepted
@@ -430,6 +428,13 @@ func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
 		return nil
 	}
 	m.width, m.height = msg.Width, msg.Height
+	return m.resizeFocused()
+}
+
+// moveCursor moves the sidebar cursor and sizes the terminal it lands on
+// (issue #73).
+func (m *Model) moveCursor(move func()) tea.Cmd {
+	move()
 	return m.resizeFocused()
 }
 
