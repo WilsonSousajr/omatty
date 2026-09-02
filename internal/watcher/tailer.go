@@ -36,7 +36,10 @@ type Tailer struct {
 	lastUsageID string  // the response whose usage was last counted (issue #59)
 	partial     []byte  // a trailing line not yet terminated by \n
 	skipping    bool    // inside a line over maxLineBytes; discard to the next newline
+	last        Event   // the status event most recently sent, to skip repeats (issue #66)
+	usageDirty  bool    // usage changed since it was last sent
 	stop        chan struct{}
+	done        chan struct{}
 	once        sync.Once
 }
 
@@ -47,7 +50,8 @@ type Tailer struct {
 //	tl := watcher.Tail(sess.ID, paths.Transcript(home, sess.Dir, sess.ID), events, time.Now, time.Second)
 //	defer tl.Close()
 func Tail(sessionID, path string, sink chan<- Event, clock func() time.Time, every time.Duration) *Tailer {
-	tl := &Tailer{sessionID: sessionID, path: path, sink: sink, clock: clock, stop: make(chan struct{})}
+	tl := &Tailer{sessionID: sessionID, path: path, sink: sink, clock: clock,
+		stop: make(chan struct{}), done: make(chan struct{})}
 	go tl.loop(every)
 	return tl
 }
@@ -55,7 +59,13 @@ func Tail(sessionID, path string, sink chan<- Event, clock func() time.Time, eve
 // Close stops the polling goroutine. It is idempotent.
 func (tl *Tailer) Close() { tl.once.Do(func() { close(tl.stop) }) }
 
+// Done is closed once the polling goroutine has exited, so a caller can prove
+// Close actually stopped it (issue #65).
+func (tl *Tailer) Done() <-chan struct{} { return tl.done }
+
 func (tl *Tailer) loop(every time.Duration) {
+	defer close(tl.done)
+	defer recoverLoop("tailer", tl.sessionID)
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
@@ -104,11 +114,13 @@ func (tl *Tailer) drain(f *os.File) bool {
 }
 
 // reconcileTruncation resets the read offset when the file shrank, which
-// happens on a /clear or a rewrite.
+// happens on a /clear or a rewrite. The zeroed usage must reach the sidebar,
+// so it is marked dirty.
 func (tl *Tailer) reconcileTruncation(f *os.File) {
 	if info, err := f.Stat(); err == nil && info.Size() < tl.offset {
 		tl.offset, tl.usage, tl.ring, tl.partial = 0, Tokens{}, nil, nil
 		tl.lastUsageID, tl.skipping = "", false
+		tl.last, tl.usageDirty = Event{}, true
 	}
 }
 
@@ -145,6 +157,7 @@ func (tl *Tailer) ingest(line []byte) {
 	if e.Type == "assistant" && (e.MessageID == "" || e.MessageID != tl.lastUsageID) {
 		tl.usage.add(e.Usage)
 		tl.lastUsageID = e.MessageID
+		tl.usageDirty = true
 	}
 	tl.ring = append(tl.ring, e)
 	if len(tl.ring) > ringSize {
@@ -152,14 +165,27 @@ func (tl *Tailer) ingest(line []byte) {
 	}
 }
 
-// emit sends the derived status (with the entry's own timestamp) and the
-// running usage total.
+// emit sends the derived status if it changed and the usage total if it
+// changed. Any append used to re-send both (issue #66).
 func (tl *Tailer) emit() {
 	kind, at, ok := DeriveKind(tl.ring)
-	if ok {
-		tl.sink <- Event{SessionID: tl.sessionID, Kind: kind, At: at}
+	if ok && (kind != tl.last.Kind || !at.Equal(tl.last.At)) {
+		tl.last = Event{Kind: kind, At: at}
+		tl.send(Event{SessionID: tl.sessionID, Kind: kind, At: at})
 	}
-	tl.sink <- Event{SessionID: tl.sessionID, Kind: UsageUpdated, At: tl.clock(), Tokens: tl.usage}
+	if tl.usageDirty {
+		tl.usageDirty = false
+		tl.send(Event{SessionID: tl.sessionID, Kind: UsageUpdated, At: tl.clock(), Tokens: tl.usage})
+	}
+}
+
+// send delivers ev unless the tailer is closed, so Close never leaves a
+// goroutine parked on a full sink (issue #65).
+func (tl *Tailer) send(ev Event) {
+	select {
+	case tl.sink <- ev:
+	case <-tl.stop:
+	}
 }
 
 func readFrom(f *os.File, offset int64) ([]byte, error) {

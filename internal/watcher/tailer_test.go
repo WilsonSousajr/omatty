@@ -207,3 +207,57 @@ func TestTailer_DropsALineOverTheCapAndKeepsGoing_issue64(t *testing.T) {
 		t.Errorf("derived %+v, want PromptSubmitted at %v: the 2 MiB line must be dropped, not read", got, want)
 	}
 }
+
+// Regression, issue #65: Close only closed the stop channel, so a goroutine
+// parked on a full sink never saw it and never exited.
+func TestTailer_CloseUnblocksAPollParkedOnTheSink_issue65(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	_ = os.WriteFile(path, []byte(promptLine), 0o600)
+	sink := make(chan watcher.Event) // nobody reads: the first emit parks
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	polled := make(chan struct{})
+	go func() { tl.Poll(); close(polled) }()
+
+	tl.Close()
+
+	select {
+	case <-polled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Poll is still parked on the sink after Close")
+	}
+}
+
+func TestTailer_DoneClosesWhenTheLoopExits_issue65(t *testing.T) {
+	tl := watcher.Tail("s1", filepath.Join(t.TempDir(), "never"), make(chan watcher.Event, 1), time.Now, time.Hour)
+
+	tl.Close()
+
+	select {
+	case <-tl.Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("the polling goroutine did not exit after Close")
+	}
+}
+
+// Regression, issue #66: any append re-emitted the last status (same
+// timestamp) and the usage, so noise lines doubled the event rate.
+func TestTailer_NoiseOnlyAppendEmitsNothing_issue66(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	sink := make(chan watcher.Event, 8)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	defer tl.Close()
+	_ = os.WriteFile(path, []byte(promptLine), 0o600)
+	tl.Poll()
+	_ = drain(sink)
+
+	noise := `{"type":"file-history-snapshot","timestamp":"2026-09-02T12:00:02Z"}` + "\n" +
+		`{"type":"queue-operation","operation":"dequeue"}` + "\n"
+	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
+	_, _ = f.WriteString(noise)
+	_ = f.Close()
+	tl.Poll()
+
+	if got := drain(sink); len(got) != 0 {
+		t.Errorf("a noise-only append emitted %+v, want nothing: neither status nor usage changed", got)
+	}
+}
