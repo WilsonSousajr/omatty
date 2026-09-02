@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/creack/pty"
 	"github.com/google/uuid"
 
 	"github.com/WilsonSousajr/omatty/internal/hooks"
@@ -130,7 +131,8 @@ func runTUI(home string, store *registry.Store) error {
 		return err
 	}
 	launcher := supervisor.NewLauncher("claude", hooksFile, home)
-	return ui.Run(home, state, launcher, termwrap.Start, defaultWidth, defaultHeight,
+	w, h := windowSize()
+	return ui.Run(home, state, launcher, termwrap.Start, w, h,
 		sessionCreator(home, store))
 }
 
@@ -162,6 +164,17 @@ func argOrCwd(args []string) (string, error) {
 // enforceable, hence the explicit writer.
 func report(line string) {
 	_, _ = fmt.Fprintln(os.Stdout, line)
+}
+
+// windowSize returns the real terminal size, so sessions are born at the right
+// width (issue #51). Falls back to the default when stdout is not a terminal
+// (a pipe, a test), where a later WindowSizeMsg will correct the layout.
+func windowSize() (int, int) {
+	rows, cols, err := pty.Getsize(os.Stdout)
+	if err != nil || cols == 0 || rows == 0 {
+		return defaultWidth, defaultHeight
+	}
+	return cols, rows
 }
 
 // openLog points slog at a file. Invariant 5: stdout belongs to the TUI, so
