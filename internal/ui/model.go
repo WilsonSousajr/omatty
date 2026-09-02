@@ -80,8 +80,8 @@ func NewModel(
 		// Until the first WindowSizeMsg arrives the frame is laid out for a
 		// conventional terminal rather than a 0x0 one, which would floor every
 		// pane and truncate the text in it.
-		width:  defaultWidth,
-		height: defaultHeight,
+		width:  DefaultWidth,
+		height: DefaultHeight,
 	}
 }
 
@@ -322,7 +322,7 @@ func (m *Model) restartFocused() tea.Cmd {
 		_ = old.Close()
 	}
 	m.terms[sess.ID] = term
-	return tea.Batch(term.Init(), term.Resize(PaneSize(m.width, m.height)))
+	return tea.Batch(term.Init(), term.Resize(PTYSize(m.width, m.height)))
 }
 
 // onPromptKey edits the prompt buffer. A worktree prompt uses the buffer as
@@ -423,7 +423,7 @@ func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
 	if term == nil {
 		return nil
 	}
-	return term.Resize(PaneSize(msg.Width, msg.Height))
+	return term.Resize(PTYSize(msg.Width, msg.Height))
 }
 
 // focusedTerminal returns nil while a prompt is open, which is what keeps

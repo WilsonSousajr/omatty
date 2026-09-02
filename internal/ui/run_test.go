@@ -140,20 +140,21 @@ func TestStartTerminals_BirthsThePTYAtThePaneSize_issue51(t *testing.T) {
 		return termwrap.NewFake(""), nil
 	}
 
-	_, err := ui.StartTerminals(oneProject1(), supervisor.NewLauncher("claude", "/h.json", t.TempDir()),
+	_, err := ui.StartTerminals(oneSessionState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir()),
 		factory, 140, 40)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	wantW, wantH := ui.PaneSize(140, 40)
-	if gotW != wantW || gotH != wantH {
-		t.Errorf("PTY started at %dx%d, want the pane size %dx%d (not the 140x40 window)",
-			gotW, gotH, wantW, wantH)
+	// PaneSize(140, 40) is 110x37; the title row takes one (issue #75).
+	if gotW != 110 || gotH != 36 {
+		t.Errorf("PTY started at %dx%d, want 110x36 (not the 140x40 window)", gotW, gotH)
 	}
 }
 
-func oneProject1() registry.State {
+// oneSessionState has one session, unlike oneProject, so StartTerminals has
+// something to start.
+func oneSessionState() registry.State {
 	return registry.State{
 		Projects: []registry.Project{{Name: "p", Root: "/p"}},
 		Sessions: []registry.Session{{ID: "s1", Project: "p", Title: "one"}},

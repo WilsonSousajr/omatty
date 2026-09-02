@@ -7,10 +7,11 @@ const SidebarWidth = 28
 // footerRows is the keymap line below both panes.
 const footerRows = 1
 
-// The size assumed before the terminal reports its own.
+// DefaultWidth and DefaultHeight are the size assumed before the terminal
+// reports its own, and the fallback cmd uses when it cannot query one.
 const (
-	defaultWidth  = 80
-	defaultHeight = 24
+	DefaultWidth  = 80
+	DefaultHeight = 24
 )
 
 // Floors so a tiny window still renders something rather than a negative size.
@@ -35,4 +36,15 @@ func PaneSize(width, height int) (termW, termH int) {
 		termH = minTermHeight
 	}
 	return termW, termH
+}
+
+// PTYSize is the embedded terminal's size for a window: the pane's content
+// minus the title row the pane draws above it. It is the one place the PTY
+// dimensions are derived, for birth and for every resize, so the two can
+// never drift (issues #51, #75).
+//
+//	w, h := ui.PTYSize(120, 40) // 90, 36
+func PTYSize(width, height int) (w, h int) {
+	w, h = PaneSize(width, height)
+	return w, h - 1
 }

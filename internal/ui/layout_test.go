@@ -60,8 +60,9 @@ func TestModel_ResizePassesPaneSizeToTheFocusedTerminal_issue35(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	f := fakes["s1"]
-	if f.Width != 90 || f.Height != 37 {
-		t.Errorf("terminal resized to %dx%d, want PaneSize 90x37", f.Width, f.Height)
+	// PaneSize 90x37 minus the title row (issue #75).
+	if f.Width != 90 || f.Height != 36 {
+		t.Errorf("terminal resized to %dx%d, want PTYSize 90x36", f.Width, f.Height)
 	}
 }
 
@@ -104,5 +105,16 @@ func TestModel_NoLineExceedsTheWindowWidth_issue35(t *testing.T) {
 		if w := lipgloss.Width(l); w > 100 {
 			t.Errorf("line %d is %d wide: %q", i, w, l)
 		}
+	}
+}
+
+// Regression, issue #75: the PTY was born and resized at PaneSize, but the
+// pane spends its first row on the title and renders h-1 rows, so claude's
+// bottom line was always clipped.
+func TestPTYSize_IsOneRowShorterThanThePane_issue75(t *testing.T) {
+	w, h := ui.PTYSize(120, 40)
+
+	if w != 90 || h != 36 {
+		t.Errorf("PTYSize(120, 40) = (%d, %d), want (90, 36): PaneSize 90x37 minus the title row", w, h)
 	}
 }

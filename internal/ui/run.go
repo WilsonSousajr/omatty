@@ -25,7 +25,7 @@ const eventBuffer = 64
 func StartTerminals(
 	st registry.State, l *supervisor.Launcher, f termwrap.Factory, w, h int,
 ) (map[string]termwrap.Terminal, error) {
-	pw, ph := PaneSize(w, h)
+	pw, ph := PTYSize(w, h)
 	terms := make(map[string]termwrap.Terminal, len(st.Sessions))
 	for _, sess := range st.Sessions {
 		term, err := l.Start(f, sess, pw, ph)
@@ -98,7 +98,7 @@ func wireStatus(
 // (invariant 6). Used both for the initial sessions and for one created at
 // runtime.
 func guardedStarter(l *supervisor.Launcher, f termwrap.Factory, w, h int) StartFunc {
-	pw, ph := PaneSize(w, h)
+	pw, ph := PTYSize(w, h)
 	return func(sess registry.Session) (termwrap.Terminal, error) {
 		term, err := l.Start(f, sess, pw, ph)
 		if err != nil {
