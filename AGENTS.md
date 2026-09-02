@@ -156,6 +156,12 @@ not in the gate.
    `--resume <uuid>`. Any new session field is either derivable or persisted.
 10. **`cmd/` stays thin.** Parse flags, construct dependencies, call typed
     library functions. No logic.
+11. **A hook must never block or fail claude.** `omatty hook` reads bounded
+    stdin (64 KiB cap), dials the socket with a short timeout, and exits 0 in
+    every case — socket missing, connection refused, malformed JSON — writing
+    nothing to stdout or stderr. Its `hooks.json` timeout is 5 s. A hook that
+    hangs or errors would stall every claude session on the machine, whether
+    or not omatty is running.
 
 ## Testing instructions
 
