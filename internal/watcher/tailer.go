@@ -22,12 +22,13 @@ type Tailer struct {
 	sink      chan<- Event
 	clock     func() time.Time
 
-	offset  int64   // bytes already consumed
-	ring    []Entry // last ringSize relevant entries
-	usage   Tokens  // cumulative across the whole file
-	partial []byte  // a trailing line not yet terminated by \n
-	stop    chan struct{}
-	once    sync.Once
+	offset      int64   // bytes already consumed
+	ring        []Entry // last ringSize relevant entries
+	usage       Tokens  // cumulative across the whole file
+	lastUsageID string  // the response whose usage was last counted (issue #59)
+	partial     []byte  // a trailing line not yet terminated by \n
+	stop        chan struct{}
+	once        sync.Once
 }
 
 // Tail starts polling path every `every` and returns the Tailer. Close stops
@@ -83,6 +84,7 @@ func (tl *Tailer) Poll() {
 func (tl *Tailer) reconcileTruncation(f *os.File) {
 	if info, err := f.Stat(); err == nil && info.Size() < tl.offset {
 		tl.offset, tl.usage, tl.ring, tl.partial = 0, Tokens{}, nil, nil
+		tl.lastUsageID = ""
 	}
 }
 
@@ -106,10 +108,13 @@ func (tl *Tailer) ingest(line []byte) {
 	if !ok {
 		return
 	}
-	tl.usage.In += e.Usage.In
-	tl.usage.Out += e.Usage.Out
-	tl.usage.CacheRead += e.Usage.CacheRead
-	tl.usage.CacheWrite += e.Usage.CacheWrite
+	// One API response is written as one line per content block, each
+	// repeating the same usage under the same message id; count it once. A
+	// line without an id (older transcripts, fixtures) still counts (issue #59).
+	if e.Type == "assistant" && (e.MessageID == "" || e.MessageID != tl.lastUsageID) {
+		tl.usage.add(e.Usage)
+		tl.lastUsageID = e.MessageID
+	}
 	tl.ring = append(tl.ring, e)
 	if len(tl.ring) > ringSize {
 		tl.ring = tl.ring[len(tl.ring)-ringSize:]
