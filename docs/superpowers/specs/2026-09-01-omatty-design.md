@@ -161,7 +161,7 @@ Run the full local gate before claiming any change is ready. CI runs the same:
 gofmt -l .                                    # must print nothing
 go vet ./...
 golangci-lint run                             # funlen, dupl, gocyclo, revive
-go test ./... -race -coverpkg=./internal/... -coverprofile=cover.out
+go test ./... -race
 ./scripts/check-coverage.sh 90
 ```
 
