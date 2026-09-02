@@ -130,7 +130,7 @@ func runTUI(home string, store *registry.Store) error {
 		return err
 	}
 	launcher := supervisor.NewLauncher("claude", hooksFile, home)
-	return ui.Run(state, launcher, termwrap.Start, defaultWidth, defaultHeight,
+	return ui.Run(home, state, launcher, termwrap.Start, defaultWidth, defaultHeight,
 		sessionCreator(home, store))
 }
 

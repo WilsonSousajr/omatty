@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -26,6 +27,7 @@ type Tailer struct {
 	usage   Tokens  // cumulative across the whole file
 	partial []byte  // a trailing line not yet terminated by \n
 	stop    chan struct{}
+	once    sync.Once
 }
 
 // Tail starts polling path every `every` and returns the Tailer. Close stops
@@ -40,8 +42,8 @@ func Tail(sessionID, path string, sink chan<- Event, clock func() time.Time, eve
 	return tl
 }
 
-// Close stops the polling goroutine.
-func (tl *Tailer) Close() { close(tl.stop) }
+// Close stops the polling goroutine. It is idempotent.
+func (tl *Tailer) Close() { tl.once.Do(func() { close(tl.stop) }) }
 
 func (tl *Tailer) loop(every time.Duration) {
 	t := time.NewTicker(every)
