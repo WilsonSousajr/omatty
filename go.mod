@@ -4,12 +4,12 @@ go 1.26.5
 
 require (
 	charm.land/bubbletea/v2 v2.0.9
+	charm.land/lipgloss/v2 v2.0.6
 	github.com/google/uuid v1.6.0
 	github.com/taigrr/bubbleterm v0.3.5
 )
 
 require (
-	charm.land/lipgloss/v2 v2.0.6 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260812204455-68fa937c71be // indirect
 	github.com/charmbracelet/x/ansi v0.11.8 // indirect

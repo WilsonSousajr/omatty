@@ -16,7 +16,7 @@ not only the coverage gate. See "Rules" at the end for why.
 
 | | Milestone | Status |
 |---|---|---|
-| M1 | Skeleton | Built. **Not done** until #36 and #35 land. PR #14 open. |
+| M1 | Skeleton | **Done.** #36, #35, #15 closed; merged to develop. |
 | M2 | Status | Next. Issues #17-#20, #37-#39 in Backlog. |
 | M3 | Review | Planned. Issues #21-#23 in Backlog. |
 | M4 | Lifecycle | Planned. Issues #15, #40-#42 in Backlog. |
@@ -40,20 +40,21 @@ each fixed with a failing test first.
 
 **Still open, and blocking the merge:**
 
-- **#36 - restarting omatty kills every session that has ever been used.**
+- **[done] #36 - restarting omatty killed every used session.**
   `StartTerminals` launches `claude --session-id <uuid>`; once a session has a
   transcript, claude refuses with "Session ID is already in use". There is no
   lock file - the transcript is the claim. The launcher must use
   `--resume <uuid>` when `paths.Transcript` exists and `--session-id` only
   when it does not. Invariant 9 promised exactly this; the code never did it.
-- **#35 - panes are stacked; the approved design is side by side.** The
+- **[done] #35 - panes are now side by side, styled with lipgloss.** The
   sidebar renders above the terminal, so a growing session list pushes the
   thing you are reading down the screen. Fixing this rewrites `View`, so real
   styling (lipgloss borders, focused-pane highlight, status colours) lands in
   the same change rather than touching `View` twice.
 
-**Done when:** a used session survives quit-and-relaunch, and the sidebar
-sits beside the terminal.
+**Done:** a used session survives quit-and-relaunch (#36), the sidebar sits
+beside the terminal (#35), and ctrl+o r restarts a crashed or exited session
+(#15). Verified with real claude in a sized PTY at 100x30 and 60x20.
 
 ## M2 - Status
 
