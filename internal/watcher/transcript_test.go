@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -42,29 +41,79 @@ func splitLines(b []byte) [][]byte {
 	return lines
 }
 
-func TestDeriveFromTail_Fixtures_issue19(t *testing.T) {
-	at := func(s string) time.Time { tm, _ := time.Parse(time.RFC3339, s); return tm }
+func kindAt(t *testing.T, fixture string) (watcher.Kind, time.Time, bool) {
+	t.Helper()
+	return watcher.DeriveKind(loadFixture(t, fixture))
+}
+
+func at(s string) time.Time {
+	tm, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		panic(err)
+	}
+	return tm
+}
+
+func TestDeriveKind_Fixtures_issue19(t *testing.T) {
 	tests := []struct {
 		fixture string
-		want    registry.Status
+		want    watcher.Kind
 		wantAt  time.Time
+		ok      bool
 	}{
-		{"prompt-sent.jsonl", registry.StatusThinking, at("2026-09-02T12:00:01Z")},
-		{"tool-running.jsonl", registry.StatusTool, at("2026-09-02T12:00:02Z")},
-		{"tool-returned.jsonl", registry.StatusThinking, at("2026-09-02T12:00:03Z")},
-		{"turn-ended.jsonl", registry.StatusDone, at("2026-09-02T12:00:04Z")},
-		{"noise-only.jsonl", registry.StatusIdle, time.Time{}},
+		{"prompt-sent.jsonl", watcher.PromptSubmitted, at("2026-09-02T12:00:01Z"), true},
+		{"tool-running.jsonl", watcher.ToolStarted, at("2026-09-02T12:00:02Z"), true},
+		{"tool-returned.jsonl", watcher.PromptSubmitted, at("2026-09-02T12:00:03Z"), true},
+		{"turn-ended.jsonl", watcher.TurnEnded, at("2026-09-02T12:00:04Z"), true},
+		{"noise-only.jsonl", 0, time.Time{}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.fixture, func(t *testing.T) {
-			status, ts := watcher.DeriveFromTail(loadFixture(t, tt.fixture))
-			if status != tt.want {
-				t.Errorf("status = %q, want %q", status, tt.want)
-			}
-			if !ts.Equal(tt.wantAt) {
-				t.Errorf("timestamp = %v, want %v", ts, tt.wantAt)
+			kind, ts, ok := watcher.DeriveKind(loadFixture(t, tt.fixture))
+			if ok != tt.ok || (ok && (kind != tt.want || !ts.Equal(tt.wantAt))) {
+				t.Errorf("DeriveKind = (%v, %v, %v), want (%v, %v, %v)", kind, ts, ok, tt.want, tt.wantAt, tt.ok)
 			}
 		})
+	}
+}
+
+// Regression, issue #61: entries claude injects as the user - a finished
+// background task, a local command and its output, isMeta context - were
+// read as typed prompts and flipped a finished session back to thinking.
+func TestDeriveKind_IgnoresInjectedUserEntries_issue61(t *testing.T) {
+	kind, ts, ok := kindAt(t, "injected-after-done.jsonl")
+
+	if !ok || kind != watcher.TurnEnded || !ts.Equal(at("2026-09-02T12:00:04Z")) {
+		t.Errorf("DeriveKind = (%v, %v, %v), want (TurnEnded, 12:00:04, true): injected entries are not prompts", kind, ts, ok)
+	}
+}
+
+// Regression, issue #62: a prompt sent as a list of text (and image) blocks
+// set neither flag, so the tail skipped it and status and age stayed on the
+// previous turn.
+func TestDeriveKind_ListOfTextIsAPrompt_issue62(t *testing.T) {
+	kind, ts, ok := kindAt(t, "list-text-prompt.jsonl")
+
+	if !ok || kind != watcher.PromptSubmitted || !ts.Equal(at("2026-09-02T12:05:00Z")) {
+		t.Errorf("DeriveKind = (%v, %v, %v), want (PromptSubmitted, 12:05:00, true)", kind, ts, ok)
+	}
+}
+
+// Regression, issue #63: only end_turn counted as a finished turn, so a
+// response stopped at max_tokens left the session at thinking forever.
+func TestDeriveKind_AnyStopReasonButToolUseEndsTheTurn_issue63(t *testing.T) {
+	kind, ts, ok := kindAt(t, "stopped-at-max-tokens.jsonl")
+
+	if !ok || kind != watcher.TurnEnded || !ts.Equal(at("2026-09-02T12:00:05Z")) {
+		t.Errorf("DeriveKind = (%v, %v, %v), want (TurnEnded, 12:00:05, true)", kind, ts, ok)
+	}
+}
+
+func TestParseEntry_CarriesTheMessageID_issue59(t *testing.T) {
+	e, ok := watcher.ParseEntry([]byte(
+		`{"type":"assistant","timestamp":"2026-09-02T12:00:00Z","message":{"id":"msg_x","role":"assistant","content":[{"type":"text","text":"hi"}]}}`))
+	if !ok || e.MessageID != "msg_x" {
+		t.Errorf("entry = %+v, want MessageID msg_x", e)
 	}
 }
 
