@@ -54,6 +54,11 @@ type Model struct {
 	clock     func() time.Time
 	tailStart func(registry.Session)
 	notifier  notify.Notifier
+	// notified is when each session last posted a notification (issue #69).
+	notified map[string]time.Time
+	// startedAt gates notifications to transitions newer than this run: the
+	// first tailer poll replays old turns (issue #70).
+	startedAt time.Time
 	hasFocus  bool
 	prompt    Prompt
 	lastErr   string
@@ -68,15 +73,17 @@ func NewModel(
 	create CreateFunc, start StartFunc,
 ) *Model {
 	return &Model{
-		state:    st,
-		sidebar:  NewSidebar(SidebarRows(st, nil)),
-		terms:    terms,
-		router:   keys.NewRouter(Leader),
-		create:   create,
-		start:    start,
-		status:   map[string]watcher.SessionState{},
-		clock:    time.Now,
-		hasFocus: true,
+		state:     st,
+		sidebar:   NewSidebar(SidebarRows(st, nil)),
+		terms:     terms,
+		router:    keys.NewRouter(Leader),
+		create:    create,
+		start:     start,
+		status:    map[string]watcher.SessionState{},
+		clock:     time.Now,
+		notified:  map[string]time.Time{},
+		startedAt: time.Now(),
+		hasFocus:  true,
 		// Until the first WindowSizeMsg arrives the frame is laid out for a
 		// conventional terminal rather than a 0x0 one, which would floor every
 		// pane and truncate the text in it.
@@ -90,6 +97,18 @@ func (m *Model) Prompt() Prompt { return m.prompt }
 
 // StatusMsg carries one watcher event into the model's Update loop.
 type StatusMsg watcher.Event
+
+// TickMsg is the once-a-second heartbeat that re-renders the frame, so a
+// quiet session's age keeps counting (issue #71). Exported so tests can send
+// one.
+type TickMsg time.Time
+
+// tickEvery is the age column's resolution; finer buys nothing.
+const tickEvery = time.Second
+
+func scheduleTick() tea.Cmd {
+	return tea.Tick(tickEvery, func(t time.Time) tea.Msg { return TickMsg(t) })
+}
 
 // SetNotifier sets the desktop notifier used when a backgrounded session needs
 // attention. Absent, notifications are simply not sent.
@@ -106,6 +125,7 @@ func (m *Model) SetEvents(events <-chan watcher.Event, clock func() time.Time) {
 	if clock != nil {
 		m.clock = clock
 	}
+	m.startedAt = m.clock()
 }
 
 // waitForEvent blocks on the next status event and delivers it as a StatusMsg.
@@ -153,6 +173,7 @@ func (m *Model) Init() tea.Cmd {
 	if cmd := m.waitForEvent(); cmd != nil {
 		cmds = append(cmds, cmd)
 	}
+	cmds = append(cmds, scheduleTick())
 	return tea.Batch(cmds...)
 }
 
@@ -166,6 +187,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.onResize(msg)
 	case StatusMsg:
 		return m, m.onStatus(msg)
+	case TickMsg:
+		return m, scheduleTick()
 	case tea.FocusMsg:
 		m.hasFocus = true
 	case tea.BlurMsg:
@@ -181,26 +204,65 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // onStatus folds a watcher event into the session's state and re-arms the
 // wait. Newer-wins lives in watcher.Apply; the model just stores the result.
+// A hook can name any session id; only registered ones may grow the status
+// map or reach the operator's notifications (issue #69).
 func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 	e := watcher.Event(ev)
+	if !m.knownSession(e.SessionID) {
+		return m.waitForEvent()
+	}
 	before := m.status[e.SessionID].Status
 	after := watcher.Apply(m.status[e.SessionID], e)
 	m.status[e.SessionID] = after
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
-	m.maybeNotify(e.SessionID, before, after.Status)
-	return m.waitForEvent()
+	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after.Status))
 }
 
-// maybeNotify posts a desktop notification when a session first enters a state
-// that needs the operator - waiting or done - while omatty is backgrounded.
-// A repeated state does not re-notify (before != after guards it).
-func (m *Model) maybeNotify(id string, before, after registry.Status) {
-	if m.notifier == nil || m.hasFocus || before == after {
-		return
+func (m *Model) knownSession(id string) bool {
+	for i := range m.state.Sessions {
+		if m.state.Sessions[i].ID == id {
+			return true
+		}
 	}
-	body, ok := needsYou(id, m.sessionTitle(id), after)
-	if ok {
-		_ = m.notifier.Notify("omatty", body)
+	return false
+}
+
+// notifyCooldown is the least time between two notifications for one
+// session, so a permission loop cannot storm the desktop (issue #69).
+const notifyCooldown = 5 * time.Second
+
+// maybeNotify returns a command that posts a desktop notification when a
+// session enters a state that needs the operator while omatty is
+// backgrounded. It is a command, off the Update goroutine, because osascript
+// takes tens of milliseconds (issue #69). Suppressed: a repeated state, a
+// transition older than this run (issue #70), and a second notification for
+// the same session within notifyCooldown.
+func (m *Model) maybeNotify(e watcher.Event, before, after registry.Status) tea.Cmd {
+	if m.notifier == nil || m.hasFocus || before == after || e.At.Before(m.startedAt) {
+		return nil
+	}
+	body, ok := needsYou(m.sessionTitle(e.SessionID), after)
+	if !ok || !m.cooldownElapsed(e.SessionID) {
+		return nil
+	}
+	return notifyCmd(m.notifier, body)
+}
+
+func (m *Model) cooldownElapsed(id string) bool {
+	now := m.clock()
+	if last, ok := m.notified[id]; ok && now.Sub(last) < notifyCooldown {
+		return false
+	}
+	m.notified[id] = now
+	return true
+}
+
+func notifyCmd(n notify.Notifier, body string) tea.Cmd {
+	return func() tea.Msg {
+		if err := n.Notify("omatty", body); err != nil {
+			slog.Warn("desktop notification failed", "body", body, "err", err)
+		}
+		return nil
 	}
 }
 
@@ -214,7 +276,7 @@ func (m *Model) sessionTitle(id string) string {
 }
 
 // needsYou returns the notification body for a status that wants attention.
-func needsYou(_, title string, status registry.Status) (string, bool) {
+func needsYou(title string, status registry.Status) (string, bool) {
 	switch status {
 	case registry.StatusWaiting:
 		return title + " needs you", true
@@ -470,9 +532,10 @@ func (m *Model) promptLine() string {
 // and the frame never exceeds the window.
 func (m *Model) View() tea.View {
 	termW, termH := PaneSize(m.width, m.height)
+	now := m.clock() // once per frame, so every row ages against the same instant
 	panes := lipgloss.JoinHorizontal(lipgloss.Top,
-		m.renderSidebar(termH),
-		m.renderTerminal(termW, termH))
+		m.renderSidebar(termH, now),
+		m.renderTerminal(termW, termH, now))
 	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, panes, m.renderFooter()))
 	v.AltScreen = true
 	v.ReportFocus = true // so FocusMsg/BlurMsg drive notifications
@@ -480,21 +543,21 @@ func (m *Model) View() tea.View {
 }
 
 // renderSidebar boxes the project/session rows at exactly SidebarWidth.
-func (m *Model) renderSidebar(rows int) string {
+func (m *Model) renderSidebar(rows int, now time.Time) string {
 	inner := SidebarWidth - 2
 	lines := make([]string, 0, rows)
 	lines = append(lines, headerStyle.Render(padRight("projects", inner)))
 	for _, row := range m.sidebar.Rows() {
-		lines = append(lines, m.renderRow(row, inner))
+		lines = append(lines, m.renderRow(row, inner, now))
 	}
 	return paneBox(false).Render(fitBlock(lines, inner, rows))
 }
 
 // renderTerminal boxes the focused terminal, or the empty-state guidance.
-func (m *Model) renderTerminal(w, h int) string {
+func (m *Model) renderTerminal(w, h int, now time.Time) string {
 	if term := m.focusedTerminal(); term != nil {
 		body := fitBlock(strings.Split(term.View(), "\n"), w, h-1)
-		return paneBox(true).Render(m.terminalTitle(w) + "\n" + body)
+		return paneBox(true).Render(m.terminalTitle(w, now) + "\n" + body)
 	}
 	lines := []string{""}
 	if m.prompt.Active {
@@ -510,7 +573,7 @@ func (m *Model) renderTerminal(w, h int) string {
 
 // terminalTitle is the header line inside the focused session's box: its
 // title, coloured status, age and cumulative tokens.
-func (m *Model) terminalTitle(w int) string {
+func (m *Model) terminalTitle(w int, now time.Time) string {
 	row, ok := m.sidebar.Selected()
 	if !ok {
 		return padRight("", w)
@@ -520,7 +583,7 @@ func (m *Model) terminalTitle(w int) string {
 	if st.Status != "" {
 		parts += " · " + glyphStyle(st.Status).Render(statusGlyph(st.Status)+" "+string(st.Status))
 	}
-	if age := AgeString(m.clock(), st.At); age != "" {
+	if age := AgeString(now, st.At); age != "" {
 		parts += " " + age
 	}
 	if st.Tokens.In+st.Tokens.Out > 0 {
@@ -541,7 +604,7 @@ func (m *Model) renderFooter() string {
 
 // renderRow draws one sidebar line: a project header, or a session with its
 // focus marker and coloured status glyph.
-func (m *Model) renderRow(row Row, width int) string {
+func (m *Model) renderRow(row Row, width int, now time.Time) string {
 	if row.Session == nil {
 		return mutedStyle.Render(padRight("> "+row.Project, width))
 	}
@@ -552,7 +615,7 @@ func (m *Model) renderRow(row Row, width int) string {
 	glyph := glyphStyle(row.Status).Render(statusGlyph(row.Status))
 	age := ""
 	if st, ok := m.status[row.Session.ID]; ok {
-		age = AgeString(m.clock(), st.At)
+		age = AgeString(now, st.At)
 	}
 	title := padRight(row.Session.Title, width-4-len(age)-1)
 	return marker + glyph + " " + title + " " + mutedStyle.Render(age)

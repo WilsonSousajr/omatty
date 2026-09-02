@@ -92,3 +92,23 @@ func statusGlyphFor(s registry.Status) string {
 		return "-"
 	}
 }
+
+// Regression, issue #71: the age was computed at render time, but nothing
+// triggered a render on a quiet session, so "<1m" stayed on screen for hours.
+func TestModel_TickReArmsItself_issue71(t *testing.T) {
+	m, _ := modelWithFakes(t)
+
+	_, cmd := m.Update(ui.TickMsg(fixedNow))
+
+	if cmd == nil {
+		t.Error("a tick returned no command; the age column would freeze after the first second")
+	}
+}
+
+func TestModel_InitSchedulesATick_issue71(t *testing.T) {
+	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate, noStart)
+
+	if m.Init() == nil {
+		t.Error("Init scheduled nothing with no terminals; the tick must be there regardless")
+	}
+}

@@ -41,5 +41,18 @@ func TestFake_RecordsNotifications(t *testing.T) {
 	}
 }
 
+func TestNew_ReturnsANotifierForThisPlatform_issue69(t *testing.T) {
+	if notify.New() == nil {
+		t.Fatal("New() returned nil")
+	}
+}
+
+func TestSilent_ReportsSuccess_issue69(t *testing.T) {
+	if err := (notify.Silent{}).Notify("omatty", "x"); err != nil {
+		t.Errorf("Silent.Notify = %v, want nil", err)
+	}
+}
+
 var _ notify.Notifier = (*notify.Fake)(nil)
 var _ notify.Notifier = notify.Osascript{}
+var _ notify.Notifier = notify.Silent{}
