@@ -162,17 +162,27 @@ func (l *Listener) serve(conn net.Conn) {
 	defer l.track(conn, false)
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
+	if ev, ok := l.decode(conn); ok {
+		l.offer(ev)
+	}
+}
+
+// decode reads one bounded line and maps it to an event. ok is false for an
+// empty, oversized, malformed, or untracked payload, all of which are dropped.
+func (l *Listener) decode(conn net.Conn) (Event, bool) {
 	line, ok := readLine(conn)
 	if !ok {
-		return
+		return Event{}, false
 	}
 	var p hooks.Payload
 	if json.Unmarshal(line, &p) != nil {
-		return
+		return Event{}, false
 	}
-	if kind, ok := KindOf(p); ok {
-		l.offer(Event{SessionID: p.SessionID, Kind: kind, At: l.clock(), Tool: p.ToolName})
+	kind, ok := KindOf(p)
+	if !ok {
+		return Event{}, false
 	}
+	return Event{SessionID: p.SessionID, Kind: kind, At: l.clock(), Tool: p.ToolName}, true
 }
 
 // offer sends without blocking. A full sink means the UI is behind; the
