@@ -86,9 +86,10 @@ func TestReport_MalformedJSONIsNotAnError_issue18(t *testing.T) {
 	}
 }
 
-// A hostile or runaway producer must not make the hook buffer megabytes.
+// A hostile or runaway producer must not make the hook buffer megabytes. The
+// socket half of this test lives in TestParsePayload_RejectsAnOversizedSessionID.
 func TestReport_OversizedStdinIsBounded_issue18(t *testing.T) {
-	path, got := listen(t)
+	path, _ := listen(t)
 	huge := `{"session_id":"` + strings.Repeat("A", 2<<20) + `","hook_event_name":"Stop"}`
 
 	done := make(chan error, 1)
@@ -102,12 +103,61 @@ func TestReport_OversizedStdinIsBounded_issue18(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("Report did not return; it likely buffered the whole input")
 	}
-	// Whatever reached the socket must be capped, not the full 2 MiB.
+}
+
+// Regression, issue #55: the payload was read through a 64 KiB limit and then
+// unmarshalled whole, so a PostToolUse carrying a big tool_response was cut
+// mid-object, failed to parse, and was silently dropped.
+func TestParsePayload_SkipsAHugeToolResponse_issue55(t *testing.T) {
+	in := `{"session_id":"abc","hook_event_name":"PostToolUse","tool_name":"Read",` +
+		`"tool_input":{"file_path":"/f"},"tool_response":"` + strings.Repeat("x", 200<<10) + `"}`
+
+	p, ok := hooks.ParsePayload(strings.NewReader(in))
+
+	if !ok || p.SessionID != "abc" || p.HookEventName != "PostToolUse" || p.ToolName != "Read" {
+		t.Errorf("ParsePayload = (%+v, %v), want the routable fields of a 200 KiB PostToolUse", p, ok)
+	}
+}
+
+// The cap still exists for a runaway producer; the routable fields come first
+// in claude's payloads, so they survive the cut.
+func TestParsePayload_KeepsTheRoutableFieldsPastTheCap_issue55(t *testing.T) {
+	in := `{"session_id":"abc","hook_event_name":"PostToolUse","tool_response":"` +
+		strings.Repeat("x", 5<<20) + `"}`
+
+	p, ok := hooks.ParsePayload(strings.NewReader(in))
+
+	if !ok || p.SessionID != "abc" || p.HookEventName != "PostToolUse" {
+		t.Errorf("ParsePayload = (%+v, %v), want session abc PostToolUse from before the cap", p, ok)
+	}
+}
+
+// Replaces the socket half of TestReport_OversizedStdinIsBounded_issue18,
+// whose empty timeout branch passed when nothing arrived at all.
+func TestParsePayload_RejectsAnOversizedSessionID_issue18(t *testing.T) {
+	in := `{"session_id":"` + strings.Repeat("A", 2<<20) + `","hook_event_name":"Stop"}`
+
+	if p, ok := hooks.ParsePayload(strings.NewReader(in)); ok {
+		t.Errorf("a 2 MiB session id was accepted as %q…, want it dropped", p.SessionID[:16])
+	}
+}
+
+func TestReport_ForwardsAPostToolUseWithAHugeResponse_issue55(t *testing.T) {
+	path, got := listen(t)
+	in := `{"session_id":"abc","hook_event_name":"PostToolUse","tool_response":"` +
+		strings.Repeat("x", 200<<10) + `"}`
+
+	if err := hooks.Report(strings.NewReader(in), path, time.Second); err != nil {
+		t.Fatal(err)
+	}
+
 	select {
 	case line := <-got:
-		if len(line) > 128<<10 {
-			t.Errorf("forwarded %d bytes, want it capped near 64 KiB", len(line))
+		var p hooks.Payload
+		if err := json.Unmarshal([]byte(line), &p); err != nil || p.SessionID != "abc" || p.HookEventName != "PostToolUse" {
+			t.Errorf("forwarded %q (err %v), want session abc PostToolUse", line, err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(2 * time.Second):
+		t.Fatal("the big PostToolUse never reached the socket")
 	}
 }
