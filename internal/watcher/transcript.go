@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
-
-	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // Entry is the slice of a transcript line that status needs. Every other line
@@ -129,27 +127,11 @@ func turnEnded(e Entry) bool {
 	return e.Type == "assistant" && e.StopReason != "" && e.StopReason != "tool_use"
 }
 
-// DeriveFromTail returns the status implied by the most recent relevant entry,
-// and its timestamp. It cannot produce Waiting - only a permission hook can
-// tell a running tool from one blocked on you.
-func DeriveFromTail(entries []Entry) (registry.Status, time.Time) {
-	for i := len(entries) - 1; i >= 0; i-- {
-		e := entries[i]
-		switch {
-		case e.Type == "user" && e.UserIsPrompt, e.Type == "user" && e.ToolResult:
-			return registry.StatusThinking, e.At
-		case e.Type == "assistant" && e.ToolUse:
-			return registry.StatusTool, e.At
-		case turnEnded(e):
-			return registry.StatusDone, e.At
-		}
-	}
-	return registry.StatusIdle, time.Time{}
-}
-
-// DeriveKind is DeriveFromTail as an event Kind, for the tailer to feed
-// through Apply alongside hook events. ok is false when the tail says nothing
-// (only noise so far).
+// DeriveKind returns the status event implied by the most recent relevant
+// entry, and its timestamp, for the tailer to feed through Apply alongside
+// hook events. It cannot produce Waiting - only a permission hook can tell a
+// running tool from one blocked on you. ok is false when the tail says
+// nothing (only noise so far).
 func DeriveKind(entries []Entry) (Kind, time.Time, bool) {
 	for i := len(entries) - 1; i >= 0; i-- {
 		e := entries[i]
@@ -163,16 +145,4 @@ func DeriveKind(entries []Entry) (Kind, time.Time, bool) {
 		}
 	}
 	return 0, time.Time{}, false
-}
-
-// SumUsage totals the token counters across all assistant entries.
-func SumUsage(entries []Entry) Tokens {
-	var t Tokens
-	for _, e := range entries {
-		t.In += e.Usage.In
-		t.Out += e.Usage.Out
-		t.CacheRead += e.Usage.CacheRead
-		t.CacheWrite += e.Usage.CacheWrite
-	}
-	return t
 }

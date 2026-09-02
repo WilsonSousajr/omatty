@@ -117,15 +117,6 @@ func TestParseEntry_CarriesTheMessageID_issue59(t *testing.T) {
 	}
 }
 
-func TestSumUsage_AddsAllFourCountersAcrossEntries_issue39(t *testing.T) {
-	got := watcher.SumUsage(loadFixture(t, "usage.jsonl"))
-
-	want := watcher.Tokens{In: 1110, Out: 221, CacheRead: 332, CacheWrite: 443}
-	if got != want {
-		t.Errorf("SumUsage = %+v, want %+v", got, want)
-	}
-}
-
 func TestParseEntry_DropsNoise_issue19(t *testing.T) {
 	for _, line := range []string{
 		`{"type":"attachment","attachment":{"type":"skill_listing"}}`,
