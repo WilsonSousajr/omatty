@@ -59,6 +59,12 @@ func drive(t *testing.T, m *ui.Model, want string, deadline time.Duration) strin
 			if msg == nil {
 				continue
 			}
+			// bubbletea unpacks a batch itself; the harness must too, or the
+			// terminal's poll inside Init's batch never runs (issue #71).
+			if batch, ok := msg.(tea.BatchMsg); ok {
+				pending = append(pending, batch...)
+				continue
+			}
 			if _, next := m.Update(msg); next != nil {
 				pending = append(pending, next)
 			}
