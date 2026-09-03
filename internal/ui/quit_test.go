@@ -161,3 +161,19 @@ func TestModel_terminalHeightLeavesRoomForFooterAndBorders_issue34(t *testing.T)
 		t.Errorf("terminal height = %d, want 26 (30 minus footer, borders and title)", got)
 	}
 }
+
+// The #34 guard, restated for the review column: with it open, every column
+// of the window is still spent on something that is rendered - sidebar,
+// terminal and its borders, review - and none on a pane that is not.
+func TestModel_EveryColumnIsSpentWithTheReviewOpen_issue21(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	press(m, ctrl('o'))
+	press(m, key('d'))
+
+	if got := ui.SidebarWidth + ui.ReviewWidth(100, true) + fakes["s1"].Width + 2; got != 100 {
+		t.Errorf("sidebar + review + terminal + borders = %d, want the full 100; %d columns are "+
+			"reserved for something that is not rendered", got, 100-got)
+	}
+}

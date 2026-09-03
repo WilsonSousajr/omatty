@@ -9,6 +9,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
@@ -50,6 +51,8 @@ type Deps struct {
 	Clock     func() time.Time
 	Notifier  notify.Notifier
 	TailStart func(registry.Session)
+	// Diff loads a session's changes for the review column (#21).
+	Diff DiffFunc
 }
 
 // Model is omatty's root Bubble Tea model.
@@ -78,9 +81,14 @@ type Model struct {
 	startedAt time.Time
 	hasFocus  bool
 	prompt    Prompt
-	lastErr   string
-	width     int
-	height    int
+	review    ReviewPane
+	// comments is each session's pending review queue, kept across opening and
+	// closing the column; only submit drains it (#22).
+	comments map[string]*review.Comments
+	diff     DiffFunc
+	lastErr  string
+	width    int
+	height   int
 }
 
 // withDefaults fills the optional fields: the wall clock and a silent
@@ -92,25 +100,27 @@ func (d Deps) withDefaults() Deps {
 	if d.Notifier == nil {
 		d.Notifier = notify.Silent{}
 	}
+	if d.Diff == nil {
+		d.Diff = noDiff
+	}
 	return d
 }
 
 // NewModel builds the root model from its dependencies.
 func NewModel(deps Deps) *Model {
 	d := deps.withDefaults()
-	return &Model{
+	m := &Model{
 		state:     d.State,
 		sidebar:   NewSidebar(SidebarRows(d.State, nil)),
 		terms:     d.Terms,
 		router:    keys.NewRouter(Leader),
 		create:    d.Create,
 		start:     d.Start,
-		status:    map[string]watcher.SessionState{},
 		events:    d.Events,
 		clock:     d.Clock,
 		tailStart: d.TailStart,
 		notifier:  d.Notifier,
-		notified:  map[string]time.Time{},
+		diff:      d.Diff,
 		startedAt: d.Clock(),
 		hasFocus:  true,
 		// Until the first WindowSizeMsg arrives the frame is laid out for a
@@ -118,6 +128,17 @@ func NewModel(deps Deps) *Model {
 		width:  DefaultWidth,
 		height: DefaultHeight,
 	}
+	return m.withRuntimeMaps()
+}
+
+// withRuntimeMaps allocates the per-session maps the model fills as it runs:
+// live status, notification times, and each session's queued review comments.
+// They are never nil, so no method needs a nil guard (issue #76).
+func (m *Model) withRuntimeMaps() *Model {
+	m.status = map[string]watcher.SessionState{}
+	m.notified = map[string]time.Time{}
+	m.comments = map[string]*review.Comments{}
+	return m
 }
 
 // Prompt returns the pending new-session input, if any.
@@ -173,19 +194,32 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.onResize(msg)
 	case StatusMsg:
 		return m, m.onStatus(msg)
+	case DiffLoadedMsg:
+		return m, m.onDiffLoaded(msg)
 	case TickMsg:
 		return m, scheduleTick()
+	default:
+		return m, m.onWindowFocus(msg)
+	}
+}
+
+// onWindowFocus records whether omatty itself has the operator's attention,
+// which is what gates notifications, and otherwise broadcasts.
+func (m *Model) onWindowFocus(msg tea.Msg) tea.Cmd {
+	switch msg.(type) {
 	case tea.FocusMsg:
 		m.hasFocus = true
+		return nil
 	case tea.BlurMsg:
 		m.hasFocus = false
+		return nil
 	}
 	// Everything else is emulator traffic. Broadcast it: each bubbleterm
 	// ignores messages from other emulators, and the message that re-arms a
 	// poll must reach the terminal that scheduled it. Unfocused sessions are
 	// pumped too, or they stop reading their PTYs (issue #33). Keys are
 	// deliberately not broadcast - they belong to the focused session only.
-	return m, m.broadcast(msg)
+	return m.broadcast(msg)
 }
 
 // broadcast forwards msg to every terminal and batches whatever they return.
@@ -197,62 +231,6 @@ func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
 		}
 	}
 	return tea.Batch(cmds...)
-}
-
-// onKey applies invariant 1: with the terminal focused every key reaches the
-// PTY except the leader.
-//
-// A key reaches the terminal as the message itself, not as text: bubbleterm
-// does its own key-to-escape translation, so forwarding msg.String() would
-// type the literal word "esc" into Claude.
-func (m *Model) onKey(msg tea.KeyPressMsg) tea.Cmd {
-	m.lastErr = "" // any keypress acknowledges the last error
-	term := m.focusedTerminal()
-	switch m.router.Next(msg.Keystroke(), term != nil) {
-	case keys.ToTerminal:
-		return term.Update(msg)
-	case keys.ToOmatty:
-		return m.command(msg.Keystroke())
-	default: // keys.Swallow - the leader itself
-		return nil
-	}
-}
-
-// command runs an omatty command key, pressed after the leader or while a
-// prompt is open.
-func (m *Model) command(key string) tea.Cmd {
-	// ctrl+c is the unconditional escape hatch, checked before the prompt so
-	// an open prompt cannot trap the operator (issue #28). With a session
-	// focused this is never reached: ctrl+c belongs to Claude, which uses it
-	// to interrupt a turn (invariant 1).
-	if key == "ctrl+c" {
-		return tea.Quit
-	}
-	if m.prompt.Active {
-		return m.onPromptKey(key)
-	}
-	return m.navigate(key)
-}
-
-// navigate runs a command key while no prompt is open.
-func (m *Model) navigate(key string) tea.Cmd {
-	switch key {
-	case "j":
-		return m.moveCursor(m.sidebar.MoveDown)
-	case "k":
-		return m.moveCursor(m.sidebar.MoveUp)
-	case "n":
-		m.prompt = Prompt{Active: true}
-	// Keystroke() spells a shifted letter "shift+N"; the bare "N" is accepted
-	// too because not every terminal reports the modifier.
-	case "shift+N", "N":
-		m.prompt = Prompt{Active: true, Worktree: true}
-	case "r":
-		return m.restartFocused()
-	case "q":
-		return tea.Quit
-	}
-	return nil
 }
 
 // restartFocused relaunches the focused session's process in place (issue
@@ -383,15 +361,15 @@ func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
 	return m.resizeFocused()
 }
 
-// moveCursor moves the sidebar cursor and sizes the terminal it lands on
-// (issue #73).
+// moveCursor moves the sidebar cursor, sizes the terminal it lands on (issue
+// #73) and moves an open review column along with it (#21).
 func (m *Model) moveCursor(move func()) tea.Cmd {
 	move()
-	return m.resizeFocused()
+	return tea.Batch(m.resizeFocused(), m.followSession())
 }
 
 // ptySize is the live embedded-terminal size for the current window.
-func (m *Model) ptySize() (int, int) { return PTYSize(m.width, m.height, false) }
+func (m *Model) ptySize() (int, int) { return PTYSize(m.width, m.height, m.review.Open) }
 
 // resizeFocused sizes the newly focused terminal to the pane. Only the
 // focused terminal follows the window (issue #34), so the one just focused

@@ -37,11 +37,13 @@ func (m *Model) promptLine() string {
 // border is applied, so lipgloss adds precisely one column and row per side
 // and the frame never exceeds the window.
 func (m *Model) View() tea.View {
-	termW, termH := PaneSize(m.width, m.height, false)
+	termW, termH := PaneSize(m.width, m.height, m.review.Open)
 	now := m.clock() // once per frame, so every row ages against the same instant
-	panes := lipgloss.JoinHorizontal(lipgloss.Top,
-		m.renderSidebar(termH, now),
-		m.renderTerminal(termW, termH, now))
+	columns := []string{m.renderSidebar(termH, now), m.renderTerminal(termW, termH, now)}
+	if m.review.Open {
+		columns = append(columns, m.renderReview(ReviewWidth(m.width, true)-2, termH))
+	}
+	panes := lipgloss.JoinHorizontal(lipgloss.Top, columns...)
 	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, panes, m.renderFooter()))
 	v.AltScreen = true
 	v.ReportFocus = true // so FocusMsg/BlurMsg drive notifications
@@ -63,7 +65,9 @@ func (m *Model) renderSidebar(rows int, now time.Time) string {
 func (m *Model) renderTerminal(w, h int, now time.Time) string {
 	if term := m.focusedTerminal(); term != nil {
 		body := fitBlock(strings.Split(term.View(), "\n"), w, h-1)
-		return paneBox(true).Render(m.terminalTitle(w, now) + "\n" + body)
+		// Dimmed while the review column has the keys, so the border says
+		// where a keystroke will land (#21).
+		return paneBox(!m.review.Focused).Render(m.terminalTitle(w, now) + "\n" + body)
 	}
 	lines := []string{""}
 	if m.prompt.Active {
