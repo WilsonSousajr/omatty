@@ -29,7 +29,7 @@ const dupBraceDiff = `diff --git a/x.go b/x.go
 index 1111111..2222222 100644
 --- a/x.go
 +++ b/x.go
-@@ -1,4 +1,4 @@
+@@ -1,3 +1,3 @@
  }
 -old
 +new
