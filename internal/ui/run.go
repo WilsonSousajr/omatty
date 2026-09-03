@@ -38,10 +38,11 @@ func StartTerminals(
 // Run starts every session's terminal, the status watcher, and the TUI, and
 // runs until the user quits. create is called when the operator finishes a
 // new-session prompt; the model starts that session's terminal itself
-// through the same launcher.
+// through the same launcher. diff loads a session's changes for the review
+// column, so ui never reaches git itself (invariant 4, #21).
 func Run(
 	home string, st registry.State, l *supervisor.Launcher, f termwrap.Factory, w, h int,
-	create CreateFunc,
+	create CreateFunc, diff DiffFunc,
 ) error {
 	terms, err := StartTerminals(st, l, f, w, h)
 	if err != nil {
@@ -51,7 +52,7 @@ func Run(
 	watch := watcher.Start(home, st.Sessions, time.Now)
 	defer watch.Close()
 	model := NewModel(Deps{
-		State: st, Terms: terms, Create: create, Start: guardedStarter(l, f),
+		State: st, Terms: terms, Create: create, Start: guardedStarter(l, f), Diff: diff,
 		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(), TailStart: watch.Add,
 	})
 	return runProgram(model, len(terms))
