@@ -37,7 +37,7 @@ func (m *Model) promptLine() string {
 // border is applied, so lipgloss adds precisely one column and row per side
 // and the frame never exceeds the window.
 func (m *Model) View() tea.View {
-	termW, termH := PaneSize(m.width, m.height)
+	termW, termH := PaneSize(m.width, m.height, false)
 	now := m.clock() // once per frame, so every row ages against the same instant
 	panes := lipgloss.JoinHorizontal(lipgloss.Top,
 		m.renderSidebar(termH, now),

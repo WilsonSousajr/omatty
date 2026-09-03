@@ -391,7 +391,7 @@ func (m *Model) moveCursor(move func()) tea.Cmd {
 }
 
 // ptySize is the live embedded-terminal size for the current window.
-func (m *Model) ptySize() (int, int) { return PTYSize(m.width, m.height) }
+func (m *Model) ptySize() (int, int) { return PTYSize(m.width, m.height, false) }
 
 // resizeFocused sizes the newly focused terminal to the pane. Only the
 // focused terminal follows the window (issue #34), so the one just focused

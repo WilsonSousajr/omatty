@@ -20,7 +20,9 @@ import (
 func StartTerminals(
 	st registry.State, l *supervisor.Launcher, f termwrap.Factory, w, h int,
 ) (map[string]termwrap.Terminal, error) {
-	pw, ph := PTYSize(w, h)
+	// The review column is closed at birth, so the terminal gets the full
+	// width beside the sidebar (#21).
+	pw, ph := PTYSize(w, h, false)
 	terms := make(map[string]termwrap.Terminal, len(st.Sessions))
 	for _, sess := range st.Sessions {
 		term, err := l.Start(f, sess, pw, ph)
