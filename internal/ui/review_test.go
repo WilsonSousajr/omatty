@@ -10,6 +10,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // sampleDiff mirrors review's fixture: one modified file, one new file.
@@ -211,5 +212,26 @@ func TestModel_WithoutADiffSourceThePaneExplains_issue21(t *testing.T) {
 
 	if !strings.Contains(m.View().Content, "no diff source") {
 		t.Errorf("pane does not explain the missing dependency:\n%s", m.View().Content)
+	}
+}
+
+// The moment the operator looks at a diff is when claude stops, so a turn
+// ending or a permission prompt reloads an open review - but only for the
+// session the column is showing, and only on a real state change.
+func TestModel_OpenReviewReloadsWhenItsSessionStops_issue21(t *testing.T) {
+	m, _, rec := modelWithDiff(t)
+	leader(m, key('d'))
+
+	for _, ev := range []ui.StatusMsg{
+		{SessionID: "s1", Kind: watcher.TurnEnded, At: fixedNow},
+		{SessionID: "s2", Kind: watcher.TurnEnded, At: fixedNow},
+		{SessionID: "s1", Kind: watcher.UsageUpdated, At: fixedNow},
+	} {
+		_, cmd := m.Update(ev)
+		deliver(m, cmd)
+	}
+
+	if strings.Join(rec.Asked, ",") != "s1,s1" {
+		t.Errorf("diff loaded for %v, want s1 on open and s1 on its own turn end only", rec.Asked)
 	}
 }

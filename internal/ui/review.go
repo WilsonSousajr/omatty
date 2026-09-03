@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // DiffFunc loads a session's diff. Injected so ui never touches git
@@ -158,4 +159,17 @@ func (m *Model) projectRoot(name string) string {
 		}
 	}
 	return ""
+}
+
+// refreshReview reloads the open diff when its session finishes a turn or
+// stops for a question: that is the moment the operator looks at what changed,
+// and a diff from before the turn would be stale on arrival (#21).
+func (m *Model) refreshReview(id string, before, after watcher.Status) tea.Cmd {
+	if !m.review.Open || id != m.review.SessionID || before == after {
+		return nil
+	}
+	if after != watcher.StatusDone && after != watcher.StatusWaiting {
+		return nil
+	}
+	return m.loadDiff(id)
 }
