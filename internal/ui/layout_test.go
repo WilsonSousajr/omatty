@@ -60,8 +60,9 @@ func TestModel_ResizePassesPaneSizeToTheFocusedTerminal_issue35(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	f := fakes["s1"]
-	if f.Width != 90 || f.Height != 37 {
-		t.Errorf("terminal resized to %dx%d, want PaneSize 90x37", f.Width, f.Height)
+	// PaneSize 90x37 minus the title row (issue #75).
+	if f.Width != 90 || f.Height != 36 {
+		t.Errorf("terminal resized to %dx%d, want PTYSize 90x36", f.Width, f.Height)
 	}
 }
 
@@ -104,5 +105,28 @@ func TestModel_NoLineExceedsTheWindowWidth_issue35(t *testing.T) {
 		if w := lipgloss.Width(l); w > 100 {
 			t.Errorf("line %d is %d wide: %q", i, w, l)
 		}
+	}
+}
+
+// Regression, issue #75: the PTY was born and resized at PaneSize, but the
+// pane spends its first row on the title and renders h-1 rows, so claude's
+// bottom line was always clipped.
+func TestPTYSize_IsOneRowShorterThanThePane_issue75(t *testing.T) {
+	w, h := ui.PTYSize(120, 40)
+
+	if w != 90 || h != 36 {
+		t.Errorf("PTYSize(120, 40) = (%d, %d), want (90, 36): PaneSize 90x37 minus the title row", w, h)
+	}
+}
+
+// Regression, issue #74: off a tty bubbletea reports a 0x0 window, which
+// clobbered the 80x24 default and floored every pane to 20x4.
+func TestModel_IgnoresAZeroWindowSize_issue74(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+
+	m.Update(tea.WindowSizeMsg{Width: 0, Height: 0})
+
+	if fakes["s1"].Width != 0 {
+		t.Errorf("a 0x0 window resized the terminal to %dx%d; it must be ignored", fakes["s1"].Width, fakes["s1"].Height)
 	}
 }

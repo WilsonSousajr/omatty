@@ -82,3 +82,18 @@ func TestModel_ctrlOrStartFailureSurfacesAndKeepsTheOldTerminal_issue15(t *testi
 }
 
 var _ tea.Msg = tea.KeyPressMsg{}
+
+// Regression, issue #73: restart birthed at the frozen size and resized
+// afterwards, the very race #51 removed for startup.
+func TestModel_RestartBirthsAtTheCurrentPTYSize_issue73(t *testing.T) {
+	s := &startRecorder{}
+	m, _ := modelWithStarter(t, s)
+	m.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	press(m, ctrl('o'))
+	press(m, key('r'))
+
+	if s.W != 170 || s.H != 56 {
+		t.Errorf("restarted at %dx%d, want PTYSize(200,60) = 170x56", s.W, s.H)
+	}
+}

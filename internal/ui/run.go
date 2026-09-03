@@ -18,14 +18,17 @@ import (
 // (a session finishing several tools) must not block a hook.
 const eventBuffer = 64
 
-// StartTerminals launches one embedded terminal per registered session,
-// keyed by session id.
+// StartTerminals launches one embedded terminal per registered session, keyed
+// by session id. w and h are the WINDOW size; each PTY is born at the pane
+// size, so claude paints at the right width from its first frame instead of
+// racing a later resize (issue #51).
 func StartTerminals(
 	st registry.State, l *supervisor.Launcher, f termwrap.Factory, w, h int,
 ) (map[string]termwrap.Terminal, error) {
+	pw, ph := PTYSize(w, h)
 	terms := make(map[string]termwrap.Terminal, len(st.Sessions))
 	for _, sess := range st.Sessions {
-		term, err := l.Start(f, sess, w, h)
+		term, err := l.Start(f, sess, pw, ph)
 		if err != nil {
 			return nil, fmt.Errorf("ui: starting terminal for session %s: %w", sess.ID, err)
 		}
@@ -47,7 +50,7 @@ func Run(
 		return err
 	}
 	defer closeTerminals(terms)
-	start := guardedStarter(l, f, w, h)
+	start := guardedStarter(l, f)
 	events := make(chan watcher.Event, eventBuffer)
 	closeListener := startListener(home, events)
 	defer closeListener()
@@ -105,10 +108,9 @@ func wireStatus(
 }
 
 // guardedStarter starts a session's terminal wrapped in a panic guard
-// (invariant 6). Used both for the initial sessions and for one created at
-// runtime.
-func guardedStarter(l *supervisor.Launcher, f termwrap.Factory, w, h int) StartFunc {
-	return func(sess registry.Session) (termwrap.Terminal, error) {
+// (invariant 6). The model passes the live pane size on every call.
+func guardedStarter(l *supervisor.Launcher, f termwrap.Factory) StartFunc {
+	return func(sess registry.Session, w, h int) (termwrap.Terminal, error) {
 		term, err := l.Start(f, sess, w, h)
 		if err != nil {
 			return nil, err

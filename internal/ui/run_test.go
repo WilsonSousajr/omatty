@@ -129,3 +129,34 @@ func TestWireStatus_StartsATailerPerSessionAndClosesThemAll_issue19(t *testing.T
 	// not panic on the extended slice.
 	closeTailers()
 }
+
+// Regression, issue #51: the PTY was born at the raw window size (in practice
+// the 80x24 default), so claude painted at the wrong width and never reflowed.
+// StartTerminals must start each terminal at PaneSize(window).
+func TestStartTerminals_BirthsThePTYAtThePaneSize_issue51(t *testing.T) {
+	var gotW, gotH int
+	factory := func(w, h int, _ *exec.Cmd) (termwrap.Terminal, error) {
+		gotW, gotH = w, h
+		return termwrap.NewFake(""), nil
+	}
+
+	_, err := ui.StartTerminals(oneSessionState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir()),
+		factory, 140, 40)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// PaneSize(140, 40) is 110x37; the title row takes one (issue #75).
+	if gotW != 110 || gotH != 36 {
+		t.Errorf("PTY started at %dx%d, want 110x36 (not the 140x40 window)", gotW, gotH)
+	}
+}
+
+// oneSessionState has one session, unlike oneProject, so StartTerminals has
+// something to start.
+func oneSessionState() registry.State {
+	return registry.State{
+		Projects: []registry.Project{{Name: "p", Root: "/p"}},
+		Sessions: []registry.Session{{ID: "s1", Project: "p", Title: "one"}},
+	}
+}

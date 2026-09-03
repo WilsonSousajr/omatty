@@ -33,18 +33,21 @@ func (l *liveCreate) fn(project, title, branch string) (registry.Session, error)
 	return l.Next, nil
 }
 
-// startRecorder stands in for launching a real claude process.
+// startRecorder stands in for launching a real claude process. W and H
+// record the size the last start asked for (issue #73).
 type startRecorder struct {
 	Started []string
+	W, H    int
 	Err     error
 	Term    *termwrap.Fake
 }
 
-func (s *startRecorder) fn(sess registry.Session) (termwrap.Terminal, error) {
+func (s *startRecorder) fn(sess registry.Session, w, h int) (termwrap.Terminal, error) {
 	if s.Err != nil {
 		return nil, s.Err
 	}
 	s.Started = append(s.Started, sess.ID)
+	s.W, s.H = w, h
 	s.Term = termwrap.NewFake("terminal for " + sess.Title)
 	return s.Term, nil
 }
@@ -128,5 +131,20 @@ func TestModel_startFailureSurfacesAndAddsNoRow_issue32(t *testing.T) {
 	}
 	if m.Focused() != "" {
 		t.Errorf("Focused() = %q after a failed start, want no selection", m.Focused())
+	}
+}
+
+// Regression, issue #73: the StartFunc closure froze the pane size at Run
+// time, so a session created after a window resize was born at the startup
+// size and never resized.
+func TestModel_SessionCreatedAfterAResizeIsBornAtTheCurrentPTYSize_issue73(t *testing.T) {
+	c, s := &liveCreate{}, &startRecorder{}
+	m := ui.NewModel(oneProject(), map[string]termwrap.Terminal{}, c.fn, s.fn)
+	m.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	newSession(m, "late")
+
+	if s.W != 170 || s.H != 56 {
+		t.Errorf("born at %dx%d, want PTYSize(200,60) = 170x56, not the startup size", s.W, s.H)
 	}
 }

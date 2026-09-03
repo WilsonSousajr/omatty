@@ -147,14 +147,17 @@ func TestModel_EveryColumnIsSpentOnARenderedPane_issue34(t *testing.T) {
 	}
 }
 
-// The footer below and the borders around cost rows.
+// The footer below, the borders around, and the title row inside cost rows.
+// This asserted 27 until issue #75: the pane's first inner row is the title,
+// so a 27-row PTY had its bottom line clipped on every frame. 26 was always
+// the correct number.
 func TestModel_terminalHeightLeavesRoomForFooterAndBorders_issue34(t *testing.T) {
 	m, fakes := modelWithFakes(t)
 
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
-	// The footer row and two border rows come off the top: 30 - 3 = 27.
-	if got := fakes["s1"].Height; got != 27 {
-		t.Errorf("terminal height = %d, want 27 (30 minus footer and borders)", got)
+	// The footer row, two border rows and the title row come off: 30 - 4 = 26.
+	if got := fakes["s1"].Height; got != 26 {
+		t.Errorf("terminal height = %d, want 26 (30 minus footer, borders and title)", got)
 	}
 }

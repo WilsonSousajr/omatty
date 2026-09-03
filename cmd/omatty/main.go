@@ -30,13 +30,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
 
-// defaultWidth and defaultHeight are used until the terminal reports its real
-// dimensions in the first WindowSizeMsg.
-const (
-	defaultWidth  = 80
-	defaultHeight = 24
-)
-
 func main() {
 	// Invariant 11: the hook runs before anything that can fail or print. A
 	// missing HOME or an unwritable log directory must not reach claude as a
@@ -145,7 +138,8 @@ func runTUI(home string, store *registry.Store) error {
 		return err
 	}
 	launcher := supervisor.NewLauncher("claude", hooksFile, home)
-	return ui.Run(home, state, launcher, termwrap.Start, defaultWidth, defaultHeight,
+	w, h := windowSize()
+	return ui.Run(home, state, launcher, termwrap.Start, w, h,
 		sessionCreator(home, store))
 }
 
@@ -177,6 +171,20 @@ func argOrCwd(args []string) (string, error) {
 // enforceable, hence the explicit writer.
 func report(line string) {
 	_, _ = fmt.Fprintln(os.Stdout, line)
+}
+
+// windowSize is the real terminal size, so sessions are born at the right
+// width (issue #51). Off a tty there is nothing to measure; the default is
+// logged and used, and onResize ignores the 0x0 bubbletea then reports
+// (issue #74).
+func windowSize() (int, int) {
+	w, h, err := termwrap.WindowSize(os.Stdout)
+	if err != nil {
+		slog.Warn("terminal size unavailable; sessions start at the default",
+			"err", err, "width", ui.DefaultWidth, "height", ui.DefaultHeight)
+		return ui.DefaultWidth, ui.DefaultHeight
+	}
+	return w, h
 }
 
 // openLog points slog at a file. Invariant 5: stdout belongs to the TUI, so

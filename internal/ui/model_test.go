@@ -14,7 +14,7 @@ func noCreate(_, title, branch string) (registry.Session, error) {
 	return registry.Session{ID: "created", Title: title, Branch: branch}, nil
 }
 
-func noStart(registry.Session) (termwrap.Terminal, error) { return termwrap.NewFake(""), nil }
+func noStart(registry.Session, int, int) (termwrap.Terminal, error) { return termwrap.NewFake(""), nil }
 
 func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap.Fake) {
 	t.Helper()
@@ -139,8 +139,8 @@ func TestModel_ViewShowsEveryProjectAndTheFocusedSession(t *testing.T) {
 	}
 }
 
-// Only the focused terminal is resized; the others keep their size until
-// they are focused. Sizing itself is PaneSize, tested under issue #35.
+// Only the focused terminal is resized on a window change; the others catch
+// up when focused (issue #73). Sizing itself is PTYSize, tested under #35/#75.
 func TestModel_WindowResizeReachesOnlyTheFocusedTerminal(t *testing.T) {
 	m, fakes := modelWithFakes(t)
 
@@ -165,5 +165,21 @@ func TestModel_NoSessionsRendersWithoutPanicking(t *testing.T) {
 	}
 	if m.View().Content == "" {
 		t.Error("View() is empty on an empty registry, want at least a hint")
+	}
+}
+
+// Regression, issue #73: only the focused terminal tracked the window, and a
+// focus change did not resize the terminal just focused, so j/k onto a
+// session showed claude painted at its birth width inside a wider box - the
+// #51 symptom again.
+func TestModel_FocusChangeResizesTheNewlyFocusedTerminal_issue73(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	press(m, ctrl('o'))
+	press(m, key('j'))
+
+	if f := fakes["s2"]; f.Width != 90 || f.Height != 36 {
+		t.Errorf("newly focused s2 is %dx%d, want PTYSize(120,40) = 90x36", f.Width, f.Height)
 	}
 }
