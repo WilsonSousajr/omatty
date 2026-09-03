@@ -13,15 +13,31 @@ import (
 // than the width the layout had reserved for it, and the frame tore (#21).
 const tabWidth = 4
 
-// renderReview boxes the review column: a title with counts, then the visible
-// window of diff rows with their comments, then the note editor.
+// renderReview boxes the review column: a title, then whichever view is
+// showing - diff rows with their comments and the note editor, the worktree
+// tree, or one file's preview (#21, #24).
 func (m *Model) renderReview(w, h int) string {
 	lines := []string{headerStyle.Render(fitLine(m.reviewTitle(), w))}
-	lines = append(lines, m.reviewBody(w, h-1)...)
+	switch m.review.View {
+	case ViewTree:
+		lines = append(lines, m.renderTree(w, h-1)...)
+	case ViewPreview:
+		lines = append(lines, m.renderPreview(w, h-1)...)
+	default:
+		lines = append(lines, m.reviewBody(w, h-1)...)
+	}
 	return paneBox(m.review.Focused).Render(fitBlock(lines, w, h))
 }
 
+// reviewTitle names what the column is showing, so a glance at the top row
+// says which of the three views has the keys.
 func (m *Model) reviewTitle() string {
+	switch m.review.View {
+	case ViewTree:
+		return "files · " + m.sessionTitle(m.review.SessionID)
+	case ViewPreview:
+		return m.review.Preview.Path
+	}
 	return fmt.Sprintf("diff · %d files · %d comments",
 		len(m.review.Diff.Files), m.commentsFor(m.review.SessionID).Len())
 }

@@ -89,6 +89,18 @@ func (t *Tree) Visible() []TreeNode {
 	return out
 }
 
+// Retouch reapplies the touched set to an existing listing, keeping both the
+// shape and the collapse state. The worktree listing and the diff are loaded
+// independently and `git ls-files` returns first, so whichever arrives second
+// must update the tree rather than rebuild it under the cursor (#24).
+//
+//	tree.Retouch(map[string]bool{"internal/ui/model.go": true})
+func (t *Tree) Retouch(touched map[string]bool) {
+	for i, n := range t.nodes {
+		t.nodes[i].Touched = touchedUnder(n.Path, n.IsDir, touched)
+	}
+}
+
 // Toggle collapses or expands the directory at path; files are ignored, so
 // enter on a file is free to mean something else.
 func (t *Tree) Toggle(path string) {

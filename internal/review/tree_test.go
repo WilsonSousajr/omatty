@@ -73,6 +73,27 @@ func TestTree_CollapsingADirectoryLeavesAPrefixSiblingVisible_issue24(t *testing
 	}
 }
 
+// The listing arrives before the diff, so the marks land on a tree the
+// operator may already have folded.
+func TestTree_RetouchMarksFilesWithoutLosingTheCollapseState_issue24(t *testing.T) {
+	tr := review.NewTree([]string{"a/b.go", "e.go"}, nil)
+	tr.Toggle("a")
+
+	tr.Retouch(map[string]bool{"a/b.go": true})
+
+	if got := names(tr.Visible()); got != "a/*|e.go" {
+		t.Errorf("Visible() = %s, want a/*|e.go: marked but still folded", got)
+	}
+	tr.Toggle("a")
+	if got := names(tr.Visible()); got != "a/*| b.go*|e.go" {
+		t.Errorf("Visible() = %s, want the file marked too", got)
+	}
+	tr.Retouch(nil)
+	if got := names(tr.Visible()); got != "a/| b.go|e.go" {
+		t.Errorf("Visible() = %s, want no marks after an empty diff", got)
+	}
+}
+
 func TestNewTree_NoPathsIsAnEmptyListing_issue24(t *testing.T) {
 	if got := review.NewTree(nil, nil).Visible(); len(got) != 0 {
 		t.Errorf("Visible() = %v, want none", got)
