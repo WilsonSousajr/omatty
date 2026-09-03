@@ -32,7 +32,7 @@ func (r *recordCreate) fn(project, title, branch string) (registry.Session, erro
 func modelWithCreate(t *testing.T, c *recordCreate) (*ui.Model, map[string]*termwrap.Fake) {
 	t.Helper()
 	terms, fakes := fakeTerms(t)
-	return ui.NewModel(twoProjectState(), terms, c.fn, noStart), fakes
+	return ui.NewModel(ui.Deps{State: twoProjectState(), Terms: terms, Create: c.fn, Start: noStart}), fakes
 }
 
 func TestModel_leaderNOpensAWorktreePrompt(t *testing.T) {

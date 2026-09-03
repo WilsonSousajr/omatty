@@ -5,6 +5,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 func twoProjectState() registry.State {
@@ -22,8 +23,8 @@ func twoProjectState() registry.State {
 }
 
 func TestSidebarRows_GroupsSessionsUnderTheirProject(t *testing.T) {
-	rows := ui.SidebarRows(twoProjectState(), map[string]registry.Status{
-		"s2": registry.StatusThinking,
+	rows := ui.SidebarRows(twoProjectState(), map[string]watcher.Status{
+		"s2": watcher.StatusThinking,
 	})
 
 	want := []string{"omatty", "s1", "s2", "api-svc", "s3"}
@@ -39,12 +40,12 @@ func TestSidebarRows_GroupsSessionsUnderTheirProject(t *testing.T) {
 			t.Errorf("row %d = %q, want %q", i, got, w)
 		}
 	}
-	if rows[2].Status != registry.StatusThinking {
-		t.Errorf("row 2 status = %q, want %q", rows[2].Status, registry.StatusThinking)
+	if rows[2].Status != watcher.StatusThinking {
+		t.Errorf("row 2 status = %q, want %q", rows[2].Status, watcher.StatusThinking)
 	}
-	if rows[1].Status != registry.StatusIdle {
+	if rows[1].Status != watcher.StatusIdle {
 		t.Errorf("row 1 status = %q, want %q for an unreported session",
-			rows[1].Status, registry.StatusIdle)
+			rows[1].Status, watcher.StatusIdle)
 	}
 }
 

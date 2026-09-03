@@ -9,8 +9,6 @@ package watcher
 
 import (
 	"time"
-
-	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // Kind is what happened to a session.
@@ -46,28 +44,27 @@ type Event struct {
 	SessionID string
 	Kind      Kind
 	At        time.Time
-	Tool      string // ToolStarted: the tool name
 	Tokens    Tokens // UsageUpdated: cumulative totals
 }
 
 // SessionState is what the sidebar shows for a session.
 type SessionState struct {
-	Status registry.Status
+	Status Status
 	At     time.Time // when Status was last set; drives the age and newer-wins
 	Tokens Tokens
 }
 
 // statusFor maps a status-changing Kind to its status. UsageUpdated is absent
 // on purpose: it is handled separately so it never regresses a live status.
-var statusFor = map[Kind]registry.Status{
-	SessionStarted:      registry.StatusIdle,
-	PromptSubmitted:     registry.StatusThinking,
-	ToolFinished:        registry.StatusThinking,
-	ToolStarted:         registry.StatusTool,
-	PermissionRequested: registry.StatusWaiting,
-	TurnEnded:           registry.StatusDone,
-	Idle:                registry.StatusDone,
-	SessionEnded:        registry.StatusExited,
+var statusFor = map[Kind]Status{
+	SessionStarted:      StatusIdle,
+	PromptSubmitted:     StatusThinking,
+	ToolFinished:        StatusThinking,
+	ToolStarted:         StatusTool,
+	PermissionRequested: StatusWaiting,
+	TurnEnded:           StatusDone,
+	Idle:                StatusDone,
+	SessionEnded:        StatusExited,
 }
 
 // Apply folds an event into a session's state. Tokens update regardless of

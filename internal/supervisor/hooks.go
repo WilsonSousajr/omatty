@@ -6,7 +6,32 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/WilsonSousajr/omatty/internal/hooks"
+	"github.com/WilsonSousajr/omatty/internal/paths"
 )
+
+// InstallHooks regenerates ~/.omatty/hooks.json for the running binary and
+// returns its path. It runs before any session starts: claude refuses
+// --settings on a missing file (issue #31) and the binary path moves with
+// `go install`. It was four steps of logic in cmd (invariant 10, issue #79).
+//
+//	hooksFile, err := supervisor.InstallHooks(home, watcher.HookEventNames())
+func InstallHooks(home string, eventNames []string) (string, error) {
+	bin, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("supervisor: locating the omatty binary: %w", err)
+	}
+	content, err := hooks.Render(bin, eventNames)
+	if err != nil {
+		return "", fmt.Errorf("supervisor: rendering hooks for %q: %w", bin, err)
+	}
+	path := paths.HooksFile(home)
+	if err := WriteHooksFile(path, content); err != nil {
+		return "", err
+	}
+	return path, nil
+}
 
 // WriteHooksFile writes omatty's settings file, overwriting any existing one.
 //

@@ -70,7 +70,7 @@ func newSession(m *ui.Model, title string) {
 // screen - the display fell back to "no sessions".
 func TestModel_createdSessionAppearsImmediately_issue32(t *testing.T) {
 	c, s := &liveCreate{}, &startRecorder{}
-	m := ui.NewModel(oneProject(), map[string]termwrap.Terminal{}, c.fn, s.fn)
+	m := ui.NewModel(ui.Deps{State: oneProject(), Terms: map[string]termwrap.Terminal{}, Create: c.fn, Start: s.fn})
 
 	newSession(m, "test")
 
@@ -86,7 +86,7 @@ func TestModel_createdSessionAppearsImmediately_issue32(t *testing.T) {
 // A session with no terminal would be a row you cannot focus.
 func TestModel_createdSessionGetsATerminal_issue32(t *testing.T) {
 	c, s := &liveCreate{}, &startRecorder{}
-	m := ui.NewModel(oneProject(), map[string]termwrap.Terminal{}, c.fn, s.fn)
+	m := ui.NewModel(ui.Deps{State: oneProject(), Terms: map[string]termwrap.Terminal{}, Create: c.fn, Start: s.fn})
 
 	newSession(m, "test")
 
@@ -103,7 +103,7 @@ func TestModel_createdSessionGetsATerminal_issue32(t *testing.T) {
 
 func TestModel_secondSessionAlsoAppears_issue32(t *testing.T) {
 	c, s := &liveCreate{}, &startRecorder{}
-	m := ui.NewModel(oneProject(), map[string]termwrap.Terminal{}, c.fn, s.fn)
+	m := ui.NewModel(ui.Deps{State: oneProject(), Terms: map[string]termwrap.Terminal{}, Create: c.fn, Start: s.fn})
 
 	newSession(m, "first")
 	newSession(m, "second")
@@ -121,7 +121,7 @@ func TestModel_secondSessionAlsoAppears_issue32(t *testing.T) {
 func TestModel_startFailureSurfacesAndAddsNoRow_issue32(t *testing.T) {
 	c := &liveCreate{}
 	s := &startRecorder{Err: errors.New("pty exhausted")}
-	m := ui.NewModel(oneProject(), map[string]termwrap.Terminal{}, c.fn, s.fn)
+	m := ui.NewModel(ui.Deps{State: oneProject(), Terms: map[string]termwrap.Terminal{}, Create: c.fn, Start: s.fn})
 
 	newSession(m, "doomed")
 
@@ -139,7 +139,7 @@ func TestModel_startFailureSurfacesAndAddsNoRow_issue32(t *testing.T) {
 // size and never resized.
 func TestModel_SessionCreatedAfterAResizeIsBornAtTheCurrentPTYSize_issue73(t *testing.T) {
 	c, s := &liveCreate{}, &startRecorder{}
-	m := ui.NewModel(oneProject(), map[string]termwrap.Terminal{}, c.fn, s.fn)
+	m := ui.NewModel(ui.Deps{State: oneProject(), Terms: map[string]termwrap.Terminal{}, Create: c.fn, Start: s.fn})
 	m.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
 
 	newSession(m, "late")

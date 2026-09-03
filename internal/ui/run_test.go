@@ -3,16 +3,13 @@ package ui_test
 import (
 	"errors"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 func TestStartTerminals_OnePerSessionInItsOwnDirectory(t *testing.T) {
@@ -93,41 +90,6 @@ func TestStartTerminals_WrapsEveryTerminalInAGuard(t *testing.T) {
 			t.Errorf("session %s got %T, want a *termwrap.Guard", id, term)
 		}
 	}
-}
-
-func TestStartTailers_OnePerSession_issue19(t *testing.T) {
-	var started []string
-	tail := func(sess registry.Session) *watcher.Tailer {
-		started = append(started, sess.ID)
-		// A tailer over a path that will never exist is harmless; Poll no-ops.
-		return watcher.Tail(sess.ID, filepath.Join(t.TempDir(), sess.ID), make(chan watcher.Event, 1), time.Now, time.Hour)
-	}
-
-	tailers := ui.StartTailers(twoProjectState(), tail)
-	for _, tl := range tailers {
-		tl.Close()
-	}
-
-	if len(started) != 3 || len(tailers) != 3 {
-		t.Errorf("started %v (%d tailers), want one per session (3)", started, len(tailers))
-	}
-}
-
-func TestWireStatus_StartsATailerPerSessionAndClosesThemAll_issue19(t *testing.T) {
-	home := t.TempDir()
-	events := make(chan watcher.Event, 8)
-	terms := map[string]termwrap.Terminal{}
-
-	m, closeTailers := ui.WireStatusForTest(home, twoProjectState(), terms,
-		noCreate, noStart, events)
-	defer closeTailers()
-
-	if m == nil {
-		t.Fatal("wireStatus returned no model")
-	}
-	// A session created at runtime must also get a tailer; closeTailers must
-	// not panic on the extended slice.
-	closeTailers()
 }
 
 // Regression, issue #51: the PTY was born at the raw window size (in practice

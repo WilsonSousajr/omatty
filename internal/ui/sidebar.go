@@ -1,22 +1,25 @@
 // Package ui renders omatty. It is the only package that imports bubbletea.
 package ui
 
-import "github.com/WilsonSousajr/omatty/internal/registry"
+import (
+	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
+)
 
 // Row is one line in the sidebar: a project header, or a session under it.
 // Session is nil on a header row.
 type Row struct {
 	Project string
 	Session *registry.Session
-	Status  registry.Status
+	Status  watcher.Status
 }
 
 // SidebarRows flattens state into display order: each project followed by
 // its own sessions, projects in registration order. Sessions with no
 // reported status render as idle.
 //
-//	rows := ui.SidebarRows(state, map[string]registry.Status{"s2": registry.StatusThinking})
-func SidebarRows(st registry.State, status map[string]registry.Status) []Row {
+//	rows := ui.SidebarRows(state, map[string]watcher.Status{"s2": watcher.StatusThinking})
+func SidebarRows(st registry.State, status map[string]watcher.Status) []Row {
 	rows := make([]Row, 0, len(st.Projects)+len(st.Sessions))
 	for _, p := range st.Projects {
 		rows = append(rows, Row{Project: p.Name})
@@ -27,7 +30,7 @@ func SidebarRows(st registry.State, status map[string]registry.Status) []Row {
 
 // sessionRows indexes st.Sessions rather than ranging by value, so each Row
 // points at its own session instead of aliasing the loop variable.
-func sessionRows(st registry.State, project string, status map[string]registry.Status) []Row {
+func sessionRows(st registry.State, project string, status map[string]watcher.Status) []Row {
 	var rows []Row
 	for i := range st.Sessions {
 		sess := &st.Sessions[i]
@@ -36,7 +39,7 @@ func sessionRows(st registry.State, project string, status map[string]registry.S
 		}
 		s, ok := status[sess.ID]
 		if !ok {
-			s = registry.StatusIdle
+			s = watcher.StatusIdle
 		}
 		rows = append(rows, Row{Project: project, Session: sess, Status: s})
 	}

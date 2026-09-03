@@ -4,7 +4,7 @@ import (
 	"image/color"
 
 	"charm.land/lipgloss/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // Palette. ANSI 256 indices so it degrades sanely on 16-colour terminals.
@@ -16,13 +16,13 @@ var (
 )
 
 // statusColors gives each status a colour; the glyph alone is hard to scan.
-var statusColors = map[registry.Status]color.Color{
-	registry.StatusThinking: lipgloss.Color("214"), // amber
-	registry.StatusTool:     lipgloss.Color("39"),  // blue
-	registry.StatusWaiting:  lipgloss.Color("203"), // red - needs you
-	registry.StatusDone:     lipgloss.Color("78"),  // green
-	registry.StatusError:    lipgloss.Color("196"),
-	registry.StatusExited:   lipgloss.Color("240"),
+var statusColors = map[watcher.Status]color.Color{
+	watcher.StatusThinking: lipgloss.Color("214"), // amber
+	watcher.StatusTool:     lipgloss.Color("39"),  // blue
+	watcher.StatusWaiting:  lipgloss.Color("203"), // red - needs you
+	watcher.StatusDone:     lipgloss.Color("78"),  // green
+	watcher.StatusError:    lipgloss.Color("196"),
+	watcher.StatusExited:   lipgloss.Color("240"),
 }
 
 // paneBox draws a rounded border; focused panes are coloured, others grey.
@@ -35,7 +35,7 @@ func paneBox(focused bool) lipgloss.Style {
 }
 
 // glyphStyle colours a status glyph.
-func glyphStyle(s registry.Status) lipgloss.Style {
+func glyphStyle(s watcher.Status) lipgloss.Style {
 	if c, ok := statusColors[s]; ok {
 		return lipgloss.NewStyle().Foreground(c)
 	}
@@ -48,3 +48,17 @@ var (
 	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)
 )
+
+// statusGlyphs pairs each status with its one-column marker; a status not
+// listed renders "-".
+var statusGlyphs = map[watcher.Status]string{
+	watcher.StatusThinking: "*", watcher.StatusTool: "@", watcher.StatusWaiting: "!",
+	watcher.StatusDone: "+", watcher.StatusError: "x", watcher.StatusExited: "∅",
+}
+
+func statusGlyph(s watcher.Status) string {
+	if g, ok := statusGlyphs[s]; ok {
+		return g
+	}
+	return "-"
+}

@@ -27,7 +27,7 @@ func TestModel_RendersRealProcessOutputThroughTheModel_issue33(t *testing.T) {
 		Projects: []registry.Project{{Name: "p", Root: "/p"}},
 		Sessions: []registry.Session{{ID: "s1", Project: "p", Title: "one"}},
 	}
-	m := ui.NewModel(st, map[string]termwrap.Terminal{"s1": term}, noCreate, noStart)
+	m := ui.NewModel(ui.Deps{State: st, Terms: map[string]termwrap.Terminal{"s1": term}, Create: noCreate, Start: noStart})
 
 	if got := drive(t, m, "omatty-pumped", 5*time.Second); !strings.Contains(got, "omatty-pumped") {
 		t.Errorf("the model never rendered the process output.\ngot:\n%q", got)

@@ -14,7 +14,7 @@ import (
 func modelWithStarter(t *testing.T, s *startRecorder) (*ui.Model, map[string]*termwrap.Fake) {
 	t.Helper()
 	terms, fakes := fakeTerms(t)
-	return ui.NewModel(twoProjectState(), terms, noCreate, s.fn), fakes
+	return ui.NewModel(ui.Deps{State: twoProjectState(), Terms: terms, Create: noCreate, Start: s.fn}), fakes
 }
 
 // Regression, issue #15: the crash frame has told the operator to press
@@ -49,7 +49,7 @@ func TestModel_ctrlOrRestartsTheFocusedSession_issue15(t *testing.T) {
 
 func TestModel_ctrlOrWithNoSessionIsHarmless_issue15(t *testing.T) {
 	s := &startRecorder{}
-	m := ui.NewModel(registry.State{}, map[string]termwrap.Terminal{}, noCreate, s.fn)
+	m := ui.NewModel(ui.Deps{State: registry.State{}, Terms: map[string]termwrap.Terminal{}, Create: noCreate, Start: s.fn})
 
 	press(m, ctrl('o'))
 	press(m, key('r'))

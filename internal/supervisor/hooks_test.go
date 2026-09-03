@@ -6,8 +6,30 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 )
+
+// The bootstrap used to live in cmd, outside the coverage gate, with no test
+// (issue #79). It must name the running binary, shell-quoted (#56), and
+// register the events it was given.
+func TestInstallHooks_WritesTheRunningBinaryPath_issue79(t *testing.T) {
+	home := t.TempDir()
+
+	path, err := supervisor.InstallHooks(home, []string{"Stop"})
+	if err != nil {
+		t.Fatalf("InstallHooks() error = %v", err)
+	}
+
+	if path != paths.HooksFile(home) {
+		t.Errorf("path = %q, want %q", path, paths.HooksFile(home))
+	}
+	exe, _ := os.Executable()
+	got, _ := os.ReadFile(path)
+	if !strings.Contains(string(got), "'"+exe+"' hook") || !strings.Contains(string(got), `"Stop"`) {
+		t.Errorf("hooks.json does not name the running binary and the Stop event:\n%s", got)
+	}
+}
 
 func TestWriteHooksFile_CreatesTheFileAndParentDir_issue17(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "hooks.json")

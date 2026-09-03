@@ -30,10 +30,16 @@ func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap
 	return terms, fakes
 }
 
+// baseDeps is the required half of ui.Deps with inert fakes; tests add the
+// optional fields they exercise.
+func baseDeps(st registry.State, terms map[string]termwrap.Terminal) ui.Deps {
+	return ui.Deps{State: st, Terms: terms, Create: noCreate, Start: noStart}
+}
+
 func modelWithFakes(t *testing.T) (*ui.Model, map[string]*termwrap.Fake) {
 	t.Helper()
 	terms, fakes := fakeTerms(t)
-	return ui.NewModel(twoProjectState(), terms, noCreate, noStart), fakes
+	return ui.NewModel(baseDeps(twoProjectState(), terms)), fakes
 }
 
 func press(m *ui.Model, k tea.KeyPressMsg) { m.Update(k) }
@@ -155,7 +161,7 @@ func TestModel_WindowResizeReachesOnlyTheFocusedTerminal(t *testing.T) {
 }
 
 func TestModel_NoSessionsRendersWithoutPanicking(t *testing.T) {
-	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate, noStart)
+	m := ui.NewModel(ui.Deps{State: emptyState(), Terms: map[string]termwrap.Terminal{}, Create: noCreate, Start: noStart})
 
 	press(m, special(tea.KeyEscape))
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})

@@ -3,11 +3,9 @@ package ui
 import (
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -36,9 +34,27 @@ type Prompt struct {
 	Buffer   string
 }
 
+// Deps is everything a Model needs. Constructor injection, so no field is
+// set after the fact and no method needs a nil guard (issue #76). The zero
+// value of an optional field means: no status stream, the wall clock, a
+// silent notifier, no tailer for runtime sessions.
+//
+//	m := ui.NewModel(ui.Deps{State: st, Terms: terms, Create: create, Start: start,
+//	        Events: w.Events(), Clock: time.Now, Notifier: notify.New(), TailStart: w.Add})
+type Deps struct {
+	State     registry.State
+	Terms     map[string]termwrap.Terminal
+	Create    CreateFunc
+	Start     StartFunc
+	Events    <-chan watcher.Event
+	Clock     func() time.Time
+	Notifier  notify.Notifier
+	TailStart func(registry.Session)
+}
+
 // Model is omatty's root Bubble Tea model.
 //
-//	m := ui.NewModel(state, terms, create)
+//	m := ui.NewModel(ui.Deps{State: state, Terms: terms, Create: create, Start: start})
 //	tea.NewProgram(m).Run()
 type Model struct {
 	// state is held so a session created at runtime can be folded in and the
@@ -67,27 +83,38 @@ type Model struct {
 	height    int
 }
 
-// NewModel builds the root model over a registered state and one Terminal
-// per session id.
-func NewModel(
-	st registry.State, terms map[string]termwrap.Terminal,
-	create CreateFunc, start StartFunc,
-) *Model {
+// withDefaults fills the optional fields: the wall clock and a silent
+// notifier, so no method needs a nil guard.
+func (d Deps) withDefaults() Deps {
+	if d.Clock == nil {
+		d.Clock = time.Now
+	}
+	if d.Notifier == nil {
+		d.Notifier = notify.Silent{}
+	}
+	return d
+}
+
+// NewModel builds the root model from its dependencies.
+func NewModel(deps Deps) *Model {
+	d := deps.withDefaults()
 	return &Model{
-		state:     st,
-		sidebar:   NewSidebar(SidebarRows(st, nil)),
-		terms:     terms,
+		state:     d.State,
+		sidebar:   NewSidebar(SidebarRows(d.State, nil)),
+		terms:     d.Terms,
 		router:    keys.NewRouter(Leader),
-		create:    create,
-		start:     start,
+		create:    d.Create,
+		start:     d.Start,
 		status:    map[string]watcher.SessionState{},
-		clock:     time.Now,
+		events:    d.Events,
+		clock:     d.Clock,
+		tailStart: d.TailStart,
+		notifier:  d.Notifier,
 		notified:  map[string]time.Time{},
-		startedAt: time.Now(),
+		startedAt: d.Clock(),
 		hasFocus:  true,
 		// Until the first WindowSizeMsg arrives the frame is laid out for a
-		// conventional terminal rather than a 0x0 one, which would floor every
-		// pane and truncate the text in it.
+		// conventional terminal rather than a 0x0 one (issue #74).
 		width:  DefaultWidth,
 		height: DefaultHeight,
 	}
@@ -95,48 +122,6 @@ func NewModel(
 
 // Prompt returns the pending new-session input, if any.
 func (m *Model) Prompt() Prompt { return m.prompt }
-
-// StatusMsg carries one watcher event into the model's Update loop.
-type StatusMsg watcher.Event
-
-// TickMsg is the once-a-second heartbeat that re-renders the frame, so a
-// quiet session's age keeps counting (issue #71). Exported so tests can send
-// one.
-type TickMsg time.Time
-
-// tickEvery is the age column's resolution; finer buys nothing.
-const tickEvery = time.Second
-
-func scheduleTick() tea.Cmd {
-	return tea.Tick(tickEvery, func(t time.Time) tea.Msg { return TickMsg(t) })
-}
-
-// SetNotifier sets the desktop notifier used when a backgrounded session needs
-// attention. Absent, notifications are simply not sent.
-func (m *Model) SetNotifier(n notify.Notifier) { m.notifier = n }
-
-// SetTailStarter registers a callback that starts a transcript tailer for a
-// session created at runtime, so a new session gets status and tokens too.
-func (m *Model) SetTailStarter(start func(registry.Session)) { m.tailStart = start }
-
-// SetEvents attaches the live status stream and the clock the sidebar ages
-// against. Called by Run; tests that exercise status call it too.
-func (m *Model) SetEvents(events <-chan watcher.Event, clock func() time.Time) {
-	m.events = events
-	if clock != nil {
-		m.clock = clock
-	}
-	m.startedAt = m.clock()
-}
-
-// waitForEvent blocks on the next status event and delivers it as a StatusMsg.
-// nil events (a model built without a watcher) simply never fires.
-func (m *Model) waitForEvent() tea.Cmd {
-	if m.events == nil {
-		return nil
-	}
-	return func() tea.Msg { return StatusMsg(<-m.events) }
-}
 
 // Focused returns the selected session's id, or "" when none is selected.
 func (m *Model) Focused() string {
@@ -165,7 +150,7 @@ func (m *Model) SelectedProject() string {
 // bubbleterm.Init returns a self-rescheduling blocking poll; without it no
 // terminal ever reads anything and every pane stays blank (issue #33).
 func (m *Model) Init() tea.Cmd {
-	cmds := make([]tea.Cmd, 0, len(m.terms)+1)
+	cmds := make([]tea.Cmd, 0, len(m.terms)+2)
 	for _, term := range m.terms {
 		if cmd := term.Init(); cmd != nil {
 			cmds = append(cmds, cmd)
@@ -201,101 +186,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// pumped too, or they stop reading their PTYs (issue #33). Keys are
 	// deliberately not broadcast - they belong to the focused session only.
 	return m, m.broadcast(msg)
-}
-
-// onStatus folds a watcher event into the session's state and re-arms the
-// wait. Newer-wins lives in watcher.Apply; the model just stores the result.
-// A hook can name any session id; only registered ones may grow the status
-// map or reach the operator's notifications (issue #69).
-func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
-	e := watcher.Event(ev)
-	if !m.knownSession(e.SessionID) {
-		return m.waitForEvent()
-	}
-	before := m.status[e.SessionID].Status
-	after := watcher.Apply(m.status[e.SessionID], e)
-	m.status[e.SessionID] = after
-	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
-	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after.Status))
-}
-
-func (m *Model) knownSession(id string) bool {
-	for i := range m.state.Sessions {
-		if m.state.Sessions[i].ID == id {
-			return true
-		}
-	}
-	return false
-}
-
-// notifyCooldown is the least time between two notifications for one
-// session, so a permission loop cannot storm the desktop (issue #69).
-const notifyCooldown = 5 * time.Second
-
-// maybeNotify returns a command that posts a desktop notification when a
-// session enters a state that needs the operator while omatty is
-// backgrounded. It is a command, off the Update goroutine, because osascript
-// takes tens of milliseconds (issue #69). Suppressed: a repeated state, a
-// transition older than this run (issue #70), and a second notification for
-// the same session within notifyCooldown.
-func (m *Model) maybeNotify(e watcher.Event, before, after registry.Status) tea.Cmd {
-	if m.notifier == nil || m.hasFocus || before == after || e.At.Before(m.startedAt) {
-		return nil
-	}
-	body, ok := needsYou(m.sessionTitle(e.SessionID), after)
-	if !ok || !m.cooldownElapsed(e.SessionID) {
-		return nil
-	}
-	return notifyCmd(m.notifier, body)
-}
-
-func (m *Model) cooldownElapsed(id string) bool {
-	now := m.clock()
-	if last, ok := m.notified[id]; ok && now.Sub(last) < notifyCooldown {
-		return false
-	}
-	m.notified[id] = now
-	return true
-}
-
-func notifyCmd(n notify.Notifier, body string) tea.Cmd {
-	return func() tea.Msg {
-		if err := n.Notify("omatty", body); err != nil {
-			slog.Warn("desktop notification failed", "body", body, "err", err)
-		}
-		return nil
-	}
-}
-
-func (m *Model) sessionTitle(id string) string {
-	for i := range m.state.Sessions {
-		if m.state.Sessions[i].ID == id {
-			return m.state.Sessions[i].Title
-		}
-	}
-	return id
-}
-
-// needsYou returns the notification body for a status that wants attention.
-func needsYou(title string, status registry.Status) (string, bool) {
-	switch status {
-	case registry.StatusWaiting:
-		return title + " needs you", true
-	case registry.StatusDone:
-		return title + " finished", true
-	default:
-		return "", false
-	}
-}
-
-// statusMap projects the per-session state down to the status the sidebar
-// needs.
-func (m *Model) statusMap() map[string]registry.Status {
-	out := make(map[string]registry.Status, len(m.status))
-	for id, st := range m.status {
-		out[id] = st.Status
-	}
-	return out
 }
 
 // broadcast forwards msg to every terminal and batches whatever they return.
@@ -526,171 +416,4 @@ func (m *Model) focusedTerminal() termwrap.Terminal {
 		return nil
 	}
 	return m.terms[id]
-}
-
-// footer is the keymap, rendered on every frame. It stays visible while a
-// session fills the pane because that is exactly the state where ctrl+c
-// belongs to Claude and `ctrl+o q` is the only exit (issues #28, #30).
-const footer = Leader + " j/k switch  " + Leader + " n new  " +
-	Leader + " N worktree  " + Leader + " r restart  " + Leader + " q quit"
-
-// emptyStateHint names the next useful action. With no projects registered,
-// creating a session can only fail, so it points at `omatty add` instead.
-func (m *Model) emptyStateHint() string {
-	if len(m.sidebar.Rows()) == 0 {
-		return "no projects - run `omatty add <dir>` to register one"
-	}
-	return "no sessions - press " + Leader + " n to create one"
-}
-
-// promptLine renders the open new-session prompt.
-func (m *Model) promptLine() string {
-	label := "new session title"
-	if m.prompt.Worktree {
-		label = "new branch (worktree)"
-	}
-	return label + ": " + m.prompt.Buffer + "_"
-}
-
-// View lays the sidebar beside the focused session's terminal, with the
-// keymap underneath (issue #35). Both boxes are sized exactly before the
-// border is applied, so lipgloss adds precisely one column and row per side
-// and the frame never exceeds the window.
-func (m *Model) View() tea.View {
-	termW, termH := PaneSize(m.width, m.height)
-	now := m.clock() // once per frame, so every row ages against the same instant
-	panes := lipgloss.JoinHorizontal(lipgloss.Top,
-		m.renderSidebar(termH, now),
-		m.renderTerminal(termW, termH, now))
-	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, panes, m.renderFooter()))
-	v.AltScreen = true
-	v.ReportFocus = true // so FocusMsg/BlurMsg drive notifications
-	return v
-}
-
-// renderSidebar boxes the project/session rows at exactly SidebarWidth.
-func (m *Model) renderSidebar(rows int, now time.Time) string {
-	inner := SidebarWidth - 2
-	lines := make([]string, 0, rows)
-	lines = append(lines, headerStyle.Render(padRight("projects", inner)))
-	for _, row := range m.sidebar.Rows() {
-		lines = append(lines, m.renderRow(row, inner, now))
-	}
-	return paneBox(false).Render(fitBlock(lines, inner, rows))
-}
-
-// renderTerminal boxes the focused terminal, or the empty-state guidance.
-func (m *Model) renderTerminal(w, h int, now time.Time) string {
-	if term := m.focusedTerminal(); term != nil {
-		body := fitBlock(strings.Split(term.View(), "\n"), w, h-1)
-		return paneBox(true).Render(m.terminalTitle(w, now) + "\n" + body)
-	}
-	lines := []string{""}
-	if m.prompt.Active {
-		lines = append(lines, m.promptLine())
-	} else {
-		lines = append(lines, m.emptyStateHint())
-	}
-	// With no session focused ctrl+c also quits, which is worth saying because
-	// it is the reflex an operator reaches for first (issue #28).
-	lines = append(lines, "", "ctrl+c or "+Leader+" q to quit")
-	return paneBox(m.prompt.Active).Render(fitBlock(lines, w, h))
-}
-
-// terminalTitle is the header line inside the focused session's box: its
-// title, coloured status, age and cumulative tokens.
-func (m *Model) terminalTitle(w int, now time.Time) string {
-	row, ok := m.sidebar.Selected()
-	if !ok {
-		return padRight("", w)
-	}
-	st := m.status[row.Session.ID]
-	parts := row.Session.Title
-	if st.Status != "" {
-		parts += " · " + glyphStyle(st.Status).Render(statusGlyph(st.Status)+" "+string(st.Status))
-	}
-	if age := AgeString(now, st.At); age != "" {
-		parts += " " + age
-	}
-	if st.Tokens.In+st.Tokens.Out > 0 {
-		parts += " · " + mutedStyle.Render(KString(st.Tokens.In)+" in / "+KString(st.Tokens.Out)+" out")
-	}
-	return headerStyle.Render(fitLine(parts, w))
-}
-
-// renderFooter shows the keymap, or the last error until the next keypress.
-// Errors live here rather than in a pane so they are visible whether or not
-// a session has focus.
-func (m *Model) renderFooter() string {
-	if m.lastErr != "" {
-		return errorStyle.Render(fitLine(" error: "+m.lastErr, m.width))
-	}
-	return footerStyle.Render(padRight(" "+footer, m.width))
-}
-
-// renderRow draws one sidebar line: a project header, or a session with its
-// focus marker and coloured status glyph.
-func (m *Model) renderRow(row Row, width int, now time.Time) string {
-	if row.Session == nil {
-		return mutedStyle.Render(padRight("> "+row.Project, width))
-	}
-	marker := "  "
-	if sel, ok := m.sidebar.Selected(); ok && sel.Session.ID == row.Session.ID {
-		marker = "» "
-	}
-	glyph := glyphStyle(row.Status).Render(statusGlyph(row.Status))
-	age := ""
-	if st, ok := m.status[row.Session.ID]; ok {
-		age = AgeString(now, st.At)
-	}
-	title := padRight(row.Session.Title, width-4-len(age)-1)
-	return marker + glyph + " " + title + " " + mutedStyle.Render(age)
-}
-
-// fitBlock forces lines to exactly width x height so a border lands
-// precisely: short lines are padded, long ones cut, missing rows added.
-func fitBlock(lines []string, width, height int) string {
-	out := make([]string, height)
-	for i := range out {
-		if i < len(lines) {
-			out[i] = fitLine(lines[i], width)
-			continue
-		}
-		out[i] = strings.Repeat(" ", width)
-	}
-	return strings.Join(out, "\n")
-}
-
-func fitLine(s string, width int) string {
-	if lipgloss.Width(s) > width {
-		return lipgloss.NewStyle().MaxWidth(width).Render(s)
-	}
-	return padRight(s, width)
-}
-
-// padRight is ANSI-aware: it measures visible width, not bytes.
-func padRight(s string, width int) string {
-	if n := width - lipgloss.Width(s); n > 0 {
-		return s + strings.Repeat(" ", n)
-	}
-	return s
-}
-
-func statusGlyph(s registry.Status) string {
-	switch s {
-	case registry.StatusThinking:
-		return "*"
-	case registry.StatusTool:
-		return "@"
-	case registry.StatusWaiting:
-		return "!"
-	case registry.StatusDone:
-		return "+"
-	case registry.StatusError:
-		return "x"
-	case registry.StatusExited:
-		return "∅"
-	default:
-		return "-"
-	}
 }

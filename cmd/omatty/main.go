@@ -28,6 +28,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"github.com/WilsonSousajr/omatty/internal/vcs"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 func main() {
@@ -122,19 +123,8 @@ func runTUI(home string, store *registry.Store) error {
 	if err != nil {
 		return err
 	}
-	// Regenerate the hooks file so it names the running binary (paths change
-	// with `go install`). claude also refuses --settings on a missing file
-	// (issue #31), so this must run before any session starts.
-	hooksFile := paths.HooksFile(home)
-	bin, err := os.Executable()
+	hooksFile, err := supervisor.InstallHooks(home, watcher.HookEventNames())
 	if err != nil {
-		return err
-	}
-	content, err := hooks.Render(bin)
-	if err != nil {
-		return err
-	}
-	if err := supervisor.WriteHooksFile(hooksFile, content); err != nil {
 		return err
 	}
 	launcher := supervisor.NewLauncher("claude", hooksFile, home)
