@@ -113,23 +113,6 @@ func TestStartTailers_OnePerSession_issue19(t *testing.T) {
 	}
 }
 
-func TestWireStatus_StartsATailerPerSessionAndClosesThemAll_issue19(t *testing.T) {
-	home := t.TempDir()
-	events := make(chan watcher.Event, 8)
-	terms := map[string]termwrap.Terminal{}
-
-	m, closeTailers := ui.WireStatusForTest(home, twoProjectState(), terms,
-		noCreate, noStart, events)
-	defer closeTailers()
-
-	if m == nil {
-		t.Fatal("wireStatus returned no model")
-	}
-	// A session created at runtime must also get a tailer; closeTailers must
-	// not panic on the extended slice.
-	closeTailers()
-}
-
 // Regression, issue #51: the PTY was born at the raw window size (in practice
 // the 80x24 default), so claude painted at the wrong width and never reflowed.
 // StartTerminals must start each terminal at PaneSize(window).

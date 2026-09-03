@@ -54,7 +54,7 @@ func Run(
 	events := make(chan watcher.Event, eventBuffer)
 	closeListener := startListener(home, events)
 	defer closeListener()
-	model, closeTailers := wireStatus(home, st, terms, create, start, events)
+	model, _, closeTailers := wireStatus(home, st, terms, create, start, events)
 	defer closeTailers()
 	return runProgram(model, len(terms))
 }
@@ -93,18 +93,20 @@ func runProgram(model *Model, sessions int) error {
 }
 
 // wireStatus builds the model and connects it to the live status stream: a
-// tailer per session now, and one per session created at runtime.
+// tailer per session now, and one per session created at runtime. It returns
+// the tailers so a test can count them, and a closer for all of them.
 func wireStatus(
 	home string, st registry.State, terms map[string]termwrap.Terminal,
 	create CreateFunc, start StartFunc, events chan watcher.Event,
-) (*Model, func()) {
+) (*Model, *[]*watcher.Tailer, func()) {
 	tail := tailStarter(home, events)
 	tailers := StartTailers(st, tail)
-	model := NewModel(st, terms, create, start)
-	model.SetEvents(events, time.Now)
-	model.SetNotifier(notify.New())
-	model.SetTailStarter(func(sess registry.Session) { tailers = append(tailers, tail(sess)) })
-	return model, func() { closeAll(tailers) }
+	model := NewModel(Deps{
+		State: st, Terms: terms, Create: create, Start: start,
+		Events: events, Clock: time.Now, Notifier: notify.New(),
+		TailStart: func(sess registry.Session) { tailers = append(tailers, tail(sess)) },
+	})
+	return model, &tailers, func() { closeAll(tailers) }
 }
 
 // guardedStarter starts a session's terminal wrapped in a panic guard
@@ -143,12 +145,4 @@ func closeAll(tailers []*watcher.Tailer) {
 	for _, t := range tailers {
 		t.Close()
 	}
-}
-
-// WireStatusForTest exposes wireStatus to the package's external tests.
-func WireStatusForTest(
-	home string, st registry.State, terms map[string]termwrap.Terminal,
-	create CreateFunc, start StartFunc, events chan watcher.Event,
-) (*Model, func()) {
-	return wireStatus(home, st, terms, create, start, events)
 }

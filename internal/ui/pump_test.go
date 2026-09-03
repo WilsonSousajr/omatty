@@ -73,7 +73,7 @@ func TestModel_KeysAreNotBroadcast_issue33(t *testing.T) {
 // A session created at runtime must be initialised too, or its pane is blank.
 func TestModel_CreatedSessionsTerminalIsInitialised_issue33(t *testing.T) {
 	c, s := &liveCreate{}, &startRecorder{}
-	m := ui.NewModel(oneProject(), map[string]termwrap.Terminal{}, c.fn, s.fn)
+	m := ui.NewModel(ui.Deps{State: oneProject(), Terms: map[string]termwrap.Terminal{}, Create: c.fn, Start: s.fn})
 
 	newSession(m, "test")
 

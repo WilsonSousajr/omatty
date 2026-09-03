@@ -6,7 +6,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
@@ -16,11 +15,26 @@ var fixedNow = time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
 
 func modelWithEvents(t *testing.T) (*ui.Model, chan watcher.Event, map[string]*termwrap.Fake) {
 	t.Helper()
-	m, fakes := modelWithFakes(t)
+	terms, fakes := fakeTerms(t)
 	events := make(chan watcher.Event, 8)
-	m.SetEvents(events, func() time.Time { return fixedNow })
+	d := baseDeps(twoProjectState(), terms)
+	d.Events = events
+	d.Clock = func() time.Time { return fixedNow }
+	m := ui.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
 	return m, events, fakes
+}
+
+// rowOf returns the rendered sidebar line naming title.
+func rowOf(t *testing.T, m *ui.Model, title string) string {
+	t.Helper()
+	for _, line := range strings.Split(m.View().Content, "\n") {
+		if strings.Contains(line, title) {
+			return line
+		}
+	}
+	t.Fatalf("no row for %q:\n%s", title, m.View().Content)
+	return ""
 }
 
 func TestModel_StatusMsgUpdatesTheGlyph_issue20(t *testing.T) {
@@ -28,10 +42,9 @@ func TestModel_StatusMsgUpdatesTheGlyph_issue20(t *testing.T) {
 
 	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PermissionRequested, At: fixedNow})
 
-	// s1 is titled "main"; the waiting glyph must sit on its row.
-	got := m.View().Content
-	if !strings.Contains(got, statusGlyphFor(registry.StatusWaiting)) {
-		t.Errorf("the waiting glyph is not shown after a PermissionRequested event:\n%s", got)
+	// s1 is titled "main"; the waiting glyph "!" must sit on its row.
+	if got := rowOf(t, m, "main"); !strings.Contains(got, "!") {
+		t.Errorf("the waiting glyph is not shown after a PermissionRequested event: %q", got)
 	}
 }
 
@@ -52,8 +65,8 @@ func TestModel_OlderStatusMsgIsIgnored_issue20(t *testing.T) {
 	// A stale "thinking" from before must not overwrite the fresh "waiting".
 	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PromptSubmitted, At: fixedNow.Add(-time.Minute)})
 
-	if !strings.Contains(m.View().Content, statusGlyphFor(registry.StatusWaiting)) {
-		t.Error("an older event overwrote the newer waiting status")
+	if got := rowOf(t, m, "main"); !strings.Contains(got, "!") || strings.Contains(got, "*") {
+		t.Errorf("an older event overwrote the newer waiting status: %q", got)
 	}
 }
 
@@ -79,20 +92,6 @@ func TestModel_HeaderShowsTokens_issue39(t *testing.T) {
 	}
 }
 
-// statusGlyphFor mirrors the model's glyph mapping for assertions.
-func statusGlyphFor(s registry.Status) string {
-	switch s {
-	case registry.StatusWaiting:
-		return "!"
-	case registry.StatusTool:
-		return "@"
-	case registry.StatusThinking:
-		return "*"
-	default:
-		return "-"
-	}
-}
-
 // Regression, issue #71: the age was computed at render time, but nothing
 // triggered a render on a quiet session, so "<1m" stayed on screen for hours.
 func TestModel_TickReArmsItself_issue71(t *testing.T) {
@@ -106,9 +105,24 @@ func TestModel_TickReArmsItself_issue71(t *testing.T) {
 }
 
 func TestModel_InitSchedulesATick_issue71(t *testing.T) {
-	m := ui.NewModel(emptyState(), map[string]termwrap.Terminal{}, noCreate, noStart)
+	m := ui.NewModel(baseDeps(emptyState(), map[string]termwrap.Terminal{}))
 
 	if m.Init() == nil {
 		t.Error("Init scheduled nothing with no terminals; the tick must be there regardless")
+	}
+}
+
+// A model built with only the required dependencies must still handle a
+// status event while blurred: the clock and notifier default (issue #76).
+func TestNewModel_DefaultsTheOptionalDeps_issue76(t *testing.T) {
+	terms, _ := fakeTerms(t)
+	m := ui.NewModel(baseDeps(twoProjectState(), terms))
+	m.Update(tea.BlurMsg{})
+
+	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PermissionRequested, At: time.Now().Add(time.Second)})
+
+	runCmd(cmd) // the silent notifier must not panic
+	if got := rowOf(t, m, "main"); !strings.Contains(got, "!") {
+		t.Errorf("status was not applied with default deps: %q", got)
 	}
 }

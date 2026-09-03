@@ -48,3 +48,17 @@ var (
 	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)
 )
+
+// statusGlyphs pairs each status with its one-column marker; a status not
+// listed renders "-".
+var statusGlyphs = map[registry.Status]string{
+	registry.StatusThinking: "*", registry.StatusTool: "@", registry.StatusWaiting: "!",
+	registry.StatusDone: "+", registry.StatusError: "x", registry.StatusExited: "∅",
+}
+
+func statusGlyph(s registry.Status) string {
+	if g, ok := statusGlyphs[s]; ok {
+		return g
+	}
+	return "-"
+}

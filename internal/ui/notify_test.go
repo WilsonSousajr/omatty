@@ -14,12 +14,14 @@ import (
 // event channel so the command Update returns is the notification alone.
 func modelWithNotifier(t *testing.T) (*ui.Model, *notify.Fake, *time.Time) {
 	t.Helper()
-	m, _ := modelWithFakes(t)
+	terms, _ := fakeTerms(t)
 	now := fixedNow
-	m.SetEvents(nil, func() time.Time { return now })
-	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
 	n := &notify.Fake{}
-	m.SetNotifier(n)
+	d := baseDeps(twoProjectState(), terms)
+	d.Clock = func() time.Time { return now }
+	d.Notifier = n
+	m := ui.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
 	return m, n, &now
 }
 
