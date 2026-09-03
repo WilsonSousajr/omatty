@@ -159,24 +159,3 @@ func (m *Model) projectRoot(name string) string {
 	}
 	return ""
 }
-
-// renderReview boxes the review column. The full renderer, with signs,
-// colours and a scrolled cursor, lands in a later commit.
-func (m *Model) renderReview(w, h int) string {
-	lines := []string{headerStyle.Render(fitLine("diff", w))}
-	if m.review.Err != "" {
-		lines = append(lines, errorStyle.Render(fitLine(m.review.Err, w)))
-	}
-	comments := m.commentsFor(m.review.SessionID).All()
-	for _, e := range m.review.Entries {
-		text := e.Text
-		if e.Kind == review.EntryComment || e.Kind == review.EntryOrphan {
-			text = "  >> " + comments[e.Comment].Note
-		}
-		lines = append(lines, fitLine(text, w))
-	}
-	if m.review.Note.Active {
-		lines = append(lines, fitLine("note: "+m.review.Note.Buffer+"_", w))
-	}
-	return paneBox(m.review.Focused).Render(fitBlock(lines, w, h))
-}
