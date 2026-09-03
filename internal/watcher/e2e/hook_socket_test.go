@@ -4,6 +4,7 @@
 package e2e_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +14,25 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
+
+// omattyBin is the binary under test, built once for the package (issue #80:
+// building it per test cost a second each).
+var omattyBin string
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "om-bin")
+	if err != nil {
+		panic(err)
+	}
+	omattyBin = filepath.Join(dir, "omatty")
+	build := exec.Command("go", "build", "-o", omattyBin, "../../../cmd/omatty")
+	if out, err := build.CombinedOutput(); err != nil {
+		panic(fmt.Sprintf("building omatty: %v\n%s", err, out))
+	}
+	code := m.Run()
+	_ = os.RemoveAll(dir)
+	os.Exit(code)
+}
 
 func TestOmattyHook_DeliversToARealListener(t *testing.T) {
 	bin := buildOmatty(t)
@@ -55,6 +75,61 @@ func TestOmattyHook_ExitsZeroWithNoListener(t *testing.T) {
 	}
 }
 
+// Regression, issue #54: the hook subcommand ran after the log file was
+// opened, so an unwritable ~/.omatty/logs made every hook on the machine
+// exit 1 with two lines on stderr (invariant 11).
+func TestOmattyHook_ExitsZeroWhenTheLogDirIsUnwritable_issue54(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	dir, err := os.MkdirTemp("", "om")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	locked := filepath.Join(dir, ".omatty")
+	if err := os.Mkdir(locked, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chmod(locked, 0o700) }()
+
+	out, err := runHook(t, []string{"HOME=" + dir}, `{"session_id":"x","hook_event_name":"Stop"}`)
+
+	if err != nil || len(out) != 0 {
+		t.Errorf("omatty hook exited %v with output %q, want exit 0 and no output (invariant 11)", err, out)
+	}
+}
+
+// Same bug, second trigger: os.UserHomeDir fails without HOME and the error
+// reached main's stderr path.
+func TestOmattyHook_ExitsZeroWithoutHOME_issue54(t *testing.T) {
+	out, err := runHook(t, nil, `{"session_id":"x","hook_event_name":"Stop"}`)
+
+	if err != nil || len(out) != 0 {
+		t.Errorf("omatty hook without HOME exited %v with output %q, want exit 0 and no output (invariant 11)", err, out)
+	}
+}
+
+// runHook runs the built binary's hook subcommand with the test's own
+// environment minus HOME, plus env.
+func runHook(t *testing.T, env []string, stdin string) ([]byte, error) {
+	t.Helper()
+	cmd := exec.Command(buildOmatty(t), "hook")
+	cmd.Env = append(withoutHome(os.Environ()), env...)
+	cmd.Stdin = strings.NewReader(stdin)
+	return cmd.CombinedOutput()
+}
+
+func withoutHome(env []string) []string {
+	out := make([]string, 0, len(env))
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, "HOME=") {
+			out = append(out, kv)
+		}
+	}
+	return out
+}
+
 // listenUnderHome creates a short-pathed socket at $HOME/.omatty/sock and a
 // listener on it, returning the HOME to point the hook binary at.
 func listenUnderHome(t *testing.T) (string, <-chan watcher.Event, func()) {
@@ -77,10 +152,5 @@ func listenUnderHome(t *testing.T) (string, <-chan watcher.Event, func()) {
 
 func buildOmatty(t *testing.T) string {
 	t.Helper()
-	bin := filepath.Join(t.TempDir(), "omatty")
-	build := exec.Command("go", "build", "-o", bin, "../../../cmd/omatty")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("building omatty: %v\n%s", err, out)
-	}
-	return bin
+	return omattyBin
 }

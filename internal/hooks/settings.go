@@ -3,7 +3,10 @@
 // reporting.
 package hooks
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // statusEvents are the hook events omatty listens to. PermissionRequest is a
 // dedicated event, cleaner than parsing Notification; Notification still
@@ -13,14 +16,14 @@ var statusEvents = []string{
 	"PermissionRequest", "Notification", "Stop", "SessionEnd",
 }
 
-type handler struct {
+type hookCommand struct {
 	Type    string `json:"type"`
 	Command string `json:"command"`
 	Timeout int    `json:"timeout"`
 }
 
 type group struct {
-	Hooks []handler `json:"hooks"`
+	Hooks []hookCommand `json:"hooks"`
 }
 
 type settings struct {
@@ -33,10 +36,17 @@ type settings struct {
 //
 //	content, _ := hooks.Render("/Users/w/go/bin/omatty")
 func Render(binPath string) ([]byte, error) {
-	h := handler{Type: "command", Command: binPath + " hook", Timeout: 5}
+	h := hookCommand{Type: "command", Command: shellQuote(binPath) + " hook", Timeout: 5}
 	events := make(map[string][]group, len(statusEvents))
 	for _, name := range statusEvents {
-		events[name] = []group{{Hooks: []handler{h}}}
+		events[name] = []group{{Hooks: []hookCommand{h}}}
 	}
 	return json.MarshalIndent(settings{Hooks: events}, "", "  ")
+}
+
+// shellQuote wraps s in single quotes for a POSIX shell, escaping any single
+// quote inside it. claude runs command hooks through a shell, so a path with
+// a space or a metacharacter was split or expanded (issue #56).
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
