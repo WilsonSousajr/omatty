@@ -1,0 +1,5 @@
+{"type":"user","timestamp":"2026-09-02T12:00:01.000Z","message":{"role":"user","content":"hi"}}
+{"type":"assistant","timestamp":"2026-09-02T12:00:04.000Z","message":{"id":"msg_a","role":"assistant","stop_reason":"end_turn","content":[{"type":"text","text":"done"}],"usage":{"input_tokens":50,"output_tokens":10}}}
+{"type":"user","timestamp":"2026-09-02T12:00:10.000Z","isMeta":false,"message":{"role":"user","content":"<local-command-stdout>Set model to opus</local-command-stdout>"}}
+{"type":"user","timestamp":"2026-09-02T12:00:11.000Z","message":{"role":"user","content":"<task-notification>\n<task-id>abc</task-id>\n</task-notification>"}}
+{"type":"user","timestamp":"2026-09-02T12:00:12.000Z","isMeta":true,"message":{"role":"user","content":"Caveat: injected context"}}

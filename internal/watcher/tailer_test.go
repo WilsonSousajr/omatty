@@ -3,10 +3,10 @@ package watcher_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -100,6 +100,29 @@ func TestTailer_EmitsCumulativeUsage_issue39(t *testing.T) {
 	}
 }
 
+// Regression, issue #59: one response is written as one line per content
+// block, each repeating the response's usage; summing per line doubled the
+// counts in the header. usage.jsonl has msg_a on three lines.
+func TestTailer_CountsUsageOncePerResponse_issue59(t *testing.T) {
+	fixture, err := os.ReadFile(filepath.Join("testdata", "transcripts", "usage.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	_ = os.WriteFile(path, fixture, 0o600)
+	sink := make(chan watcher.Event, 8)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	defer tl.Close()
+
+	tl.Poll()
+
+	tok, ok := lastUsage(drain(sink))
+	want := watcher.Tokens{In: 1010, Out: 201, CacheRead: 302, CacheWrite: 403}
+	if !ok || tok != want {
+		t.Errorf("usage = %+v (found=%v), want %+v: msg_a's three lines must count once", tok, ok, want)
+	}
+}
+
 func TestTailer_MissingFileIsNotAnError_issue19(t *testing.T) {
 	sink := make(chan watcher.Event, 1)
 	tl := watcher.Tail("s1", filepath.Join(t.TempDir(), "never"), sink, time.Now, time.Hour)
@@ -163,4 +186,78 @@ func TestTailer_HandlesTruncation_issue19(t *testing.T) {
 	}
 }
 
-var _ = registry.StatusIdle
+// Regression, issue #64: one unterminated or oversized line was read and
+// buffered whole, so a giant tool result could take the process down with
+// every session in it. A line past the cap is dropped; the lines around it
+// still count.
+func TestTailer_DropsALineOverTheCapAndKeepsGoing_issue64(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	sink := make(chan watcher.Event, 8)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	defer tl.Close()
+	huge := `{"type":"user","timestamp":"2026-09-02T12:00:09Z","message":{"content":"` +
+		strings.Repeat("x", 2<<20) + `"}}` + "\n"
+	_ = os.WriteFile(path, []byte(promptLine+huge), 0o600)
+
+	tl.Poll()
+
+	got := statusEvents(drain(sink))
+	want, _ := time.Parse(time.RFC3339, "2026-09-02T12:00:01Z")
+	if len(got) == 0 || !got[len(got)-1].At.Equal(want) {
+		t.Errorf("derived %+v, want PromptSubmitted at %v: the 2 MiB line must be dropped, not read", got, want)
+	}
+}
+
+// Regression, issue #65: Close only closed the stop channel, so a goroutine
+// parked on a full sink never saw it and never exited.
+func TestTailer_CloseUnblocksAPollParkedOnTheSink_issue65(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	_ = os.WriteFile(path, []byte(promptLine), 0o600)
+	sink := make(chan watcher.Event) // nobody reads: the first emit parks
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	polled := make(chan struct{})
+	go func() { tl.Poll(); close(polled) }()
+
+	tl.Close()
+
+	select {
+	case <-polled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Poll is still parked on the sink after Close")
+	}
+}
+
+func TestTailer_DoneClosesWhenTheLoopExits_issue65(t *testing.T) {
+	tl := watcher.Tail("s1", filepath.Join(t.TempDir(), "never"), make(chan watcher.Event, 1), time.Now, time.Hour)
+
+	tl.Close()
+
+	select {
+	case <-tl.Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("the polling goroutine did not exit after Close")
+	}
+}
+
+// Regression, issue #66: any append re-emitted the last status (same
+// timestamp) and the usage, so noise lines doubled the event rate.
+func TestTailer_NoiseOnlyAppendEmitsNothing_issue66(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	sink := make(chan watcher.Event, 8)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	defer tl.Close()
+	_ = os.WriteFile(path, []byte(promptLine), 0o600)
+	tl.Poll()
+	_ = drain(sink)
+
+	noise := `{"type":"file-history-snapshot","timestamp":"2026-09-02T12:00:02Z"}` + "\n" +
+		`{"type":"queue-operation","operation":"dequeue"}` + "\n"
+	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
+	_, _ = f.WriteString(noise)
+	_ = f.Close()
+	tl.Poll()
+
+	if got := drain(sink); len(got) != 0 {
+		t.Errorf("a noise-only append emitted %+v, want nothing: neither status nor usage changed", got)
+	}
+}
