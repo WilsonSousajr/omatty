@@ -24,6 +24,16 @@ func (f *FakeGit) RemoveWorktree(_, dir string) error {
 	return nil
 }
 
+// The diff surface exists for review (#21); registry never calls it, so the
+// fake answers empty rather than pretending to have a repository.
+func (f *FakeGit) MergeBase(_, ref string) (string, error) { return ref, nil }
+
+func (f *FakeGit) Diff(string, string) (string, error) { return "", nil }
+
+func (f *FakeGit) Untracked(string) ([]string, error) { return nil, nil }
+
+func (f *FakeGit) UntrackedDiff(string, string) (string, error) { return "", nil }
+
 func (f *FakeGit) AddWorktree(repoRoot, dir, branch, base string) error {
 	if f.AddErr != nil {
 		return fmt.Errorf("FakeGit: refusing to add worktree %q on %q: %w", dir, branch, f.AddErr)
