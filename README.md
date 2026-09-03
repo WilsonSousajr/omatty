@@ -66,6 +66,10 @@ The pane takes the keys while it is open.
 | `S` | send every comment to Claude as one message |
 | `esc` | give the keys back to Claude, leaving the pane open |
 
+`esc` and `ctrl+o d` are a round trip: `esc` hands the keys back to Claude with
+the pane still on screen, and `ctrl+o d` takes them back. Only a press while the
+pane already has the keys closes it.
+
 Comments are anchored to the *content* of a line, not its number, so they stay
 put while Claude edits the file underneath you. A comment whose line disappears
 floats to the top of its file marked `(moved)` rather than silently attaching

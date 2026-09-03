@@ -209,3 +209,25 @@ func TestModel_PreviewScrollsAndStopsAtTheEnds_issue24(t *testing.T) {
 		t.Errorf("after five j the preview does not start at line 6:\n%s", m.View().Content)
 	}
 }
+
+// The tree view refocuses on its own leader key for the same reason as the
+// diff (issue #90).
+func TestModel_LeaderFRefocusesAnOpenTreeBeforeClosingIt_issue90(t *testing.T) {
+	m, _, lister, _ := modelWithTree(t)
+	leader(m, key('f'))
+	press(m, special(tea.KeyEscape))
+
+	leader(m, key('f'))
+
+	if !m.ReviewOpen() || !m.ReviewFocused() || m.ReviewView() != ui.ViewTree {
+		t.Fatalf("open=%v focused=%v view=%v, want a focused tree",
+			m.ReviewOpen(), m.ReviewFocused(), m.ReviewView())
+	}
+	if len(lister.Asked) != 1 {
+		t.Errorf("listed %d times, want 1: refocusing is not a re-list", len(lister.Asked))
+	}
+	leader(m, key('f'))
+	if m.ReviewOpen() {
+		t.Error("ctrl+o f on a focused tree should close it")
+	}
+}

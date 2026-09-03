@@ -117,14 +117,14 @@ func (m *Model) ReviewFocused() bool { return m.review.Focused }
 func (m *Model) ReviewView() ReviewView { return m.review.View }
 
 // toggleView opens the review column on v, switches an open column to v, or
-// closes it when it already shows v. Either way the terminal is resized to
-// what is left (#21). Comments survive a close: they live on the model, keyed
-// by session. The tree's collapse state does not - it is rebuilt from the
-// listing, which is cheap and always current (#24).
+// steps back into it and then closes it when it already shows v. Either way
+// the terminal is resized to what is left (#21). Comments survive a close:
+// they live on the model, keyed by session. The tree's collapse state does
+// not - it is rebuilt from the listing, which is cheap and always current
+// (#24).
 func (m *Model) toggleView(v ReviewView) tea.Cmd {
 	if m.review.Open && m.review.View == v {
-		m.review = ReviewPane{}
-		return m.resizeFocused()
+		return m.refocusOrClose()
 	}
 	id := m.Focused()
 	if id == "" {
@@ -135,6 +135,19 @@ func (m *Model) toggleView(v ReviewView) tea.Cmd {
 	}
 	m.review.View, m.review.Focused = v, true
 	return tea.Batch(m.resizeFocused(), m.loadDiff(id), m.loadFiles(id))
+}
+
+// refocusOrClose handles the leader key for the view already on screen. esc
+// leaves the column open but unfocused, and nothing else gives it the keys
+// back, so closing here would shut a pane the operator was stepping into -
+// and reopening would reload git for a diff already loaded (issue #90).
+func (m *Model) refocusOrClose() tea.Cmd {
+	if !m.review.Focused {
+		m.review.Focused = true
+		return nil
+	}
+	m.review = ReviewPane{}
+	return m.resizeFocused()
 }
 
 // loadDiff fetches the diff off the Update goroutine: git on a large tree
