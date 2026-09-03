@@ -89,10 +89,10 @@ func TestListen_RejectsOversizedPayloadButKeepsAccepting_issue18(t *testing.T) {
 	defer func() { _ = l.Close() }()
 
 	dialTolerant(path, fmt.Sprintf(`{"session_id":"%s","hook_event_name":"Stop"}`, string(make([]byte, 128<<10))))
-	select {
-	case ev := <-sink:
-		t.Fatalf("an oversized payload produced an event: %+v", ev)
-	case <-time.After(300 * time.Millisecond):
+	// dialTolerant returns once the listener has closed the connection, so
+	// the sink is settled: no timing window, no sleep (issue #80).
+	if got := drain(sink); len(got) != 0 {
+		t.Fatalf("an oversized payload produced an event: %+v", got)
 	}
 
 	// The listener must still be alive for the next hook.
@@ -135,8 +135,9 @@ func TestListen_SocketIsUserOnly_issue18(t *testing.T) {
 	}
 }
 
-// dialTolerant writes without asserting success: an oversized payload makes
-// the listener close early, which is the behaviour under test.
+// dialTolerant writes without asserting success - an oversized payload makes
+// the listener close early, which is the behaviour under test - and then
+// waits for that close, so the caller knows the payload has been handled.
 func dialTolerant(path, payload string) {
 	c, err := net.Dial("unix", path)
 	if err != nil {
@@ -144,6 +145,7 @@ func dialTolerant(path, payload string) {
 	}
 	defer func() { _ = c.Close() }()
 	_, _ = fmt.Fprintf(c, "%s\n", payload)
+	_, _ = io.Copy(io.Discard, c)
 }
 
 // dialAndWait sends payload and blocks until the listener closes the
