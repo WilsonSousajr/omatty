@@ -45,6 +45,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o n` | new session on the main checkout |
 | `ctrl+o N` | new session on a fresh worktree |
 | `ctrl+o d` | open or close the diff pane |
+| `ctrl+o f` | open or close the file tree |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o q` | quit |
 
@@ -73,6 +74,26 @@ itself to the wrong code.
 `S` sends the whole batch as a single prompt — `file:line`, the quoted line and
 your note, numbered — so Claude answers them together instead of one at a time.
 Pending comments live in memory: quitting omatty drops them.
+
+## File tree
+
+`ctrl+o f` shows the same column as the session's worktree instead of its diff.
+A `*` marks every file the session changed, and a directory holding one, so you
+can see the shape of a change before reading it. The two views share one column:
+`ctrl+o d` and `ctrl+o f` switch between them, and either key closes the column
+when it already shows that view.
+
+| Key | Action |
+|---|---|
+| `j` / `k` | move through the tree, or scroll a preview |
+| `enter` | fold or unfold a directory, or preview a file |
+| `r` | re-list the worktree |
+| `esc` | from a preview back to the tree; from the tree back to Claude |
+
+The listing is tracked plus untracked files with `.gitignore` honoured — what
+`git` thinks the worktree contains, not what is on disk. A preview reads at most
+256 KiB and says so when it stops; a binary file says it is binary rather than
+spraying the pane.
 
 ## Session status
 

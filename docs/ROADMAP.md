@@ -18,9 +18,9 @@ not only the coverage gate. See "Rules" at the end for why.
 |---|---|---|
 | M1 | Skeleton | **Done.** #36, #35, #15 closed; merged to develop. |
 | M2 | Status | **Done.** Live glyphs, age, tokens, notifications; merged to develop. |
-| M3 | Review | **In progress.** #21-#23 merged; #24 (file tree) on `feat/m3-file-tree`. |
+| M3 | Review | **In review.** #21-#23 merged; #24 (file tree) on `feat/m3-file-tree`. |
 | M4 | Lifecycle | Planned. Issues #15, #40-#42 in Backlog. |
-| M5 | File tree | Planned. Issue #24 in Backlog; also scheduled in M3. |
+| M5 | File tree | Folded into M3 on 2026-09-03; #24 shipped there. |
 | M6 | Persistence | Planned. Issue #43 in Backlog. |
 | M7 | Reach | Planned. Issues #44-#46 in Backlog. |
 
@@ -115,8 +115,11 @@ message. Browse the session's worktree and preview the files it touched.
   per comment - and writes it to the PTY as a bracketed paste followed by one
   `\r` (invariant 8). This is the `SendInput` path; keystrokes use `Update`.
 - #24 file tree: browse each session's worktree, see which files that
-  session touched, preview one without leaving omatty. Also listed under M5;
-  pulled into M3 on 2026-09-02.
+  session touched, preview one without leaving omatty. Pulled out of M5 into
+  M3 on 2026-09-02; built on 2026-09-03 as the review column's second view,
+  which is what made it small enough to bring forward. `ctrl+o f` shows the
+  tree, `*` marks a file the diff changed, `enter` folds a directory or
+  previews a file, bounded at 256 KiB.
 
 **Deliberately out:** asking Claude to self-review, commit/push/PR from
 omatty, running N sessions on one task and comparing, broadcasting a prompt.
@@ -154,12 +157,14 @@ archived and its worktree removed, all from inside omatty.
 
 ## M5 - File tree
 
-**Delivers:** #24 - browse each session's worktree, see which files that
-session touched, preview one without leaving omatty.
+**Delivers:** nothing of its own any more. #24 - browse each session's
+worktree, see which files that session touched, preview one without leaving
+omatty - was pulled into M3 on 2026-09-02 and built there on 2026-09-03, as
+the second view of the review column rather than a milestone of its own.
 
-Unchanged from the original plan. Sits after Lifecycle because it is one
-feature against four, and the four are what you reach for daily. As of
-2026-09-02 the same feature is also scheduled in M3; see there.
+The original reasoning was that one feature should sit behind Lifecycle's
+four. Sharing the review column made it small enough that waiting cost more
+than building it. See M3.
 
 ## M6 - Persistence
 
