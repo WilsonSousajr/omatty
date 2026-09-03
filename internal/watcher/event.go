@@ -33,6 +33,14 @@ const (
 // Tokens is a session's cumulative usage.
 type Tokens struct{ In, Out, CacheRead, CacheWrite int }
 
+// add accumulates one response's counters.
+func (t *Tokens) add(u Tokens) {
+	t.In += u.In
+	t.Out += u.Out
+	t.CacheRead += u.CacheRead
+	t.CacheWrite += u.CacheWrite
+}
+
 // Event is one status transition or usage update for one session.
 type Event struct {
 	SessionID string

@@ -49,6 +49,7 @@ func Run(
 	if err != nil {
 		return err
 	}
+	defer closeTerminals(terms)
 	start := guardedStarter(l, f)
 	events := make(chan watcher.Event, eventBuffer)
 	closeListener := startListener(home, events)
@@ -71,6 +72,18 @@ func startListener(home string, events chan<- watcher.Event) func() {
 	return func() { _ = l.Close() }
 }
 
+// closeTerminals ends every claude process on the way out (issue #72). The
+// map is the one the model adds runtime sessions to, so those close too.
+// Until now the OS closed the PTY masters at exit, which is neither a
+// guarantee nor omatty's decision.
+func closeTerminals(terms map[string]termwrap.Terminal) {
+	for id, t := range terms {
+		if err := t.Close(); err != nil {
+			slog.Warn("closing a terminal on exit", "session", id, "err", err)
+		}
+	}
+}
+
 // runProgram runs the bubbletea program to completion.
 func runProgram(model *Model, sessions int) error {
 	if _, err := tea.NewProgram(model).Run(); err != nil {
@@ -89,7 +102,7 @@ func wireStatus(
 	tailers := StartTailers(st, tail)
 	model := NewModel(st, terms, create, start)
 	model.SetEvents(events, time.Now)
-	model.SetNotifier(notify.Osascript{})
+	model.SetNotifier(notify.New())
 	model.SetTailStarter(func(sess registry.Session) { tailers = append(tailers, tail(sess)) })
 	return model, func() { closeAll(tailers) }
 }

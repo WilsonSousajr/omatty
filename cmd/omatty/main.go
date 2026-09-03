@@ -6,6 +6,7 @@
 //	omatty                            run the TUI
 //	omatty add [dir]                  register the repository containing dir
 //	omatty new <project> <title> [branch]  create a session
+//	omatty hook                       forward a claude hook event (internal)
 //
 // A branch argument puts the session in a fresh worktree; without one it runs
 // in the project's main checkout.
@@ -30,6 +31,13 @@ import (
 )
 
 func main() {
+	// Invariant 11: the hook runs before anything that can fail or print. A
+	// missing HOME or an unwritable log directory must not reach claude as a
+	// non-zero exit or a byte of output (issue #54).
+	if len(os.Args) > 1 && os.Args[1] == "hook" {
+		runHook()
+		return
+	}
 	if err := run(); err != nil {
 		slog.Error("omatty exited", "err", err)
 		// Subcommands report to the operator; the TUI owns stdout only while
@@ -37,6 +45,18 @@ func main() {
 		_, _ = fmt.Fprintln(os.Stderr, "omatty:", err)
 		os.Exit(1)
 	}
+}
+
+// runHook is the whole of `omatty hook`. Every error and panic is swallowed
+// here rather than logged: the log file is the one thing this path must not
+// depend on.
+func runHook() {
+	defer func() { _ = recover() }()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second)
 }
 
 func run() error {
@@ -58,11 +78,6 @@ func run() error {
 // session, with a branch argument meaning "in a fresh worktree".
 func dispatch(cmd string, args []string, home string, store *registry.Store) error {
 	switch cmd {
-	case "hook":
-		// Invariant 11: never fail, never print. A hook that errors or writes
-		// would stall or corrupt every claude session on the machine.
-		_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second)
-		return nil
 	case "add":
 		return addProject(store, args)
 	case "new":

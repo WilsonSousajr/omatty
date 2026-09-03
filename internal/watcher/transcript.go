@@ -2,9 +2,8 @@ package watcher
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
-
-	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // Entry is the slice of a transcript line that status needs. Every other line
@@ -12,9 +11,10 @@ import (
 // parse, so callers only ever hold user and assistant turns.
 type Entry struct {
 	Type         string // "user" or "assistant"
+	MessageID    string // assistant: one API response spans several lines under one id
 	At           time.Time
 	StopReason   string // assistant
-	UserIsPrompt bool   // user: content was a string (a typed prompt)
+	UserIsPrompt bool   // user: a typed prompt (a string, or text/image blocks)
 	ToolUse      bool   // assistant: a tool_use block is present
 	ToolResult   bool   // user: a tool_result block is present
 	Usage        Tokens // assistant
@@ -25,7 +25,9 @@ type Entry struct {
 type rawEntry struct {
 	Type      string    `json:"type"`
 	Timestamp time.Time `json:"timestamp"`
+	IsMeta    bool      `json:"isMeta"`
 	Message   struct {
+		ID         string          `json:"id"`
 		StopReason string          `json:"stop_reason"`
 		Content    json.RawMessage `json:"content"`
 		Usage      struct {
@@ -58,21 +60,42 @@ func ParseEntry(line []byte) (Entry, bool) {
 	}
 }
 
+// injectedPrefixes open the user-role entries Claude Code writes itself: a
+// finished background task, a local slash command and its output. None is a
+// typed prompt, so none may move the status to thinking (issue #61).
+var injectedPrefixes = []string{"<task-notification", "<command-", "<local-command-"}
+
 func parseUser(r rawEntry) Entry {
 	e := Entry{Type: "user", At: r.Timestamp}
-	// A string content is a typed prompt; a list holds tool results.
+	if r.IsMeta {
+		return e // context claude injected, not something the operator typed
+	}
 	var s string
 	if json.Unmarshal(r.Message.Content, &s) == nil {
-		e.UserIsPrompt = true
+		e.UserIsPrompt = !isInjected(s)
 		return e
 	}
 	e.ToolResult = hasBlock(r.Message.Content, "tool_result")
+	// A prompt with an attachment is a list of text and image blocks, not a
+	// string (issue #62).
+	e.UserIsPrompt = !e.ToolResult &&
+		(hasBlock(r.Message.Content, "text") || hasBlock(r.Message.Content, "image"))
 	return e
+}
+
+func isInjected(s string) bool {
+	for _, p := range injectedPrefixes {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func parseAssistant(r rawEntry) Entry {
 	return Entry{
 		Type:       "assistant",
+		MessageID:  r.Message.ID,
 		At:         r.Timestamp,
 		StopReason: r.Message.StopReason,
 		ToolUse:    hasBlock(r.Message.Content, "tool_use"),
@@ -96,27 +119,19 @@ func hasBlock(content json.RawMessage, kind string) bool {
 	return false
 }
 
-// DeriveFromTail returns the status implied by the most recent relevant entry,
-// and its timestamp. It cannot produce Waiting - only a permission hook can
-// tell a running tool from one blocked on you.
-func DeriveFromTail(entries []Entry) (registry.Status, time.Time) {
-	for i := len(entries) - 1; i >= 0; i-- {
-		e := entries[i]
-		switch {
-		case e.Type == "user" && e.UserIsPrompt, e.Type == "user" && e.ToolResult:
-			return registry.StatusThinking, e.At
-		case e.Type == "assistant" && e.ToolUse:
-			return registry.StatusTool, e.At
-		case e.Type == "assistant" && e.StopReason == "end_turn":
-			return registry.StatusDone, e.At
-		}
-	}
-	return registry.StatusIdle, time.Time{}
+// turnEnded reports an assistant entry that closed its turn. Claude stops at
+// end_turn normally, but also at max_tokens, stop_sequence, refusal and
+// pause_turn; only tool_use means the turn continues, and a null stop_reason
+// is a mid-response line (issue #63).
+func turnEnded(e Entry) bool {
+	return e.Type == "assistant" && e.StopReason != "" && e.StopReason != "tool_use"
 }
 
-// DeriveKind is DeriveFromTail as an event Kind, for the tailer to feed
-// through Apply alongside hook events. ok is false when the tail says nothing
-// (only noise so far).
+// DeriveKind returns the status event implied by the most recent relevant
+// entry, and its timestamp, for the tailer to feed through Apply alongside
+// hook events. It cannot produce Waiting - only a permission hook can tell a
+// running tool from one blocked on you. ok is false when the tail says
+// nothing (only noise so far).
 func DeriveKind(entries []Entry) (Kind, time.Time, bool) {
 	for i := len(entries) - 1; i >= 0; i-- {
 		e := entries[i]
@@ -125,21 +140,9 @@ func DeriveKind(entries []Entry) (Kind, time.Time, bool) {
 			return PromptSubmitted, e.At, true
 		case e.Type == "assistant" && e.ToolUse:
 			return ToolStarted, e.At, true
-		case e.Type == "assistant" && e.StopReason == "end_turn":
+		case turnEnded(e):
 			return TurnEnded, e.At, true
 		}
 	}
 	return 0, time.Time{}, false
-}
-
-// SumUsage totals the token counters across all assistant entries.
-func SumUsage(entries []Entry) Tokens {
-	var t Tokens
-	for _, e := range entries {
-		t.In += e.Usage.In
-		t.Out += e.Usage.Out
-		t.CacheRead += e.Usage.CacheRead
-		t.CacheWrite += e.Usage.CacheWrite
-	}
-	return t
 }

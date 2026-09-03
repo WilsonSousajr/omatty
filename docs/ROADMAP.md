@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-09-01, after M1 was built and used for the first time.
+Last revised 2026-09-02, after M2 merged and the file tree was pulled into M3.
 
 omatty is a terminal ADE: several projects and several parallel Claude Code
 sessions in one window, each session the real `claude` binary in an embedded
@@ -18,9 +18,9 @@ not only the coverage gate. See "Rules" at the end for why.
 |---|---|---|
 | M1 | Skeleton | **Done.** #36, #35, #15 closed; merged to develop. |
 | M2 | Status | **Done.** Live glyphs, age, tokens, notifications; merged to develop. |
-| M3 | Review | Planned. Issues #21-#23 in Backlog. |
+| M3 | Review | Planned. Issues #21-#24 in Backlog. |
 | M4 | Lifecycle | Planned. Issues #15, #40-#42 in Backlog. |
-| M5 | File tree | Planned. Issue #24 in Backlog. |
+| M5 | File tree | Planned. Issue #24 in Backlog; also scheduled in M3. |
 | M6 | Persistence | Planned. Issue #43 in Backlog. |
 | M7 | Reach | Planned. Issues #44-#46 in Backlog. |
 
@@ -98,9 +98,10 @@ binary.
 
 **Delivers:** the reason the tool exists. Review a session's diff without
 leaving omatty, comment on lines, send the whole batch back to Claude as one
-message.
+message. Browse the session's worktree and preview the files it touched.
 
-**Contents, exactly as approved and nothing more:**
+**Contents, exactly as approved and nothing more (file tree added
+2026-09-02):**
 
 - #21 diff pane: merge-base against the session's base branch, unioned with
   uncommitted changes - everything this session changed, committed or not.
@@ -113,6 +114,9 @@ message.
 - #23 `[S]` composes one message - `file:line`, the quoted line, your note,
   per comment - and writes it to the PTY as a bracketed paste followed by one
   `\r` (invariant 8). This is the `SendInput` path; keystrokes use `Update`.
+- #24 file tree: browse each session's worktree, see which files that
+  session touched, preview one without leaving omatty. Also listed under M5;
+  pulled into M3 on 2026-09-02.
 
 **Deliberately out:** asking Claude to self-review, commit/push/PR from
 omatty, running N sessions on one task and comparing, broadcasting a prompt.
@@ -120,7 +124,8 @@ All considered; all cut. Review stays a person reading a diff and commenting.
 Shipping stays in git.
 
 **Done when:** you review a two-file change, leave three comments, press
-`[S]`, and Claude receives them as one message and acts on all three.
+`[S]`, and Claude receives them as one message and acts on all three; and
+you open the file tree, see the two touched files, and preview one.
 
 ## M4 - Lifecycle
 
@@ -153,7 +158,8 @@ archived and its worktree removed, all from inside omatty.
 session touched, preview one without leaving omatty.
 
 Unchanged from the original plan. Sits after Lifecycle because it is one
-feature against four, and the four are what you reach for daily.
+feature against four, and the four are what you reach for daily. As of
+2026-09-02 the same feature is also scheduled in M3; see there.
 
 ## M6 - Persistence
 

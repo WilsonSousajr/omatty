@@ -6,7 +6,7 @@ package paths
 
 import (
 	"path/filepath"
-	"strings"
+	"regexp"
 )
 
 // Root returns omatty's private directory, e.g. paths.Root("/home/u") is
@@ -31,14 +31,19 @@ func WorktreeDir(home, project, branch string) string {
 	return filepath.Join(Root(home), "wt", project, branch)
 }
 
-// slugReplacer mirrors how Claude Code names its transcript directories:
-// both '/' and '.' become '-'. Verified against real directories under
-// ~/.claude/projects; invariant 2 depends on this being exact.
-var slugReplacer = strings.NewReplacer("/", "-", ".", "-")
+// slugPattern matches every character Claude Code replaces when it names a
+// transcript directory: anything outside [a-zA-Z0-9] becomes '-'. Taken from
+// the claude binary's own transform. Issue #60 was a path with a space that
+// the old '/'-and-'.'-only mapping missed, leaving the tailer blind and every
+// restart using --session-id (the #36 failure). Invariant 2 depends on this
+// being exact.
+var slugPattern = regexp.MustCompile(`[^a-zA-Z0-9]`)
 
 // TranscriptSlug converts an absolute working directory into the directory
 // name Claude Code uses under ~/.claude/projects.
-func TranscriptSlug(dir string) string { return slugReplacer.Replace(dir) }
+//
+//	paths.TranscriptSlug("/Users/w/LAB SD") // "-Users-w-LAB-SD"
+func TranscriptSlug(dir string) string { return slugPattern.ReplaceAllString(dir, "-") }
 
 // Transcript returns the JSONL file Claude Code writes for sessionID running
 // in dir, e.g. "/home/u/.claude/projects/-home-u-p/abc-123.jsonl".

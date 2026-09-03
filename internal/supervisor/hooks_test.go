@@ -61,3 +61,48 @@ func TestWriteHooksFile_UnwritableDirectoryNamesThePath_issue17(t *testing.T) {
 		t.Errorf("error %q does not name the offending path", err)
 	}
 }
+
+// Regression, issue #58 (invariant 3): a symlink at the hooks path was
+// followed, so a link planted at ~/.omatty/hooks.json pointing at the user's
+// ~/.claude/settings.json made omatty overwrite that file on its next start.
+func TestWriteHooksFile_RefusesASymlinkAndLeavesTheTargetAlone_issue58(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "settings.json")
+	if err := os.WriteFile(target, []byte(`{"theirs":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "hooks.json")
+	if err := os.Symlink(target, path); err != nil {
+		t.Fatal(err)
+	}
+
+	err := supervisor.WriteHooksFile(path, []byte(`{"hooks":{}}`))
+
+	if err == nil || !strings.Contains(err.Error(), path) {
+		t.Errorf("WriteHooksFile over a symlink = %v, want an error naming %s", err, path)
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != `{"theirs":true}` {
+		t.Errorf("the symlink target was rewritten to %q (invariant 3)", got)
+	}
+}
+
+// The file is renamed into place, so a claude reading --settings at that
+// instant never sees a truncated file (the #31 failure) and no temp file is
+// left behind.
+func TestWriteHooksFile_LeavesNoTempFileBehind_issue58(t *testing.T) {
+	dir := t.TempDir()
+
+	if err := supervisor.WriteHooksFile(filepath.Join(dir, "hooks.json"), []byte("{}")); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 || entries[0].Name() != "hooks.json" {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("dir holds %v, want only hooks.json", names)
+	}
+}

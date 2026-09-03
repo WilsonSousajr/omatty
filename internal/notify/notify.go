@@ -12,8 +12,8 @@ type Notifier interface {
 	Notify(title, body string) error
 }
 
-// Osascript posts via macOS's osascript. On other platforms it is a no-op
-// wrapper the caller can swap out.
+// Osascript posts via macOS's osascript. New picks it on darwin; other
+// platforms get Silent (issue #69).
 type Osascript struct{}
 
 // Notify runs `osascript -e 'display notification ...'`.
@@ -50,3 +50,10 @@ func (f *Fake) Notify(title, body string) error {
 	f.Sent = append(f.Sent, Note{Title: title, Body: body})
 	return nil
 }
+
+// Silent is the notifier for platforms without a delivery path yet. It
+// reports success so the model's bookkeeping behaves the same everywhere.
+type Silent struct{}
+
+// Notify does nothing.
+func (Silent) Notify(string, string) error { return nil }
