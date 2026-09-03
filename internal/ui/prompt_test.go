@@ -228,3 +228,19 @@ func TestModel_promptCreatesInTheSelectedProject(t *testing.T) {
 		t.Errorf("create() got project %q, want api-svc", c.Project)
 	}
 }
+
+// Regression, issue #87: Keystroke() spells a shifted letter with the base key
+// in lower case, so a terminal using the Kitty keyboard protocol sends
+// "shift+n" for ctrl+o N. The code matched "shift+N" and the bare "N" only, so
+// on those terminals the worktree prompt never opened and the key did nothing.
+func TestModel_leaderNOpensAWorktreePromptFromTheBaseKey_issue87(t *testing.T) {
+	m, _ := modelWithCreate(t, &recordCreate{})
+
+	press(m, ctrl('o'))
+	press(m, tea.KeyPressMsg{Code: 'n', Mod: tea.ModShift, Text: "N"})
+
+	if p := m.Prompt(); !p.Active || !p.Worktree {
+		t.Errorf("Prompt() = %+v, want an active worktree prompt; Keystroke() spelled this %q",
+			p, tea.KeyPressMsg{Code: 'n', Mod: tea.ModShift, Text: "N"}.Keystroke())
+	}
+}

@@ -83,9 +83,11 @@ func (m *Model) navigate(key string) tea.Cmd {
 		return m.moveCursor(m.sidebar.MoveUp)
 	case "n":
 		m.prompt = Prompt{Active: true}
-	// Keystroke() spells a shifted letter "shift+N"; the bare "N" is accepted
-	// too because not every terminal reports the modifier.
-	case "shift+N", "N":
+	// Keystroke() spells a shifted letter with the base key in lower case, so
+	// a terminal reporting the modifier gives "shift+n"; the bare "N" is
+	// accepted too, because a legacy terminal cannot report shift at all. The
+	// upper-case "shift+N" spelling never occurs and was dead (issue #87).
+	case "shift+n", "shift+N", "N":
 		m.prompt = Prompt{Active: true, Worktree: true}
 	default:
 		return m.paneCommand(key)
