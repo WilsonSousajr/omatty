@@ -19,7 +19,7 @@ import (
 type Git interface {
 	RepoRoot(dir string) (string, error)
 	CurrentBranch(dir string) (string, error)
-	AddWorktree(repoRoot, dir, branch string) error
+	AddWorktree(repoRoot, dir, branch, base string) error
 	RemoveWorktree(repoRoot, dir string) error
 }
 
@@ -77,9 +77,10 @@ func (c *CLI) CurrentBranch(dir string) (string, error) {
 	return c.run(dir, "rev-parse", "--abbrev-ref", "HEAD")
 }
 
-// AddWorktree creates a linked worktree at dir on a new branch.
-func (c *CLI) AddWorktree(repoRoot, dir, branch string) error {
-	_, err := c.run(repoRoot, "worktree", "add", "-b", branch, dir)
+// AddWorktree creates a linked worktree at dir on a new branch forked from
+// base, named explicitly so the recorded base and the fork point agree (#21).
+func (c *CLI) AddWorktree(repoRoot, dir, branch, base string) error {
+	_, err := c.run(repoRoot, "worktree", "add", "-b", branch, dir, base)
 	return err
 }
 

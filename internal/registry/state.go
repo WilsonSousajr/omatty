@@ -20,7 +20,13 @@ type Session struct {
 	Project  string `json:"project"`
 	Title    string `json:"title"`
 	Dir      string `json:"dir"` // absolute working directory
-	Branch   string `json:"branch"`
+	Branch string `json:"branch"`
+	// Base is the branch the worktree was forked from, recorded at creation
+	// so review has a merge-base to diff against (#21). Empty for a
+	// main-checkout session and for worktrees made before M3, which fall back
+	// to the project root's current branch at review time (invariant 9: the
+	// empty value is derivable).
+	Base     string `json:"base,omitempty"`
 	Worktree bool   `json:"worktree"` // true if omatty created Dir
 }
 

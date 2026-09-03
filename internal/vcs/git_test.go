@@ -29,6 +29,18 @@ func newRepo(t *testing.T) string {
 	return dir
 }
 
+// gitOut runs git in dir for a test's own setup or assertion.
+func gitOut(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v: %s", args, err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func TestCLI_CurrentBranch(t *testing.T) {
 	got, err := vcs.NewCLI().CurrentBranch(newRepo(t))
 	if err != nil {
@@ -75,7 +87,7 @@ func TestCLI_AddAndRemoveWorktree(t *testing.T) {
 	wt := filepath.Join(t.TempDir(), "parser-fix")
 	g := vcs.NewCLI()
 
-	if err := g.AddWorktree(repo, wt, "parser-fix"); err != nil {
+	if err := g.AddWorktree(repo, wt, "parser-fix", "main"); err != nil {
 		t.Fatalf("AddWorktree() error = %v, want nil", err)
 	}
 	branch, err := g.CurrentBranch(wt)
@@ -94,13 +106,31 @@ func TestCLI_AddWorktreeOnTheCheckedOutBranchReportsStderr(t *testing.T) {
 	repo := newRepo(t)
 	wt := filepath.Join(t.TempDir(), "dup")
 
-	err := vcs.NewCLI().AddWorktree(repo, wt, "main")
+	err := vcs.NewCLI().AddWorktree(repo, wt, "main", "main")
 
 	if err == nil {
 		t.Fatal("AddWorktree() on the checked-out branch returned nil, want an error")
 	}
 	if !strings.Contains(err.Error(), "main") {
 		t.Errorf("error %q does not name the offending branch %q", err, "main")
+	}
+}
+
+// #21: review diffs a worktree against the branch it came from, so the fork
+// point must be the recorded base rather than whatever HEAD happened to be.
+func TestCLI_AddWorktreeForksFromTheGivenBase_issue21(t *testing.T) {
+	repo := newRepo(t)
+	gitOut(t, repo, "checkout", "-b", "develop")
+	gitOut(t, repo, "commit", "--allow-empty", "-m", "on develop")
+	gitOut(t, repo, "checkout", "main")
+	wt := filepath.Join(t.TempDir(), "feat")
+
+	if err := vcs.NewCLI().AddWorktree(repo, wt, "feat", "develop"); err != nil {
+		t.Fatalf("AddWorktree() error = %v, want nil", err)
+	}
+
+	if got, want := gitOut(t, wt, "rev-parse", "HEAD"), gitOut(t, repo, "rev-parse", "develop"); got != want {
+		t.Errorf("worktree HEAD = %s, want develop's %s", got, want)
 	}
 }
 
