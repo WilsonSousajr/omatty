@@ -28,6 +28,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"github.com/WilsonSousajr/omatty/internal/vcs"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 func main() {
@@ -130,7 +131,7 @@ func runTUI(home string, store *registry.Store) error {
 	if err != nil {
 		return err
 	}
-	content, err := hooks.Render(bin)
+	content, err := hooks.Render(bin, watcher.HookEventNames())
 	if err != nil {
 		return err
 	}

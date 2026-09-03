@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -37,6 +38,22 @@ var kindByEvent = map[string]Kind{
 	"PermissionRequest": PermissionRequested,
 	"Stop":              TurnEnded,
 	"SessionEnd":        SessionEnded,
+}
+
+// HookEventNames lists every hook event the listener maps to a Kind, plus
+// Notification, whose kind depends on notification_type. hooks.Render takes
+// this list, so the settings file and the listener can never drift (issue
+// #78). Sorted, so the rendered file is stable.
+//
+//	content, _ := hooks.Render(bin, watcher.HookEventNames())
+func HookEventNames() []string {
+	names := make([]string, 0, len(kindByEvent)+1)
+	for name := range kindByEvent {
+		names = append(names, name)
+	}
+	names = append(names, "Notification")
+	sort.Strings(names)
+	return names
 }
 
 // KindOf maps a hook payload to the status event it represents. ok is false
@@ -135,7 +152,7 @@ func (l *Listener) Dropped() int64 { return l.dropped.Load() }
 
 func (l *Listener) accept() {
 	defer l.wg.Done()
-	defer recoverServe("accept loop")
+	defer recoverLoop("listener", "")
 	for {
 		conn, err := l.ln.Accept()
 		if err != nil {
@@ -158,7 +175,7 @@ func (l *Listener) accept() {
 func (l *Listener) serve(conn net.Conn) {
 	defer l.wg.Done()
 	defer func() { <-l.slots }()
-	defer recoverServe("connection")
+	defer recoverLoop("hook connection", "")
 	defer l.track(conn, false)
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
@@ -182,7 +199,7 @@ func (l *Listener) decode(conn net.Conn) (Event, bool) {
 	if !ok {
 		return Event{}, false
 	}
-	return Event{SessionID: p.SessionID, Kind: kind, At: l.clock(), Tool: p.ToolName}, true
+	return Event{SessionID: p.SessionID, Kind: kind, At: l.clock()}, true
 }
 
 // offer sends without blocking. A full sink means the UI is behind; the
@@ -212,14 +229,6 @@ func (l *Listener) closeConns() {
 	defer l.mu.Unlock()
 	for c := range l.conns {
 		_ = c.Close()
-	}
-}
-
-// recoverServe keeps a panic inside one connection (invariant 6). Branch F
-// unifies this with the tailer's guard.
-func recoverServe(role string) {
-	if r := recover(); r != nil {
-		slog.Error("hook listener panicked", "role", role, "panic", r)
 	}
 }
 

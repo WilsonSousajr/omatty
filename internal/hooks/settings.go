@@ -8,14 +8,6 @@ import (
 	"strings"
 )
 
-// statusEvents are the hook events omatty listens to. PermissionRequest is a
-// dedicated event, cleaner than parsing Notification; Notification still
-// covers idle_prompt. Order is fixed so the output is stable.
-var statusEvents = []string{
-	"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse",
-	"PermissionRequest", "Notification", "Stop", "SessionEnd",
-}
-
 type hookCommand struct {
 	Type    string `json:"type"`
 	Command string `json:"command"`
@@ -30,15 +22,16 @@ type settings struct {
 	Hooks map[string][]group `json:"hooks"`
 }
 
-// Render returns the JSON for ~/.omatty/hooks.json: every status event runs
+// Render returns the JSON for ~/.omatty/hooks.json: each named event runs
 // `<binPath> hook`. binPath must be absolute — claude runs hooks with
-// whatever PATH it inherited, which need not include omatty's directory.
+// whatever PATH it inherited, which need not include omatty's directory. The
+// event names come from the listener that consumes them (issue #78).
 //
-//	content, _ := hooks.Render("/Users/w/go/bin/omatty")
-func Render(binPath string) ([]byte, error) {
+//	content, _ := hooks.Render("/Users/w/go/bin/omatty", watcher.HookEventNames())
+func Render(binPath string, eventNames []string) ([]byte, error) {
 	h := hookCommand{Type: "command", Command: shellQuote(binPath) + " hook", Timeout: 5}
-	events := make(map[string][]group, len(statusEvents))
-	for _, name := range statusEvents {
+	events := make(map[string][]group, len(eventNames))
+	for _, name := range eventNames {
 		events[name] = []group{{Hooks: []hookCommand{h}}}
 	}
 	return json.MarshalIndent(settings{Hooks: events}, "", "  ")

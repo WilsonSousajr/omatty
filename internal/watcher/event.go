@@ -44,7 +44,6 @@ type Event struct {
 	SessionID string
 	Kind      Kind
 	At        time.Time
-	Tool      string // ToolStarted: the tool name
 	Tokens    Tokens // UsageUpdated: cumulative totals
 }
 

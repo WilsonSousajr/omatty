@@ -68,8 +68,8 @@ func TestListen_EmitsAnEventPerConnection_issue18(t *testing.T) {
 
 	select {
 	case ev := <-sink:
-		if ev.SessionID != "abc" || ev.Kind != watcher.ToolStarted || ev.Tool != "Bash" {
-			t.Errorf("event = %+v, want session abc, ToolStarted, tool Bash", ev)
+		if ev.SessionID != "abc" || ev.Kind != watcher.ToolStarted {
+			t.Errorf("event = %+v, want session abc, ToolStarted", ev)
 		}
 		if !ev.At.Equal(fixed) {
 			t.Errorf("event time = %v, want the injected clock %v", ev.At, fixed)

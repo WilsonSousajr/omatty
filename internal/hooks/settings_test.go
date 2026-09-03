@@ -8,10 +8,13 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/hooks"
 )
 
-// Every event the status machine needs must be registered, each running the
-// omatty binary's hook subcommand.
+// statusEvents is what the listener asks for; every one must be registered,
+// each running the omatty binary's hook subcommand.
+var statusEvents = []string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse",
+	"PermissionRequest", "Notification", "Stop", "SessionEnd"}
+
 func TestRender_RegistersEveryStatusEvent_issue17(t *testing.T) {
-	out, err := hooks.Render("/Users/w/go/bin/omatty")
+	out, err := hooks.Render("/Users/w/go/bin/omatty", statusEvents)
 	if err != nil {
 		t.Fatalf("Render() error = %v, want nil", err)
 	}
@@ -28,8 +31,7 @@ func TestRender_RegistersEveryStatusEvent_issue17(t *testing.T) {
 	if err := json.Unmarshal(out, &parsed); err != nil {
 		t.Fatalf("Render() is not valid JSON: %v\n%s", err, out)
 	}
-	want := []string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse",
-		"PermissionRequest", "Notification", "Stop", "SessionEnd"}
+	want := statusEvents
 	for _, event := range want {
 		groups, ok := parsed.Hooks[event]
 		if !ok || len(groups) == 0 || len(groups[0].Hooks) == 0 {
@@ -52,7 +54,7 @@ func checkHook(t *testing.T, event, typ, command string, timeout int) {
 }
 
 func TestRender_UsesTheAbsoluteBinaryPath_issue17(t *testing.T) {
-	out, _ := hooks.Render("/opt/homebrew/bin/omatty")
+	out, _ := hooks.Render("/opt/homebrew/bin/omatty", statusEvents)
 	if !strings.Contains(string(out), `"'/opt/homebrew/bin/omatty' hook"`) {
 		t.Errorf("Render did not use the absolute binary path:\n%s", out)
 	}
@@ -62,7 +64,7 @@ func TestRender_UsesTheAbsoluteBinaryPath_issue17(t *testing.T) {
 // unquoted install path with a space split into a command that did not exist
 // and every hook failed with 127.
 func TestRender_QuotesTheBinaryPathForTheShell_issue56(t *testing.T) {
-	out, err := hooks.Render(`/Users/w/My Tools/it's $HOME/omatty`)
+	out, err := hooks.Render(`/Users/w/My Tools/it's $HOME/omatty`, statusEvents)
 	if err != nil {
 		t.Fatal(err)
 	}
