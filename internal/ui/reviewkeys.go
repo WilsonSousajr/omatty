@@ -40,7 +40,9 @@ func (m *Model) reviewAction(key string) tea.Cmd {
 		m.deleteComment()
 	case "r":
 		return m.loadDiff(m.review.SessionID)
-	case "shift+S", "S":
+	// Two spellings, because a terminal reporting the shift modifier gives
+	// "shift+s" while a legacy one gives the bare "S" (issue #87).
+	case "shift+s", "S":
 		return m.submitReview()
 	}
 	return nil
@@ -145,6 +147,23 @@ func (m *Model) deleteComment() {
 	m.rebuildEntries()
 }
 
-// submitReview sends the queued comments to claude. The composer and the
-// bracketed-paste envelope arrive in the next commit (#23).
-func (m *Model) submitReview() tea.Cmd { return nil }
+// submitReview sends every queued comment as one message (#23, invariant 8)
+// and hands focus back to the terminal so the operator watches claude act on
+// it. The queue is cleared first: a comment that was sent is not pending.
+func (m *Model) submitReview() tea.Cmd {
+	cs := m.commentsFor(m.review.SessionID)
+	if cs.Len() == 0 {
+		m.lastErr = "no comments to submit; press c on a diff line first"
+		return nil
+	}
+	term := m.terms[m.review.SessionID]
+	if term == nil {
+		m.lastErr = "session " + m.review.SessionID + " has no terminal to send to"
+		return nil
+	}
+	body := review.Compose(m.review.Diff, cs.All())
+	cs.Clear()
+	m.review.Focused = false
+	m.rebuildEntries()
+	return term.SendInput(review.BracketedPaste(body))
+}
