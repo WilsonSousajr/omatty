@@ -3,16 +3,13 @@ package ui_test
 import (
 	"errors"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 func TestStartTerminals_OnePerSessionInItsOwnDirectory(t *testing.T) {
@@ -92,24 +89,6 @@ func TestStartTerminals_WrapsEveryTerminalInAGuard(t *testing.T) {
 		if _, ok := term.(*termwrap.Guard); !ok {
 			t.Errorf("session %s got %T, want a *termwrap.Guard", id, term)
 		}
-	}
-}
-
-func TestStartTailers_OnePerSession_issue19(t *testing.T) {
-	var started []string
-	tail := func(sess registry.Session) *watcher.Tailer {
-		started = append(started, sess.ID)
-		// A tailer over a path that will never exist is harmless; Poll no-ops.
-		return watcher.Tail(sess.ID, filepath.Join(t.TempDir(), sess.ID), make(chan watcher.Event, 1), time.Now, time.Hour)
-	}
-
-	tailers := ui.StartTailers(twoProjectState(), tail)
-	for _, tl := range tailers {
-		tl.Close()
-	}
-
-	if len(started) != 3 || len(tailers) != 3 {
-		t.Errorf("started %v (%d tailers), want one per session (3)", started, len(tailers))
 	}
 }
 

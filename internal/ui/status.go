@@ -6,7 +6,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/notify"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -69,7 +68,7 @@ const notifyCooldown = 5 * time.Second
 // takes tens of milliseconds (issue #69). Suppressed: a repeated state, a
 // transition older than this run (issue #70), and a second notification for
 // the same session within notifyCooldown.
-func (m *Model) maybeNotify(e watcher.Event, before, after registry.Status) tea.Cmd {
+func (m *Model) maybeNotify(e watcher.Event, before, after watcher.Status) tea.Cmd {
 	if m.hasFocus || before == after || e.At.Before(m.startedAt) {
 		return nil
 	}
@@ -108,11 +107,11 @@ func (m *Model) sessionTitle(id string) string {
 }
 
 // needsYou returns the notification body for a status that wants attention.
-func needsYou(title string, status registry.Status) (string, bool) {
+func needsYou(title string, status watcher.Status) (string, bool) {
 	switch status {
-	case registry.StatusWaiting:
+	case watcher.StatusWaiting:
 		return title + " needs you", true
-	case registry.StatusDone:
+	case watcher.StatusDone:
 		return title + " finished", true
 	default:
 		return "", false
@@ -121,8 +120,8 @@ func needsYou(title string, status registry.Status) (string, bool) {
 
 // statusMap projects the per-session state down to the status the sidebar
 // needs.
-func (m *Model) statusMap() map[string]registry.Status {
-	out := make(map[string]registry.Status, len(m.status))
+func (m *Model) statusMap() map[string]watcher.Status {
+	out := make(map[string]watcher.Status, len(m.status))
 	for id, st := range m.status {
 		out[id] = st.Status
 	}

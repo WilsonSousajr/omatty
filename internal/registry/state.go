@@ -4,23 +4,6 @@ package registry
 // Version is the state.json schema version. Bump only with a migration.
 const Version = 1
 
-// Status is a session's live state. It is derived from the JSONL transcript
-// and hook events (invariant 2) and is deliberately never persisted.
-type Status string
-
-// The states a session can be in, as shown in the sidebar.
-const (
-	StatusIdle     Status = "idle"
-	StatusThinking Status = "thinking"
-	StatusTool     Status = "tool"
-	StatusWaiting  Status = "waiting"
-	StatusDone     Status = "done"
-	StatusError    Status = "error"
-	// StatusExited means claude quit (SessionEnd). Not an error and not idle:
-	// the operator needs to know ctrl+o r applies.
-	StatusExited Status = "exited"
-)
-
 // Project is a registered git repository.
 type Project struct {
 	Name string `json:"name"`
@@ -47,6 +30,3 @@ type State struct {
 	Projects []Project `json:"projects"`
 	Sessions []Session `json:"sessions"`
 }
-
-// String returns the status value, e.g. for a test's subtest name.
-func (s Status) String() string { return string(s) }
