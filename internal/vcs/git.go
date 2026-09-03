@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 )
 
@@ -30,6 +31,9 @@ type Git interface {
 	Untracked(dir string) ([]string, error)
 	// UntrackedDiff renders one untracked file as an all-additions diff.
 	UntrackedDiff(dir, path string) (string, error)
+	// ListFiles lists tracked and untracked files under dir, honouring
+	// .gitignore, sorted (#24).
+	ListFiles(dir string) ([]string, error)
 }
 
 // CLI runs the real git binary.
@@ -154,4 +158,19 @@ func (c *CLI) Untracked(dir string) ([]string, error) {
 //	raw, err := vcs.NewCLI().UntrackedDiff("/wt/parser-fix", "new.txt")
 func (c *CLI) UntrackedDiff(dir, path string) (string, error) {
 	return c.capture(dir, 1, diffArgs("--no-index", "--", os.DevNull, path)...)
+}
+
+// ListFiles returns tracked plus untracked, non-ignored paths, sorted. git
+// emits the two sets one after the other, so the sort is what makes the tree
+// read as a directory listing rather than as two interleaved lists (#24).
+//
+//	files, err := vcs.NewCLI().ListFiles(sess.Dir)
+func (c *CLI) ListFiles(dir string) ([]string, error) {
+	out, err := c.run(dir, "ls-files", "--cached", "--others", "--exclude-standard")
+	if err != nil || out == "" {
+		return nil, err
+	}
+	files := strings.Split(out, "\n")
+	sort.Strings(files)
+	return files, nil
 }

@@ -34,6 +34,8 @@ func (f *FakeGit) Untracked(string) ([]string, error) { return nil, nil }
 
 func (f *FakeGit) UntrackedDiff(string, string) (string, error) { return "", nil }
 
+func (f *FakeGit) ListFiles(string) ([]string, error) { return nil, nil }
+
 func (f *FakeGit) AddWorktree(repoRoot, dir, branch, base string) error {
 	if f.AddErr != nil {
 		return fmt.Errorf("FakeGit: refusing to add worktree %q on %q: %w", dir, branch, f.AddErr)
