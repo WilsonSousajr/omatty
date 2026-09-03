@@ -12,7 +12,7 @@ import (
 // Both boxes are content plus one border column each side; the sidebar's
 // outer width is fixed and the terminal takes the rest.
 func TestPaneSize_SubtractsSidebarAndBorders_issue35(t *testing.T) {
-	w, h := ui.PaneSize(120, 40)
+	w, h := ui.PaneSize(120, 40, false)
 
 	// terminal outer = 120 - 28 = 92; content = 90. Rows: 40 - footer 1 - border 2 = 37.
 	if w != 90 || h != 37 {
@@ -21,7 +21,7 @@ func TestPaneSize_SubtractsSidebarAndBorders_issue35(t *testing.T) {
 }
 
 func TestPaneSize_FloorsOnATinyWindow_issue35(t *testing.T) {
-	w, h := ui.PaneSize(30, 5)
+	w, h := ui.PaneSize(30, 5, false)
 
 	if w != 20 || h != 4 {
 		t.Errorf("PaneSize(30, 5) = (%d, %d), want the floors (20, 4)", w, h)
@@ -112,7 +112,7 @@ func TestModel_NoLineExceedsTheWindowWidth_issue35(t *testing.T) {
 // pane spends its first row on the title and renders h-1 rows, so claude's
 // bottom line was always clipped.
 func TestPTYSize_IsOneRowShorterThanThePane_issue75(t *testing.T) {
-	w, h := ui.PTYSize(120, 40)
+	w, h := ui.PTYSize(120, 40, false)
 
 	if w != 90 || h != 36 {
 		t.Errorf("PTYSize(120, 40) = (%d, %d), want (90, 36): PaneSize 90x37 minus the title row", w, h)
@@ -128,5 +128,30 @@ func TestModel_IgnoresAZeroWindowSize_issue74(t *testing.T) {
 
 	if fakes["s1"].Width != 0 {
 		t.Errorf("a 0x0 window resized the terminal to %dx%d; it must be ignored", fakes["s1"].Width, fakes["s1"].Height)
+	}
+}
+
+// #21: the review column takes two fifths of what the sidebar leaves, so a
+// 100-column window keeps about 40 columns of claude.
+func TestPaneSize_ReviewColumnTakesTwoFifthsOfTheRest_issue21(t *testing.T) {
+	if got := ui.ReviewWidth(100, true); got != 28 {
+		t.Errorf("ReviewWidth(100) = %d, want 28 ((100-28)*2/5)", got)
+	}
+	if got := ui.ReviewWidth(100, false); got != 0 {
+		t.Errorf("ReviewWidth(closed) = %d, want 0", got)
+	}
+	w, h := ui.PaneSize(100, 30, true)
+	// 100 - sidebar 28 - review 28 - terminal borders 2 = 42; rows unchanged.
+	if w != 42 || h != 27 {
+		t.Errorf("PaneSize(100, 30, open) = (%d, %d), want (42, 27)", w, h)
+	}
+	if w, _ := ui.PaneSize(160, 45, true); w != 78 {
+		t.Errorf("PaneSize(160, 45, open) width = %d, want 78 (review 52)", w)
+	}
+}
+
+func TestReviewWidth_FloorsOnANarrowWindow_issue21(t *testing.T) {
+	if got := ui.ReviewWidth(60, true); got != 24 {
+		t.Errorf("ReviewWidth(60) = %d, want the floor 24", got)
 	}
 }

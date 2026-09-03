@@ -11,8 +11,16 @@ import (
 // footer is the keymap, rendered on every frame. It stays visible while a
 // session fills the pane because that is exactly the state where ctrl+c
 // belongs to Claude and `ctrl+o q` is the only exit (issues #28, #30).
-const footer = Leader + " j/k switch  " + Leader + " n new  " +
-	Leader + " N worktree  " + Leader + " r restart  " + Leader + " q quit"
+// The exit comes first because the keymap is truncated to the window and the
+// review key made it longer than 80 columns: whatever falls off the end, the
+// only way out stays on screen (issues #30, #21).
+const footer = Leader + " q quit  " + Leader + " j/k switch  " + Leader + " n new  " +
+	Leader + " N worktree  " + Leader + " d diff  " + Leader + " r restart"
+
+// reviewFooter replaces footer while the review column has focus: those keys
+// are the ones that do anything there.
+const reviewFooter = "j/k move  c comment  d delete  r reload  S submit  esc back  " +
+	Leader + " d close"
 
 // emptyStateHint names the next useful action. With no projects registered,
 // creating a session can only fail, so it points at `omatty add` instead.
@@ -37,11 +45,13 @@ func (m *Model) promptLine() string {
 // border is applied, so lipgloss adds precisely one column and row per side
 // and the frame never exceeds the window.
 func (m *Model) View() tea.View {
-	termW, termH := PaneSize(m.width, m.height)
+	termW, termH := PaneSize(m.width, m.height, m.review.Open)
 	now := m.clock() // once per frame, so every row ages against the same instant
-	panes := lipgloss.JoinHorizontal(lipgloss.Top,
-		m.renderSidebar(termH, now),
-		m.renderTerminal(termW, termH, now))
+	columns := []string{m.renderSidebar(termH, now), m.renderTerminal(termW, termH, now)}
+	if m.review.Open {
+		columns = append(columns, m.renderReview(ReviewWidth(m.width, true)-2, termH))
+	}
+	panes := lipgloss.JoinHorizontal(lipgloss.Top, columns...)
 	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, panes, m.renderFooter()))
 	v.AltScreen = true
 	v.ReportFocus = true // so FocusMsg/BlurMsg drive notifications
@@ -63,7 +73,9 @@ func (m *Model) renderSidebar(rows int, now time.Time) string {
 func (m *Model) renderTerminal(w, h int, now time.Time) string {
 	if term := m.focusedTerminal(); term != nil {
 		body := fitBlock(strings.Split(term.View(), "\n"), w, h-1)
-		return paneBox(true).Render(m.terminalTitle(w, now) + "\n" + body)
+		// Dimmed while the review column has the keys, so the border says
+		// where a keystroke will land (#21).
+		return paneBox(!m.review.Focused).Render(m.terminalTitle(w, now) + "\n" + body)
 	}
 	lines := []string{""}
 	if m.prompt.Active {
@@ -100,12 +112,17 @@ func (m *Model) terminalTitle(w int, now time.Time) string {
 
 // renderFooter shows the keymap, or the last error until the next keypress.
 // Errors live here rather than in a pane so they are visible whether or not
-// a session has focus.
+// a session has focus. fitLine, not padRight: on a narrow window the keymap is
+// truncated rather than pushing the frame wider than the screen.
 func (m *Model) renderFooter() string {
 	if m.lastErr != "" {
 		return errorStyle.Render(fitLine(" error: "+m.lastErr, m.width))
 	}
-	return footerStyle.Render(padRight(" "+footer, m.width))
+	line := footer
+	if m.review.Focused {
+		line = reviewFooter
+	}
+	return footerStyle.Render(fitLine(" "+line, m.width))
 }
 
 // renderRow draws one sidebar line: a project header, or a session with its

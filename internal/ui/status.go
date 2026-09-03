@@ -46,7 +46,8 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 	after := watcher.Apply(m.status[e.SessionID], e)
 	m.status[e.SessionID] = after
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
-	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after.Status))
+	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after.Status),
+		m.refreshReview(e.SessionID, before, after.Status))
 }
 
 func (m *Model) knownSession(id string) bool {

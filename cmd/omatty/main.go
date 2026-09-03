@@ -24,6 +24,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/hooks"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
@@ -130,7 +131,7 @@ func runTUI(home string, store *registry.Store) error {
 	launcher := supervisor.NewLauncher("claude", hooksFile, home)
 	w, h := windowSize()
 	return ui.Run(home, state, launcher, termwrap.Start, w, h,
-		sessionCreator(home, store))
+		sessionCreator(home, store), review.NewSource(vcs.NewCLI()).Load)
 }
 
 // sessionCreator adapts registry.AddSession to ui.CreateFunc. The project

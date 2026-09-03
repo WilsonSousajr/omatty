@@ -9,9 +9,11 @@ and shows sessions from *several* repositories side by side.
 
 ## Status
 
-**M1: the skeleton.** Projects and sessions are registered, worktrees are
-created, and the real `claude` binary runs inside an embedded terminal pane.
-Session status, diff review with inline comments, and the file tree are M2–M4.
+**M3: review.** Projects and sessions are registered, worktrees are created,
+and the real `claude` binary runs inside an embedded terminal pane (M1). The
+sidebar shows live per-session status (M2). A diff pane reviews what a session
+changed and sends your comments back as one message (M3). The file tree is
+next.
 
 ## Install
 
@@ -42,9 +44,35 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o j` / `ctrl+o k` | move between sessions |
 | `ctrl+o n` | new session on the main checkout |
 | `ctrl+o N` | new session on a fresh worktree |
+| `ctrl+o d` | open or close the diff pane |
+| `ctrl+o r` | restart a crashed session |
 | `ctrl+o q` | quit |
 
 `esc`, `shift+tab`, `ctrl+r` and `ctrl+c` all reach Claude untouched.
+
+## Review
+
+`ctrl+o d` opens a diff of everything the session changed: its commits since
+it branched, its uncommitted edits, and the files it created, all in one view.
+The pane takes the keys while it is open.
+
+| Key | Action |
+|---|---|
+| `j` / `k` | move through the diff |
+| `c` | comment on the line under the cursor |
+| `d` | delete the comment under the cursor |
+| `r` | reload the diff |
+| `S` | send every comment to Claude as one message |
+| `esc` | give the keys back to Claude, leaving the pane open |
+
+Comments are anchored to the *content* of a line, not its number, so they stay
+put while Claude edits the file underneath you. A comment whose line disappears
+floats to the top of its file marked `(moved)` rather than silently attaching
+itself to the wrong code.
+
+`S` sends the whole batch as a single prompt — `file:line`, the quoted line and
+your note, numbered — so Claude answers them together instead of one at a time.
+Pending comments live in memory: quitting omatty drops them.
 
 ## Session status
 

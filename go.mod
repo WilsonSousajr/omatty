@@ -5,6 +5,7 @@ go 1.26.5
 require (
 	charm.land/bubbletea/v2 v2.0.9
 	charm.land/lipgloss/v2 v2.0.6
+	github.com/bluekeyes/go-gitdiff v0.9.0
 	github.com/creack/pty v1.1.24
 	github.com/google/uuid v1.6.0
 	github.com/taigrr/bubbleterm v0.3.5

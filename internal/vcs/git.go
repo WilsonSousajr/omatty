@@ -19,8 +19,17 @@ import (
 type Git interface {
 	RepoRoot(dir string) (string, error)
 	CurrentBranch(dir string) (string, error)
-	AddWorktree(repoRoot, dir, branch string) error
+	AddWorktree(repoRoot, dir, branch, base string) error
 	RemoveWorktree(repoRoot, dir string) error
+	// MergeBase returns the commit where ref and dir's HEAD diverged.
+	MergeBase(dir, ref string) (string, error)
+	// Diff returns the unified diff of dir's working tree against commit, so
+	// committed and uncommitted changes appear as one diff (#21).
+	Diff(dir, commit string) (string, error)
+	// Untracked lists files git does not track, honouring .gitignore.
+	Untracked(dir string) ([]string, error)
+	// UntrackedDiff renders one untracked file as an all-additions diff.
+	UntrackedDiff(dir, path string) (string, error)
 }
 
 // CLI runs the real git binary.
@@ -31,9 +40,11 @@ type CLI struct{ bin string }
 // NewCLI returns a CLI that invokes "git" from PATH.
 func NewCLI() *CLI { return &CLI{bin: "git"} }
 
-// run executes git in dir and returns trimmed stdout. Failures carry git's
-// own stderr, which is the only useful diagnostic a caller can act on.
-func (c *CLI) run(dir string, args ...string) (string, error) {
+// capture executes git in dir and returns stdout untouched: diff output needs
+// its final newline. okExit is one extra exit status treated as success,
+// because `git diff --no-index` exits 1 to mean "differences found", which is
+// the answer rather than a failure (#21).
+func (c *CLI) capture(dir string, okExit int, args ...string) (string, error) {
 	if err := checkDir(dir); err != nil {
 		return "", err
 	}
@@ -42,11 +53,25 @@ func (c *CLI) run(dir string, args ...string) (string, error) {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
-	if err != nil {
+	if err != nil && !exitedWith(err, okExit) {
 		return "", fmt.Errorf("vcs: `git %s` in %q failed: %s: %w",
 			strings.Join(args, " "), dir, strings.TrimSpace(stderr.String()), err)
 	}
-	return strings.TrimSpace(string(out)), nil
+	return string(out), nil
+}
+
+// exitedWith reports whether err is git exiting with exactly code. A zero
+// code never matches: success is not an error in the first place.
+func exitedWith(err error, code int) bool {
+	var exit *exec.ExitError
+	return code != 0 && errors.As(err, &exit) && exit.ExitCode() == code
+}
+
+// run executes git in dir and returns trimmed stdout. Failures carry git's
+// own stderr, which is the only useful diagnostic a caller can act on.
+func (c *CLI) run(dir string, args ...string) (string, error) {
+	out, err := c.capture(dir, 0, args...)
+	return strings.TrimSpace(out), err
 }
 
 // checkDir rejects a bad path before exec. exec.Cmd only fails when it tries
@@ -77,9 +102,10 @@ func (c *CLI) CurrentBranch(dir string) (string, error) {
 	return c.run(dir, "rev-parse", "--abbrev-ref", "HEAD")
 }
 
-// AddWorktree creates a linked worktree at dir on a new branch.
-func (c *CLI) AddWorktree(repoRoot, dir, branch string) error {
-	_, err := c.run(repoRoot, "worktree", "add", "-b", branch, dir)
+// AddWorktree creates a linked worktree at dir on a new branch forked from
+// base, named explicitly so the recorded base and the fork point agree (#21).
+func (c *CLI) AddWorktree(repoRoot, dir, branch, base string) error {
+	_, err := c.run(repoRoot, "worktree", "add", "-b", branch, dir, base)
 	return err
 }
 
@@ -87,4 +113,45 @@ func (c *CLI) AddWorktree(repoRoot, dir, branch string) error {
 func (c *CLI) RemoveWorktree(repoRoot, dir string) error {
 	_, err := c.run(repoRoot, "worktree", "remove", "--force", dir)
 	return err
+}
+
+// diffArgs keeps diff output machine-readable: no colour, no external diff
+// tool, no path quoting, renames detected so a moved file is one entry.
+func diffArgs(extra ...string) []string {
+	return append([]string{"-c", "core.quotepath=false", "diff",
+		"--no-color", "--no-ext-diff", "-M"}, extra...)
+}
+
+// MergeBase returns the commit where ref and HEAD diverged.
+//
+//	base, err := vcs.NewCLI().MergeBase("/wt/parser-fix", "develop")
+func (c *CLI) MergeBase(dir, ref string) (string, error) {
+	return c.run(dir, "merge-base", ref, "HEAD")
+}
+
+// Diff returns the working tree's unified diff against commit, which is
+// everything a session changed whether it committed it or not (#21).
+//
+//	raw, err := vcs.NewCLI().Diff("/wt/parser-fix", base)
+func (c *CLI) Diff(dir, commit string) (string, error) {
+	return c.capture(dir, 0, diffArgs(commit, "--")...)
+}
+
+// Untracked lists untracked, non-ignored files relative to dir.
+//
+//	files, err := vcs.NewCLI().Untracked("/wt/parser-fix")
+func (c *CLI) Untracked(dir string) ([]string, error) {
+	out, err := c.run(dir, "ls-files", "--others", "--exclude-standard")
+	if err != nil || out == "" {
+		return nil, err
+	}
+	return strings.Split(out, "\n"), nil
+}
+
+// UntrackedDiff diffs path against /dev/null so a new file reads as pure
+// additions; git exits 1 for "differences", which capture tolerates.
+//
+//	raw, err := vcs.NewCLI().UntrackedDiff("/wt/parser-fix", "new.txt")
+func (c *CLI) UntrackedDiff(dir, path string) (string, error) {
+	return c.capture(dir, 1, diffArgs("--no-index", "--", os.DevNull, path)...)
 }

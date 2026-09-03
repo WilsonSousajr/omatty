@@ -4,6 +4,7 @@ import (
 	"image/color"
 
 	"charm.land/lipgloss/v2"
+	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -61,4 +62,37 @@ func statusGlyph(s watcher.Status) string {
 		return g
 	}
 	return "-"
+}
+
+// Diff colours: added green, removed red, comments amber, the cursor row
+// reversed so it reads at a glance in any palette (#21).
+var (
+	addedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("78"))
+	removedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
+	commentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	cursorStyle  = lipgloss.NewStyle().Reverse(true)
+)
+
+// entryStyle colours a review row by what it is; a line row is coloured by
+// what the diff did to it.
+func entryStyle(e review.Entry, d review.Diff) lipgloss.Style {
+	switch e.Kind {
+	case review.EntryFile:
+		return headerStyle
+	case review.EntryHunk:
+		return mutedStyle
+	case review.EntryComment, review.EntryOrphan:
+		return commentStyle
+	}
+	return lineStyle(d.LineAt(e.Pos).Kind)
+}
+
+func lineStyle(k review.LineKind) lipgloss.Style {
+	switch k {
+	case review.LineAdded:
+		return addedStyle
+	case review.LineRemoved:
+		return removedStyle
+	}
+	return lipgloss.NewStyle()
 }

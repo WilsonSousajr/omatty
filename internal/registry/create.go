@@ -31,29 +31,39 @@ func (c *Creator) Create(st *State, project, title, branch string) (Session, err
 	if err != nil {
 		return Session{}, err
 	}
-	dir, err := c.resolveDir(p, branch)
-	if err != nil {
-		return Session{}, err
-	}
-	sess := Session{
-		ID: c.newID(), Project: project, Title: title,
-		Dir: dir, Branch: branch, Worktree: branch != "",
+	sess := Session{ID: c.newID(), Project: project, Title: title, Dir: p.Root, Branch: branch}
+	if branch != "" {
+		if err := c.addWorktree(&sess, p); err != nil {
+			return Session{}, err
+		}
 	}
 	st.Sessions = append(st.Sessions, sess)
 	return sess, nil
 }
 
-// resolveDir returns the working directory for a new session, creating the
-// worktree as a side effect when branch is non-empty.
-func (c *Creator) resolveDir(p Project, branch string) (string, error) {
-	if branch == "" {
-		return p.Root, nil
+// addWorktree creates sess's worktree, forked from the branch the main
+// checkout is on, and records that branch as Base (#21).
+func (c *Creator) addWorktree(sess *Session, p Project) error {
+	base, err := c.git.CurrentBranch(p.Root)
+	if err != nil {
+		return fmt.Errorf("registry: reading the base branch of %q: %w", p.Root, err)
 	}
-	dir := paths.WorktreeDir(c.home, p.Name, branch)
-	if err := c.git.AddWorktree(p.Root, dir, branch); err != nil {
-		return "", fmt.Errorf("registry: creating worktree %q on branch %q: %w", dir, branch, err)
+	dir := paths.WorktreeDir(c.home, p.Name, sess.Branch)
+	if err := c.git.AddWorktree(p.Root, dir, sess.Branch, base); err != nil {
+		return fmt.Errorf("registry: creating worktree %q on branch %q from %q: %w",
+			dir, sess.Branch, base, err)
 	}
-	return dir, nil
+	sess.Dir, sess.Base, sess.Worktree = dir, recordedBase(base), true
+	return nil
+}
+
+// recordedBase drops git's literal "HEAD" for a detached checkout: stored, it
+// would make review diff the worktree against itself.
+func recordedBase(base string) string {
+	if base == "HEAD" {
+		return ""
+	}
+	return base
 }
 
 func findProject(st *State, name string) (Project, error) {
