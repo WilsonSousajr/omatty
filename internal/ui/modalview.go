@@ -53,7 +53,7 @@ func helpLines() []string {
 	for _, k := range leaderKeys {
 		lines = append(lines, "  "+padRight(Leader+" "+k[0], 12)+"  "+k[1])
 	}
-	return append(lines, "", "any key to close")
+	return append(lines, "", "esc to close")
 }
 
 // confirmLines draws the question and one line per answer. The answers are
@@ -115,7 +115,7 @@ func modalFooter(md modal) string {
 	case modalPicker:
 		return pickerFooter(md.List.markedCount())
 	case modalHelp:
-		return "any key to close"
+		return "esc to close"
 	}
 	return ""
 }

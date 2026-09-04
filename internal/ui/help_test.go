@@ -26,17 +26,28 @@ func TestModel_helpListsEveryLeaderKey_issue103(t *testing.T) {
 	}
 }
 
-// It shows a keymap and takes no input, so the key you reached for next
-// dismisses it rather than being swallowed.
-func TestModel_helpClosesOnAnyKey_issue103(t *testing.T) {
-	m, _ := modelWithFakes(t)
+// Regression, issue #103: the help modal first closed on *any* key. A modal
+// makes the terminal unfocused, so the router never arms the leader while one
+// is open - which meant the ctrl+o of `ctrl+o q` closed the help and the q
+// went straight to Claude as text. The M4 smoke test found a literal q sitting
+// in the pane. esc closes it; nothing else does.
+func TestModel_helpClosesOnEscAndSwallowsTheLeader_issue103(t *testing.T) {
+	m, fakes := modelWithFakes(t)
 	press(m, ctrl('o'))
 	press(m, key('?'))
 
-	press(m, key('z'))
+	press(m, ctrl('o'))
+	press(m, key('q'))
 
-	if got := m.View().Content; strings.Contains(got, "any key to close") {
-		t.Errorf("the help modal stayed open:\n%s", got)
+	if got := m.View().Content; !strings.Contains(got, "esc to close") {
+		t.Errorf("the help modal closed on the leader:\n%s", got)
+	}
+	if n := len(fakes["s1"].Msgs); n != 0 {
+		t.Errorf("%d keys reached the PTY while help was open, want 0", n)
+	}
+	press(m, special(tea.KeyEscape))
+	if got := m.View().Content; strings.Contains(got, "esc to close") {
+		t.Errorf("esc did not close the help modal:\n%s", got)
 	}
 }
 

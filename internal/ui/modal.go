@@ -96,9 +96,7 @@ func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 	case modalList, modalPicker:
 		return m.onListKey(msg)
 	case modalHelp:
-		// It shows a keymap and takes no input, so any key dismisses it -
-		// including the one you reached for next.
-		m.modal = modal{}
+		return m.onHelpKey(msg.Keystroke())
 	}
 	return nil
 }
@@ -120,6 +118,20 @@ func (m *Model) onEditorKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.modal.Editor.Buffer = trimLastRune(m.modal.Editor.Buffer)
 	default:
 		m.modal.Editor.Buffer += msg.Text
+	}
+	return nil
+}
+
+// onHelpKey dismisses the keymap.
+//
+// esc only, not "any key". A modal makes the terminal unfocused, so the router
+// never arms the leader while one is open - which means a help box that closed
+// on any key would swallow the ctrl+o of `ctrl+o q` and send the q straight to
+// Claude. Found by the M4 smoke test, where a literal q appeared in the pane
+// (#103).
+func (m *Model) onHelpKey(key string) tea.Cmd {
+	if key == "esc" {
+		m.modal = modal{}
 	}
 	return nil
 }
