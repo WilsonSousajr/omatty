@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -22,7 +21,7 @@ func (m *Model) renderTree(w, rows int) []string {
 	off := ScrollOffset(m.review.TreeCursor, m.review.TreeOffset, rows)
 	out := make([]string, 0, rows)
 	for i := off; i < min(off+rows, len(nodes)); i++ {
-		text := fitLine(treeText(nodes[i], m.review.Tree.Collapsed(nodes[i].Path)), w)
+		text := m.fitContent(treeText(nodes[i], m.review.Tree.Collapsed(nodes[i].Path)), w)
 		out = append(out, treeStyle(nodes[i], i == m.review.TreeCursor).Render(text))
 	}
 	return out
@@ -58,9 +57,8 @@ func treeStyle(n review.TreeNode, cursor bool) lipgloss.Style {
 	return lipgloss.NewStyle()
 }
 
-// renderPreview draws the file's lines from the scroll offset, numbered.
-// Tabs are expanded for the same reason as in the diff: lipgloss measures a
-// tab as one cell and draws it as several, which tears the frame (#21).
+// renderPreview draws the file's lines from the scroll offset, numbered, and
+// from the column offset horizontally (#94).
 func (m *Model) renderPreview(w, rows int) []string {
 	p := m.review.Preview
 	if p.Binary {
@@ -69,7 +67,7 @@ func (m *Model) renderPreview(w, rows int) []string {
 	end := min(m.review.PreviewOffset+rows, len(p.Lines))
 	out := make([]string, 0, rows)
 	for i := m.review.PreviewOffset; i < end; i++ {
-		out = append(out, fitLine(fmt.Sprintf("%4d  %s", i+1, expandTabs(p.Lines[i])), w))
+		out = append(out, m.fitContent(previewRow(i, p.Lines[i]), w))
 	}
 	if p.Truncated && end == len(p.Lines) {
 		out = append(out, mutedStyle.Render("... truncated at 256 KiB"))

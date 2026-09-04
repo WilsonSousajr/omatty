@@ -83,6 +83,11 @@ type ReviewPane struct {
 	// replaces the last rather than accumulating.
 	Preview       review.Preview
 	PreviewOffset int
+	// ColOffset is the horizontal counterpart of the three vertical offsets
+	// above: how many display cells every content row is scrolled left, so a
+	// line wider than the column can still be read (issue #94). One offset
+	// serves all three views, so h and l behave the same wherever you are.
+	ColOffset int
 }
 
 // noteEditor is the one-line comment input opened with c on a diff line. It
@@ -133,7 +138,9 @@ func (m *Model) toggleView(v ReviewView) tea.Cmd {
 	if !m.review.Open || m.review.SessionID != id {
 		m.review = ReviewPane{Open: true, SessionID: id}
 	}
-	m.review.View, m.review.Focused = v, true
+	// Each view is a different shape of text, so a pan that made sense in one
+	// is meaningless in the next: switching starts at the left edge (#94).
+	m.review.View, m.review.Focused, m.review.ColOffset = v, true, 0
 	return tea.Batch(m.resizeFocused(), m.loadDiff(id), m.loadFiles(id))
 }
 

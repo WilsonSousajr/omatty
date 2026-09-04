@@ -74,6 +74,8 @@ func (m *Model) onTreeKey(key string) tea.Cmd {
 		return m.loadFiles(m.review.SessionID)
 	case "esc", "ctrl+c":
 		m.review.Focused = false
+	default:
+		m.panKey(key)
 	}
 	return nil
 }
@@ -128,6 +130,7 @@ func (m *Model) previewFile(rel string) {
 		return
 	}
 	m.review.Preview, m.review.PreviewOffset, m.review.View = p, 0, ViewPreview
+	m.review.ColOffset = 0 // a new file opens at its left edge, not mid-line (#94)
 }
 
 // onPreviewKey scrolls the preview; esc returns to the tree, which is where
@@ -140,7 +143,9 @@ func (m *Model) onPreviewKey(key string) tea.Cmd {
 	case "k", "up":
 		m.review.PreviewOffset = max(m.review.PreviewOffset-1, 0)
 	case "esc", "ctrl+c":
-		m.review.View = ViewTree
+		m.review.View, m.review.ColOffset = ViewTree, 0
+	default:
+		m.panKey(key)
 	}
 	return nil
 }

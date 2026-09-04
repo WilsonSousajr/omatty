@@ -26,6 +26,9 @@ func (m *Model) onReviewKey(key string) tea.Cmd {
 	case "esc", "ctrl+c":
 		m.review.Focused = false
 	default:
+		if m.panKey(key) {
+			return nil
+		}
 		return m.reviewAction(key)
 	}
 	return nil
