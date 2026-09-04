@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-09-04, when M3 merged and project discovery was added to M4.
+Last revised 2026-09-04, when M4 was built and opened for review.
 
 omatty is a terminal ADE: several projects and several parallel Claude Code
 sessions in one window, each session the real `claude` binary in an embedded
@@ -19,7 +19,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M1 | Skeleton | **Done.** #36, #35, #15 closed; merged to develop. |
 | M2 | Status | **Done.** Live glyphs, age, tokens, notifications; merged to develop. |
 | M3 | Review | **Done.** #21-#24 merged to develop; diff, comments, submit, file tree. |
-| M4 | Lifecycle | Planned. Issues #15, #40-#42, #91 in Backlog. |
+| M4 | Lifecycle | **In review.** #95, #41, #40, #42, #91, #103 built as PRs #98-#104. |
 | M5 | File tree | Folded into M3 on 2026-09-03; #24 shipped there. |
 | M6 | Persistence | Planned. Issue #43 in Backlog. |
 | M7 | Reach | Planned. Issues #44-#46 in Backlog. |
@@ -172,6 +172,29 @@ peaks.
 in and you register them by choosing rather than typing; and a session can be
 created, renamed, crashed, restarted, archived and its worktree removed, all
 from inside omatty.
+
+**Built** on 2026-09-04 as six PRs to `develop`, one issue each: #98 (#95, the
+resize bug), #99 (#41 rename), #100 (#40 archive), #101 (#42 switcher), #102
+(#91 discovery) and #104 (#103, the help modal). The plan is
+`docs/superpowers/plans/2026-09-04-m4-lifecycle.md`.
+
+Three things worth remembering from building it:
+
+- **Three surfaces wanted the keyboard, so one modal layer carries all of
+  them.** The prompt used to take it by making `focusedTerminal` return nil,
+  which was load-bearing for key routing, rendering *and* the pane border.
+  One `modal` field with a kind enum replaced the bool, and `keys.Router` and
+  `focusTarget` did not change at all: invariant 1 survived four new surfaces
+  without the router learning anything about them.
+- **#95 was a class, not a path.** `focusedTerminal` answered "who owns the
+  keyboard" and "which PTY fills the pane" with the same nil. Splitting them
+  first meant the three surfaces after it inherited the fix rather than
+  re-creating the bug, and the regression test is a table each one adds a row
+  to.
+- **The smoke test earned its place again.** The gate was green when
+  `ctrl+o ?` then `ctrl+o q` typed a literal `q` into Claude: a modal makes the
+  terminal unfocused, so the leader is never armed while one is open, and a
+  help box that closed on any key swallowed it. Only a real PTY showed that.
 
 **Deliberately out:** adopting *sessions* omatty did not create. Discovery
 stops at projects. Reading a transcript to reconstruct a session and resume
