@@ -379,19 +379,7 @@ func (m *Model) addSession(project, title, branch string) (tea.Cmd, error) {
 
 // selectSession moves the cursor onto id, so a freshly created session is the
 // one you are looking at.
-func (m *Model) selectSession(id string) {
-	for {
-		row, ok := m.sidebar.Selected()
-		if !ok || row.Session.ID == id {
-			return
-		}
-		before := row.Session.ID
-		m.sidebar.MoveDown()
-		if next, _ := m.sidebar.Selected(); next.Session.ID == before {
-			return // reached the end without finding it
-		}
-	}
-}
+func (m *Model) selectSession(id string) { m.sidebar.SelectByID(id) }
 
 func trimLastRune(s string) string {
 	r := []rune(s)

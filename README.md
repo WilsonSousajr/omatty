@@ -49,6 +49,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session |
+| `ctrl+o /` | jump to a session by typing part of its name |
 | `ctrl+o q` | quit |
 
 `ctrl+o R` opens the session's title for editing, pre-filled, so correcting a
@@ -62,6 +63,11 @@ answer, on its own key, that also runs `git worktree remove` — that one
 discards uncommitted work, which is why it is never the key your hand reaches
 for. A session on the main checkout is never offered it: omatty did not create
 that directory, so it will not delete it.
+
+`ctrl+o /` filters every session in every project as you type, matching on the
+title and the project name, and `enter` jumps to the one under the cursor. `j`
+and `k` are filter text here rather than movement — `ctrl+j` and `ctrl+k` move
+— because a switcher you cannot type "jk" into is not a switcher.
 
 `esc`, `shift+tab`, `ctrl+r` and `ctrl+c` all reach Claude untouched.
 

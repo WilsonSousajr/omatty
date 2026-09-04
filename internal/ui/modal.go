@@ -26,6 +26,8 @@ const (
 	modalRename
 	// modalConfirm asks before archiving it, opened with x (#40).
 	modalConfirm
+	// modalList is the filtered list: the session switcher, opened with / (#42).
+	modalList
 )
 
 // modal is the open surface's state. Only the member matching Kind is live;
@@ -34,6 +36,7 @@ type modal struct {
 	Kind    modalKind
 	Editor  lineEditor
 	Confirm confirmBox
+	List    pickList
 }
 
 // modalOpen reports whether a surface owns the keyboard. It is the single
@@ -83,6 +86,8 @@ func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.onEditorKey(msg)
 	case modalConfirm:
 		return m.onConfirmKey(msg.Keystroke())
+	case modalList:
+		return m.onListKey(msg)
 	}
 	return nil
 }
