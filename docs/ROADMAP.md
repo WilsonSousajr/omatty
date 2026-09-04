@@ -1,7 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-09-04, after the file tree shipped in M3 and project
-discovery was added to M4.
+Last revised 2026-09-04, when M3 merged and project discovery was added to M4.
 
 omatty is a terminal ADE: several projects and several parallel Claude Code
 sessions in one window, each session the real `claude` binary in an embedded
@@ -19,7 +18,7 @@ not only the coverage gate. See "Rules" at the end for why.
 |---|---|---|
 | M1 | Skeleton | **Done.** #36, #35, #15 closed; merged to develop. |
 | M2 | Status | **Done.** Live glyphs, age, tokens, notifications; merged to develop. |
-| M3 | Review | **In review.** #21-#23 merged; #24 (file tree) on `feat/m3-file-tree`. |
+| M3 | Review | **Done.** #21-#24 merged to develop; diff, comments, submit, file tree. |
 | M4 | Lifecycle | Planned. Issues #15, #40-#42, #91 in Backlog. |
 | M5 | File tree | Folded into M3 on 2026-09-03; #24 shipped there. |
 | M6 | Persistence | Planned. Issue #43 in Backlog. |
