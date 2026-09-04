@@ -60,6 +60,10 @@ type RunDeps struct {
 	Files ListFilesFunc
 	// Rename persists a session's new title (#41).
 	Rename RenameFunc
+	// Archive drops a session from the registry and RemoveWorktree deletes its
+	// worktree (#40). The tailer is stopped through the Watch this owns.
+	Archive        ArchiveFunc
+	RemoveWorktree RemoveWorktreeFunc
 }
 
 // Run starts every session's terminal, the status watcher, and the TUI, and
@@ -75,7 +79,9 @@ func Run(d RunDeps) error {
 	model := NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory),
 		Diff: d.Diff, Files: d.Files, Rename: d.Rename,
-		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(), TailStart: watch.Add,
+		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree,
+		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
+		TailStart: watch.Add, TailStop: watch.Remove,
 	})
 	return runProgram(model, len(terms))
 }

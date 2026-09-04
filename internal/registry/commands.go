@@ -55,6 +55,27 @@ func RenameSession(s *Store, id, title string) error {
 	return s.Save(st)
 }
 
+// RemoveSession drops a session from the registry and returns it, so the
+// caller can decide from its own fields whether a worktree may be deleted
+// (#40). The transcript on disk is untouched: this forgets a session, it does
+// not destroy its history.
+//
+//	sess, err := registry.RemoveSession(store, id)
+//	if err == nil && sess.Worktree { /* git worktree remove sess.Dir */ }
+func RemoveSession(s *Store, id string) (Session, error) {
+	st, err := s.Load()
+	if err != nil {
+		return Session{}, err
+	}
+	i, err := indexOfSession(&st, id)
+	if err != nil {
+		return Session{}, err
+	}
+	sess := st.Sessions[i]
+	st.Sessions = append(st.Sessions[:i], st.Sessions[i+1:]...)
+	return sess, s.Save(st)
+}
+
 // indexOfSession locates a session by id. It returns an index rather than a
 // Session because callers mutate the one inside the state they are about to
 // save; a copy would be written back over.

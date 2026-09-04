@@ -8,13 +8,33 @@
 
 package ui
 
+import "strconv"
+
 // modalLines is the open surface's body. It returns nil when nothing is open,
 // which renderTerminal never asks for.
 func (m *Model) modalLines() []string {
-	if m.modal.Kind == modalPrompt || m.modal.Kind == modalRename {
+	switch m.modal.Kind {
+	case modalPrompt, modalRename:
 		return m.editorLines()
+	case modalConfirm:
+		return m.confirmLines()
 	}
 	return nil
+}
+
+// confirmLines draws the question and one line per answer. The answers are
+// spelled out rather than abbreviated to y/n, because one of them discards
+// uncommitted work and the operator should read what they are agreeing to.
+func (m *Model) confirmLines() []string {
+	c := m.modal.Confirm
+	lines := []string{"", "archive session " + strconv.Quote(c.Title) + "?", ""}
+	for _, choice := range c.Choices {
+		lines = append(lines, "  ["+choice.Key+"] "+choice.Label)
+		if choice.Warn != "" {
+			lines = append(lines, "      "+choice.Warn)
+		}
+	}
+	return append(lines, "  [esc] cancel")
 }
 
 // editorLines draws the one-line input: a blank lead-in, the label and buffer
@@ -44,10 +64,15 @@ func (m *Model) editorLabel() string {
 // modalFooter is the keymap while a surface is open, or "" when none is. The
 // base footer is already truncated at 100 columns (issue #30), so a new key
 // earns its place here rather than lengthening that constant.
-func modalFooter(k modalKind) string {
-	switch k {
+func modalFooter(md modal) string {
+	switch md.Kind {
 	case modalPrompt, modalRename:
 		return "enter confirm  esc cancel  ctrl+c quit"
+	case modalConfirm:
+		// The answers are listed in full in the pane directly above, and they
+		// differ between a worktree session and a main-checkout one, so
+		// repeating them here would only risk disagreeing with them.
+		return "answer above  esc cancel  ctrl+c quit"
 	}
 	return ""
 }

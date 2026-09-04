@@ -123,7 +123,7 @@ func (m *Model) renderFooter() string {
 // footerKeys is the keymap for whatever has focus. A modal surface comes
 // first: while one is open its keys are the only ones that do anything.
 func (m *Model) footerKeys() string {
-	if s := modalFooter(m.modal.Kind); s != "" {
+	if s := modalFooter(m.modal); s != "" {
 		return s
 	}
 	if !m.review.Focused {

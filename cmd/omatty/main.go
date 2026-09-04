@@ -128,17 +128,28 @@ func runTUI(home string, store *registry.Store) error {
 	if err != nil {
 		return err
 	}
-	launcher := supervisor.NewLauncher("claude", hooksFile, home)
 	w, h := windowSize()
+	return ui.Run(tuiDeps(home, store, state, hooksFile, w, h))
+}
+
+// tuiDeps wires the TUI's dependencies: the launcher, the terminal factory,
+// and the typed functions that reach git and the registry on ui's behalf,
+// because ui may do neither itself (invariants 4 and 10).
+func tuiDeps(
+	home string, store *registry.Store, state registry.State, hooksFile string, w, h int,
+) ui.RunDeps {
 	git := vcs.NewCLI()
-	return ui.Run(ui.RunDeps{
-		Home: home, State: state, Launch: launcher, Factory: termwrap.Start,
-		Width: w, Height: h,
-		Create: sessionCreator(home, store),
-		Diff:   review.NewSource(git).Load,
-		Files:  git.ListFiles,
-		Rename: sessionRenamer(store),
-	})
+	return ui.RunDeps{
+		Home: home, State: state, Width: w, Height: h,
+		Launch:         supervisor.NewLauncher("claude", hooksFile, home),
+		Factory:        termwrap.Start,
+		Create:         sessionCreator(home, store),
+		Diff:           review.NewSource(git).Load,
+		Files:          git.ListFiles,
+		Rename:         sessionRenamer(store),
+		Archive:        sessionArchiver(store),
+		RemoveWorktree: git.RemoveWorktree,
+	}
 }
 
 // sessionRenamer adapts registry.RenameSession to ui.RenameFunc, so the model
@@ -146,6 +157,16 @@ func runTUI(home string, store *registry.Store) error {
 func sessionRenamer(store *registry.Store) ui.RenameFunc {
 	return func(sessionID, title string) error {
 		return registry.RenameSession(store, sessionID, title)
+	}
+}
+
+// sessionArchiver adapts registry.RemoveSession to ui.ArchiveFunc. The model
+// already holds the session it is archiving, so the removed row is discarded
+// here rather than threaded back (#40).
+func sessionArchiver(store *registry.Store) ui.ArchiveFunc {
+	return func(sessionID string) error {
+		_, err := registry.RemoveSession(store, sessionID)
+		return err
 	}
 }
 
