@@ -1,6 +1,7 @@
 # omatty roadmap
 
-Last revised 2026-09-02, after M2 merged and the file tree was pulled into M3.
+Last revised 2026-09-04, after the file tree shipped in M3 and project
+discovery was added to M4.
 
 omatty is a terminal ADE: several projects and several parallel Claude Code
 sessions in one window, each session the real `claude` binary in an embedded
@@ -19,7 +20,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M1 | Skeleton | **Done.** #36, #35, #15 closed; merged to develop. |
 | M2 | Status | **Done.** Live glyphs, age, tokens, notifications; merged to develop. |
 | M3 | Review | **In review.** #21-#23 merged; #24 (file tree) on `feat/m3-file-tree`. |
-| M4 | Lifecycle | Planned. Issues #15, #40-#42 in Backlog. |
+| M4 | Lifecycle | Planned. Issues #15, #40-#42, #91 in Backlog. |
 | M5 | File tree | Folded into M3 on 2026-09-03; #24 shipped there. |
 | M6 | Persistence | Planned. Issue #43 in Backlog. |
 | M7 | Reach | Planned. Issues #44-#46 in Backlog. |
@@ -132,7 +133,7 @@ you open the file tree, see the two touched files, and preview one.
 
 ## M4 - Lifecycle
 
-**Delivers:** managing sessions once you have many of them.
+**Delivers:** managing projects and sessions once you have many of them.
 
 **Why here:** by the end of M3 you will have ten or more sessions and no way
 to get rid of one except editing `state.json`. None of this depends on M2 or
@@ -140,6 +141,22 @@ M3, so it could go anywhere; after the two big milestones is where the pain
 peaks.
 
 **Contents:**
+
+- **Project discovery** (#91): `omatty add <dir>` registers one repository at
+  a time, typed from memory. Claude already knows every project you have used
+  it in - `~/.claude/projects/<slug>/<uuid>.jsonl` - so omatty proposes that
+  list instead. It *proposes*: `omatty add` and manual session creation stay
+  exactly as they are, and nothing enters `state.json` without you choosing
+  it, so invariant 9 holds and the registry stays the single source of truth.
+
+  The slug cannot be reversed (`/` and `.` both become `-`), but each
+  transcript records its own `cwd`, which sidesteps the lossy mapping. Three
+  filters turn a store into a list worth reading: the directory must still
+  exist, it must be a git repository, and a linked worktree must resolve to
+  its parent - `--show-toplevel` returns the worktree, so the main checkout
+  comes from `--git-common-dir`. On a real store that is 34 slug dirs
+  collapsing to 6 projects, which is the whole argument for doing it properly
+  rather than listing the directory.
 
 - **Kill / archive** (`ctrl+o x`): stop the process, optionally
   `git worktree remove`, drop it from the sidebar. A confirmation, because
@@ -152,8 +169,17 @@ peaks.
 - **Fuzzy switcher** (`ctrl+o /`): type a few letters, jump to a session
   across all projects. `j/k` stops scaling past about eight sessions.
 
-**Done when:** a session can be created, renamed, crashed, restarted,
-archived and its worktree removed, all from inside omatty.
+**Done when:** omatty proposes the repositories you have actually used Claude
+in and you register them by choosing rather than typing; and a session can be
+created, renamed, crashed, restarted, archived and its worktree removed, all
+from inside omatty.
+
+**Deliberately out:** adopting *sessions* omatty did not create. Discovery
+stops at projects. Reading a transcript to reconstruct a session and resume
+it is the same code path as "reattach to my own session after a restart",
+which is M6 - building it twice is the waste. Attaching to a `claude` already
+running in another terminal is not on the roadmap at all: you cannot adopt a
+PTY you do not own.
 
 ## M5 - File tree
 
@@ -180,6 +206,11 @@ new process. #36's `--resume` remains the fallback when the socket is gone.
 pain. It is the biggest technical risk left - nested terminal emulation on
 top of a detached PTY - and it is fully isolated from everything above it. It
 belongs after the tool has proven itself, not before.
+
+**Session adoption belongs here**, not in M4's discovery. Reconstructing a
+session from its transcript and resuming it, and reattaching to a session
+omatty itself started, are the same problem seen from two sides; M6 is where
+that machinery exists. M4 discovers projects only.
 
 **Done when:** you quit omatty mid-turn, relaunch, and the turn finishes on
 screen.
@@ -212,6 +243,11 @@ Considered and cut, so they do not creep back in through the side door:
 - Running N sessions on one task and comparing the results
 - Broadcasting one prompt to several sessions
 - SSH / remote sessions
+- Attaching to a `claude` already running in another terminal. omatty renders
+  a PTY it owns; there is no supported way to adopt one it does not. M6's
+  dtach sockets cover the case that matters - omatty's own sessions surviving
+  a quit. Not to be confused with M4's project discovery (#91), which reads
+  the transcript store and registers nothing by itself.
 - Themes beyond one, or keybinding customisation beyond the leader
 - Any orchestration, planning board, or agent-to-agent messaging. omatty is a
   window, not an orchestrator.
