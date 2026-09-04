@@ -55,6 +55,10 @@ type Deps struct {
 	Archive        ArchiveFunc
 	RemoveWorktree RemoveWorktreeFunc
 	TailStop       func(sessionID string)
+	// Discover proposes repositories to register and AddProject registers one
+	// (#91).
+	Discover   DiscoverFunc
+	AddProject AddProjectFunc
 }
 
 // Model is omatty's root Bubble Tea model.
@@ -99,6 +103,8 @@ type Model struct {
 	archive        ArchiveFunc
 	removeWorktree RemoveWorktreeFunc
 	tailStop       func(sessionID string)
+	discover       DiscoverFunc
+	addProject     AddProjectFunc
 	lastErr        string
 	width          int
 	height         int
@@ -148,6 +154,12 @@ func (d Deps) withLifecycleDefaults() Deps {
 	if d.TailStop == nil {
 		d.TailStop = noTailStop
 	}
+	if d.Discover == nil {
+		d.Discover = noDiscover
+	}
+	if d.AddProject == nil {
+		d.AddProject = noAddProject
+	}
 	return d
 }
 
@@ -177,6 +189,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.rename, m.archive = d.Rename, d.Archive
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
+	m.discover, m.addProject = d.Discover, d.AddProject
 	return m
 }
 
@@ -267,8 +280,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // The typed check must come first: an unhandled message reaches broadcast and
 // would be fanned out to every emulator.
 func (m *Model) onLifecycleMsg(msg tea.Msg) tea.Cmd {
-	if removed, ok := msg.(WorktreeRemovedMsg); ok {
-		return m.onWorktreeRemoved(removed)
+	switch typed := msg.(type) {
+	case WorktreeRemovedMsg:
+		return m.onWorktreeRemoved(typed)
+	case ProjectsProposedMsg:
+		return m.onProjectsProposed(typed)
 	}
 	return m.onWindowFocus(msg)
 }

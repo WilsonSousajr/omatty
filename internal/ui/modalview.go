@@ -18,8 +18,8 @@ func (m *Model) modalLines() []string {
 		return m.editorLines()
 	case modalConfirm:
 		return m.confirmLines()
-	case modalList:
-		return m.pickLines("jump to session")
+	case modalList, modalPicker:
+		return m.pickLines()
 	}
 	return nil
 }
@@ -80,6 +80,8 @@ func modalFooter(md modal) string {
 		// the one place M4 departs from the sidebar's keymap, so it is said
 		// out loud (#42).
 		return "type to filter  ctrl+j/ctrl+k move  enter jump  esc cancel"
+	case modalPicker:
+		return pickerFooter(md.List.markedCount())
 	}
 	return ""
 }

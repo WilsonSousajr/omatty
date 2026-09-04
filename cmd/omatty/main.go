@@ -5,6 +5,7 @@
 //
 //	omatty                            run the TUI
 //	omatty add [dir]                  register the repository containing dir
+//	omatty discover                   register from the repositories claude knows
 //	omatty new <project> <title> [branch]  create a session
 //	omatty hook                       forward a claude hook event (internal)
 //
@@ -13,14 +14,18 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/WilsonSousajr/omatty/internal/discover"
 	"github.com/WilsonSousajr/omatty/internal/hooks"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -84,9 +89,62 @@ func dispatch(cmd string, args []string, home string, store *registry.Store) err
 		return addProject(store, args)
 	case "new":
 		return newSession(store, home, args)
+	case "discover":
+		return discoverProjects(store, home, os.Stdin)
 	default:
-		return fmt.Errorf("unknown command %q (want add, new, or no argument)", cmd)
+		return fmt.Errorf("unknown command %q (want add, new, discover, or no argument)", cmd)
 	}
+}
+
+// discoverProjects lists the repositories claude has been used in and
+// registers the ones the operator picks. stdout is free here: discover runs
+// before the TUI starts, which is what report exists for (invariant 5).
+func discoverProjects(store *registry.Store, home string, in io.Reader) error {
+	cands, err := discover.Propose(paths.TranscriptsDir(home), vcs.NewCLI())
+	if err != nil {
+		return err
+	}
+	if len(cands) == 0 {
+		report("no repositories found in " + paths.TranscriptsDir(home))
+		return nil
+	}
+	for _, line := range discover.List(cands, time.Now()) {
+		report(line)
+	}
+	report("")
+	report("register which? (numbers, or `all`, or enter for none)")
+	picked, err := discover.Choose(cands, readLine(in))
+	if err != nil {
+		return err
+	}
+	return registerAll(store, picked)
+}
+
+// registerAll registers each pick, reporting a collision against the one
+// candidate it belongs to and carrying on. AddProject refuses a duplicate
+// *name* even when the roots differ, which one repository at a time is a rare
+// annoyance and in bulk is not (#91).
+func registerAll(store *registry.Store, picked []discover.Candidate) error {
+	git := vcs.NewCLI()
+	for _, c := range picked {
+		p, err := registry.AddProject(store, git, c.Root)
+		if err != nil {
+			report("skipped " + c.Root + ": " + err.Error())
+			continue
+		}
+		report("registered " + p.Name + " at " + p.Root)
+	}
+	return nil
+}
+
+// readLine reads the operator's answer. An unreadable stdin means no answer,
+// which is the same as choosing nothing.
+func readLine(in io.Reader) string {
+	line, err := bufio.NewReader(in).ReadString('\n')
+	if err != nil && line == "" {
+		return ""
+	}
+	return strings.TrimSpace(line)
 }
 
 func addProject(store *registry.Store, args []string) error {
@@ -149,6 +207,32 @@ func tuiDeps(
 		Rename:         sessionRenamer(store),
 		Archive:        sessionArchiver(store),
 		RemoveWorktree: git.RemoveWorktree,
+		Discover:       projectProposer(home, git),
+		AddProject:     projectRegistrar(store, git),
+	}
+}
+
+// projectProposer adapts discover.Propose to ui.DiscoverFunc, flattening a
+// Candidate to the two fields the registry needs.
+func projectProposer(home string, git *vcs.CLI) ui.DiscoverFunc {
+	return func() ([]registry.Project, error) {
+		cands, err := discover.Propose(paths.TranscriptsDir(home), git)
+		if err != nil {
+			return nil, err
+		}
+		projects := make([]registry.Project, 0, len(cands))
+		for _, c := range cands {
+			projects = append(projects, registry.Project{Name: c.Name, Root: c.Root})
+		}
+		return projects, nil
+	}
+}
+
+// projectRegistrar adapts registry.AddProject to ui.AddProjectFunc.
+func projectRegistrar(store *registry.Store, git *vcs.CLI) ui.AddProjectFunc {
+	return func(root string) error {
+		_, err := registry.AddProject(store, git, root)
+		return err
 	}
 }
 

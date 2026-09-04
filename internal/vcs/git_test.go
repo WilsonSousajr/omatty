@@ -78,6 +78,60 @@ func TestCLI_RepoRootFromASubdirectory(t *testing.T) {
 	}
 }
 
+// The reason MainCheckout exists: inside a linked worktree, RepoRoot returns
+// the worktree, so discovery would register every worktree as a project of its
+// own (#91).
+func TestCLI_MainCheckoutResolvesAWorktreeToItsParent_issue91(t *testing.T) {
+	repo := newRepo(t)
+	wt := filepath.Join(t.TempDir(), "parser-fix")
+	g := vcs.NewCLI()
+	if err := g.AddWorktree(repo, wt, "parser-fix", "main"); err != nil {
+		t.Fatalf("AddWorktree() error = %v, want nil", err)
+	}
+
+	got, err := g.MainCheckout(wt)
+
+	if err != nil {
+		t.Fatalf("MainCheckout() error = %v, want nil", err)
+	}
+	// macOS reports /private/var for /var, so compare resolved names.
+	if filepath.Base(got) != filepath.Base(repo) {
+		t.Errorf("MainCheckout(%q) = %q, want the parent repo %q", wt, got, repo)
+	}
+	// The premise: RepoRoot really does answer differently here.
+	if root, _ := g.RepoRoot(wt); filepath.Base(root) != filepath.Base(wt) {
+		t.Errorf("precondition: RepoRoot(%q) = %q, want the worktree itself", wt, root)
+	}
+}
+
+// In the main checkout the two agree, so discovery can call MainCheckout for
+// every candidate rather than deciding first whether it is looking at one.
+func TestCLI_MainCheckoutInTheMainCheckoutIsTheRepoRoot_issue91(t *testing.T) {
+	repo := newRepo(t)
+
+	got, err := vcs.NewCLI().MainCheckout(repo)
+
+	if err != nil {
+		t.Fatalf("MainCheckout() error = %v, want nil", err)
+	}
+	if filepath.Base(got) != filepath.Base(repo) {
+		t.Errorf("MainCheckout(%q) = %q, want the repo itself", repo, got)
+	}
+}
+
+func TestCLI_MainCheckoutOutsideARepoNamesTheDirectory_issue91(t *testing.T) {
+	dir := t.TempDir()
+
+	_, err := vcs.NewCLI().MainCheckout(dir)
+
+	if err == nil {
+		t.Fatal("MainCheckout() outside a repository returned nil, want an error")
+	}
+	if !strings.Contains(err.Error(), dir) {
+		t.Errorf("error %q does not name the offending directory %q", err, dir)
+	}
+}
+
 func TestCLI_RepoRootOutsideARepoNamesTheDirectory(t *testing.T) {
 	dir := t.TempDir()
 

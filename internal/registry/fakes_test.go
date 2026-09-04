@@ -17,6 +17,10 @@ type FakeGit struct {
 // RepoRoot echoes dir, so tests can pick the project name by choosing a path.
 func (f *FakeGit) RepoRoot(dir string) (string, error) { return dir, nil }
 
+// MainCheckout echoes dir too: registry never calls it, and discovery (#91)
+// fakes the whole interface for itself.
+func (f *FakeGit) MainCheckout(dir string) (string, error) { return dir, nil }
+
 func (f *FakeGit) CurrentBranch(string) (string, error) { return f.Branch, nil }
 
 func (f *FakeGit) RemoveWorktree(_, dir string) error {

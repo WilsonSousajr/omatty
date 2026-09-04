@@ -64,6 +64,10 @@ type RunDeps struct {
 	// worktree (#40). The tailer is stopped through the Watch this owns.
 	Archive        ArchiveFunc
 	RemoveWorktree RemoveWorktreeFunc
+	// Discover proposes repositories to register and AddProject registers one
+	// (#91).
+	Discover   DiscoverFunc
+	AddProject AddProjectFunc
 }
 
 // Run starts every session's terminal, the status watcher, and the TUI, and
@@ -80,6 +84,7 @@ func Run(d RunDeps) error {
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory),
 		Diff: d.Diff, Files: d.Files, Rename: d.Rename,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree,
+		Discover: d.Discover, AddProject: d.AddProject,
 		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
 	})

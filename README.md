@@ -31,11 +31,19 @@ run last week's code while the tests pass on this week's.
 ## Use
 
 ```bash
-omatty add ~/Projects/my-app          # register a repository
+omatty discover                       # pick from the repos claude already knows
+omatty add ~/Projects/my-app          # or register one by hand
 omatty new my-app main                # a session on the main checkout
 omatty new my-app parser-fix parser-fix   # a session on a fresh worktree
 omatty                                # run the TUI
 ```
+
+`omatty discover` reads Claude Code's own transcript store and offers the
+repositories you have actually used it in, most recent first — the ones still
+on disk, that are still git repositories, with worktrees folded into the
+repository they came from. On a well-used machine that is 34 directories in
+the store collapsing to 6 worth listing. It only ever proposes: nothing is
+registered until you pick it.
 
 Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 
@@ -50,6 +58,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session |
 | `ctrl+o /` | jump to a session by typing part of its name |
+| `ctrl+o a` | register a project claude already knows you use |
 | `ctrl+o q` | quit |
 
 `ctrl+o R` opens the session's title for editing, pre-filled, so correcting a
@@ -68,6 +77,9 @@ that directory, so it will not delete it.
 title and the project name, and `enter` jumps to the one under the cursor. `j`
 and `k` are filter text here rather than movement — `ctrl+j` and `ctrl+k` move
 — because a switcher you cannot type "jk" into is not a switcher.
+
+`ctrl+o a` is `omatty discover` inside the TUI: the same proposed list, `tab`
+to mark several, `enter` to register them all at once.
 
 `esc`, `shift+tab`, `ctrl+r` and `ctrl+c` all reach Claude untouched.
 

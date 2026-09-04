@@ -35,6 +35,10 @@ func (f *FakeGit) record(name string, args ...string) error {
 
 func (f *FakeGit) RepoRoot(dir string) (string, error) { return dir, f.record("RepoRoot", dir) }
 
+func (f *FakeGit) MainCheckout(dir string) (string, error) {
+	return dir, f.record("MainCheckout", dir)
+}
+
 func (f *FakeGit) CurrentBranch(dir string) (string, error) {
 	return f.Branch, f.record("CurrentBranch", dir)
 }
