@@ -44,13 +44,25 @@ func Report(stdin io.Reader, socketPath string, dialTimeout time.Duration) error
 		return nil // omatty is not listening; that is fine
 	}
 	defer func() { _ = conn.Close() }()
-	// A peer that accepts and never reads must not hold the hook past
-	// claude's own timeout (issue #57).
-	_ = conn.SetWriteDeadline(time.Now().Add(dialTimeout))
-	if line, err := json.Marshal(p); err == nil {
-		_, _ = fmt.Fprintf(conn, "%s\n", line)
-	}
+	sendLine(conn, p, dialTimeout)
 	return nil
+}
+
+// sendLine writes p to conn as one JSON line, under a write deadline.
+//
+// The deadline is the whole point: a peer that accepts the connection and then
+// never reads would otherwise park this write forever, and every claude session
+// on the machine stalls behind its own hook (issue #57, invariant 11). It is
+// extracted from Report so the parked-peer case can be tested over an
+// unbuffered net.Pipe — a real socket's kernel buffer swallows a payload this
+// small, so the deadline never engages there and the guard would be untestable.
+func sendLine(conn net.Conn, p Payload, timeout time.Duration) {
+	_ = conn.SetWriteDeadline(time.Now().Add(timeout))
+	line, err := json.Marshal(p)
+	if err != nil {
+		return
+	}
+	_, _ = fmt.Fprintf(conn, "%s\n", line)
 }
 
 // ParsePayload scans the routable fields out of a hook's stdin. Values it
