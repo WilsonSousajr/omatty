@@ -131,8 +131,22 @@ func runTUI(home string, store *registry.Store) error {
 	launcher := supervisor.NewLauncher("claude", hooksFile, home)
 	w, h := windowSize()
 	git := vcs.NewCLI()
-	return ui.Run(home, state, launcher, termwrap.Start, w, h,
-		sessionCreator(home, store), review.NewSource(git).Load, git.ListFiles)
+	return ui.Run(ui.RunDeps{
+		Home: home, State: state, Launch: launcher, Factory: termwrap.Start,
+		Width: w, Height: h,
+		Create: sessionCreator(home, store),
+		Diff:   review.NewSource(git).Load,
+		Files:  git.ListFiles,
+		Rename: sessionRenamer(store),
+	})
+}
+
+// sessionRenamer adapts registry.RenameSession to ui.RenameFunc, so the model
+// can retitle a session without holding the store (#41).
+func sessionRenamer(store *registry.Store) ui.RenameFunc {
+	return func(sessionID, title string) error {
+		return registry.RenameSession(store, sessionID, title)
+	}
 }
 
 // sessionCreator adapts registry.AddSession to ui.CreateFunc. The project

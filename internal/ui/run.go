@@ -35,26 +35,46 @@ func StartTerminals(
 	return terms, nil
 }
 
+// RunDeps is everything Run needs: the runtime plumbing, plus the functions
+// injected so ui never reaches git or the registry store itself (invariant 4).
+//
+// A struct rather than a parameter list because M4 adds one injected function
+// per feature - rename here (#41), archive and discovery after it - and the
+// list was already at eight (#41).
+//
+//	ui.Run(ui.RunDeps{Home: home, State: st, Launch: l, Factory: termwrap.Start,
+//	        Width: w, Height: h, Create: create, Diff: diff, Files: files, Rename: rename})
+type RunDeps struct {
+	Home    string
+	State   registry.State
+	Launch  *supervisor.Launcher
+	Factory termwrap.Factory
+	Width   int
+	Height  int
+	// Create is called when the operator finishes a new-session prompt; the
+	// model starts that session's terminal itself through the same launcher.
+	Create CreateFunc
+	// Diff loads a session's changes for the review column and Files lists its
+	// worktree for the tree (#21, #24).
+	Diff  DiffFunc
+	Files ListFilesFunc
+	// Rename persists a session's new title (#41).
+	Rename RenameFunc
+}
+
 // Run starts every session's terminal, the status watcher, and the TUI, and
-// runs until the user quits. create is called when the operator finishes a
-// new-session prompt; the model starts that session's terminal itself
-// through the same launcher. diff loads a session's changes for the review
-// column and files lists its worktree for the tree, so ui never reaches git
-// itself (invariant 4, #21, #24).
-func Run(
-	home string, st registry.State, l *supervisor.Launcher, f termwrap.Factory, w, h int,
-	create CreateFunc, diff DiffFunc, files ListFilesFunc,
-) error {
-	terms, err := StartTerminals(st, l, f, w, h)
+// runs until the user quits.
+func Run(d RunDeps) error {
+	terms, err := StartTerminals(d.State, d.Launch, d.Factory, d.Width, d.Height)
 	if err != nil {
 		return err
 	}
 	defer closeTerminals(terms)
-	watch := watcher.Start(home, st.Sessions, time.Now)
+	watch := watcher.Start(d.Home, d.State.Sessions, time.Now)
 	defer watch.Close()
 	model := NewModel(Deps{
-		State: st, Terms: terms, Create: create, Start: guardedStarter(l, f),
-		Diff: diff, Files: files,
+		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory),
+		Diff: d.Diff, Files: d.Files, Rename: d.Rename,
 		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(), TailStart: watch.Add,
 	})
 	return runProgram(model, len(terms))

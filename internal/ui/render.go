@@ -36,15 +36,6 @@ func (m *Model) emptyStateHint() string {
 	return "no sessions - press " + Leader + " n to create one"
 }
 
-// promptLine renders the open new-session prompt.
-func (m *Model) promptLine() string {
-	label := "new session title"
-	if m.prompt.Worktree {
-		label = "new branch (worktree)"
-	}
-	return label + ": " + m.prompt.Buffer + "_"
-}
-
 // View lays the sidebar beside the focused session's terminal, with the
 // keymap underneath (issue #35). Both boxes are sized exactly before the
 // border is applied, so lipgloss adds precisely one column and row per side
@@ -74,24 +65,27 @@ func (m *Model) renderSidebar(rows int, now time.Time) string {
 	return paneBox(false).Render(fitBlock(lines, inner, rows))
 }
 
-// renderTerminal boxes the focused terminal, or the empty-state guidance.
+// renderTerminal boxes the open modal surface, the focused terminal, or the
+// empty-state guidance. The modal takes the pane's content at the pane's own
+// size, never a size of its own (#95).
 func (m *Model) renderTerminal(w, h int, now time.Time) string {
+	if m.modalOpen() {
+		return paneBox(true).Render(fitBlock(m.modalLines(), w, h))
+	}
 	if term := m.focusedTerminal(); term != nil {
 		body := fitBlock(strings.Split(term.View(), "\n"), w, h-1)
 		// Dimmed while the review column has the keys, so the border says
 		// where a keystroke will land (#21).
 		return paneBox(!m.review.Focused).Render(m.terminalTitle(w, now) + "\n" + body)
 	}
-	lines := []string{""}
-	if m.prompt.Active {
-		lines = append(lines, m.promptLine())
-	} else {
-		lines = append(lines, m.emptyStateHint())
-	}
-	// With no session focused ctrl+c also quits, which is worth saying because
-	// it is the reflex an operator reaches for first (issue #28).
-	lines = append(lines, "", "ctrl+c or "+Leader+" q to quit")
-	return paneBox(m.prompt.Active).Render(fitBlock(lines, w, h))
+	return paneBox(false).Render(fitBlock(m.emptyLines(), w, h))
+}
+
+// emptyLines is the pane with no session to show: what to do next, and the way
+// out. With no session focused ctrl+c also quits, which is worth saying because
+// it is the reflex an operator reaches for first (issue #28).
+func (m *Model) emptyLines() []string {
+	return []string{"", m.emptyStateHint(), "", "ctrl+c or " + Leader + " q to quit"}
 }
 
 // terminalTitle is the header line inside the focused session's box: its
@@ -126,8 +120,12 @@ func (m *Model) renderFooter() string {
 	return footerStyle.Render(fitLine(" "+m.footerKeys(), m.width))
 }
 
-// footerKeys is the keymap for whatever has focus.
+// footerKeys is the keymap for whatever has focus. A modal surface comes
+// first: while one is open its keys are the only ones that do anything.
 func (m *Model) footerKeys() string {
+	if s := modalFooter(m.modal.Kind); s != "" {
+		return s
+	}
 	if !m.review.Focused {
 		return footer
 	}
