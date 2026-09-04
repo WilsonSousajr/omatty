@@ -60,6 +60,8 @@ The pane takes the keys while it is open.
 | Key | Action |
 |---|---|
 | `j` / `k` | move through the diff |
+| `h` / `l` | pan left and right along a line too wide for the column |
+| `0` | jump back to the left edge |
 | `c` | comment on the line under the cursor |
 | `d` | delete the comment under the cursor |
 | `r` | reload the diff |
@@ -91,8 +93,14 @@ when it already shows that view.
 |---|---|
 | `j` / `k` | move through the tree, or scroll a preview |
 | `enter` | fold or unfold a directory, or preview a file |
+| `h` / `l` | pan left and right along a line too wide for the column |
+| `0` | jump back to the left edge |
 | `r` | re-list the worktree |
 | `esc` | from a preview back to the tree; from the tree back to Claude |
+
+The column is narrow, so a long line runs off its right edge. `h` and `l` scroll
+it sideways eight columns at a time and the title shows how far, as `· +24`. The
+same keys work in the diff.
 
 The listing is tracked plus untracked files with `.gitignore` honoured — what
 `git` thinks the worktree contains, not what is on disk. A preview reads at most

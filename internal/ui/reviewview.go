@@ -32,6 +32,10 @@ func (m *Model) renderReview(w, h int) string {
 // reviewTitle names what the column is showing, so a glance at the top row
 // says which of the three views has the keys.
 func (m *Model) reviewTitle() string {
+	return m.viewTitle() + m.panMarker()
+}
+
+func (m *Model) viewTitle() string {
 	switch m.review.View {
 	case ViewTree:
 		return "files · " + m.sessionTitle(m.review.SessionID)
@@ -75,7 +79,7 @@ func (m *Model) renderEntries(w, rows int) []string {
 
 // renderEntry draws one row; the cursor row is reversed.
 func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []review.Comment) string {
-	text := fitLine(entryText(e, m.review.Diff, comments), w)
+	text := m.fitContent(entryText(e, m.review.Diff, comments), w)
 	if cursor {
 		return cursorStyle.Render(text)
 	}

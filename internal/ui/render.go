@@ -21,11 +21,11 @@ const footer = Leader + " q quit  " + Leader + " j/k switch  " + Leader + " n ne
 // reviewFooter replaces footer while the review column has focus: those keys
 // are the ones that do anything there.
 const reviewFooter = "j/k move  c comment  d delete  r reload  S submit  esc back  " +
-	Leader + " d close"
+	Leader + " d close  h/l pan"
 
 // treeFooter replaces reviewFooter in the tree and preview views, where c and
 // S do nothing and enter does the work (#24).
-const treeFooter = "j/k move  enter open  r reload  esc back  " + Leader + " f close"
+const treeFooter = "j/k move  enter open  r reload  esc back  " + Leader + " f close  h/l pan"
 
 // emptyStateHint names the next useful action. With no projects registered,
 // creating a session can only fail, so it points at `omatty add` instead.
@@ -175,6 +175,30 @@ func fitLine(s string, width int) string {
 		return lipgloss.NewStyle().MaxWidth(width).Render(s)
 	}
 	return padRight(s, width)
+}
+
+// panLine drops the first cols display cells of s, which is how the review
+// column reaches text that fitLine would otherwise cut off the right edge
+// (issue #94).
+//
+// It measures cells rather than bytes or runes because a wide rune occupies
+// two columns: a byte offset would slice one in half and a rune offset would
+// pan half as far as the operator asked. A cut landing inside a wide rune
+// drops the whole rune - half a glyph cannot be drawn.
+//
+//	panLine("hello world", 6) // "world"
+func panLine(s string, cols int) string {
+	if cols <= 0 {
+		return s
+	}
+	seen := 0
+	for i, r := range s {
+		if seen >= cols {
+			return s[i:]
+		}
+		seen += lipgloss.Width(string(r))
+	}
+	return ""
 }
 
 // padRight is ANSI-aware: it measures visible width, not bytes.
