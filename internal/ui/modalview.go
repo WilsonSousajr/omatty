@@ -20,8 +20,40 @@ func (m *Model) modalLines() []string {
 		return m.confirmLines()
 	case modalList, modalPicker:
 		return m.pickLines()
+	case modalHelp:
+		return helpLines()
 	}
 	return nil
+}
+
+// leaderKeys is every leader binding, in the order an operator meets them.
+// This is the one place the full keymap is written down: the footer shows a
+// working subset, because it is truncated to the window (#30, #103).
+var leaderKeys = [][2]string{
+	{"j / k", "move between sessions"},
+	{"/", "jump to a session by name"},
+	{"n", "new session on the main checkout"},
+	{"N", "new session on a fresh worktree"},
+	{"a", "register a project claude already knows"},
+	{"R", "rename the selected session"},
+	{"x", "archive the selected session"},
+	{"r", "restart a crashed session"},
+	{"d", "open or close the diff pane"},
+	{"f", "open or close the file tree"},
+	{"?", "this list"},
+	{"q", "quit"},
+}
+
+// helpLines draws the full keymap. It exists because the footer constant
+// outgrew the window: at 114 columns it was already truncating `ctrl+o f`
+// before M4 added four more keys (#103).
+func helpLines() []string {
+	lines := make([]string, 0, len(leaderKeys)+2)
+	lines = append(lines, Leader+" keys", "")
+	for _, k := range leaderKeys {
+		lines = append(lines, "  "+padRight(Leader+" "+k[0], 12)+"  "+k[1])
+	}
+	return append(lines, "", "any key to close")
 }
 
 // confirmLines draws the question and one line per answer. The answers are
@@ -82,6 +114,8 @@ func modalFooter(md modal) string {
 		return "type to filter  ctrl+j/ctrl+k move  enter jump  esc cancel"
 	case modalPicker:
 		return pickerFooter(md.List.markedCount())
+	case modalHelp:
+		return "any key to close"
 	}
 	return ""
 }

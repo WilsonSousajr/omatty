@@ -141,6 +141,8 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 		return m.openSwitcher()
 	case "a":
 		return m.openDiscovery()
+	case "?":
+		m.modal = modal{Kind: modalHelp}
 	}
 	return nil
 }

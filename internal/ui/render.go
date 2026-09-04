@@ -11,12 +11,21 @@ import (
 // footer is the keymap, rendered on every frame. It stays visible while a
 // session fills the pane because that is exactly the state where ctrl+c
 // belongs to Claude and `ctrl+o q` is the only exit (issues #28, #30).
-// The exit comes first because the keymap is truncated to the window and the
-// review key made it longer than 80 columns: whatever falls off the end, the
-// only way out stays on screen (issues #30, #21).
-const footer = Leader + " q quit  " + Leader + " j/k switch  " + Leader + " n new  " +
-	Leader + " N worktree  " + Leader + " d diff  " + Leader + " r restart  " +
-	Leader + " f files"
+// The exit comes first because the keymap is truncated to the window: whatever
+// falls off the end, the only way out stays on screen (issues #30, #21).
+//
+// It is a working subset, not the whole keymap. At 114 columns it was already
+// truncating on a 100-column window, and M4's four new keys would have taken
+// it to 183, pushing a working key off the end for each one added. `ctrl+o ?`
+// is the complete list now, and helpLines is where it lives (#103).
+//
+// 76 columns, so at DefaultWidth 80 it fits whole for the first time - and the
+// key that reaches the rest of the keymap is second, where truncation cannot
+// reach it. Its contents are the four keys earlier issues won a guarantee for
+// - q, j/k and n (#30, #28) and d (#21) - plus ? for everything else. A
+// binding added here rather than to helpLines must keep all of that true.
+const footer = Leader + " q quit  " + Leader + " ? keys  " + Leader + " j/k switch  " +
+	Leader + " n new  " + Leader + " d diff"
 
 // reviewFooter replaces footer while the review column has focus: those keys
 // are the ones that do anything there.

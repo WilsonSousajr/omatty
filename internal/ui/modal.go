@@ -32,6 +32,9 @@ const (
 	// (#91). A separate kind rather than a flag on the list, because only the
 	// commit differs and Kind is what already selects a commit.
 	modalPicker
+	// modalHelp lists every leader key, opened with ? (#103). It takes no
+	// input at all: any key closes it.
+	modalHelp
 )
 
 // modal is the open surface's state. Only the member matching Kind is live;
@@ -92,6 +95,10 @@ func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.onConfirmKey(msg.Keystroke())
 	case modalList, modalPicker:
 		return m.onListKey(msg)
+	case modalHelp:
+		// It shows a keymap and takes no input, so any key dismisses it -
+		// including the one you reached for next.
+		m.modal = modal{}
 	}
 	return nil
 }
