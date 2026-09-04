@@ -45,6 +45,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o n` | new session on the main checkout |
 | `ctrl+o N` | new session on a fresh worktree |
 | `ctrl+o d` | open or close the diff pane |
+| `ctrl+o f` | open or close the file tree |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o q` | quit |
 
@@ -65,6 +66,10 @@ The pane takes the keys while it is open.
 | `S` | send every comment to Claude as one message |
 | `esc` | give the keys back to Claude, leaving the pane open |
 
+`esc` and `ctrl+o d` are a round trip: `esc` hands the keys back to Claude with
+the pane still on screen, and `ctrl+o d` takes them back. Only a press while the
+pane already has the keys closes it.
+
 Comments are anchored to the *content* of a line, not its number, so they stay
 put while Claude edits the file underneath you. A comment whose line disappears
 floats to the top of its file marked `(moved)` rather than silently attaching
@@ -73,6 +78,26 @@ itself to the wrong code.
 `S` sends the whole batch as a single prompt — `file:line`, the quoted line and
 your note, numbered — so Claude answers them together instead of one at a time.
 Pending comments live in memory: quitting omatty drops them.
+
+## File tree
+
+`ctrl+o f` shows the same column as the session's worktree instead of its diff.
+A `*` marks every file the session changed, and a directory holding one, so you
+can see the shape of a change before reading it. The two views share one column:
+`ctrl+o d` and `ctrl+o f` switch between them, and either key closes the column
+when it already shows that view.
+
+| Key | Action |
+|---|---|
+| `j` / `k` | move through the tree, or scroll a preview |
+| `enter` | fold or unfold a directory, or preview a file |
+| `r` | re-list the worktree |
+| `esc` | from a preview back to the tree; from the tree back to Claude |
+
+The listing is tracked plus untracked files with `.gitignore` honoured — what
+`git` thinks the worktree contains, not what is on disk. A preview reads at most
+256 KiB and says so when it stops; a binary file says it is binary rather than
+spraying the pane.
 
 ## Session status
 

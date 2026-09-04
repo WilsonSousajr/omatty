@@ -53,6 +53,10 @@ type Deps struct {
 	TailStart func(registry.Session)
 	// Diff loads a session's changes for the review column (#21).
 	Diff DiffFunc
+	// Files lists a session's worktree and Preview reads one of its files,
+	// for the tree view (#24).
+	Files   ListFilesFunc
+	Preview PreviewFunc
 }
 
 // Model is omatty's root Bubble Tea model.
@@ -86,6 +90,8 @@ type Model struct {
 	// closing the column; only submit drains it (#22).
 	comments map[string]*review.Comments
 	diff     DiffFunc
+	files    ListFilesFunc
+	preview  PreviewFunc
 	lastErr  string
 	width    int
 	height   int
@@ -102,6 +108,14 @@ func (d Deps) withDefaults() Deps {
 	}
 	if d.Diff == nil {
 		d.Diff = noDiff
+	}
+	if d.Files == nil {
+		d.Files = noFiles
+	}
+	// The real reader has no dependency to inject, so it is the default
+	// rather than an error: only a test replaces it (#24).
+	if d.Preview == nil {
+		d.Preview = review.ReadPreview
 	}
 	return d
 }
@@ -120,7 +134,8 @@ func NewModel(deps Deps) *Model {
 		clock:     d.Clock,
 		tailStart: d.TailStart,
 		notifier:  d.Notifier,
-		diff:      d.Diff,
+		// The three review-column sources, grouped: they are one concern.
+		diff: d.Diff, files: d.Files, preview: d.Preview,
 		startedAt: d.Clock(),
 		hasFocus:  true,
 		// Until the first WindowSizeMsg arrives the frame is laid out for a
@@ -196,6 +211,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.onStatus(msg)
 	case DiffLoadedMsg:
 		return m, m.onDiffLoaded(msg)
+	case FilesLoadedMsg:
+		return m, m.onFilesLoaded(msg)
 	case TickMsg:
 		return m, scheduleTick()
 	default:

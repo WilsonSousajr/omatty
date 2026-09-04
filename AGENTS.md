@@ -63,7 +63,7 @@ Run the full local gate before claiming any change is ready. CI runs the same:
 ```bash
 gofmt -l .                                    # must print nothing
 go vet ./...
-golangci-lint run                             # funlen, dupl, gocyclo, revive
+golangci-lint run                             # funlen, dupl, gocyclo, gocognit, revive
 go test ./... -race
 ./scripts/check-coverage.sh 90
 ```
@@ -95,7 +95,11 @@ not in the gate.
 - **Explicit types.** No `any`/`interface{}` and no `map[string]any` crossing a
   package boundary. Parse untyped input into a struct at the edge, once.
 - **No duplication.** Extract shared logic; `dupl` runs in the lint gate.
-- **Early returns.** Maximum 2 levels of indentation inside a function.
+- **Early returns.** Maximum 2 levels of indentation inside a function. Nesting
+  is what `gocognit` charges for (threshold 15), so this rule is checked, not
+  merely asked for: a function that nests instead of returning early scores far
+  above its branch count. `gocyclo` (10) bounds branches; `gocognit` bounds how
+  hard the result is to read.
 - **Error messages carry the offending value and the expected shape:**
   `fmt.Errorf("session %s: worktree path %q is not a directory: %w", id, path, err)`.
   Never a bare `errors.New("invalid input")`.

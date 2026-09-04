@@ -237,3 +237,34 @@ func TestCLI_MergeBaseWithAnUnknownRefNamesIt(t *testing.T) {
 		t.Errorf("MergeBase(unknown) error = %v, want one naming no-such-branch", err)
 	}
 }
+
+// #24: the file tree shows the worktree as the operator sees it, so the
+// listing is tracked plus untracked files with .gitignore honoured.
+func TestCLI_ListFilesIsTrackedPlusUntrackedMinusIgnored_issue24(t *testing.T) {
+	repo := newRepo(t)
+	writeFile(t, repo, "a.txt", "a\n")
+	gitOut(t, repo, "add", "a.txt")
+	gitOut(t, repo, "commit", "-m", "a")
+	writeFile(t, repo, ".gitignore", "build/\n")
+	if err := os.MkdirAll(filepath.Join(repo, "build"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, repo, "build/out", "x")
+	writeFile(t, repo, "new.txt", "n\n")
+
+	got, err := vcs.NewCLI().ListFiles(repo)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, ",") != ".gitignore,a.txt,new.txt" {
+		t.Errorf("ListFiles() = %v, want [.gitignore a.txt new.txt] sorted, without build/", got)
+	}
+}
+
+func TestCLI_ListFilesOnAnEmptyRepoIsEmpty_issue24(t *testing.T) {
+	got, err := vcs.NewCLI().ListFiles(newRepo(t))
+	if err != nil || len(got) != 0 {
+		t.Errorf("ListFiles(empty) = %v, %v; want none and nil", got, err)
+	}
+}

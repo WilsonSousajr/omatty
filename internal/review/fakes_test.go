@@ -14,6 +14,7 @@ type FakeGit struct {
 	DiffOut      string            // Diff result
 	UntrackedOut []string          // Untracked result
 	FileDiffs    map[string]string // UntrackedDiff result per path
+	Files        []string          // ListFiles result (#24)
 	Err          error             // returned by every method when set
 	// Errs fails one method by name, so a test can reach an error path that
 	// lies behind a call which has to succeed first.
@@ -60,4 +61,8 @@ func (f *FakeGit) Untracked(dir string) ([]string, error) {
 
 func (f *FakeGit) UntrackedDiff(dir, p string) (string, error) {
 	return f.FileDiffs[p], f.record("UntrackedDiff", dir, p)
+}
+
+func (f *FakeGit) ListFiles(dir string) ([]string, error) {
+	return f.Files, f.record("ListFiles", dir)
 }

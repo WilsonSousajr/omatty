@@ -235,3 +235,30 @@ func TestModel_OpenReviewReloadsWhenItsSessionStops_issue21(t *testing.T) {
 		t.Errorf("diff loaded for %v, want s1 on open and s1 on its own turn end only", rec.Asked)
 	}
 }
+
+// Regression, issue #90: esc leaves the column open but unfocused, and the
+// leader key that opened it took the close branch, so stepping back into a
+// pane still on screen cost two presses and reloaded the diff.
+func TestModel_LeaderRefocusesAnOpenColumnBeforeClosingIt_issue90(t *testing.T) {
+	m, _, rec := modelWithDiff(t)
+	leader(m, key('d'))
+	press(m, special(tea.KeyEscape))
+	if !m.ReviewOpen() || m.ReviewFocused() {
+		t.Fatalf("after esc: open=%v focused=%v, want open and unfocused",
+			m.ReviewOpen(), m.ReviewFocused())
+	}
+
+	leader(m, key('d'))
+
+	if !m.ReviewOpen() || !m.ReviewFocused() {
+		t.Fatalf("ctrl+o d on an unfocused column: open=%v focused=%v, want it focused",
+			m.ReviewOpen(), m.ReviewFocused())
+	}
+	if len(rec.Asked) != 1 {
+		t.Errorf("the diff was loaded %d times, want 1: refocusing is not a reload", len(rec.Asked))
+	}
+	leader(m, key('d'))
+	if m.ReviewOpen() {
+		t.Error("ctrl+o d on a focused column should close it")
+	}
+}

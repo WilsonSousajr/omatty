@@ -15,12 +15,17 @@ import (
 // review key made it longer than 80 columns: whatever falls off the end, the
 // only way out stays on screen (issues #30, #21).
 const footer = Leader + " q quit  " + Leader + " j/k switch  " + Leader + " n new  " +
-	Leader + " N worktree  " + Leader + " d diff  " + Leader + " r restart"
+	Leader + " N worktree  " + Leader + " d diff  " + Leader + " r restart  " +
+	Leader + " f files"
 
 // reviewFooter replaces footer while the review column has focus: those keys
 // are the ones that do anything there.
 const reviewFooter = "j/k move  c comment  d delete  r reload  S submit  esc back  " +
 	Leader + " d close"
+
+// treeFooter replaces reviewFooter in the tree and preview views, where c and
+// S do nothing and enter does the work (#24).
+const treeFooter = "j/k move  enter open  r reload  esc back  " + Leader + " f close"
 
 // emptyStateHint names the next useful action. With no projects registered,
 // creating a session can only fail, so it points at `omatty add` instead.
@@ -118,11 +123,18 @@ func (m *Model) renderFooter() string {
 	if m.lastErr != "" {
 		return errorStyle.Render(fitLine(" error: "+m.lastErr, m.width))
 	}
-	line := footer
-	if m.review.Focused {
-		line = reviewFooter
+	return footerStyle.Render(fitLine(" "+m.footerKeys(), m.width))
+}
+
+// footerKeys is the keymap for whatever has focus.
+func (m *Model) footerKeys() string {
+	if !m.review.Focused {
+		return footer
 	}
-	return footerStyle.Render(fitLine(" "+line, m.width))
+	if m.review.View == ViewDiff {
+		return reviewFooter
+	}
+	return treeFooter
 }
 
 // renderRow draws one sidebar line: a project header, or a session with its

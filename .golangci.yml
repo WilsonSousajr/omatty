@@ -4,6 +4,7 @@ linters:
     - funlen
     - dupl
     - gocyclo
+    - gocognit
     - revive
     - errcheck
     - govet
@@ -19,6 +20,13 @@ linters:
       threshold: 100
     gocyclo:
       min-complexity: 10
+    gocognit:
+      # Cognitive complexity, not McCabe's: it weights nesting and ignores
+      # switch arms, so it measures what a reader pays rather than what a
+      # test suite must cover. 15 is SonarSource's own threshold. It is here
+      # because AGENTS.md's "maximum 2 levels of indentation" had nothing
+      # enforcing it, and nesting depth is exactly what this metric weights.
+      min-complexity: 15
     forbidigo:
       forbid:
         # Invariant 5: stdout belongs to the TUI.

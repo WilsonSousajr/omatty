@@ -52,9 +52,22 @@ func (m *Model) dispatch(target focusTarget, msg tea.KeyPressMsg) tea.Cmd {
 	case focusNote:
 		return m.onNoteKey(msg)
 	case focusReview:
-		return m.onReviewKey(msg.Keystroke())
+		return m.onPaneKey(msg.Keystroke())
 	default:
 		return m.focusedTerminal().Update(msg)
+	}
+}
+
+// onPaneKey picks the handler for the review column's current view: the three
+// views share a focus target but not a keymap (#24).
+func (m *Model) onPaneKey(key string) tea.Cmd {
+	switch m.review.View {
+	case ViewTree:
+		return m.onTreeKey(key)
+	case ViewPreview:
+		return m.onPreviewKey(key)
+	default:
+		return m.onReviewKey(key)
 	}
 }
 
@@ -101,7 +114,9 @@ func (m *Model) paneCommand(key string) tea.Cmd {
 	case "r":
 		return m.restartFocused()
 	case "d":
-		return m.toggleReview()
+		return m.toggleView(ViewDiff)
+	case "f":
+		return m.toggleView(ViewTree)
 	case "q":
 		return tea.Quit
 	}

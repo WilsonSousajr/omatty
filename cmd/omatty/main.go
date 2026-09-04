@@ -130,8 +130,9 @@ func runTUI(home string, store *registry.Store) error {
 	}
 	launcher := supervisor.NewLauncher("claude", hooksFile, home)
 	w, h := windowSize()
+	git := vcs.NewCLI()
 	return ui.Run(home, state, launcher, termwrap.Start, w, h,
-		sessionCreator(home, store), review.NewSource(vcs.NewCLI()).Load)
+		sessionCreator(home, store), review.NewSource(git).Load, git.ListFiles)
 }
 
 // sessionCreator adapts registry.AddSession to ui.CreateFunc. The project
