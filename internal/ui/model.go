@@ -375,40 +375,50 @@ func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
 		return nil
 	}
 	m.width, m.height = msg.Width, msg.Height
-	return m.resizeFocused()
+	return m.resizeSelected()
 }
 
 // moveCursor moves the sidebar cursor, sizes the terminal it lands on (issue
 // #73) and moves an open review column along with it (#21).
 func (m *Model) moveCursor(move func()) tea.Cmd {
 	move()
-	return tea.Batch(m.resizeFocused(), m.followSession())
+	return tea.Batch(m.resizeSelected(), m.followSession())
 }
 
 // ptySize is the live embedded-terminal size for the current window.
 func (m *Model) ptySize() (int, int) { return PTYSize(m.width, m.height, m.review.Open) }
 
-// resizeFocused sizes the newly focused terminal to the pane. Only the
-// focused terminal follows the window (issue #34), so the one just focused
-// may still be at the size it was born or last focused at (issue #73).
-func (m *Model) resizeFocused() tea.Cmd {
-	term := m.focusedTerminal()
+// resizeSelected sizes the selected session's terminal to the pane, whether or
+// not a prompt currently owns the keyboard (issue #95). Only the selected
+// terminal follows the window (issue #34), so the one just selected may still
+// be at the size it was born or last selected at (issue #73).
+func (m *Model) resizeSelected() tea.Cmd {
+	term := m.selectedTerminal()
 	if term == nil {
 		return nil
 	}
 	return term.Resize(m.ptySize())
 }
 
-// focusedTerminal returns nil while a prompt is open, which is what keeps
-// prompt keys out of the PTY without special-casing the router: an unfocused
-// terminal already routes every key to omatty.
-func (m *Model) focusedTerminal() termwrap.Terminal {
-	if m.prompt.Active {
-		return nil
-	}
+// selectedTerminal is the terminal the sidebar cursor is on, whether or not it
+// currently owns the keyboard. Layout asks this one; key routing asks
+// focusedTerminal. Answering both questions with one nil is issue #95: a
+// resize arriving behind an open prompt reached no terminal at all.
+func (m *Model) selectedTerminal() termwrap.Terminal {
 	id := m.Focused()
 	if id == "" {
 		return nil
 	}
 	return m.terms[id]
+}
+
+// focusedTerminal returns nil while a prompt is open, which is what keeps
+// prompt keys out of the PTY without special-casing the router: an unfocused
+// terminal already routes every key to omatty. Only key routing and rendering
+// may ask this - sizing the pane must not (issue #95).
+func (m *Model) focusedTerminal() termwrap.Terminal {
+	if m.prompt.Active {
+		return nil
+	}
+	return m.selectedTerminal()
 }

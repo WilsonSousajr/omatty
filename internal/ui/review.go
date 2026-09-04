@@ -141,7 +141,7 @@ func (m *Model) toggleView(v ReviewView) tea.Cmd {
 	// Each view is a different shape of text, so a pan that made sense in one
 	// is meaningless in the next: switching starts at the left edge (#94).
 	m.review.View, m.review.Focused, m.review.ColOffset = v, true, 0
-	return tea.Batch(m.resizeFocused(), m.loadDiff(id), m.loadFiles(id))
+	return tea.Batch(m.resizeSelected(), m.loadDiff(id), m.loadFiles(id))
 }
 
 // refocusOrClose handles the leader key for the view already on screen. esc
@@ -154,7 +154,7 @@ func (m *Model) refocusOrClose() tea.Cmd {
 		return nil
 	}
 	m.review = ReviewPane{}
-	return m.resizeFocused()
+	return m.resizeSelected()
 }
 
 // loadDiff fetches the diff off the Update goroutine: git on a large tree
