@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestOmattyHook_DeliversToARealListener(t *testing.T) {
-	bin := buildOmatty(t)
+	bin := omattyBinary(t)
 
 	dir, events, closeListener := listenUnderHome(t)
 	defer closeListener()
@@ -62,7 +62,7 @@ func TestOmattyHook_DeliversToARealListener(t *testing.T) {
 }
 
 func TestOmattyHook_ExitsZeroWithNoListener(t *testing.T) {
-	bin := buildOmatty(t)
+	bin := omattyBinary(t)
 	dir, _ := os.MkdirTemp("", "om")
 	defer func() { _ = os.RemoveAll(dir) }()
 
@@ -114,7 +114,7 @@ func TestOmattyHook_ExitsZeroWithoutHOME_issue54(t *testing.T) {
 // environment minus HOME, plus env.
 func runHook(t *testing.T, env []string, stdin string) ([]byte, error) {
 	t.Helper()
-	cmd := exec.Command(buildOmatty(t), "hook")
+	cmd := exec.Command(omattyBinary(t), "hook")
 	cmd.Env = append(withoutHome(os.Environ()), env...)
 	cmd.Stdin = strings.NewReader(stdin)
 	return cmd.CombinedOutput()
@@ -150,7 +150,13 @@ func listenUnderHome(t *testing.T) (string, <-chan watcher.Event, func()) {
 	return dir, events, func() { _ = l.Close(); _ = os.RemoveAll(dir) }
 }
 
-func buildOmatty(t *testing.T) string {
+// omattyBinary is the path TestMain built. It is a function rather than a bare
+// read of omattyBin so a test that runs without TestMain fails loudly here
+// instead of exec'ing the empty string.
+func omattyBinary(t *testing.T) string {
 	t.Helper()
+	if omattyBin == "" {
+		t.Fatal("omattyBin is empty: TestMain did not build the binary")
+	}
 	return omattyBin
 }

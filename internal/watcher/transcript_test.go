@@ -88,6 +88,18 @@ func TestDeriveKind_IgnoresInjectedUserEntries_issue61(t *testing.T) {
 	}
 }
 
+// Regression, issue #61: the injected-entry test was applied only to string
+// content, so the same task-notification delivered as a list of text blocks
+// walked straight through the #62 branch and read as a typed prompt - the very
+// bug #61 fixed, reachable by another shape.
+func TestDeriveKind_IgnoresAnInjectedListOfBlocks_issue61(t *testing.T) {
+	kind, ts, ok := kindAt(t, "injected-list-blocks.jsonl")
+
+	if !ok || kind != watcher.TurnEnded || !ts.Equal(at("2026-09-02T12:00:04Z")) {
+		t.Errorf("DeriveKind = (%v, %v, %v), want (TurnEnded, 12:00:04, true): an injected entry is not a prompt in either shape", kind, ts, ok)
+	}
+}
+
 // Regression, issue #62: a prompt sent as a list of text (and image) blocks
 // set neither flag, so the tail skipped it and status and age stayed on the
 // previous turn.

@@ -41,6 +41,7 @@ type rawEntry struct {
 
 type block struct {
 	Type string `json:"type"`
+	Text string `json:"text"`
 }
 
 // ParseEntry parses one transcript line. ok is false for a line status does
@@ -77,10 +78,29 @@ func parseUser(r rawEntry) Entry {
 	}
 	e.ToolResult = hasBlock(r.Message.Content, "tool_result")
 	// A prompt with an attachment is a list of text and image blocks, not a
-	// string (issue #62).
+	// string (issue #62). Claude Code writes injected entries in that shape
+	// too, so the prefix test has to reach the first text block as well, or
+	// #61's bug comes back through the other content shape.
 	e.UserIsPrompt = !e.ToolResult &&
-		(hasBlock(r.Message.Content, "text") || hasBlock(r.Message.Content, "image"))
+		(hasBlock(r.Message.Content, "text") || hasBlock(r.Message.Content, "image")) &&
+		!isInjected(firstText(r.Message.Content))
 	return e
+}
+
+// firstText is the text of the first text block, or "" when the content holds
+// none. That block is where an injected entry's marker sits when claude writes
+// it as a list rather than as a string (issue #61).
+func firstText(content json.RawMessage) string {
+	var blocks []block
+	if json.Unmarshal(content, &blocks) != nil {
+		return ""
+	}
+	for _, b := range blocks {
+		if b.Type == "text" {
+			return b.Text
+		}
+	}
+	return ""
 }
 
 func isInjected(s string) bool {
