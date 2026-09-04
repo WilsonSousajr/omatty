@@ -34,8 +34,15 @@ func TestModel_RendersRealProcessOutputThroughTheModel_issue33(t *testing.T) {
 	}
 }
 
+// cmdTimeout is how long the harness waits for one command to answer before
+// abandoning it. A blocking poll never returns on its own, so without this the
+// loop would stop making progress the first time it drew one.
+const cmdTimeout = 300 * time.Millisecond
+
 // drive runs the model's own command loop - Init, then each returned Cmd fed
-// back through Update - until want appears or the deadline passes.
+// back through Update - until want appears or the deadline passes. Refilling
+// an empty queue with Init re-arms the terminal's poll, which is what keeps
+// output flowing (issue #33).
 func drive(t *testing.T, m *ui.Model, want string, deadline time.Duration) string {
 	t.Helper()
 	stop := time.Now().Add(deadline)
@@ -47,29 +54,41 @@ func drive(t *testing.T, m *ui.Model, want string, deadline time.Duration) strin
 		if len(pending) == 0 {
 			pending = append(pending, m.Init())
 		}
-		cmd := pending[0]
-		pending = pending[1:]
-		if cmd == nil {
-			continue
-		}
-		msgs := make(chan tea.Msg, 1)
-		go func(c tea.Cmd) { msgs <- c() }(cmd)
-		select {
-		case msg := <-msgs:
-			if msg == nil {
-				continue
-			}
-			// bubbletea unpacks a batch itself; the harness must too, or the
-			// terminal's poll inside Init's batch never runs (issue #71).
-			if batch, ok := msg.(tea.BatchMsg); ok {
-				pending = append(pending, batch...)
-				continue
-			}
-			if _, next := m.Update(msg); next != nil {
-				pending = append(pending, next)
-			}
-		case <-time.After(300 * time.Millisecond):
-		}
+		next := stepCmd(m, pending[0])
+		pending = append(pending[1:], next...)
 	}
 	return m.View().Content
+}
+
+// stepCmd runs one command off the loop and returns whatever belongs back in
+// the queue. The command runs on its own goroutine because a terminal poll
+// blocks until the PTY has something to say.
+func stepCmd(m *ui.Model, cmd tea.Cmd) []tea.Cmd {
+	if cmd == nil {
+		return nil
+	}
+	msgs := make(chan tea.Msg, 1)
+	go func() { msgs <- cmd() }()
+	select {
+	case msg := <-msgs:
+		return feedMsg(m, msg)
+	case <-time.After(cmdTimeout):
+		return nil
+	}
+}
+
+// feedMsg feeds one message back through the model and returns the commands
+// that fall out. bubbletea unpacks a batch itself; the harness must too, or
+// the terminal's poll inside Init's batch never runs (issue #71).
+func feedMsg(m *ui.Model, msg tea.Msg) []tea.Cmd {
+	if msg == nil {
+		return nil
+	}
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		return batch
+	}
+	if _, next := m.Update(msg); next != nil {
+		return []tea.Cmd{next}
+	}
+	return nil
 }
