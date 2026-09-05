@@ -166,10 +166,13 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 		return m.openSwitcher()
 	case "a":
 		return m.openDiscovery()
-	// Two spellings, like the shifted letters above: a modern terminal reports
-	// the modifier, a legacy one sends the bare "A" (issue #87). Lower-case a
-	// is project discovery, so getting this wrong is silent.
-	case "shift+A", "A":
+	// Three spellings, like "?" below. Keystroke() spells a shifted letter with
+	// the base key in LOWER case, so a terminal reporting the modifier sends
+	// "shift+a"; a legacy one that cannot report shift sends the bare "A"; and
+	// one that shifts the base key too sends "shift+A". Matching only the last
+	// two is how this shipped opening nothing on a modern terminal, which the
+	// smoke test caught and no unit test could - they all sent "A" (#87, #122).
+	case "shift+a", "shift+A", "A":
 		return m.openAdoption()
 	// "?" is shift+/ on a US layout, so it takes the same two spellings as the
 	// shifted letters above. Bubble Tea enables the kitty protocol at startup,

@@ -216,3 +216,29 @@ func TestModel_adoptionRegistersUnderTheSelectedProject_issue122(t *testing.T) {
 		t.Errorf("registered under %q, want the project under the cursor", r.Project)
 	}
 }
+
+// Regression, issue #122: the key was matched as "shift+A", a spelling that
+// never occurs. Keystroke() spells a shifted letter with the base key in lower
+// case, so a terminal reporting the modifier sends "shift+a"; only a legacy one
+// sends the bare "A" (issue #87). The unit tests passed because they send the
+// legacy spelling, and the smoke test found it - a modern terminal opened
+// nothing at all.
+func TestModel_adoptionOpensOnEverySpellingOfTheKey_issue122(t *testing.T) {
+	for _, spelling := range []tea.KeyPressMsg{
+		{Code: 'A', Text: "A"},                    // legacy: the bare shifted letter
+		{Code: 'a', Mod: tea.ModShift},            // modern: the modifier reported
+		{Code: 'A', Mod: tea.ModShift, Text: "A"}, // a terminal that shifts both
+	} {
+		t.Run(spelling.Keystroke(), func(t *testing.T) {
+			r := &recordAdopt{Proposed: twoProposals()}
+			m := modelWithAdopt(t, r)
+
+			press(m, ctrl('o'))
+			deliver(m, press2(m, spelling))
+
+			if !strings.Contains(m.View().Content, "adopt session") {
+				t.Errorf("%s did not open the picker:\n%s", spelling.Keystroke(), m.View().Content)
+			}
+		})
+	}
+}
