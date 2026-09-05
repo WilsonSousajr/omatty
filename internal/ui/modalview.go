@@ -18,6 +18,8 @@ func (m *Model) modalLines() []string {
 		return m.editorLines()
 	case modalConfirm:
 		return m.confirmLines()
+	case modalList:
+		return m.pickLines("jump to session")
 	}
 	return nil
 }
@@ -73,6 +75,11 @@ func modalFooter(md modal) string {
 		// differ between a worktree session and a main-checkout one, so
 		// repeating them here would only risk disagreeing with them.
 		return "answer above  esc cancel  ctrl+c quit"
+	case modalList:
+		// ctrl+j/ctrl+k rather than j/k, which are filter text here. This is
+		// the one place M4 departs from the sidebar's keymap, so it is said
+		// out loud (#42).
+		return "type to filter  ctrl+j/ctrl+k move  enter jump  esc cancel"
 	}
 	return ""
 }

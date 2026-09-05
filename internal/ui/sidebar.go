@@ -73,15 +73,25 @@ func (s *Sidebar) SetRows(rows []Row) {
 	s.rows = rows
 	s.cursor = -1
 	s.MoveDown()
-	if selectedID == "" {
-		return
+	s.SelectByID(selectedID)
+}
+
+// SelectByID puts the cursor on a session wherever it is, and reports whether
+// it was found. Unlike MoveUp and MoveDown it can jump in either direction and
+// across projects, which is what the switcher needs (#42).
+//
+//	if sb.SelectByID(id) { /* the cursor is on id */ }
+func (s *Sidebar) SelectByID(sessionID string) bool {
+	if sessionID == "" {
+		return false
 	}
-	for i, r := range rows {
-		if r.Session != nil && r.Session.ID == selectedID {
+	for i, r := range s.rows {
+		if r.Session != nil && r.Session.ID == sessionID {
 			s.cursor = i
-			return
+			return true
 		}
 	}
+	return false
 }
 
 // Selected returns the session row under the cursor. ok is false when the
