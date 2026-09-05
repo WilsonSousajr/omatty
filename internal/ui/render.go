@@ -60,6 +60,11 @@ func (m *Model) View() tea.View {
 	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, panes, m.renderFooter()))
 	v.AltScreen = true
 	v.ReportFocus = true // so FocusMsg/BlurMsg drive notifications
+	// Without this the host sends no mouse events at all, and its alternate
+	// scroll turns every wheel notch into arrow keys that land in Claude's
+	// prompt. The cost is the crosshair pointer and shift-drag to select
+	// text, which is what asking for the wheel costs anywhere (#107).
+	v.MouseMode = tea.MouseModeCellMotion
 	v.Cursor = m.paneCursor()
 	return v
 }

@@ -80,6 +80,15 @@ func PaneOrigin() (x, y int) {
 	return SidebarWidth + 1, borderRows + titleRows
 }
 
+// inPaneGrid reports whether a cell of the embedded terminal's own grid is
+// one the pane actually draws. fitBlock cuts everything past it, so both the
+// cursor omatty places (#106) and the wheel it forwards (#107) must stay
+// inside, and a narrowed pane shrinks the target with it.
+func (m *Model) inPaneGrid(x, y int) bool {
+	w, h := PTYSize(m.width, m.height, m.review.Open)
+	return x >= 0 && x < w && y >= 0 && y < h
+}
+
 // PTYSize is the embedded terminal's size for a window: the pane's content
 // minus the title row the pane draws above it. It is the one place the PTY
 // dimensions are derived, for birth and for every resize, so the two can
