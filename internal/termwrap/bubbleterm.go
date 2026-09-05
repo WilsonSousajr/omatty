@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/taigrr/bubbleterm"
+	"github.com/taigrr/bubbleterm/emulator"
 )
 
 // bubble adapts bubbleterm.Model to Terminal. It is unexported: callers get
@@ -30,6 +31,30 @@ func (b *bubble) Focus()                     { b.m.Focus() }
 func (b *bubble) Blur()                      { b.m.Blur() }
 func (b *bubble) Focused() bool              { return b.m.Focused() }
 func (b *bubble) Close() error               { return b.m.Close() }
+
+// Cursor reads the cursor straight off the emulator. bubbleterm's own view
+// carries none, and the rendered grid does not paint the cell, so this is the
+// only route to the caret in Claude's prompt (issue #106).
+func (b *bubble) Cursor() Caret {
+	emu := b.m.GetEmulator()
+	pos, visible := emu.Cursor()
+	look := emu.CursorAppearance()
+	return Caret{X: pos.X, Y: pos.Y, Visible: visible, Shape: caretShape(look.Style), Blink: look.Blink}
+}
+
+// caretShape maps the emulator's cursor style to bubbletea's. An explicit
+// switch rather than an int cast, so a change to either iota order is a
+// compile error and not a silently wrong shape.
+func caretShape(s emulator.CursorStyle) tea.CursorShape {
+	switch s {
+	case emulator.CursorUnderline:
+		return tea.CursorUnderline
+	case emulator.CursorBar:
+		return tea.CursorBar
+	default:
+		return tea.CursorBlock
+	}
+}
 
 // View returns the rendered cell grid. tea.View exposes no String method;
 // Content is the field holding the styled screen text.

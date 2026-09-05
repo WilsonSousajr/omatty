@@ -60,6 +60,7 @@ func (m *Model) View() tea.View {
 	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, panes, m.renderFooter()))
 	v.AltScreen = true
 	v.ReportFocus = true // so FocusMsg/BlurMsg drive notifications
+	v.Cursor = m.paneCursor()
 	return v
 }
 

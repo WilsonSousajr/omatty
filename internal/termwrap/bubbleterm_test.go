@@ -54,6 +54,27 @@ func TestStart_RendersRealProcessOutput(t *testing.T) {
 	}
 }
 
+// The cursor is the one thing the rendered grid does not carry: the emulator
+// tracks it, bubbleterm's view drops it, and omatty could not draw a caret
+// until this reached it (issue #106).
+func TestStart_CursorFollowsTheProcess_issue106(t *testing.T) {
+	term, err := termwrap.Start(40, 10, exec.Command("printf", "abc"))
+	if err != nil {
+		t.Fatalf("Start() error = %v, want nil", err)
+	}
+	defer func() { _ = term.Close() }()
+
+	pump(t, term, "abc", 5*time.Second)
+
+	got := term.Cursor()
+	if got.X != 3 || got.Y != 0 {
+		t.Errorf("Cursor() = (%d, %d) after printing 3 columns, want (3, 0)", got.X, got.Y)
+	}
+	if !got.Visible {
+		t.Error("Cursor().Visible = false, want true - nothing hid it")
+	}
+}
+
 func TestStart_MissingBinaryNamesIt(t *testing.T) {
 	term, err := termwrap.Start(40, 10, exec.Command("omatty-no-such-binary-xyz"))
 	if err == nil {

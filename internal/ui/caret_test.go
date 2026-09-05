@@ -1,0 +1,107 @@
+package ui_test
+
+import (
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/termwrap"
+	"github.com/WilsonSousajr/omatty/internal/ui"
+)
+
+// caretModel focuses s1 and gives it a caret at (x, y) in the emulator's own
+// grid, which is the only input View needs to place a cursor.
+func caretModel(t *testing.T, c termwrap.Caret) *ui.Model {
+	t.Helper()
+	m, fakes := modelWithFakes(t)
+	fakes["s1"].Caret = c
+	return m
+}
+
+// The bug: no cursor was ever drawn, so Claude's prompt gave no caret. The
+// emulator's cell must land at the pane's origin plus its own position.
+func TestView_PlacesTheEmbeddedCursorOnTheWindow_issue106(t *testing.T) {
+	m := caretModel(t, termwrap.Caret{X: 7, Y: 3, Visible: true})
+
+	got := m.View().Cursor
+
+	if got == nil {
+		t.Fatal("View().Cursor = nil, want the embedded terminal's cursor")
+	}
+	x, y := ui.PaneOrigin()
+	if got.X != x+7 || got.Y != y+3 {
+		t.Errorf("cursor at (%d, %d), want (%d, %d)", got.X, got.Y, x+7, y+3)
+	}
+}
+
+// DECTCEM is the application's call: claude hides the cursor while it paints,
+// and omatty must not draw one it has been told to hide.
+func TestView_DrawsNoCursorWhileTheEmulatorHidesIt_issue106(t *testing.T) {
+	m := caretModel(t, termwrap.Caret{X: 7, Y: 3, Visible: false})
+
+	if got := m.View().Cursor; got != nil {
+		t.Errorf("View().Cursor = %+v with the emulator's cursor hidden, want nil", got)
+	}
+}
+
+// A modal takes the pane's whole surface, so a caret from the terminal behind
+// it would be drawn over someone else's frame.
+func TestView_DrawsNoCursorBehindAModal_issue106(t *testing.T) {
+	m := caretModel(t, termwrap.Caret{X: 7, Y: 3, Visible: true})
+
+	press(m, ctrl('o'))
+	press(m, key('?'))
+
+	if got := m.View().Cursor; got != nil {
+		t.Errorf("View().Cursor = %+v with the help modal open, want nil", got)
+	}
+}
+
+// The dimmed border says keystrokes land in the review column; a live caret
+// in the terminal would contradict it (#21).
+func TestView_DrawsNoCursorWhileTheReviewColumnHasFocus_issue106(t *testing.T) {
+	m := caretModel(t, termwrap.Caret{X: 7, Y: 3, Visible: true})
+
+	press(m, ctrl('o'))
+	press(m, key('d'))
+
+	if got := m.View().Cursor; got != nil {
+		t.Errorf("View().Cursor = %+v with the review column focused, want nil", got)
+	}
+}
+
+// fitBlock cuts every cell past the pane, so a cursor there would be drawn
+// against content that is not on screen.
+func TestView_DrawsNoCursorOutsideThePane_issue106(t *testing.T) {
+	w, h := ui.PaneSize(ui.DefaultWidth, ui.DefaultHeight, false)
+	for _, tt := range []struct {
+		name  string
+		caret termwrap.Caret
+	}{
+		{"past the right edge", termwrap.Caret{X: w, Y: 0, Visible: true}},
+		{"past the bottom", termwrap.Caret{X: 0, Y: h - 1, Visible: true}},
+		{"negative", termwrap.Caret{X: -1, Y: 0, Visible: true}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			m := caretModel(t, tt.caret)
+
+			if got := m.View().Cursor; got != nil {
+				t.Errorf("View().Cursor = %+v for %+v, want nil", got, tt.caret)
+			}
+		})
+	}
+}
+
+// The shape claude asks for via DECSCUSR is what tells a bar caret from a
+// block one, which is the whole point of seeing it.
+func TestView_CarriesTheEmulatorsCursorShape_issue106(t *testing.T) {
+	m := caretModel(t, termwrap.Caret{X: 1, Y: 1, Visible: true, Shape: tea.CursorBar, Blink: true})
+
+	got := m.View().Cursor
+
+	if got == nil {
+		t.Fatal("View().Cursor = nil, want a cursor")
+	}
+	if got.Shape != tea.CursorBar || !got.Blink {
+		t.Errorf("cursor shape = %v blink = %v, want CursorBar blinking", got.Shape, got.Blink)
+	}
+}

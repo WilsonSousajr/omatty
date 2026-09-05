@@ -25,6 +25,9 @@ type Fake struct {
 	// Inited reports whether Init has been called. A terminal that is never
 	// initialised never reads from its PTY (issue #33).
 	Inited bool
+	// Caret is what Cursor reports, so a test can place the emulated cursor
+	// without driving a real emulator (issue #106).
+	Caret Caret
 
 	view    string
 	focused bool
@@ -48,6 +51,9 @@ func (f *Fake) Update(msg tea.Msg) tea.Cmd {
 
 // View returns the fixed frame given to NewFake.
 func (f *Fake) View() string { return f.view }
+
+// Cursor returns the Caret the test set.
+func (f *Fake) Cursor() Caret { return f.Caret }
 
 // Focus marks the Fake focused.
 func (f *Fake) Focus() { f.focused = true }
