@@ -16,8 +16,12 @@
 package detach
 
 import (
+	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
+
+	"github.com/WilsonSousajr/omatty/internal/paths"
 )
 
 // binary is the program a Holder looks for. Named once here rather than spelled
@@ -101,9 +105,30 @@ func (d *Dtach) Wrap(sessionID string, cmd *exec.Cmd) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := ensureSessionDir(d.home, sessionID); err != nil {
+		return nil, err
+	}
 	out := exec.Command(d.bin, dtachArgs(sock, PidPath(d.home, sessionID), cmd.Args)...)
 	out.Dir, out.Env = cmd.Dir, cmd.Env
 	return out, nil
+}
+
+// ensureSessionDir creates the directory the socket and pidfile live in.
+//
+// Regression, issue #43: nothing created it, so on a machine that had never run
+// this before dtach exited 1 with "No such file or directory" and every session
+// failed to start. Every unit test passed, because they assert the command line
+// rather than run it - the smoke test is what found it, which is the argument
+// for roadmap rule 2 restated.
+//
+// 0700 because the socket is a control channel into a running claude: anyone
+// who can connect to it can type into that session.
+func ensureSessionDir(home, sessionID string) error {
+	dir := paths.SessionDir(home)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("detach: session %s: creating %q for its socket: %w", sessionID, dir, err)
+	}
+	return nil
 }
 
 // pidScript records the held process's pid and then becomes it.

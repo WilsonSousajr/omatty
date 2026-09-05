@@ -24,6 +24,18 @@ go install ./cmd/omatty
 Requires Go 1.26, `git`, and `claude` on your PATH, with `$(go env GOPATH)/bin`
 on your PATH too.
 
+Optionally, `dtach`:
+
+```bash
+brew install dtach     # or: apt install dtach
+```
+
+With it, quitting omatty *detaches* from your sessions instead of ending them,
+and relaunching reattaches to the same running `claude` — a turn in flight
+keeps going while omatty is closed. Without it omatty works exactly as before
+and says so once at startup; quitting ends each session, and relaunching
+resumes the conversation from its transcript rather than the turn.
+
 Install rather than `go build -o omatty`: a binary left in the working tree
 goes stale the moment you rebuild anywhere else, and `./omatty` will happily
 run last week's code while the tests pass on this week's.

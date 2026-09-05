@@ -79,7 +79,12 @@ smoke test of the real binary in a real, sized PTY**, which a person reads:
 ```bash
 go run ./testdata/ptyrun omatty                              # 100x30, ctrl+o q after 8s
 PTY_COLS=60 PTY_ROWS=20 PTY_KEYS=$'\x0fj\x0fq' go run ./testdata/ptyrun omatty
+go run ./testdata/dtachprobe /tmp/probehome                  # [M6] detach and reattach
 ```
+
+`dtachprobe` is the same argument for `internal/detach`: its unit tests assert
+the command line dtach is given, which is why a missing `~/.omatty/s` shipped
+green and broke every session start (#43). The probe runs the line.
 
 `testdata/` is outside `./...` by Go convention, so the harness is deliberately
 not in the gate.
