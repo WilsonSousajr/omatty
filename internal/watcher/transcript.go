@@ -103,7 +103,18 @@ func firstText(content json.RawMessage) string {
 	return ""
 }
 
-func isInjected(s string) bool {
+func isInjected(s string) bool { return IsInjectedPrompt(s) }
+
+// IsInjectedPrompt reports whether a user-role entry's text is one Claude Code
+// wrote itself rather than something the operator typed.
+//
+//	if !watcher.IsInjectedPrompt(text) { /* a real prompt */ }
+//
+// Exported because adoption titles a session with its first typed prompt and
+// would otherwise label every one of them "<command-name>/clear" (#122). The
+// prefix list is knowledge about claude's transcript format and there is one
+// copy of it, here, so a prefix added upstream is added in one place.
+func IsInjectedPrompt(s string) bool {
 	for _, p := range injectedPrefixes {
 		if strings.HasPrefix(s, p) {
 			return true
