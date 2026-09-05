@@ -154,11 +154,21 @@ func (m *Model) paneCommand(key string) tea.Cmd {
 // beside navigate and paneCommand for the reason paneCommand was split off in
 // the first place: M4's keys would push one switch past gocyclo's limit.
 func (m *Model) modalCommand(key string) tea.Cmd {
+	// Every shifted key here takes three spellings, and all three occur.
+	// Keystroke() spells a shifted letter with the base key in LOWER case, so a
+	// terminal reporting the modifier sends "shift+r"; a legacy one that cannot
+	// report shift sends the bare "R"; and one that shifts the base key too
+	// sends "shift+R".
+	//
+	// Matching any two of the three is how the help key and then the adoption
+	// key each shipped opening nothing on a modern terminal, found by the smoke
+	// test and by no unit test - they send the legacy spelling. Rename carried
+	// the same gap, and a comment asserting the opposite of the one three lines
+	// below it (#87, #103, #122).
 	switch key {
-	// Two spellings: a terminal reporting the modifier gives "shift+r", a
-	// legacy one the bare "R"; the upper-case "shift+R" never occurs (issue
-	// #87). Lower-case r is restart, so getting this wrong is silent.
-	case "shift+r", "R":
+	case "shift+r", "shift+R", "R":
+		// Lower-case r is restart, so a missed spelling here is silent: it
+		// restarts nothing rather than failing to rename.
 		m.openRename()
 	case "x":
 		m.openConfirm()
@@ -166,19 +176,10 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 		return m.openSwitcher()
 	case "a":
 		return m.openDiscovery()
-	// Three spellings, like "?" below. Keystroke() spells a shifted letter with
-	// the base key in LOWER case, so a terminal reporting the modifier sends
-	// "shift+a"; a legacy one that cannot report shift sends the bare "A"; and
-	// one that shifts the base key too sends "shift+A". Matching only the last
-	// two is how this shipped opening nothing on a modern terminal, which the
-	// smoke test caught and no unit test could - they all sent "A" (#87, #122).
 	case "shift+a", "shift+A", "A":
 		return m.openAdoption()
-	// "?" is shift+/ on a US layout, so it takes the same two spellings as the
-	// shifted letters above. Bubble Tea enables the kitty protocol at startup,
-	// so a modern terminal reports the modifier and sends "shift+/" (or
-	// "shift+?" where it also shifts the base key); only a legacy one sends the
-	// bare "?". Matching "?" alone left the whole keymap unreachable (#103).
+	// "?" is shift+/ on a US layout, so it takes the same three spellings.
+	// Matching "?" alone left the whole keymap unreachable (#103).
 	case "shift+/", "shift+?", "?":
 		m.openModal(modal{Kind: modalHelp})
 	}

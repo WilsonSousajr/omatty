@@ -37,14 +37,18 @@ func shift(base rune, text string) tea.KeyPressMsg {
 	return tea.KeyPressMsg{Code: base, Mod: tea.ModShift, Text: text}
 }
 
-// Both spellings must open the rename box. Keystroke() gives "shift+r" on a
-// terminal that reports the modifier and the bare "R" on one that cannot; the
-// upper-case "shift+R" never occurs (issue #87). Lower-case r is restart, so a
-// missed spelling would silently restart nothing instead of renaming.
-func TestModel_leaderROpensTheRenameBoxFromBothSpellings_issue87(t *testing.T) {
-	// The two live spellings only: shift+r from a terminal that reports the
-	// modifier, and the bare R from a legacy one that cannot.
-	for _, k := range []tea.KeyPressMsg{shift('r', "R"), {Code: 'R', Text: "R"}} {
+// Every spelling must open the rename box. Keystroke() gives "shift+r" on a
+// terminal that reports the modifier, the bare "R" on one that cannot, and
+// "shift+R" on one that shifts the base key too - the spelling this test and
+// the binding both used to call impossible, until the same assumption shipped
+// the adoption key opening nothing at all (#87, #122). Lower-case r is restart,
+// so a missed spelling here silently restarts nothing instead of renaming.
+func TestModel_leaderROpensTheRenameBoxFromEverySpelling_issue87(t *testing.T) {
+	for _, k := range []tea.KeyPressMsg{
+		shift('r', "R"),                           // modern: the modifier reported
+		{Code: 'R', Text: "R"},                    // legacy: the bare shifted letter
+		{Code: 'R', Mod: tea.ModShift, Text: "R"}, // a terminal that shifts both
+	} {
 		m, _ := modelWithRename(t, &recordRename{})
 
 		press(m, ctrl('o'))

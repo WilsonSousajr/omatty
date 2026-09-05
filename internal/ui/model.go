@@ -339,14 +339,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // onDataMsg handles the results of work that ran off the Update goroutine, then
-// falls through to window focus and the broadcast.
+// falls through to onSessionMsg and, past that, window focus and the broadcast.
 //
-// One named switch rather than a default arm that is really a second, unnamed
-// one. Every case here must be matched by type, because anything unmatched
-// reaches broadcast and is fanned out to every emulator at once - so the next
-// person adding a message type has to see this list, not discover it. The mouse
+// Named switches rather than a default arm that is really a second, unnamed
+// one. Every case must be matched by type, because anything unmatched reaches
+// broadcast and is fanned out to every emulator at once - so the next person
+// adding a message type has to see these lists, not discover them. The mouse
 // has its own case in Update for the same reason: a pointer event carries
 // window coordinates that mean nothing to an individual pane (#40, #107).
+//
+// The split into two is paneCommand's: one table ran past the length limit, and
+// the second is named here so the pair still reads as one list (#122).
 func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	switch typed := msg.(type) {
 	case StatusMsg:
@@ -357,6 +360,14 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 		return m.onFilesLoaded(typed)
 	case WorktreeRemovedMsg:
 		return m.onWorktreeRemoved(typed)
+	}
+	return m.onSessionMsg(msg)
+}
+
+// onSessionMsg is onDataMsg's second table: the messages that change which
+// sessions exist, or which process is behind one.
+func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
+	switch typed := msg.(type) {
 	case ProjectsProposedMsg:
 		return m.onProjectsProposed(typed)
 	case SessionsProposedMsg:

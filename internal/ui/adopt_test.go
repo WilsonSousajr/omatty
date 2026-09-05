@@ -28,6 +28,13 @@ type recordAdopt struct {
 	// one test can assert an adopted session is actually running.
 	Started []string
 	Tailed  []string
+	// WroteBranch is what the registry filled in for each adopted session, the
+	// one field the picker cannot know from the pick it sent.
+	WroteBranch string
+	// StartedRows are the whole Sessions start was handed, not just their ids:
+	// the id is the same either way, so only the rest of the row can show
+	// which value the picker used.
+	StartedRows []registry.Session
 }
 
 func (r *recordAdopt) propose(projectRoot string) ([]ui.SessionProposal, error) {
@@ -35,18 +42,28 @@ func (r *recordAdopt) propose(projectRoot string) ([]ui.SessionProposal, error) 
 	return r.Proposed, r.ProposeErr
 }
 
-func (r *recordAdopt) adopt(project string, picks []ui.SessionProposal) []error {
+// adopt stands in for the registry, and answers with the Session it "wrote"
+// rather than echoing the pick: Branch is filled in there and nowhere else, so
+// a fake that echoed the pick would hide a picker that ignored the result
+// (#91, #122).
+func (r *recordAdopt) adopt(project string, picks []ui.SessionProposal) []registry.Adoption {
 	r.Project = project
-	errs := make([]error, 0, len(picks))
+	out := make([]registry.Adoption, 0, len(picks))
 	for _, p := range picks {
 		r.Adopted = append(r.Adopted, p.ID)
-		errs = append(errs, r.AdoptErr)
+		out = append(out, registry.Adoption{
+			Session: registry.Session{
+				ID: p.ID, Project: project, Title: p.Title, Dir: p.Dir, Branch: r.WroteBranch,
+			},
+			Err: r.AdoptErr,
+		})
 	}
-	return errs
+	return out
 }
 
 func (r *recordAdopt) start(sess registry.Session, _, _ int) (termwrap.Terminal, error) {
 	r.Started = append(r.Started, sess.ID)
+	r.StartedRows = append(r.StartedRows, sess)
 	return termwrap.NewFake("adopted"), nil
 }
 
@@ -240,5 +257,61 @@ func TestModel_adoptionOpensOnEverySpellingOfTheKey_issue122(t *testing.T) {
 				t.Errorf("%s did not open the picker:\n%s", spelling.Keystroke(), m.View().Content)
 			}
 		})
+	}
+}
+
+// Regression, issue #122: the picker rebuilt the session from the row it had
+// picked rather than using the one the registry wrote. internal/ui/discovery.go
+// records why that is wrong for projects - where the two disagreed the sidebar
+// showed a value state.json did not have, and a restart silently renamed the
+// row (#91) - and adoption now disagrees for real, because AdoptSession fills
+// in the branch of a session that ran in a worktree.
+func TestModel_adoptionStartsTheSessionTheRegistryWrote_issue122(t *testing.T) {
+	r := &recordAdopt{Proposed: twoProposals(), WroteBranch: "fix/parser"}
+	m := modelWithAdopt(t, r)
+	openAdoption(m)
+
+	deliver(m, press2(m, special(tea.KeyEnter)))
+
+	if len(r.StartedRows) != 1 {
+		t.Fatalf("started %d sessions, want 1", len(r.StartedRows))
+	}
+	if got := r.StartedRows[0].Branch; got != "fix/parser" {
+		t.Errorf("started a session with Branch %q, want %q: the row has to be the one the registry wrote, not one rebuilt from the pick",
+			got, "fix/parser")
+	}
+}
+
+// A session whose transcript was written moments ago is very likely still open
+// in the terminal it was started from, and adopting it starts a second
+// `claude --resume` against the same JSONL: two processes appending to one
+// transcript, interleaved turns, a flapping status glyph. omatty cannot see a
+// process it did not start, so the picker says what the mtime supports rather
+// than nothing at all (#122).
+func TestModel_adoptionWarnsAboutASessionThatMayStillBeRunning_issue122(t *testing.T) {
+	r := &recordAdopt{Proposed: []ui.SessionProposal{
+		{ID: "live", Title: "still going", Dir: "/p/omatty", LastUsed: time.Now()},
+	}}
+	m := modelWithAdopt(t, r)
+
+	openAdoption(m)
+
+	if got := m.View().Content; !strings.Contains(got, "may still be running") {
+		t.Errorf("the picker offers a just-written session with no warning:\n%s", got)
+	}
+}
+
+// The other half: a session last touched days ago is the ordinary case, and a
+// warning on every row would say nothing.
+func TestModel_adoptionDoesNotWarnAboutAnIdleSession_issue122(t *testing.T) {
+	r := &recordAdopt{Proposed: []ui.SessionProposal{
+		{ID: "old", Title: "long done", Dir: "/p/omatty", LastUsed: time.Now().Add(-48 * time.Hour)},
+	}}
+	m := modelWithAdopt(t, r)
+
+	openAdoption(m)
+
+	if got := m.View().Content; strings.Contains(got, "may still be running") {
+		t.Errorf("a session idle for two days is warned about:\n%s", got)
 	}
 }

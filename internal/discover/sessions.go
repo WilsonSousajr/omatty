@@ -24,13 +24,15 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/mattn/go-runewidth"
+
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
-// maxTitleRunes bounds a proposed title. A row is one line of a pane that is
-// about fifty columns on an eighty-column window, so a pasted essay would push
-// the detail column off the screen entirely.
-const maxTitleRunes = 60
+// maxTitleCells bounds a proposed title in display columns. A row is one line
+// of a pane that is about fifty columns on an eighty-column window, so a pasted
+// essay would push the detail column off the screen entirely.
+const maxTitleCells = 60
 
 // SessionCandidate is one claude session worth offering for adoption.
 //
@@ -60,43 +62,102 @@ func ProposeSessions(
 	if err != nil {
 		return nil, fmt.Errorf("discover: cannot read the transcript store %q: %w", storeRoot, err)
 	}
-	held := make(map[string]bool, len(known))
-	for _, id := range known {
-		held[id] = true
-	}
+	want, held := resolvedRoot(projectRoot, git), idSet(known)
 	var found []SessionCandidate
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		found = append(found, inProject(filepath.Join(storeRoot, e.Name()), git, projectRoot, held)...)
+		found = append(found, inProject(filepath.Join(storeRoot, e.Name()), git, want, held)...)
 	}
-	sort.Slice(found, func(a, b int) bool { return found[a].LastUsed.After(found[b].LastUsed) })
+	sortSessions(found)
 	return found, nil
 }
 
-// inProject is one slug directory's contribution: nothing at all unless the
-// directory's recorded cwd resolves to projectRoot.
-//
-// The cwd is read once for the directory rather than once per transcript. Every
-// transcript in a slug directory shares a working directory - that is what the
-// slug is - so resolving per file would cost a git call each.
-func inProject(slugDir string, git Git, projectRoot string, held map[string]bool) []SessionCandidate {
-	found := transcripts(slugDir)
-	if len(found) == 0 {
-		return nil
+// idSet is the ids to leave out, as a set.
+func idSet(known []string) map[string]bool {
+	held := make(map[string]bool, len(known))
+	for _, id := range known {
+		held[id] = true
 	}
-	dir, ok := firstCwd(found)
-	if !ok {
-		return nil
-	}
-	if root, ok := resolveRoot(dir, git); !ok || root != projectRoot {
-		return nil
-	}
-	return candidatesIn(found, dir, held)
+	return held
 }
 
-// candidatesIn turns each transcript in one directory into a candidate.
+// sortSessions orders candidates newest first, breaking ties by id so the list
+// is stable between runs - the guarantee sorted() makes for projects, and one
+// adoption needs just as much. Two transcripts written in the same second is
+// ordinary, claude opens sessions back to back, and byCwd's map iteration is
+// unordered on top of that; without a tie-break the row under the cursor when
+// the operator presses enter need not be the row they were looking at.
+func sortSessions(found []SessionCandidate) {
+	sort.Slice(found, func(a, b int) bool {
+		if found[a].LastUsed.Equal(found[b].LastUsed) {
+			return found[a].ID < found[b].ID
+		}
+		return found[a].LastUsed.After(found[b].LastUsed)
+	})
+}
+
+// resolvedRoot is the project root as resolveRoot would report it, which is the
+// form every transcript's cwd is compared against.
+//
+// Both sides have to be resolved the same way or the comparison is between two
+// different things. registry.AddProject stores what `rev-parse --show-toplevel`
+// returned, and inside a linked worktree that is the worktree itself; resolveRoot
+// folds a worktree back to the repository it was forked from. A project
+// registered from inside a worktree therefore matched no transcript at all, and
+// adoption reported "no unregistered sessions in this project" forever - for
+// the sessions that ran in that very directory (#91, #122).
+//
+// A root git cannot resolve is used as it stands: that is a project whose
+// directory has been deleted or is not a repository, and the comparison below
+// will simply match nothing, which is the honest answer.
+func resolvedRoot(projectRoot string, git Git) string {
+	if root, ok := resolveRoot(projectRoot, git); ok {
+		return root
+	}
+	return projectRoot
+}
+
+// inProject is one slug directory's contribution: the transcripts whose own
+// working directory resolves to projectRoot.
+//
+// One git call per distinct working directory, which is normally one for the
+// whole slug directory - that is what a slug is.
+func inProject(slugDir string, git Git, projectRoot string, held map[string]bool) []SessionCandidate {
+	var out []SessionCandidate
+	for dir, group := range byCwd(transcripts(slugDir)) {
+		if root, ok := resolveRoot(dir, git); !ok || root != projectRoot {
+			continue
+		}
+		out = append(out, candidatesIn(group, dir, held)...)
+	}
+	return out
+}
+
+// byCwd groups a slug directory's transcripts by the working directory each one
+// records, dropping any that names none.
+//
+// Normally every transcript in the directory answers with the same path and
+// this is one group. But the slug is lossy - TranscriptSlug maps every
+// non-alphanumeric to '-', so "/a/b-c" and "/a/b/c" both become "-a-b-c" and
+// claude writes both directories' transcripts into one slug directory, which is
+// what readCwd exists to work around. Reading a single cwd for the whole
+// directory stamped the newest transcript's path onto all of them, so a session
+// that ran in one repository was offered under another's project and registered
+// with a Dir that is not where it ran - and Dir is the directory
+// `claude --resume` is launched in (#91, #122).
+func byCwd(found []transcript) map[string][]transcript {
+	out := make(map[string][]transcript, 1)
+	for _, t := range found {
+		if dir, ok := readCwd(t.Path); ok {
+			out[dir] = append(out[dir], t)
+		}
+	}
+	return out
+}
+
+// candidatesIn turns each transcript in one working directory into a candidate.
 func candidatesIn(found []transcript, dir string, held map[string]bool) []SessionCandidate {
 	out := make([]SessionCandidate, 0, len(found))
 	for _, t := range found {
@@ -137,9 +198,9 @@ type promptRecord struct {
 	Type    string `json:"type"`
 	IsMeta  bool   `json:"isMeta"`
 	Message struct {
-		// A prompt is a bare string; a tool result is a list of blocks. Only
-		// the string form is a typed prompt, so anything else is skipped
-		// rather than decoded into a shape a title cannot use.
+		// A prompt is a bare string, or a list of blocks when it carries an
+		// attachment. Which of those is a typed prompt is watcher.PromptText's
+		// question, not this struct's.
 		Content json.RawMessage `json:"content"`
 	} `json:"message"`
 }
@@ -163,8 +224,15 @@ func firstPrompt(path string) string {
 			return flatten(text)
 		}
 	}
+	// The same cap readCwd hits, and the same argument: one record is routinely
+	// hundreds of kilobytes, so a head that blows it stops the scan with
+	// ErrTooLong - indistinguishable from "this transcript opens with no typed
+	// prompt" unless it is said out loud. The row then falls back to the raw
+	// uuid, and Debug is dropped by the default handler, so the operator saw an
+	// unreadable row and no trace of why (#91, #122).
 	if err := scan.Err(); err != nil {
-		slog.Debug("adoption could not read a transcript head", "transcript", path, "err", err)
+		slog.Warn("adoption could not read a transcript head",
+			"transcript", path, "byteCap", maxHeadBytes, "err", err)
 	}
 	return ""
 }
@@ -181,26 +249,28 @@ func typedPrompt(line []byte) (string, bool) {
 	if json.Unmarshal(line, &rec) != nil || rec.Type != "user" || rec.IsMeta {
 		return "", false
 	}
-	var text string
-	if json.Unmarshal(rec.Message.Content, &text) != nil {
-		return "", false // a list of blocks: a tool result, not a prompt
-	}
-	if text == "" || watcher.IsInjectedPrompt(text) {
-		return "", false
-	}
-	return text, true
+	// watcher owns both content shapes and the injected-prefix test. Reading
+	// only the string form here skipped every prompt that carried an
+	// attachment - the list-of-blocks shape #62 exists for - so those sessions
+	// fell back to the unreadable uuid titleOf is written to avoid (#61, #122).
+	return watcher.PromptText(rec.Message.Content)
 }
 
-// flatten makes an untrusted prompt safe and short enough for one row: control
-// characters become spaces, runs of whitespace collapse, and the result is cut
-// to maxTitleRunes.
+// flatten makes an untrusted prompt safe and short enough for one row:
+// non-printing characters become spaces, runs of whitespace collapse, and the
+// result is cut to maxTitleCells.
 //
-// The control-character pass is the security-relevant half. An escape sequence
-// in a prompt would otherwise reach the renderer and could move the cursor or
-// paint outside its cell.
+// This is the security-relevant half, and it outlives the picker: AdoptSession
+// persists the title to state.json, so whatever survives here is drawn in a
+// sidebar row on every run from then on.
+//
+// The test is unicode.IsGraphic rather than !unicode.IsControl. IsControl
+// covers only Cc, which let the Cf format characters through - U+202E
+// RIGHT-TO-LEFT OVERRIDE above all, which reverses the visible order of
+// everything after it, and the zero-width joiners with it.
 func flatten(s string) string {
 	mapped := strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) {
+		if !unicode.IsGraphic(r) {
 			return ' '
 		}
 		return r
@@ -208,11 +278,15 @@ func flatten(s string) string {
 	return truncate(strings.Join(strings.Fields(mapped), " "))
 }
 
-// truncate cuts to maxTitleRunes on rune boundaries, marking that it did.
+// truncate cuts to maxTitleCells, marking that it did.
+//
+// Display cells, not runes: the bound exists because a row is one line of a
+// fifty-column pane, and sixty CJK runes is a hundred and twenty columns - so
+// counting runes let through exactly the overflow the constant was written to
+// prevent, and fitLine clipped the row instead.
 func truncate(s string) string {
-	r := []rune(s)
-	if len(r) <= maxTitleRunes {
+	if runewidth.StringWidth(s) <= maxTitleCells {
 		return s
 	}
-	return string(r[:maxTitleRunes]) + "…"
+	return runewidth.Truncate(s, maxTitleCells, "…")
 }

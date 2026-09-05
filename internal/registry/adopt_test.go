@@ -26,7 +26,7 @@ func adoptStore(t *testing.T) *registry.Store {
 func TestAdoptSession_RegistersASessionOmattyDoesNotOwnTheDirectoryOf_issue122(t *testing.T) {
 	s := adoptStore(t)
 
-	sess, err := registry.AdoptSession(s, "abc-123", "omatty", "fix the parser", "/p/omatty")
+	sess, err := registry.AdoptSession(s, &FakeGit{}, "abc-123", "omatty", "fix the parser", "/p/omatty")
 
 	if err != nil {
 		t.Fatalf("AdoptSession() error = %v, want nil", err)
@@ -53,7 +53,7 @@ func TestAdoptSession_RegistersASessionOmattyDoesNotOwnTheDirectoryOf_issue122(t
 func TestAdoptSession_PersistsEnoughToRelaunch_invariant9(t *testing.T) {
 	s := adoptStore(t)
 
-	if _, err := registry.AdoptSession(s, "abc-123", "omatty", "one", "/p/omatty"); err != nil {
+	if _, err := registry.AdoptSession(s, &FakeGit{}, "abc-123", "omatty", "one", "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -68,11 +68,11 @@ func TestAdoptSession_PersistsEnoughToRelaunch_invariant9(t *testing.T) {
 // process, and the second would fight the first for the PTY.
 func TestAdoptSession_RefusesADuplicateID_issue122(t *testing.T) {
 	s := adoptStore(t)
-	if _, err := registry.AdoptSession(s, "abc-123", "omatty", "one", "/p/omatty"); err != nil {
+	if _, err := registry.AdoptSession(s, &FakeGit{}, "abc-123", "omatty", "one", "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := registry.AdoptSession(s, "abc-123", "omatty", "two", "/p/omatty")
+	_, err := registry.AdoptSession(s, &FakeGit{}, "abc-123", "omatty", "two", "/p/omatty")
 
 	if err == nil {
 		t.Fatal("AdoptSession() with an id already registered returned nil, want an error")
@@ -91,7 +91,7 @@ func TestAdoptSession_RefusesADuplicateID_issue122(t *testing.T) {
 func TestAdoptSession_RefusesABlankTitle_issue122(t *testing.T) {
 	s := adoptStore(t)
 
-	_, err := registry.AdoptSession(s, "abc-123", "omatty", "   ", "/p/omatty")
+	_, err := registry.AdoptSession(s, &FakeGit{}, "abc-123", "omatty", "   ", "/p/omatty")
 
 	if err == nil {
 		t.Fatal("AdoptSession() with a whitespace title returned nil, want an error")
@@ -103,12 +103,55 @@ func TestAdoptSession_RefusesABlankTitle_issue122(t *testing.T) {
 func TestAdoptSession_RefusesAnUnknownProject_issue122(t *testing.T) {
 	s := adoptStore(t)
 
-	_, err := registry.AdoptSession(s, "abc-123", "nope", "one", "/p/nope")
+	_, err := registry.AdoptSession(s, &FakeGit{}, "abc-123", "nope", "one", "/p/nope")
 
 	if err == nil {
 		t.Fatal("AdoptSession() with an unregistered project returned nil, want an error")
 	}
 	if !strings.Contains(err.Error(), "nope") {
 		t.Errorf("error %q does not name the unknown project", err)
+	}
+}
+
+// Regression, issue #122: AdoptSession wrote no Branch, and
+// review.Source.baseCommit reads a blank Branch as "this is a main-checkout
+// session" and diffs against HEAD. So ctrl+o d on an adopted worktree session
+// showed only its uncommitted changes and hid every commit it had made, with
+// the comments composed from that diff anchored to the wrong base.
+//
+// SessionCandidate.Dir's own doc says Dir and the project root "differ for a
+// session that ran in a linked worktree" - and no test adopted such a Dir,
+// which is what made this invisible.
+func TestAdoptSession_RecordsTheBranchOfAWorktreeSession_issue122(t *testing.T) {
+	s := adoptStore(t)
+
+	sess, err := registry.AdoptSession(
+		s, &FakeGit{Branch: "fix/parser"}, "abc-123", "omatty", "fix the parser", "/p/omatty/.omatty/wt/fix")
+
+	if err != nil {
+		t.Fatalf("AdoptSession() error = %v, want nil", err)
+	}
+	if sess.Branch != "fix/parser" {
+		t.Errorf("Branch = %q, want the branch the session's directory is on: without it the diff is against HEAD", sess.Branch)
+	}
+	if sess.Worktree {
+		t.Error("Worktree = true; omatty did not create this directory and must never delete it")
+	}
+}
+
+// The other half of the same rule: a session that ran in the project's own
+// checkout has no branch to record, and a non-empty one would send the review
+// pane looking for a merge-base that is not the right base for it (#40, #122).
+func TestAdoptSession_RecordsNoBranchForACheckoutSession_issue122(t *testing.T) {
+	s := adoptStore(t)
+
+	sess, err := registry.AdoptSession(
+		s, &FakeGit{Branch: "main"}, "abc-123", "omatty", "fix the parser", "/p/omatty")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sess.Branch != "" {
+		t.Errorf("Branch = %q, want empty for a session in the project's own checkout", sess.Branch)
 	}
 }

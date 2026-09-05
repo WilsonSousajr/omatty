@@ -103,24 +103,49 @@ func firstText(content json.RawMessage) string {
 	return ""
 }
 
-func isInjected(s string) bool { return IsInjectedPrompt(s) }
-
-// IsInjectedPrompt reports whether a user-role entry's text is one Claude Code
-// wrote itself rather than something the operator typed.
-//
-//	if !watcher.IsInjectedPrompt(text) { /* a real prompt */ }
-//
-// Exported because adoption titles a session with its first typed prompt and
-// would otherwise label every one of them "<command-name>/clear" (#122). The
-// prefix list is knowledge about claude's transcript format and there is one
-// copy of it, here, so a prefix added upstream is added in one place.
-func IsInjectedPrompt(s string) bool {
+// isInjected reports whether a user-role entry's text is one Claude Code wrote
+// itself rather than something the operator typed.
+func isInjected(s string) bool {
 	for _, p := range injectedPrefixes {
 		if strings.HasPrefix(s, p) {
 			return true
 		}
 	}
 	return false
+}
+
+// PromptText returns what the operator typed in a user entry's content, and
+// whether it was a typed prompt at all.
+//
+//	if text, ok := watcher.PromptText(rec.Message.Content); ok { /* a real prompt */ }
+//
+// Exported because adoption titles a session with its first typed prompt and
+// would otherwise label every one of them "<command-name>/clear" (#122).
+//
+// Both content shapes are handled here, which is the point of exporting this
+// rather than the prefix test alone: discover took the prefix list but wrote
+// its own content parsing, understood only the bare-string form, and so gave a
+// uuid for a title to every session whose first prompt carried an attachment -
+// the list-of-blocks shape #62 exists for. The shapes and the prefixes are one
+// piece of knowledge about claude's transcript format, and this is the one copy
+// of it (#61, #62, #122).
+func PromptText(content json.RawMessage) (string, bool) {
+	var s string
+	if json.Unmarshal(content, &s) == nil {
+		return typedText(s)
+	}
+	if hasBlock(content, "tool_result") {
+		return "", false
+	}
+	return typedText(firstText(content))
+}
+
+// typedText accepts a candidate prompt body unless it is empty or injected.
+func typedText(s string) (string, bool) {
+	if s == "" || isInjected(s) {
+		return "", false
+	}
+	return s, true
 }
 
 func parseAssistant(r rawEntry) Entry {

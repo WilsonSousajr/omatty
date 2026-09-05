@@ -35,13 +35,19 @@ type SessionProposal struct {
 // neither read the transcript store nor shell out to git (invariant 4).
 type AdoptFunc func(projectRoot string) ([]SessionProposal, error)
 
-// AdoptCommitFunc registers each pick and reports what became of it, one error
-// per proposal in the order given, nil where it succeeded.
+// AdoptCommitFunc registers each pick and reports what became of it, one result
+// per proposal in the order given.
 //
 // The whole batch rather than one at a time, for the reason AddProjectFunc
-// takes one: the register-report-carry-on loop lives in cmd beside the
+// takes one: the register-report-carry-on loop lives in the registry beside the
 // subcommand that shares it, so one collision does not abandon the rest (#91).
-type AdoptCommitFunc func(project string, picks []SessionProposal) []error
+//
+// It returns the Session that was written and not merely an error, for the
+// reason AddProjectFunc returns Registration: the picker has to use the row
+// state.json actually holds. Rebuilding one from the pick matched only while
+// AdoptSession stored the pick's fields verbatim, and it no longer does - it
+// fills in the branch a worktree session is on (#91, #122).
+type AdoptCommitFunc func(project string, picks []SessionProposal) []registry.Adoption
 
 // noAdopt is the Deps.AdoptPropose default: it names the missing wiring rather
 // than proposing an empty list, which would read as "this project has no
@@ -52,12 +58,14 @@ func noAdopt(projectRoot string) ([]SessionProposal, error) {
 
 // noAdoptCommit is the Deps.AdoptCommit default, for the same reason: a silent
 // success would put a row in the sidebar that state.json does not hold.
-func noAdoptCommit(_ string, picks []SessionProposal) []error {
-	errs := make([]error, 0, len(picks))
+func noAdoptCommit(_ string, picks []SessionProposal) []registry.Adoption {
+	out := make([]registry.Adoption, 0, len(picks))
 	for _, p := range picks {
-		errs = append(errs, fmt.Errorf("ui: no session registrar configured for %q", p.ID))
+		out = append(out, registry.Adoption{
+			Err: fmt.Errorf("ui: no session registrar configured for %q", p.ID),
+		})
 	}
-	return errs
+	return out
 }
 
 // SessionsProposedMsg carries an adoption scan's result into Update. Exported
@@ -85,6 +93,11 @@ func (m *Model) openAdoption() tea.Cmd {
 	}
 	m.scanToken++
 	token := m.scanToken
+	// Cleared with the scan that replaces it. Left standing, the previous
+	// project's proposals stayed reachable for the life of the process and -
+	// worse as state - pickedProposals resolved the open picker's rows against
+	// a scan that no longer described it (#122).
+	m.adoptable = nil
 	m.openModal(modal{
 		Kind: modalAdopt,
 		List: newPickList("scanning for sessions", nil, true),
@@ -123,13 +136,35 @@ func (m *Model) onSessionsProposed(msg SessionsProposedMsg) tea.Cmd {
 	return nil
 }
 
+// liveWindow is how recently a transcript must have been written for the picker
+// to say the session may still be running somewhere else.
+//
+// Adopting a session that is still open in a plain terminal starts a second
+// `claude --resume` against the same transcript: both processes append to one
+// JSONL, the tailer reads interleaved turns, the status glyph flaps and
+// whichever process wrote last wins. registry.refuseKnownSession guards the
+// case where both rows are omatty's; nothing here can see a process omatty did
+// not start, and the README sells adoption as the way to pick up a session
+// begun in a plain terminal - which is exactly the terminal likely to still be
+// open (#122).
+//
+// Two minutes, because this is the transcript's mtime and not a liveness check:
+// a session idle longer than that is indistinguishable from one that ended, so
+// the picker says what it can rather than claiming more than it knows.
+const liveWindow = 2 * time.Minute
+
 // proposedSessionDetail is the row's second column: how long since the session
-// was worked in, which is the order the list is already in.
+// was worked in, which is the order the list is already in, and a warning when
+// that is recent enough that something else may still be attached to it.
 func proposedSessionDetail(p SessionProposal, now time.Time) string {
+	detail := p.Dir
 	if age := AgeString(now, p.LastUsed); age != "" {
-		return age
+		detail = age
 	}
-	return p.Dir
+	if now.Sub(p.LastUsed) < liveWindow {
+		return detail + " · may still be running elsewhere"
+	}
+	return detail
 }
 
 // adoptionTitle says what the list is once it is known, including the empty
@@ -151,13 +186,13 @@ func (m *Model) commitAdoption() tea.Cmd {
 	m.modal, m.lastErr = modal{}, ""
 	project := m.SelectedProject()
 	cmds := make([]tea.Cmd, 0, len(picked))
-	for i, err := range m.adoptCommit(project, picked) {
-		if err != nil {
-			slog.Warn("adopting a session", "session", picked[i].ID, "err", err)
-			m.lastErr = err.Error()
+	for i, a := range m.adoptCommit(project, picked) {
+		if a.Err != nil {
+			slog.Warn("adopting a session", "session", picked[i].ID, "err", a.Err)
+			m.lastErr = a.Err.Error()
 			continue
 		}
-		cmds = append(cmds, m.startAdopted(picked[i], project))
+		cmds = append(cmds, m.startAdopted(a.Session))
 	}
 	return tea.Batch(cmds...)
 }
@@ -184,8 +219,12 @@ func (m *Model) pickedProposals() []SessionProposal {
 
 // startAdopted brings an adopted session up: its terminal, its tailer, its
 // sidebar row. The launcher resumes it, because its transcript exists (#36).
-func (m *Model) startAdopted(p SessionProposal, project string) tea.Cmd {
-	sess := registry.Session{ID: p.ID, Project: project, Title: p.Title, Dir: p.Dir}
+//
+// It takes the Session the registry wrote, never one rebuilt from the picked
+// row. Where the two disagreed, the sidebar showed a value state.json did not
+// have, `ctrl+o n` on it failed and a restart silently renamed the row (#91) -
+// and they do disagree now, because AdoptSession fills in the branch.
+func (m *Model) startAdopted(sess registry.Session) tea.Cmd {
 	cmd, err := m.foldInSession(sess)
 	if err != nil {
 		slog.Error("starting an adopted session", "session", sess.ID, "dir", sess.Dir, "err", err)
@@ -196,9 +235,8 @@ func (m *Model) startAdopted(p SessionProposal, project string) tea.Cmd {
 }
 
 // adoptFooter names the marking key, as the project picker's does.
-func adoptFooter(marked int) string {
-	if marked == 0 {
-		return "type to filter  ctrl+j/ctrl+k move  tab mark  enter adopt  esc cancel"
-	}
-	return pickerFooter(marked)
-}
+//
+// The verb is passed down rather than left to pickerFooter: delegating to it
+// once a row was marked flipped "enter adopt" to "enter register" at the exact
+// moment the operator was about to commit (#122).
+func adoptFooter(marked int) string { return markFooter(marked, "adopt") }

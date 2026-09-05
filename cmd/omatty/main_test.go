@@ -8,6 +8,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
 // cmd/omatty had no test file at all, and the coverage gate measures only
@@ -17,14 +18,34 @@ import (
 // tuiDeps and run is exercised by the milestone's PTY smoke test, which a
 // person reads (AGENTS.md, "Build and test commands").
 
-// FakeGit is a named fake for the one git method the adapters here need.
-type FakeGit struct{ Roots map[string]string }
+// FakeGit is a named fake for the git methods the adapters here need.
+//
+// RepoRoot and MainCheckout answer from separate maps, and that separation is
+// the point: they are different questions - inside a linked worktree the first
+// returns the worktree and the second the repository it was forked from - and
+// one shared answer for both is what made adoption's worktree bug invisible to
+// this package (#91, #122). Worktrees fills MainCheckout alone.
+type FakeGit struct {
+	Roots     map[string]string
+	Worktrees map[string]string
+	Branch    string
+}
 
-func (f *FakeGit) RepoRoot(dir string) (string, error)     { return f.root(dir) }
-func (f *FakeGit) MainCheckout(dir string) (string, error) { return f.root(dir) }
+func (f *FakeGit) RepoRoot(dir string) (string, error) { return lookup(f.Roots, dir) }
 
-func (f *FakeGit) root(dir string) (string, error) {
-	if root, ok := f.Roots[dir]; ok {
+func (f *FakeGit) MainCheckout(dir string) (string, error) {
+	if root, ok := f.Worktrees[dir]; ok {
+		return root, nil
+	}
+	return lookup(f.Roots, dir)
+}
+
+func (f *FakeGit) CurrentBranch(string) (string, error) { return f.Branch, nil }
+
+func (f *FakeGit) RemoveWorktree(string, string) error { return nil }
+
+func lookup(roots map[string]string, dir string) (string, error) {
+	if root, ok := roots[dir]; ok {
 		return root, nil
 	}
 	return "", errNotARepo{dir}
@@ -261,5 +282,51 @@ func TestAdoptSessions_RequiresAProjectName_issue122(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "adopt") {
 		t.Errorf("error %q does not name the subcommand", err)
+	}
+}
+
+// The wiring took the concrete *vcs.CLI, so not one of these adapters could be
+// built in a test at all - the untestability registry.RepoRooter's own doc
+// records as the #91 defect, restated for the pickers (#122). This is the test
+// that could not be written before, and it is the whole point of narrowing the
+// parameter: every picker dependency is now reachable without a repository.
+func TestWithPickerDeps_BuildsEveryPickerDependency_issue122(t *testing.T) {
+	deps := withPickerDeps(ui.RunDeps{}, storeIn(t), t.TempDir(), &FakeGit{})
+
+	for name, built := range map[string]bool{
+		"Discover":     deps.Discover != nil,
+		"AddProject":   deps.AddProject != nil,
+		"AdoptPropose": deps.AdoptPropose != nil,
+		"AdoptCommit":  deps.AdoptCommit != nil,
+	} {
+		if !built {
+			t.Errorf("withPickerDeps left %s unset; the picker key would report missing wiring", name)
+		}
+	}
+}
+
+// sessionAdopter is the seam between the picker and the registry, and it has to
+// hand back the row that was written: the branch is filled in there and nowhere
+// else, so a picker fed the pick it sent would start a session with the wrong
+// diff base (#122).
+func TestSessionAdopter_ReturnsTheRowTheRegistryWrote_issue122(t *testing.T) {
+	store := storeIn(t)
+	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}, Branch: "fix/parser"}
+	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+		t.Fatal(err)
+	}
+
+	got := sessionAdopter(store, git)("omatty", []ui.SessionProposal{
+		{ID: "abc-123", Title: "fix the parser", Dir: "/p/omatty/.omatty/wt/fix"},
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("adopted %d sessions, want 1", len(got))
+	}
+	if got[0].Err != nil {
+		t.Fatalf("Err = %v, want nil", got[0].Err)
+	}
+	if got[0].Session.Branch != "fix/parser" {
+		t.Errorf("Branch = %q, want the branch the registry recorded for the worktree", got[0].Session.Branch)
 	}
 }

@@ -14,6 +14,46 @@ type RepoRooter interface {
 	RepoRoot(dir string) (string, error)
 }
 
+// SessionBrancher is the slice of vcs.Git adoption needs: which branch a
+// directory is on. Declared beside RepoRooter and just as narrow, for the
+// reason RepoRooter's own comment gives.
+type SessionBrancher interface {
+	CurrentBranch(dir string) (string, error)
+}
+
+// SessionPick is one session offered for adoption, as far as the registry is
+// concerned: enough to write a row and nothing more.
+type SessionPick struct {
+	ID    string
+	Title string
+	Dir   string
+}
+
+// Adoption is what became of one pick AdoptAll was given, mirroring
+// Registration. Session is the row that was actually written; Err is why there
+// is none.
+type Adoption struct {
+	Session Session
+	Err     error
+}
+
+// AdoptAll adopts each pick, carrying on past a failure so one collision does
+// not abandon the rest of a bulk pick.
+//
+//	for _, a := range registry.AdoptAll(store, git, "omatty", picks) { ... }
+//
+// It exists rather than a loop in cmd and another in ui's adapter, which is
+// RegisterAll's argument restated: both loops existed, and both would have had
+// to learn about the branch below (#91, #122).
+func AdoptAll(s *Store, git SessionBrancher, project string, picks []SessionPick) []Adoption {
+	out := make([]Adoption, 0, len(picks))
+	for _, p := range picks {
+		sess, err := AdoptSession(s, git, p.ID, project, p.Title, p.Dir)
+		out = append(out, Adoption{Session: sess, Err: err})
+	}
+	return out
+}
+
 // AddProject registers the git repository containing dir, naming it after
 // the repository's own directory. It is the whole of `omatty add`.
 //
@@ -140,10 +180,37 @@ func sessionIDs(st *State) []string {
 	return ids
 }
 
+// NamedProject is the project registered under name.
+//
+//	p, err := registry.NamedProject(store, "omatty")
+//
+// Exported because `omatty adopt` acts on one named project and cmd/ carried
+// its own copy of this loop, against invariant 10 - so a change to what a name
+// means would have had to be made twice, or the CLI and the registry would
+// disagree about which project an argument selects (#122).
+func NamedProject(s *Store, name string) (Project, error) {
+	st, err := s.Load()
+	if err != nil {
+		return Project{}, err
+	}
+	return findProject(&st, name)
+}
+
+// KnownSessionIDs is every session id state.json holds, which is what adoption
+// leaves out of what it offers (#91, #122). Exported for the same reason
+// NamedProject is: cmd/ had a second copy of it.
+func KnownSessionIDs(s *Store) ([]string, error) {
+	st, err := s.Load()
+	if err != nil {
+		return nil, err
+	}
+	return sessionIDs(&st), nil
+}
+
 // AdoptSession registers a claude session that already exists, so omatty can
 // show and resume one it did not create (#122).
 //
-//	sess, err := registry.AdoptSession(store, cand.ID, "omatty", cand.Title, cand.Dir)
+//	sess, err := registry.AdoptSession(store, git, cand.ID, "omatty", cand.Title, cand.Dir)
 //
 // Worktree is false and that is load-bearing rather than incidental: omatty did
 // not create dir, so archive must never offer to delete it. That is the rule
@@ -151,7 +218,7 @@ func sessionIDs(st *State) []string {
 //
 // Nothing else is needed to relaunch it (invariant 9): the launcher stats the
 // transcript, finds one, and uses `--resume` (#36).
-func AdoptSession(s *Store, id, project, title, dir string) (Session, error) {
+func AdoptSession(s *Store, git SessionBrancher, id, project, title, dir string) (Session, error) {
 	if strings.TrimSpace(title) == "" {
 		return Session{}, fmt.Errorf(
 			"registry: session %q: title %q is blank, want a name with a non-space character", id, title)
@@ -160,15 +227,54 @@ func AdoptSession(s *Store, id, project, title, dir string) (Session, error) {
 	if err != nil {
 		return Session{}, err
 	}
-	if _, err := findProject(&st, project); err != nil {
+	sess, err := adoptable(&st, git, id, project, title, dir)
+	if err != nil {
 		return Session{}, err
 	}
-	if err := refuseKnownSession(&st, id); err != nil {
-		return Session{}, err
-	}
-	sess := Session{ID: id, Project: project, Title: title, Dir: dir}
 	st.Sessions = append(st.Sessions, sess)
 	return sess, s.Save(st)
+}
+
+// adoptable is the row to write for a pick, or why there is none: the project
+// has to exist, the id has to be new, and a worktree session's branch has to be
+// read before anything is saved - so a git call that fails leaves state.json
+// untouched rather than half-written.
+func adoptable(st *State, git SessionBrancher, id, project, title, dir string) (Session, error) {
+	p, err := findProject(st, project)
+	if err != nil {
+		return Session{}, err
+	}
+	if err := refuseKnownSession(st, id); err != nil {
+		return Session{}, err
+	}
+	branch, err := adoptedBranch(git, p.Root, dir)
+	if err != nil {
+		return Session{}, err
+	}
+	return Session{ID: id, Project: project, Title: title, Dir: dir, Branch: branch}, nil
+}
+
+// adoptedBranch is the branch to record for a session adopted in dir, and "" for
+// one that ran in the project's own checkout.
+//
+// Empty is not merely a default there: review.Source.baseCommit reads a blank
+// Branch as "this is a main-checkout session" and diffs against HEAD, which is
+// right for the checkout and wrong for a worktree. Recording nothing meant
+// `ctrl+o d` on an adopted worktree session showed only its uncommitted changes
+// and hid every commit it had made - and the comments composed from that diff
+// anchored to the wrong base (#122).
+//
+// Worktree stays false regardless: omatty did not create dir, so archive must
+// never offer to delete it (#40). This says which branch, not whose directory.
+func adoptedBranch(git SessionBrancher, projectRoot, dir string) (string, error) {
+	if dir == "" || filepath.Clean(dir) == filepath.Clean(projectRoot) {
+		return "", nil
+	}
+	branch, err := git.CurrentBranch(dir)
+	if err != nil {
+		return "", fmt.Errorf("registry: session directory %q: cannot read the branch it is on: %w", dir, err)
+	}
+	return branch, nil
 }
 
 // refuseKnownSession rejects an id the registry already holds. Two sidebar rows
