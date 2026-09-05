@@ -6,7 +6,6 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
 
 // paneCursor is where bubbletea should put the terminal cursor: the emulated
@@ -22,20 +21,11 @@ func (m *Model) paneCursor() *tea.Cursor {
 		return nil
 	}
 	c := term.Cursor()
-	if !c.Visible || !m.caretInPane(c) {
+	if !c.Visible || !m.inPaneGrid(c.X, c.Y) {
 		return nil
 	}
 	x, y := PaneOrigin()
 	cursor := tea.NewCursor(x+c.X, y+c.Y)
 	cursor.Shape, cursor.Blink = c.Shape, c.Blink
 	return cursor
-}
-
-// caretInPane reports whether the emulated cursor is on a cell the pane
-// actually draws. fitBlock cuts everything past the pane, so a caret outside
-// it would sit against content that is not on screen. The pane's last row is
-// the title's, hence PTYSize rather than PaneSize.
-func (m *Model) caretInPane(c termwrap.Caret) bool {
-	w, h := PTYSize(m.width, m.height, m.review.Open)
-	return c.X >= 0 && c.X < w && c.Y >= 0 && c.Y < h
 }

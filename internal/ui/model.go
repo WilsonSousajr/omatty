@@ -278,13 +278,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // Update is at its line limit and M4 adds more of these (#40).
 //
 // The typed check must come first: an unhandled message reaches broadcast and
-// would be fanned out to every emulator.
+// would be fanned out to every emulator. That is why a mouse event is caught
+// here too, though it is not lifecycle work - what every case here shares is
+// that broadcasting it would be wrong (#107).
 func (m *Model) onLifecycleMsg(msg tea.Msg) tea.Cmd {
 	switch typed := msg.(type) {
 	case WorktreeRemovedMsg:
 		return m.onWorktreeRemoved(typed)
 	case ProjectsProposedMsg:
 		return m.onProjectsProposed(typed)
+	case tea.MouseMsg:
+		return m.onMouse(typed)
 	}
 	return m.onWindowFocus(msg)
 }

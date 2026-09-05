@@ -44,6 +44,16 @@ var leaderKeys = [][2]string{
 	{"q", "quit"},
 }
 
+// claudeKeys are keys omatty does not own. They reach the session untouched,
+// and they are listed because nothing else says so: pgup/pgdn always scrolled
+// Claude's transcript and looked broken only because it was undocumented, and
+// shift+drag is what selecting text costs now that omatty asks the terminal
+// for the wheel (#107).
+var claudeKeys = [][2]string{
+	{"pgup / pgdn", "scroll the transcript"},
+	{"shift+drag", "select text"},
+}
+
 // helpLines draws the full keymap. It exists because the footer constant
 // outgrew the window: at 114 columns it was already truncating `ctrl+o f`
 // before M4 added four more keys (#103).
@@ -52,6 +62,10 @@ func helpLines() []string {
 	lines = append(lines, Leader+" keys", "")
 	for _, k := range leaderKeys {
 		lines = append(lines, "  "+padRight(Leader+" "+k[0], 12)+"  "+k[1])
+	}
+	lines = append(lines, "", "in the session")
+	for _, k := range claudeKeys {
+		lines = append(lines, "  "+padRight(k[0], 12)+"  "+k[1])
 	}
 	return append(lines, "", "esc to close")
 }
