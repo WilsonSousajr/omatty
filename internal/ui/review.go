@@ -231,12 +231,27 @@ func keptView(v ReviewView) ReviewView {
 }
 
 func (m *Model) session(id string) (registry.Session, bool) {
-	for _, s := range m.state.Sessions {
-		if s.ID == id {
-			return s, true
+	i, ok := m.sessionIndex(id)
+	if !ok {
+		return registry.Session{}, false
+	}
+	return m.state.Sessions[i], true
+}
+
+// sessionIndex is where id sits in m.state.Sessions, if it is there at all.
+//
+// One scan for the whole package: this loop had been hand-written five times
+// (session, knownSession, sessionTitle, retitle, forgetSession) and each copy
+// had invented its own answer for a miss - the zero value, false, the id
+// itself, or a silent return. Callers that need to mutate take the index;
+// callers that only read go through session (#40, #41).
+func (m *Model) sessionIndex(id string) (int, bool) {
+	for i := range m.state.Sessions {
+		if m.state.Sessions[i].ID == id {
+			return i, true
 		}
 	}
-	return registry.Session{}, false
+	return 0, false
 }
 
 func (m *Model) projectRoot(name string) string {

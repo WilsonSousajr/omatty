@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
@@ -39,9 +40,12 @@ func AddProject(s *Store, git vcs.Git, dir string) (Project, error) {
 //
 //	err := registry.RenameSession(store, sess.ID, "parser-fix")
 func RenameSession(s *Store, id, title string) error {
-	// An empty title would leave a blank sidebar row with nothing to aim at.
-	if title == "" {
-		return fmt.Errorf("registry: session %q: title is empty, want a non-blank name", id)
+	// A blank title would leave a sidebar row with nothing to aim at. The check
+	// is on the trimmed title, not on title == "": a name of nothing but spaces
+	// renders exactly as empty a row, and passed the old guard (#41).
+	if strings.TrimSpace(title) == "" {
+		return fmt.Errorf(
+			"registry: session %q: title %q is blank, want a name with a non-space character", id, title)
 	}
 	st, err := s.Load()
 	if err != nil {
@@ -79,13 +83,18 @@ func RemoveSession(s *Store, id string) (Session, error) {
 // indexOfSession locates a session by id. It returns an index rather than a
 // Session because callers mutate the one inside the state they are about to
 // save; a copy would be written back over.
+//
+// The miss returns -1, not 0: a caller that dropped the error would otherwise
+// rename or archive whichever session happens to sit first in state.json, and
+// silent data corruption is worse than the immediate panic an out-of-range
+// index gives (#41).
 func indexOfSession(st *State, id string) (int, error) {
 	for i := range st.Sessions {
 		if st.Sessions[i].ID == id {
 			return i, nil
 		}
 	}
-	return 0, fmt.Errorf(
+	return -1, fmt.Errorf(
 		"registry: no session with id %q (known sessions: %v)", id, sessionIDs(st))
 }
 

@@ -84,6 +84,15 @@ func (m *Model) command(msg tea.KeyPressMsg) tea.Cmd {
 		return tea.Quit
 	}
 	if m.modalOpen() {
+		// The leader closes the surface and arms itself rather than being fed
+		// to it. An open modal leaves the terminal unfocused, so keys.Router
+		// never armed on its own here: `ctrl+o q` appended a literal q to a
+		// session title, and in the help box did nothing at all (#41, #103).
+		if msg.Keystroke() == Leader {
+			m.modal = modal{}
+			m.router.Arm()
+			return nil
+		}
 		return m.onModalKey(msg)
 	}
 	return m.navigate(msg.Keystroke())
@@ -141,7 +150,12 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 		return m.openSwitcher()
 	case "a":
 		return m.openDiscovery()
-	case "?":
+	// "?" is shift+/ on a US layout, so it takes the same two spellings as the
+	// shifted letters above. Bubble Tea enables the kitty protocol at startup,
+	// so a modern terminal reports the modifier and sends "shift+/" (or
+	// "shift+?" where it also shifts the base key); only a legacy one sends the
+	// bare "?". Matching "?" alone left the whole keymap unreachable (#103).
+	case "shift+/", "shift+?", "?":
 		m.modal = modal{Kind: modalHelp}
 	}
 	return nil

@@ -106,8 +106,11 @@ type Model struct {
 	discover       DiscoverFunc
 	addProject     AddProjectFunc
 	lastErr        string
-	width          int
-	height         int
+	// wheel counts scroll notches so a momentum flick becomes a few pages of
+	// transcript rather than tens of them (#107).
+	wheel  wheelAccumulator
+	width  int
+	height int
 }
 
 // withDefaults fills the optional fields: the wall clock and a silent

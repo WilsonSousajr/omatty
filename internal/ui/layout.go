@@ -7,11 +7,14 @@ const SidebarWidth = 28
 // footerRows is the keymap line below both panes.
 const footerRows = 1
 
-// borderRows and titleRows are the pane box's top border and the title line
-// renderTerminal draws above the embedded terminal. Together they are how far
-// down the window the emulator's first row lands.
+// borderRows, borderCols and titleRows are the pane box's border and the title
+// line renderTerminal draws above the embedded terminal. Together they are how
+// far into the window the emulator's first cell lands. Every derivation of the
+// pane's geometry goes through them, so a second title row moves the caret, the
+// wheel target and the emulator's own height together (#106, #107).
 const (
 	borderRows = 1
+	borderCols = 1
 	titleRows  = 1
 )
 
@@ -59,8 +62,8 @@ func ReviewWidth(width int, open bool) int {
 //
 //	w, h := ui.PaneSize(120, 40, false) // 90, 37
 func PaneSize(width, height int, reviewOpen bool) (termW, termH int) {
-	termW = width - SidebarWidth - ReviewWidth(width, reviewOpen) - 2
-	termH = height - footerRows - 2
+	termW = width - SidebarWidth - ReviewWidth(width, reviewOpen) - 2*borderCols
+	termH = height - footerRows - 2*borderRows
 	if termW < minTermWidth {
 		termW = minTermWidth
 	}
@@ -77,13 +80,17 @@ func PaneSize(width, height int, reviewOpen bool) (termW, termH int) {
 //
 //	x, y := ui.PaneOrigin() // 29, 2
 func PaneOrigin() (x, y int) {
-	return SidebarWidth + 1, borderRows + titleRows
+	return SidebarWidth + borderCols, borderRows + titleRows
 }
 
 // inPaneGrid reports whether a cell of the embedded terminal's own grid is
 // one the pane actually draws. fitBlock cuts everything past it, so both the
 // cursor omatty places (#106) and the wheel it forwards (#107) must stay
 // inside, and a narrowed pane shrinks the target with it.
+//
+// The bound is PTYSize, not PaneSize: the pane's last row belongs to the title
+// (#106). Switching it to PaneSize would put the caret a row outside the grid
+// again, which is the bug this replaced.
 func (m *Model) inPaneGrid(x, y int) bool {
 	w, h := PTYSize(m.width, m.height, m.review.Open)
 	return x >= 0 && x < w && y >= 0 && y < h
@@ -97,5 +104,5 @@ func (m *Model) inPaneGrid(x, y int) bool {
 //	w, h := ui.PTYSize(120, 40, false) // 90, 36
 func PTYSize(width, height int, reviewOpen bool) (w, h int) {
 	w, h = PaneSize(width, height, reviewOpen)
-	return w, h - 1
+	return w, h - titleRows
 }

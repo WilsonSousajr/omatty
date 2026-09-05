@@ -10,6 +10,8 @@
 package ui
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -32,8 +34,8 @@ const (
 	// (#91). A separate kind rather than a flag on the list, because only the
 	// commit differs and Kind is what already selects a commit.
 	modalPicker
-	// modalHelp lists every leader key, opened with ? (#103). It takes no
-	// input at all: any key closes it.
+	// modalHelp lists every leader key, opened with ? (#103). It takes no text:
+	// esc closes it, and the leader closes it and arms the next key.
 	modalHelp
 )
 
@@ -44,6 +46,9 @@ type modal struct {
 	Editor  lineEditor
 	Confirm confirmBox
 	List    pickList
+	// HelpOffset is the first keymap row the help modal shows. The list is
+	// taller than a short window's pane, so it scrolls (#103).
+	HelpOffset int
 }
 
 // modalOpen reports whether a surface owns the keyboard. It is the single
@@ -124,25 +129,44 @@ func (m *Model) onEditorKey(msg tea.KeyPressMsg) tea.Cmd {
 
 // onHelpKey dismisses the keymap.
 //
-// esc only, not "any key". A modal makes the terminal unfocused, so the router
-// never arms the leader while one is open - which means a help box that closed
-// on any key would swallow the ctrl+o of `ctrl+o q` and send the q straight to
-// Claude. Found by the M4 smoke test, where a literal q appeared in the pane
-// (#103).
+// esc only, not "any key": a box that closed on any key would swallow the
+// ctrl+o of `ctrl+o q` and send the q straight to Claude, which is how the M4
+// smoke test found a literal q in the pane (#103). The leader itself is handled
+// one level up in command, which closes this box and arms the next key, so the
+// pair still completes.
 func (m *Model) onHelpKey(key string) tea.Cmd {
-	if key == "esc" {
+	switch key {
+	case "esc":
 		m.modal = modal{}
+	case "j", "down":
+		m.scrollHelp(1)
+	case "k", "up":
+		m.scrollHelp(-1)
 	}
 	return nil
 }
 
+// scrollHelp moves the keymap window, stopping at both ends. The renderer
+// clamps too, because a resize can shrink the pane after the last keypress.
+func (m *Model) scrollHelp(delta int) {
+	w, _ := PaneSize(m.width, m.height, m.review.Open)
+	last := max(len(helpBody(w))-m.helpRows(), 0)
+	m.modal.HelpOffset = min(max(m.modal.HelpOffset+delta, 0), last)
+}
+
 // commitEditor applies the buffer: a prompt creates a session, a rename
-// retitles one. An empty buffer leaves the editor open rather than registering
-// a nameless session or blanking a title.
+// retitles one. A blank buffer leaves the editor open rather than registering a
+// nameless session or blanking a title.
+//
+// The trim is the guard, not an == "" check: a buffer of nothing but spaces
+// passed the old one and produced exactly the blank sidebar row it existed to
+// prevent, and on an N prompt it went on to become a git branch name (#41).
 func (m *Model) commitEditor() tea.Cmd {
-	if m.modal.Editor.Buffer == "" {
+	trimmed := strings.TrimSpace(m.modal.Editor.Buffer)
+	if trimmed == "" {
 		return nil
 	}
+	m.modal.Editor.Buffer = trimmed
 	if m.modal.Kind == modalRename {
 		return m.commitRename()
 	}

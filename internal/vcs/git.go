@@ -12,7 +12,6 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -108,17 +107,50 @@ func (c *CLI) RepoRoot(dir string) (string, error) {
 //
 // RepoRoot cannot do this: `rev-parse --show-toplevel` inside a linked
 // worktree returns the worktree itself, so discovery would register every
-// worktree as a project of its own (#91). `--git-common-dir` is the main
-// repository's .git wherever it is asked from, so its parent is the main
-// checkout.
+// worktree as a project of its own (#91).
+//
+// The first record of `git worktree list --porcelain` is always the main
+// worktree, whatever directory the command runs from. The parent of
+// `--git-common-dir` is not: for a submodule it is `<super>/.git/modules`, and
+// for a repository cloned with `--separate-git-dir` it is wherever the git
+// directory was put - so discovery proposed unregistrable paths, and when the
+// git directory sat under $HOME and $HOME was itself a repository, AddProject
+// walked up and registered the user's whole home directory (#91).
 //
 //	root, err := git.MainCheckout("/w/repo/.omatty/wt/repo/fix") // "/w/repo"
 func (c *CLI) MainCheckout(dir string) (string, error) {
-	gitDir, err := c.run(dir, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	out, err := c.run(dir, "worktree", "list", "--porcelain")
 	if err != nil {
 		return "", err
 	}
-	return filepath.Dir(gitDir), nil
+	root, bare := firstWorktree(out)
+	switch {
+	case root == "":
+		return "", fmt.Errorf("vcs: %q: git worktree list named no worktree in output:\n%s", dir, out)
+	case bare:
+		return "", fmt.Errorf(
+			"vcs: %q belongs to the bare repository %q, which has no checkout to register", dir, root)
+	}
+	return root, nil
+}
+
+// firstWorktree reads the main worktree out of `git worktree list --porcelain`,
+// and whether it is bare. Records are separated by a blank line and the first
+// is the main one, so the scan stops at the second "worktree" line.
+func firstWorktree(out string) (root string, bare bool) {
+	for _, line := range strings.Split(out, "\n") {
+		path, isWorktree := strings.CutPrefix(line, "worktree ")
+		if isWorktree {
+			if root != "" {
+				return root, bare // the second record begins; the first is done
+			}
+			root = strings.TrimSpace(path)
+		}
+		if strings.TrimSpace(line) == "bare" {
+			bare = true
+		}
+	}
+	return root, bare
 }
 
 // CurrentBranch returns the branch checked out in dir.

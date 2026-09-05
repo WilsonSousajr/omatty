@@ -16,6 +16,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/review"
 )
 
 // ArchiveFunc drops a session from the registry. Injected so ui never reaches
@@ -60,11 +61,19 @@ type confirmChoice struct {
 	RemoveWorktree bool
 }
 
-// confirmBox is the pending archive confirmation. The zero value is closed.
+// confirmBox is a pending confirmation. The zero value is closed.
+//
+// Question and Note are text rather than something the renderer derives:
+// confirmLines is shared, so baking "archive session ..." into it would make
+// the next confirmation either ask the wrong question or put the branch back
+// that archiveChoices exists to keep out (#40).
 type confirmBox struct {
 	SessionID string
 	Title     string
-	Choices   []confirmChoice
+	Question  string
+	// Note warns about a consequence none of the answers names.
+	Note    string
+	Choices []confirmChoice
 }
 
 // archiveChoices is the answer set for a session.
@@ -98,8 +107,26 @@ func (m *Model) openConfirm() {
 	m.modal = modal{Kind: modalConfirm, Confirm: confirmBox{
 		SessionID: row.Session.ID,
 		Title:     row.Session.Title,
+		Question:  "archive session " + strconv.Quote(row.Session.Title) + "?",
+		Note:      queuedCommentsNote(m.comments[row.Session.ID]),
 		Choices:   archiveChoices(row.Session.Worktree),
 	}}
+}
+
+// queuedCommentsNote warns that archiving discards review comments.
+//
+// The plain y answer is described as safe because the transcript stays on disk
+// and `claude --resume` still finds it. Queued comments are the exception: they
+// live only in memory, so archiving is the one action that loses typed work
+// with no undo, and the confirmation said nothing about it (#40).
+func queuedCommentsNote(c *review.Comments) string {
+	if c == nil || c.Len() == 0 {
+		return ""
+	}
+	if c.Len() == 1 {
+		return "1 unsent review comment will be discarded"
+	}
+	return strconv.Itoa(c.Len()) + " unsent review comments will be discarded"
 }
 
 // onConfirmKey answers the confirmation. Anything that is not an offered key
@@ -129,6 +156,11 @@ func (m *Model) archiveSession(removeWorktree bool) tea.Cmd {
 	m.modal, m.lastErr = modal{}, ""
 	sess, ok := m.session(id)
 	if !ok {
+		// The box closing over an unchanged sidebar would read as "nothing
+		// happened"; the operator presses x again and gets the same silence.
+		// Say which session went missing instead (#40).
+		slog.Error("archiving session", "session", id, "err", "no longer in the registry")
+		m.lastErr = fmt.Sprintf("session %s is no longer in the registry; nothing was archived", id)
 		return nil
 	}
 	if err := m.archive(id); err != nil {
@@ -145,7 +177,14 @@ func (m *Model) archiveSession(removeWorktree bool) tea.Cmd {
 // whose directory is about to be deleted (#40).
 func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd {
 	if term := m.terms[sess.ID]; term != nil {
-		_ = term.Close()
+		if err := term.Close(); err != nil {
+			// The registry row is gone by now, so this is the last place the
+			// session can be named. Without it a claude process that outlived
+			// its terminal is unreachable from the sidebar, from state.json
+			// and from the log alike (#40).
+			slog.Warn("closing an archived session's terminal",
+				"session", sess.ID, "dir", sess.Dir, "err", err)
+		}
 	}
 	// The map is the one ui.Run's deferred closeTerminals holds, so deleting
 	// here is also what stops it being closed twice at exit (#72).
@@ -171,11 +210,17 @@ func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd 
 // Late hook events for the session need no guard of their own - onStatus
 // already ignores an id the state does not hold (issue #69).
 func (m *Model) forgetSession(id string) {
-	for i := range m.state.Sessions {
-		if m.state.Sessions[i].ID == id {
-			m.state.Sessions = append(m.state.Sessions[:i], m.state.Sessions[i+1:]...)
-			break
-		}
+	if i, ok := m.sessionIndex(id); ok {
+		// A fresh slice, not an in-place delete. SidebarRows hands out
+		// Row{Session: &st.Sessions[i]}, so the sidebar's live rows alias this
+		// backing array; shifting elements down inside it leaves the archived
+		// session's row pointing at its successor, and SetRows then reads that
+		// stale element to place the cursor. Where the cursor landed depended
+		// on the victim's position in the slice (#40).
+		kept := make([]registry.Session, 0, len(m.state.Sessions)-1)
+		kept = append(kept, m.state.Sessions[:i]...)
+		kept = append(kept, m.state.Sessions[i+1:]...)
+		m.state.Sessions = kept
 	}
 	delete(m.status, id)
 	delete(m.notified, id)
@@ -198,7 +243,16 @@ type WorktreeRemovedMsg struct {
 func (m *Model) removeWorktreeCmd(sess registry.Session) tea.Cmd {
 	root, remove := m.projectRoot(sess.Project), m.removeWorktree
 	return func() tea.Msg {
-		return WorktreeRemovedMsg{SessionID: sess.ID, Dir: sess.Dir, Err: remove(root, sess.Dir)}
+		msg := WorktreeRemovedMsg{SessionID: sess.ID, Dir: sess.Dir}
+		if root == "" {
+			// vcs would stat "" and blame the empty path, naming neither the
+			// session nor the project that failed to resolve (#40).
+			msg.Err = fmt.Errorf("session %s: project %q is not registered, so its repository root is unknown",
+				sess.ID, sess.Project)
+			return msg
+		}
+		msg.Err = remove(root, sess.Dir)
+		return msg
 	}
 }
 

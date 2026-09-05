@@ -51,12 +51,8 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 }
 
 func (m *Model) knownSession(id string) bool {
-	for i := range m.state.Sessions {
-		if m.state.Sessions[i].ID == id {
-			return true
-		}
-	}
-	return false
+	_, ok := m.sessionIndex(id)
+	return ok
 }
 
 // notifyCooldown is the least time between two notifications for one
@@ -99,12 +95,11 @@ func notifyCmd(n notify.Notifier, body string) tea.Cmd {
 }
 
 func (m *Model) sessionTitle(id string) string {
-	for i := range m.state.Sessions {
-		if m.state.Sessions[i].ID == id {
-			return m.state.Sessions[i].Title
-		}
+	i, ok := m.sessionIndex(id)
+	if !ok {
+		return id
 	}
-	return id
+	return m.state.Sessions[i].Title
 }
 
 // needsYou returns the notification body for a status that wants attention.

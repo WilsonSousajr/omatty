@@ -52,7 +52,11 @@ func (m *Model) commitRename() tea.Cmd {
 		m.lastErr = err.Error()
 		return nil
 	}
-	m.retitle(id, title)
+	if !m.retitle(id, title) {
+		slog.Error("renaming session", "session", id, "title", title, "err", "renamed on disk but not in memory")
+		m.lastErr = fmt.Sprintf("session %s was renamed on disk but is not in the sidebar; reload to see it", id)
+		return nil
+	}
 	// SetRows, not NewSidebar: it re-finds the selection by id, so the row you
 	// just renamed is still the row you are on.
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
@@ -61,11 +65,15 @@ func (m *Model) commitRename() tea.Cmd {
 
 // retitle updates the in-memory state the sidebar is rebuilt from, so the new
 // name shows without waiting for a reload.
-func (m *Model) retitle(id, title string) {
-	for i := range m.state.Sessions {
-		if m.state.Sessions[i].ID == id {
-			m.state.Sessions[i].Title = title
-			return
-		}
+//
+// A miss is reported rather than swallowed: the rename has already succeeded on
+// disk at this point, so a silent return would leave the sidebar showing the
+// old title with no error anywhere (#41).
+func (m *Model) retitle(id, title string) bool {
+	i, ok := m.sessionIndex(id)
+	if !ok {
+		return false
 	}
+	m.state.Sessions[i].Title = title
+	return true
 }
