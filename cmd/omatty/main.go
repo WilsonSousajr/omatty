@@ -100,11 +100,7 @@ func dispatch(cmd string, args []string, home string, store *registry.Store) err
 // registers the ones the operator picks. stdout is free here: discover runs
 // before the TUI starts, which is what report exists for (invariant 5).
 func discoverProjects(store *registry.Store, home string, in io.Reader) error {
-	roots, err := registeredRoots(store)
-	if err != nil {
-		return err
-	}
-	cands, err := discover.Propose(paths.TranscriptsDir(home), vcs.NewCLI(), roots)
+	cands, err := proposeProjects(store, home)
 	if err != nil {
 		return err
 	}
@@ -122,6 +118,16 @@ func discoverProjects(store *registry.Store, home string, in io.Reader) error {
 		return err
 	}
 	return registerAll(store, picked)
+}
+
+// proposeProjects is the scan: what claude has been used in, minus what
+// state.json already holds.
+func proposeProjects(store *registry.Store, home string) ([]discover.Candidate, error) {
+	roots, err := registeredRoots(store)
+	if err != nil {
+		return nil, err
+	}
+	return discover.Propose(paths.TranscriptsDir(home), vcs.NewCLI(), roots)
 }
 
 // registeredRoots is what state.json already holds, so discovery does not

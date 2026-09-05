@@ -161,16 +161,26 @@ func (d Deps) withLifecycleDefaults() Deps {
 	if d.RemoveWorktree == nil {
 		d.RemoveWorktree = noRemoveWorktree
 	}
+	return d.withTailDefaults().withDiscoveryDefaults()
+}
+
+// withTailDefaults fills both halves of the status tailer.
+//
+// Both, not one: while only TailStop was defaulted, addSession still needed
+// `if m.tailStart != nil` where dropSession did not, so a reader could not tell
+// from Deps which injected funcs are guaranteed non-nil (#40).
+func (d Deps) withTailDefaults() Deps {
 	if d.TailStart == nil {
-		// Defaulted alongside TailStop rather than left nil: half a dependency
-		// defaulted meant addSession still needed `if m.tailStart != nil` while
-		// dropSession did not, so a reader could not tell from Deps which
-		// injected funcs are guaranteed (#40).
 		d.TailStart = noTailStart
 	}
 	if d.TailStop == nil {
 		d.TailStop = noTailStop
 	}
+	return d
+}
+
+// withDiscoveryDefaults fills the project picker's two dependencies (#91).
+func (d Deps) withDiscoveryDefaults() Deps {
 	if d.Discover == nil {
 		d.Discover = noDiscover
 	}
