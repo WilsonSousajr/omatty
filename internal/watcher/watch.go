@@ -31,7 +31,11 @@ type Watch struct {
 	events   chan Event
 	listener *Listener // nil when the socket could not bind (issue #49)
 	mu       sync.Mutex
-	tailers  []*Tailer
+	// tailers is keyed by session id so archiving one session can stop its
+	// tailer and only its tailer (#40). As a slice there was no way back from
+	// an id to a goroutine, so a removed session polled a path that no longer
+	// existed once a second until omatty quit.
+	tailers map[string]*Tailer
 }
 
 // Start opens the hook socket and a tailer per session. A socket that cannot
@@ -39,7 +43,11 @@ type Watch struct {
 // listener is the low-latency source, the tailer is the source of truth, so
 // a lost socket costs only the instant hook-driven "waiting" glyph.
 func Start(home string, sessions []registry.Session, clock func() time.Time) *Watch {
-	w := &Watch{home: home, clock: clock, events: make(chan Event, eventBuffer)}
+	w := &Watch{
+		home: home, clock: clock,
+		events:  make(chan Event, eventBuffer),
+		tailers: map[string]*Tailer{},
+	}
 	l, err := Listen(paths.HookSocket(home), w.events, clock)
 	if err != nil {
 		slog.Warn("hook socket unavailable; status comes from the transcript only", "err", err)
@@ -55,12 +63,32 @@ func Start(home string, sessions []registry.Session, clock func() time.Time) *Wa
 func (w *Watch) Events() <-chan Event { return w.events }
 
 // Add starts tailing a session's transcript, for a session created at
-// runtime as well as the initial ones.
+// runtime as well as the initial ones. Adding an id that is already tailed
+// stops the tailer it displaces, which nothing else holds a reference to (#40).
 func (w *Watch) Add(sess registry.Session) {
 	tl := Tail(sess.ID, paths.Transcript(w.home, sess.Dir, sess.ID), w.events, w.clock, pollEvery)
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.tailers = append(w.tailers, tl)
+	if old := w.tailers[sess.ID]; old != nil {
+		old.Close()
+	}
+	w.tailers[sess.ID] = tl
+}
+
+// Remove stops one session's tailer, for a session archived at runtime (#40).
+// An id that is not tailed is a no-op: the model calls this for every archive,
+// including one whose tailer never started.
+//
+//	w.Remove(sess.ID)
+func (w *Watch) Remove(sessionID string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	tl := w.tailers[sessionID]
+	if tl == nil {
+		return
+	}
+	tl.Close()
+	delete(w.tailers, sessionID)
 }
 
 // Close stops the listener and every tailer. Idempotent per tailer; safe to

@@ -135,6 +135,8 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 	// #87). Lower-case r is restart, so getting this wrong is silent.
 	case "shift+r", "R":
 		m.openRename()
+	case "x":
+		m.openConfirm()
 	}
 	return nil
 }

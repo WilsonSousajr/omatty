@@ -48,11 +48,20 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o f` | open or close the file tree |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o R` | rename the selected session |
+| `ctrl+o x` | archive the selected session |
 | `ctrl+o q` | quit |
 
 `ctrl+o R` opens the session's title for editing, pre-filled, so correcting a
 typo is a small edit. `enter` confirms, `esc` cancels. The title is
 display-only, so a rename never disturbs the session itself.
+
+`ctrl+o x` asks before it does anything. Archiving stops the session and drops
+it from the sidebar, but the transcript stays on disk, so nothing is lost that
+`claude --resume` could have found. A session on a worktree gets a second
+answer, on its own key, that also runs `git worktree remove` — that one
+discards uncommitted work, which is why it is never the key your hand reaches
+for. A session on the main checkout is never offered it: omatty did not create
+that directory, so it will not delete it.
 
 `esc`, `shift+tab`, `ctrl+r` and `ctrl+c` all reach Claude untouched.
 

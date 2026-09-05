@@ -18,6 +18,7 @@ var modalOpeners = []struct {
 }{
 	{"prompt", []tea.KeyPressMsg{ctrl('o'), key('n')}},
 	{"rename", []tea.KeyPressMsg{ctrl('o'), shift('r', "R")}},
+	{"confirm", []tea.KeyPressMsg{ctrl('o'), key('x')}},
 }
 
 // Regression, issue #95: resizing the window while a modal surface owned the

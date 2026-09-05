@@ -24,13 +24,16 @@ const (
 	modalPrompt
 	// modalRename retitles the selected session, opened with R (#41).
 	modalRename
+	// modalConfirm asks before archiving it, opened with x (#40).
+	modalConfirm
 )
 
 // modal is the open surface's state. Only the member matching Kind is live;
 // the others hold their zero value, which is what closing one means.
 type modal struct {
-	Kind   modalKind
-	Editor lineEditor
+	Kind    modalKind
+	Editor  lineEditor
+	Confirm confirmBox
 }
 
 // modalOpen reports whether a surface owns the keyboard. It is the single
@@ -75,8 +78,11 @@ func (m *Model) Prompt() Prompt {
 // onModalKey hands a key to the open surface. The prompt and the rename box
 // share a handler; only the commit differs, and Kind selects that.
 func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
-	if m.modal.Kind == modalPrompt || m.modal.Kind == modalRename {
+	switch m.modal.Kind {
+	case modalPrompt, modalRename:
 		return m.onEditorKey(msg)
+	case modalConfirm:
+		return m.onConfirmKey(msg.Keystroke())
 	}
 	return nil
 }

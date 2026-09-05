@@ -50,6 +50,11 @@ type Deps struct {
 	Preview PreviewFunc
 	// Rename persists a session's new title (#41).
 	Rename RenameFunc
+	// Archive drops a session from the registry, RemoveWorktree deletes its
+	// worktree, and TailStop ends its status tailer (#40).
+	Archive        ArchiveFunc
+	RemoveWorktree RemoveWorktreeFunc
+	TailStop       func(sessionID string)
 }
 
 // Model is omatty's root Bubble Tea model.
@@ -78,7 +83,8 @@ type Model struct {
 	startedAt time.Time
 	hasFocus  bool
 	// modal is the surface that currently owns the keyboard, if any: the
-	// new-session prompt or the rename box (#41).
+	// new-session prompt, the rename box (#41) or the archive confirmation
+	// (#40).
 	modal  modal
 	review ReviewPane
 	// comments is each session's pending review queue, kept across opening and
@@ -88,9 +94,14 @@ type Model struct {
 	files    ListFilesFunc
 	preview  PreviewFunc
 	rename   RenameFunc
-	lastErr  string
-	width    int
-	height   int
+	// The archive path's three halves: forget the session, stop its tailer,
+	// and optionally delete its worktree (#40).
+	archive        ArchiveFunc
+	removeWorktree RemoveWorktreeFunc
+	tailStop       func(sessionID string)
+	lastErr        string
+	width          int
+	height         int
 }
 
 // withDefaults fills the optional fields: the wall clock and a silent
@@ -102,19 +113,40 @@ func (d Deps) withDefaults() Deps {
 	if d.Notifier == nil {
 		d.Notifier = notify.Silent{}
 	}
+	return d.withReviewDefaults().withLifecycleDefaults()
+}
+
+// withReviewDefaults fills the review column's three readers (#21, #24).
+func (d Deps) withReviewDefaults() Deps {
 	if d.Diff == nil {
 		d.Diff = noDiff
 	}
 	if d.Files == nil {
 		d.Files = noFiles
 	}
-	if d.Rename == nil {
-		d.Rename = noRename
-	}
 	// The real reader has no dependency to inject, so it is the default
 	// rather than an error: only a test replaces it (#24).
 	if d.Preview == nil {
 		d.Preview = review.ReadPreview
+	}
+	return d
+}
+
+// withLifecycleDefaults fills the rename and archive commands (#40, #41). Each
+// default names its missing wiring rather than doing nothing, so an unwired
+// dependency shows up in the pane instead of failing silently.
+func (d Deps) withLifecycleDefaults() Deps {
+	if d.Rename == nil {
+		d.Rename = noRename
+	}
+	if d.Archive == nil {
+		d.Archive = noArchive
+	}
+	if d.RemoveWorktree == nil {
+		d.RemoveWorktree = noRemoveWorktree
+	}
+	if d.TailStop == nil {
+		d.TailStop = noTailStop
 	}
 	return d
 }
@@ -133,17 +165,27 @@ func NewModel(deps Deps) *Model {
 		clock:     d.Clock,
 		tailStart: d.TailStart,
 		notifier:  d.Notifier,
-		// The three review-column sources, grouped: they are one concern.
-		diff: d.Diff, files: d.Files, preview: d.Preview,
-		rename:    d.Rename,
 		startedAt: d.Clock(),
 		hasFocus:  true,
-		// Until the first WindowSizeMsg arrives the frame is laid out for a
-		// conventional terminal rather than a 0x0 one (issue #74).
-		width:  DefaultWidth,
-		height: DefaultHeight,
 	}
-	return m.withRuntimeMaps()
+	return m.withSources(d).withWindow().withRuntimeMaps()
+}
+
+// withSources attaches the injected functions that reach outside ui: the
+// review column's readers (#21, #24) and the lifecycle commands (#40, #41).
+func (m *Model) withSources(d Deps) *Model {
+	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
+	m.rename, m.archive = d.Rename, d.Archive
+	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
+	return m
+}
+
+// withWindow lays the first frame out for a conventional terminal rather than
+// a 0x0 one: before the first WindowSizeMsg, and off a tty entirely,
+// bubbletea reports zero (issue #74).
+func (m *Model) withWindow() *Model {
+	m.width, m.height = DefaultWidth, DefaultHeight
+	return m
 }
 
 // withRuntimeMaps allocates the per-session maps the model fills as it runs:
@@ -213,8 +255,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case TickMsg:
 		return m, scheduleTick()
 	default:
-		return m, m.onWindowFocus(msg)
+		return m, m.onLifecycleMsg(msg)
 	}
+}
+
+// onLifecycleMsg handles the results of session-lifecycle work that ran off
+// the Update goroutine, then falls through to window focus and the broadcast.
+// It hangs off the default arm rather than taking a case of its own because
+// Update is at its line limit and M4 adds more of these (#40).
+//
+// The typed check must come first: an unhandled message reaches broadcast and
+// would be fanned out to every emulator.
+func (m *Model) onLifecycleMsg(msg tea.Msg) tea.Cmd {
+	if removed, ok := msg.(WorktreeRemovedMsg); ok {
+		return m.onWorktreeRemoved(removed)
+	}
+	return m.onWindowFocus(msg)
 }
 
 // onWindowFocus records whether omatty itself has the operator's attention,
