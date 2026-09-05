@@ -48,6 +48,19 @@ func noRemoveWorktree(repoRoot, dir string) error {
 	return fmt.Errorf("ui: no worktree remover configured for %q in %q", dir, repoRoot)
 }
 
+// StopFunc ends the claude a detach holder keeps alive for a session.
+// Injected because ui may not name the dtach binary (invariant 4);
+// cmd/omatty closes it over the holder.
+//
+//	deps.Stop = holder.Stop
+type StopFunc func(sessionID string) error
+
+// noStop is the Deps.Stop default. Like the tailer stops and unlike noArchive,
+// it does nothing rather than naming missing wiring: without dtach there is no
+// held process, the claude died with its PTY, and reporting that as a failure
+// would make every archive on such a machine look broken (#43).
+func noStop(string) error { return nil }
+
 // noTailStop is the Deps.TailStop default and noTailStart the Deps.TailStart
 // one: with no watcher running there is no tailer to start or stop, so doing
 // nothing is correct rather than an error. They are the two defaults that do
@@ -201,6 +214,14 @@ func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd 
 	// The map is the one ui.Run's deferred closeTerminals holds, so deleting
 	// here is also what stops it being closed twice at exit (#72).
 	delete(m.terms, sess.ID)
+	// Closing the terminal is no longer enough to end the session's claude:
+	// under a detach holder the process outlives the PTY on purpose, which is
+	// what makes quitting safe. Archiving is the one place omatty means to end
+	// it, so it is the one place that says so (#43).
+	if err := m.stop(sess.ID); err != nil {
+		slog.Warn("ending an archived session's claude",
+			"session", sess.ID, "dir", sess.Dir, "err", err)
+	}
 	m.tailStop(sess.ID)
 	m.forgetSession(sess.ID)
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))

@@ -134,9 +134,16 @@ func (m *Model) terminalTitle(w int, now time.Time) string {
 // Errors live here rather than in a pane so they are visible whether or not
 // a session has focus. fitLine, not padRight: on a narrow window the keymap is
 // truncated rather than pushing the frame wider than the screen.
+// A startup notice sits between the two: it outranks the keymap, because it
+// says something the screen cannot, and is outranked by an error, because an
+// error is about what the operator just did. Both are cleared by the next
+// keypress (#43).
 func (m *Model) renderFooter() string {
 	if m.lastErr != "" {
 		return errorStyle.Render(fitLine(" error: "+m.lastErr, m.width))
+	}
+	if m.notice != "" {
+		return footerStyle.Render(mutedStyle.Render(fitLine(" "+m.notice, m.width)))
 	}
 	return footerStyle.Render(fitLine(" "+m.footerKeys(), m.width))
 }

@@ -68,6 +68,10 @@ type RunDeps struct {
 	// (#91).
 	Discover   DiscoverFunc
 	AddProject AddProjectFunc
+	// Stop ends an archived session's held claude, and Notice says once at
+	// startup when no holder is keeping them (#43).
+	Stop   StopFunc
+	Notice string
 }
 
 // Run starts every session's terminal, the status watcher, and the TUI, and
@@ -85,6 +89,7 @@ func Run(d RunDeps) error {
 		Diff: d.Diff, Files: d.Files, Rename: d.Rename,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree,
 		Discover: d.Discover, AddProject: d.AddProject,
+		Stop: d.Stop, Notice: d.Notice,
 		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
 	})

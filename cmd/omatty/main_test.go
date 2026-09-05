@@ -180,3 +180,25 @@ func TestProjectProposer_SurfacesAnUnreadableStore_issue91(t *testing.T) {
 		t.Errorf("proposer returned %v and no error for a store with no transcripts dir", proposals)
 	}
 }
+
+// Without dtach omatty still runs, so this is a notice rather than a failure -
+// but it has to name the fix. "sessions will not survive quit" alone leaves an
+// operator who has never heard of dtach with nothing to do about it (#43).
+func TestPersistNotice_NamesTheFixWhenNothingHoldsTheSessions_issue43(t *testing.T) {
+	got := persistNotice(false)
+
+	if !strings.Contains(got, "brew install dtach") {
+		t.Errorf("notice = %q, want it to name the command that fixes it", got)
+	}
+	if !strings.Contains(got, "quit") {
+		t.Errorf("notice = %q, want it to say what is lost", got)
+	}
+}
+
+// With a holder there is nothing to say, and a permanent line saying so would
+// cost the keymap its place in the footer for no reason.
+func TestPersistNotice_IsSilentWhenSessionsPersist_issue43(t *testing.T) {
+	if got := persistNotice(true); got != "" {
+		t.Errorf("notice = %q, want empty when sessions already survive quit", got)
+	}
+}

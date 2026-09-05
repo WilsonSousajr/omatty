@@ -221,9 +221,14 @@ func tuiDeps(
 	home string, store *registry.Store, state registry.State, hooksFile string, w, h int,
 ) ui.RunDeps {
 	git := vcs.NewCLI()
+	// One holder, used twice: it wraps each launch and it ends an archived
+	// session's claude. Two would mean two PATH lookups that could disagree.
+	holder := detach.New(home)
 	return ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
-		Launch:         supervisor.NewLauncher("claude", hooksFile, home, detach.New(home)),
+		Stop:           holder.Stop,
+		Notice:         persistNotice(holder.Persists()),
+		Launch:         supervisor.NewLauncher("claude", hooksFile, home, holder),
 		Factory:        termwrap.Start,
 		Create:         sessionCreator(home, store),
 		Diff:           review.NewSource(git).Load,
@@ -234,6 +239,19 @@ func tuiDeps(
 		Discover:       projectProposer(store, home, git),
 		AddProject:     projectRegistrar(store, git),
 	}
+}
+
+// persistNotice is what the footer says at startup when nothing is holding the
+// sessions, and nothing at all when something is.
+//
+// It names the command that fixes it because the alternative is a warning an
+// operator cannot act on: dtach is an unusual enough dependency that "sessions
+// will not survive quit" alone does not imply what to install (#43).
+func persistNotice(persists bool) string {
+	if persists {
+		return ""
+	}
+	return "dtach not found: sessions will not survive quit (brew install dtach)"
 }
 
 // projectProposer adapts discover.Propose to ui.DiscoverFunc.

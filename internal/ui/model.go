@@ -59,6 +59,14 @@ type Deps struct {
 	// (#91).
 	Discover   DiscoverFunc
 	AddProject AddProjectFunc
+	// Stop ends the claude a detach holder keeps alive for a session. It is
+	// called when a session is archived and never when omatty quits, which is
+	// the whole point of holding it (#43).
+	Stop StopFunc
+	// Notice is said once, in the footer, until the first keypress. It carries
+	// what an operator has to know at startup and cannot discover from the
+	// screen - today, that dtach is missing so sessions will not survive quit.
+	Notice string
 }
 
 // Model is omatty's root Bubble Tea model.
@@ -109,6 +117,12 @@ type Model struct {
 	// newer picker (#91).
 	scanToken int
 	lastErr   string
+	// stop ends an archived session's held claude (#43).
+	stop StopFunc
+	// notice is the startup line, cleared by the first keypress the way
+	// lastErr is: the keymap it displaces is worth more than a warning already
+	// read (#43).
+	notice string
 	// wheel counts scroll notches so a momentum flick becomes a few pages of
 	// transcript rather than tens of them (#107).
 	wheel  wheelAccumulator
@@ -160,6 +174,9 @@ func (d Deps) withLifecycleDefaults() Deps {
 	}
 	if d.RemoveWorktree == nil {
 		d.RemoveWorktree = noRemoveWorktree
+	}
+	if d.Stop == nil {
+		d.Stop = noStop
 	}
 	return d.withTailDefaults().withDiscoveryDefaults()
 }
@@ -217,6 +234,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.rename, m.archive = d.Rename, d.Archive
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
 	m.discover, m.registerProjects = d.Discover, d.AddProject
+	m.stop, m.notice = d.Stop, d.Notice
 	return m
 }
 
