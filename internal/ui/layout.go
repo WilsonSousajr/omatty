@@ -7,6 +7,14 @@ const SidebarWidth = 28
 // footerRows is the keymap line below both panes.
 const footerRows = 1
 
+// borderRows and titleRows are the pane box's top border and the title line
+// renderTerminal draws above the embedded terminal. Together they are how far
+// down the window the emulator's first row lands.
+const (
+	borderRows = 1
+	titleRows  = 1
+)
+
 // DefaultWidth and DefaultHeight are the size assumed before the terminal
 // reports its own, and the fallback cmd uses when it cannot query one.
 const (
@@ -60,6 +68,16 @@ func PaneSize(width, height int, reviewOpen bool) (termW, termH int) {
 		termH = minTermHeight
 	}
 	return termW, termH
+}
+
+// PaneOrigin is the window cell the embedded terminal's top-left cell is
+// drawn at: past the sidebar box and the pane box's left border, and below
+// that box's top border and its title row. Cursor placement (#106) and mouse
+// translation (#107) both need it, so it is derived here once.
+//
+//	x, y := ui.PaneOrigin() // 29, 2
+func PaneOrigin() (x, y int) {
+	return SidebarWidth + 1, borderRows + titleRows
 }
 
 // PTYSize is the embedded terminal's size for a window: the pane's content

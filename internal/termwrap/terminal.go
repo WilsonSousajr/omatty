@@ -25,7 +25,22 @@ type Terminal interface {
 	Focus()
 	Blur()
 	Focused() bool
+	// Cursor is where the running application has left its cursor. The view
+	// does not paint it - the emulator renders cell contents only - so the
+	// caller draws it (issue #106).
+	Cursor() Caret
 	Close() error
+}
+
+// Caret is the emulated terminal's cursor: its cell in the emulator's own
+// grid, whether the running application has it shown, and how it asked for it
+// to be drawn. omatty draws no cursor of its own, so without this the caret in
+// Claude's prompt is invisible (issue #106).
+type Caret struct {
+	X, Y    int
+	Visible bool
+	Shape   tea.CursorShape
+	Blink   bool
 }
 
 // Factory creates a Terminal running cmd. Injected so tests never spawn a

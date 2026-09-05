@@ -40,6 +40,23 @@ func (g *Guard) View() (frame string) {
 	return g.Terminal.View()
 }
 
+// Cursor reads the wrapped terminal's caret, swallowing a panic the same way
+// View does. A crashed session shows the crash frame, which has no caret of
+// its own, so the zero Caret is invisible and correct (invariant 6).
+func (g *Guard) Cursor() (c Caret) {
+	if g.Panicked {
+		return Caret{}
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			g.Panicked = true
+			slog.Error("terminal panicked while reading its cursor", "panic", r)
+			c = Caret{}
+		}
+	}()
+	return g.Terminal.Cursor()
+}
+
 // Update forwards the message, swallowing a panic from the emulator.
 func (g *Guard) Update(msg tea.Msg) (cmd tea.Cmd) {
 	if g.Panicked {
