@@ -23,6 +23,13 @@ const boundaryBonus = 3
 // and a match on a word boundary both score better, so initials find the thing
 // they initial. An empty query matches everything at score 0.
 //
+// The scan is greedy: it takes the leftmost occurrence of each query rune
+// rather than searching for the best alignment. Match("ab", "a-x-a-b") scores
+// 2 by consuming the first 'a', where aligning on the second scores 1. Two
+// candidates whose best alignments differ can therefore rank in the wrong
+// order. Left as is deliberately - the exhaustive version is exponential and
+// the session titles this ranks are short - but it is a limit, not a property.
+//
 //	score, ok := fuzzy.Match("psf", "parser-fix") // matches, and beats "prompts-final"
 func Match(query, s string) (int, bool) {
 	q := []rune(strings.ToLower(query))
@@ -69,20 +76,38 @@ func boundary(target []rune, i int) bool {
 	return unicode.IsLower(before) && unicode.IsUpper(target[i])
 }
 
-// Rank returns the indices of the items matching query, best score first and
-// stable for equal scores, so an empty query leaves the list in the order it
-// was given.
+// Rank returns the indices of the items matching query, best first, breaking a
+// tie on the shorter item and then on input order - so an empty query leaves
+// the list exactly as it was given.
+//
+// The length tiebreak is what makes typing a name in full find that name.
+// Match scores the run of matched runes and charges nothing for what follows,
+// so "main" scores 0 against both "main" and "maintenance" and the winner was
+// whichever the sidebar happened to list first. Typing a session's exact title
+// and pressing enter could jump somewhere else - and the switcher's own
+// fixture has two sessions titled "main", so the tie is the common case, not
+// an exotic one (#42).
 //
 //	for _, i := range fuzzy.Rank(q, labels) { /* items[i], best first */ }
 func Rank(query string, items []string) []int {
-	type hit struct{ index, score int }
+	type hit struct{ index, score, length int }
 	hits := make([]hit, 0, len(items))
 	for i, s := range items {
 		if score, ok := Match(query, s); ok {
-			hits = append(hits, hit{i, score})
+			hits = append(hits, hit{i, score, len([]rune(s))})
 		}
 	}
-	sort.SliceStable(hits, func(a, b int) bool { return hits[a].score < hits[b].score })
+	// Only once something has been typed. An empty query matches everything at
+	// score 0, and there the given order *is* the answer: the switcher promises
+	// that an empty query shows exactly what the sidebar shows, which sorting
+	// by title length would quietly break.
+	byLength := query != ""
+	sort.SliceStable(hits, func(a, b int) bool {
+		if hits[a].score != hits[b].score {
+			return hits[a].score < hits[b].score
+		}
+		return byLength && hits[a].length < hits[b].length
+	})
 	ranked := make([]int, len(hits))
 	for i, h := range hits {
 		ranked[i] = h.index

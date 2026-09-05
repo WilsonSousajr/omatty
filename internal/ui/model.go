@@ -100,14 +100,20 @@ type Model struct {
 	rename   RenameFunc
 	// The archive path's three halves: forget the session, stop its tailer,
 	// and optionally delete its worktree (#40).
-	archive        ArchiveFunc
-	removeWorktree RemoveWorktreeFunc
-	tailStop       func(sessionID string)
-	discover       DiscoverFunc
-	addProject     AddProjectFunc
-	lastErr        string
-	width          int
-	height         int
+	archive          ArchiveFunc
+	removeWorktree   RemoveWorktreeFunc
+	tailStop         func(sessionID string)
+	discover         DiscoverFunc
+	registerProjects AddProjectFunc
+	// scanToken numbers discovery scans so a stale result cannot overwrite a
+	// newer picker (#91).
+	scanToken int
+	lastErr   string
+	// wheel counts scroll notches so a momentum flick becomes a few pages of
+	// transcript rather than tens of them (#107).
+	wheel  wheelAccumulator
+	width  int
+	height int
 }
 
 // withDefaults fills the optional fields: the wall clock and a silent
@@ -138,9 +144,13 @@ func (d Deps) withReviewDefaults() Deps {
 	return d
 }
 
-// withLifecycleDefaults fills the rename and archive commands (#40, #41). Each
-// default names its missing wiring rather than doing nothing, so an unwired
-// dependency shows up in the pane instead of failing silently.
+// withLifecycleDefaults fills the rename and archive commands (#40, #41).
+//
+// Every default here is non-nil once this has run, so no method needs a guard -
+// which is the promise Deps makes. Most name their missing wiring so an unwired
+// dependency shows up in the pane rather than failing silently; noTailStop and
+// noTailStart are the exceptions, because with no watcher running there is
+// genuinely no tailer to start or stop and doing nothing is the right answer.
 func (d Deps) withLifecycleDefaults() Deps {
 	if d.Rename == nil {
 		d.Rename = noRename
@@ -151,9 +161,26 @@ func (d Deps) withLifecycleDefaults() Deps {
 	if d.RemoveWorktree == nil {
 		d.RemoveWorktree = noRemoveWorktree
 	}
+	return d.withTailDefaults().withDiscoveryDefaults()
+}
+
+// withTailDefaults fills both halves of the status tailer.
+//
+// Both, not one: while only TailStop was defaulted, addSession still needed
+// `if m.tailStart != nil` where dropSession did not, so a reader could not tell
+// from Deps which injected funcs are guaranteed non-nil (#40).
+func (d Deps) withTailDefaults() Deps {
+	if d.TailStart == nil {
+		d.TailStart = noTailStart
+	}
 	if d.TailStop == nil {
 		d.TailStop = noTailStop
 	}
+	return d
+}
+
+// withDiscoveryDefaults fills the project picker's two dependencies (#91).
+func (d Deps) withDiscoveryDefaults() Deps {
 	if d.Discover == nil {
 		d.Discover = noDiscover
 	}
@@ -189,7 +216,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.rename, m.archive = d.Rename, d.Archive
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
-	m.discover, m.addProject = d.Discover, d.AddProject
+	m.discover, m.registerProjects = d.Discover, d.AddProject
 	return m
 }
 
@@ -211,8 +238,16 @@ func (m *Model) withRuntimeMaps() *Model {
 	return m
 }
 
-// Focused returns the selected session's id, or "" when none is selected.
-func (m *Model) Focused() string {
+// Selected returns the selected session's id, or "" when none is selected.
+//
+// Selected, not Focused: it answers where the sidebar cursor is, which #95
+// separated from who owns the keyboard. The old name put it on the wrong side
+// of that split - selectedTerminal was implemented by calling Focused() - and
+// left "focus" spanning six unrelated concepts across the package, where
+// AGENTS.md asks a name to return fewer than five grep hits.
+//
+//	if id := m.Selected(); id != "" { ... }
+func (m *Model) Selected() string {
 	row, ok := m.sidebar.Selected()
 	if !ok {
 		return ""
@@ -259,36 +294,36 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.onKey(msg)
 	case tea.WindowSizeMsg:
 		return m, m.onResize(msg)
-	case StatusMsg:
-		return m, m.onStatus(msg)
-	case DiffLoadedMsg:
-		return m, m.onDiffLoaded(msg)
-	case FilesLoadedMsg:
-		return m, m.onFilesLoaded(msg)
+	case tea.MouseMsg:
+		return m, m.onMouse(msg)
 	case TickMsg:
 		return m, scheduleTick()
 	default:
-		return m, m.onLifecycleMsg(msg)
+		return m, m.onDataMsg(msg)
 	}
 }
 
-// onLifecycleMsg handles the results of session-lifecycle work that ran off
-// the Update goroutine, then falls through to window focus and the broadcast.
-// It hangs off the default arm rather than taking a case of its own because
-// Update is at its line limit and M4 adds more of these (#40).
+// onDataMsg handles the results of work that ran off the Update goroutine, then
+// falls through to window focus and the broadcast.
 //
-// The typed check must come first: an unhandled message reaches broadcast and
-// would be fanned out to every emulator. That is why a mouse event is caught
-// here too, though it is not lifecycle work - what every case here shares is
-// that broadcasting it would be wrong (#107).
-func (m *Model) onLifecycleMsg(msg tea.Msg) tea.Cmd {
+// One named switch rather than a default arm that is really a second, unnamed
+// one. Every case here must be matched by type, because anything unmatched
+// reaches broadcast and is fanned out to every emulator at once - so the next
+// person adding a message type has to see this list, not discover it. The mouse
+// has its own case in Update for the same reason: a pointer event carries
+// window coordinates that mean nothing to an individual pane (#40, #107).
+func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	switch typed := msg.(type) {
+	case StatusMsg:
+		return m.onStatus(typed)
+	case DiffLoadedMsg:
+		return m.onDiffLoaded(typed)
+	case FilesLoadedMsg:
+		return m.onFilesLoaded(typed)
 	case WorktreeRemovedMsg:
 		return m.onWorktreeRemoved(typed)
 	case ProjectsProposedMsg:
 		return m.onProjectsProposed(typed)
-	case tea.MouseMsg:
-		return m.onMouse(typed)
 	}
 	return m.onWindowFocus(msg)
 }
@@ -323,12 +358,12 @@ func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// restartFocused relaunches the focused session's process in place (issue
+// restartSelected relaunches the focused session's process in place (issue
 // #15). It covers a crashed pane and a claude that exited. The old terminal
 // is closed only after the new one starts, so a failed restart never leaves
 // the pane empty; the launcher resumes the transcript (#36) so nothing is
 // lost.
-func (m *Model) restartFocused() tea.Cmd {
+func (m *Model) restartSelected() tea.Cmd {
 	row, ok := m.sidebar.Selected()
 	if !ok {
 		return nil
@@ -388,18 +423,26 @@ func (m *Model) addSession(project, title, branch string) (tea.Cmd, error) {
 	m.terms[sess.ID] = term
 	m.state.Sessions = append(m.state.Sessions, sess)
 	m.sidebar = NewSidebar(SidebarRows(m.state, m.statusMap()))
-	m.selectSession(sess.ID)
-	if m.tailStart != nil {
-		m.tailStart(sess)
+	if !m.selectSession(sess.ID) {
+		slog.Warn("a new session is not in the rebuilt sidebar", "session", sess.ID, "project", project)
 	}
+	m.tailStart(sess)
 	// The new terminal needs its own poll started; the others already have
-	// theirs (issue #33).
-	return term.Init(), nil
+	// theirs (issue #33). followSession goes with it: this moves the selection,
+	// and every other site that moves the selection drags an open review column
+	// along. Without it the column kept showing the previous session's diff,
+	// title and comments beside the new session's terminal, and r/S/c acted on
+	// the wrong session (#21, #95).
+	return tea.Batch(term.Init(), m.followSession()), nil
 }
 
 // selectSession moves the cursor onto id, so a freshly created session is the
-// one you are looking at.
-func (m *Model) selectSession(id string) { m.sidebar.SelectByID(id) }
+// one you are looking at, and reports whether the row was there to move to.
+//
+// The bool is not discarded: a session that was just created and added to the
+// rebuilt rows and is still not found means the rebuild dropped it, which is
+// the one case addSession would want to hear about.
+func (m *Model) selectSession(id string) bool { return m.sidebar.SelectByID(id) }
 
 func trimLastRune(s string) string {
 	r := []rune(s)
@@ -417,11 +460,19 @@ func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
 		return nil
 	}
 	m.width, m.height = msg.Width, msg.Height
+	// A wider window raises the review column's width, which lowers the
+	// ceiling on how far it may be panned. Nothing else re-clamps ColOffset, so
+	// an offset left over from a narrow window made panLine drop every row
+	// shorter than it and the column rendered blank until h/l was pressed - the
+	// same "a resize reaches nothing" class #95 is about. renderEntries and
+	// renderTree already recompute their vertical offsets for this reason.
+	m.panReview(0)
 	return m.resizeSelected()
 }
 
 // moveCursor moves the sidebar cursor, sizes the terminal it lands on (issue
-// #73) and moves an open review column along with it (#21).
+// #73) and moves an open review column along with it (#21). It sizes what the
+// cursor selects, not what holds the keyboard - the distinction #95 drew.
 func (m *Model) moveCursor(move func()) tea.Cmd {
 	move()
 	return tea.Batch(m.resizeSelected(), m.followSession())
@@ -442,17 +493,19 @@ func (m *Model) resizeSelected() tea.Cmd {
 	return term.Resize(m.ptySize())
 }
 
-// selectedTerminal is the terminal the sidebar cursor is on, whether or not it
-// currently owns the keyboard. Layout asks this one; key routing asks
-// focusedTerminal. Answering both questions with one nil is issue #95: a
-// resize arriving behind an open prompt reached no terminal at all.
-func (m *Model) selectedTerminal() termwrap.Terminal {
-	id := m.Focused()
-	if id == "" {
-		return nil
-	}
-	return m.terms[id]
-}
+// selectedTerminal is the terminal the sidebar cursor is on, whether or not any
+// surface currently owns the keyboard. Layout asks this one; key routing asks
+// focusedTerminal. Answering both questions with one nil is issue #95: a resize
+// arriving behind an open prompt reached no terminal at all.
+//
+// focusedTerminal is not "does the PTY own the keyboard" either - it only nils
+// out for a modal, and the review column and note editor take keys without one.
+// The question it answers is "no modal is open and a session is selected"; for
+// the keyboard itself, ask focus().
+//
+// No guard on an empty id: a missing key yields the nil interface the caller
+// already tests for, and a guard that cannot fire reads as an invariant.
+func (m *Model) selectedTerminal() termwrap.Terminal { return m.terms[m.Selected()] }
 
 // focusedTerminal returns nil while a modal surface is open, which is what
 // keeps its keys out of the PTY without special-casing the router: an

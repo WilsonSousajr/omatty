@@ -108,19 +108,16 @@ func (m *Model) openNote() {
 	}
 }
 
-// onNoteKey edits the note; enter queues it, esc discards it. Typed text comes
-// from msg.Text, which carries the character with its modifiers applied, so a
-// capital arrives as "F" rather than as the keystroke name "shift+f".
+// onNoteKey edits the note; enter queues it, esc discards it. The keystroke
+// handling is editKey, shared with the modal editors (#41).
 func (m *Model) onNoteKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.Keystroke() {
-	case "esc":
+	buffer, action := editKey(m.review.Note.Buffer, msg)
+	m.review.Note.Buffer = buffer
+	switch action {
+	case editCancel:
 		m.review.Note = noteEditor{}
-	case "enter":
+	case editCommit:
 		m.queueNote()
-	case "backspace":
-		m.review.Note.Buffer = trimLastRune(m.review.Note.Buffer)
-	default:
-		m.review.Note.Buffer += msg.Text
 	}
 	return nil
 }

@@ -100,7 +100,7 @@ func dispatch(cmd string, args []string, home string, store *registry.Store) err
 // registers the ones the operator picks. stdout is free here: discover runs
 // before the TUI starts, which is what report exists for (invariant 5).
 func discoverProjects(store *registry.Store, home string, in io.Reader) error {
-	cands, err := discover.Propose(paths.TranscriptsDir(home), vcs.NewCLI())
+	cands, err := proposeProjects(store, home)
 	if err != nil {
 		return err
 	}
@@ -120,30 +120,53 @@ func discoverProjects(store *registry.Store, home string, in io.Reader) error {
 	return registerAll(store, picked)
 }
 
-// registerAll registers each pick, reporting a collision against the one
-// candidate it belongs to and carrying on. AddProject refuses a duplicate
-// *name* even when the roots differ, which one repository at a time is a rare
-// annoyance and in bulk is not (#91).
+// proposeProjects is the scan: what claude has been used in, minus what
+// state.json already holds.
+func proposeProjects(store *registry.Store, home string) ([]discover.Candidate, error) {
+	roots, err := registeredRoots(store)
+	if err != nil {
+		return nil, err
+	}
+	return discover.Propose(paths.TranscriptsDir(home), vcs.NewCLI(), roots)
+}
+
+// registeredRoots is what state.json already holds, so discovery does not
+// offer a repository that can only fail on commit (#91).
+func registeredRoots(store *registry.Store) ([]string, error) {
+	st, err := store.Load()
+	if err != nil {
+		return nil, err
+	}
+	roots := make([]string, 0, len(st.Projects))
+	for _, p := range st.Projects {
+		roots = append(roots, p.Root)
+	}
+	return roots, nil
+}
+
+// registerAll reports what registry.RegisterAll did with each pick. The loop
+// itself lives there, shared with the TUI picker: cmd/ holds no logic
+// (invariant 10), and two copies of a collision policy drift (#91).
 func registerAll(store *registry.Store, picked []discover.Candidate) error {
-	git := vcs.NewCLI()
+	roots := make([]string, 0, len(picked))
 	for _, c := range picked {
-		p, err := registry.AddProject(store, git, c.Root)
-		if err != nil {
-			report("skipped " + c.Root + ": " + err.Error())
+		roots = append(roots, c.Root)
+	}
+	for _, r := range registry.RegisterAll(store, vcs.NewCLI(), roots) {
+		if r.Err != nil {
+			report("skipped " + r.Root + ": " + r.Err.Error())
 			continue
 		}
-		report("registered " + p.Name + " at " + p.Root)
+		report("registered " + r.Project.Name + " at " + r.Project.Root)
 	}
 	return nil
 }
 
 // readLine reads the operator's answer. An unreadable stdin means no answer,
-// which is the same as choosing nothing.
+// which is the same as choosing nothing - and so does a blank line, so the
+// error needs no branch of its own: TrimSpace gives "" for both.
 func readLine(in io.Reader) string {
-	line, err := bufio.NewReader(in).ReadString('\n')
-	if err != nil && line == "" {
-		return ""
-	}
+	line, _ := bufio.NewReader(in).ReadString('\n')
 	return strings.TrimSpace(line)
 }
 
@@ -207,32 +230,38 @@ func tuiDeps(
 		Rename:         sessionRenamer(store),
 		Archive:        sessionArchiver(store),
 		RemoveWorktree: git.RemoveWorktree,
-		Discover:       projectProposer(home, git),
+		Discover:       projectProposer(store, home, git),
 		AddProject:     projectRegistrar(store, git),
 	}
 }
 
-// projectProposer adapts discover.Propose to ui.DiscoverFunc, flattening a
-// Candidate to the two fields the registry needs.
-func projectProposer(home string, git *vcs.CLI) ui.DiscoverFunc {
-	return func() ([]registry.Project, error) {
-		cands, err := discover.Propose(paths.TranscriptsDir(home), git)
+// projectProposer adapts discover.Propose to ui.DiscoverFunc.
+//
+// LastUsed is carried across rather than flattened away: it is what orders the
+// list, so dropping it left the picker showing rows in an order it could not
+// explain (#91).
+func projectProposer(store *registry.Store, home string, git discover.Git) ui.DiscoverFunc {
+	return func() ([]ui.Proposal, error) {
+		roots, err := registeredRoots(store)
 		if err != nil {
 			return nil, err
 		}
-		projects := make([]registry.Project, 0, len(cands))
-		for _, c := range cands {
-			projects = append(projects, registry.Project{Name: c.Name, Root: c.Root})
+		cands, err := discover.Propose(paths.TranscriptsDir(home), git, roots)
+		if err != nil {
+			return nil, err
 		}
-		return projects, nil
+		proposals := make([]ui.Proposal, 0, len(cands))
+		for _, c := range cands {
+			proposals = append(proposals, ui.Proposal{Name: c.Name, Root: c.Root, LastUsed: c.LastUsed})
+		}
+		return proposals, nil
 	}
 }
 
-// projectRegistrar adapts registry.AddProject to ui.AddProjectFunc.
-func projectRegistrar(store *registry.Store, git *vcs.CLI) ui.AddProjectFunc {
-	return func(root string) error {
-		_, err := registry.AddProject(store, git, root)
-		return err
+// projectRegistrar adapts registry.RegisterAll to ui.AddProjectFunc.
+func projectRegistrar(store *registry.Store, git registry.RepoRooter) ui.AddProjectFunc {
+	return func(roots []string) []registry.Registration {
+		return registry.RegisterAll(store, git, roots)
 	}
 }
 
@@ -244,13 +273,18 @@ func sessionRenamer(store *registry.Store) ui.RenameFunc {
 	}
 }
 
-// sessionArchiver adapts registry.RemoveSession to ui.ArchiveFunc. The model
-// already holds the session it is archiving, so the removed row is discarded
-// here rather than threaded back (#40).
+// sessionArchiver adapts registry.RemoveSession to ui.ArchiveFunc, returning
+// the row that was actually removed.
+//
+// RemoveSession re-reads state.json, so its copy is the authoritative one and
+// the model's may be stale - a second omatty instance, or a hand-edited
+// state.json. Deciding a worktree's fate from the stale copy is how omatty
+// would run `git worktree remove --force` on a directory the registry no
+// longer marks as a worktree, which is the case this return value exists to
+// prevent (#40).
 func sessionArchiver(store *registry.Store) ui.ArchiveFunc {
-	return func(sessionID string) error {
-		_, err := registry.RemoveSession(store, sessionID)
-		return err
+	return func(sessionID string) (registry.Session, error) {
+		return registry.RemoveSession(store, sessionID)
 	}
 }
 

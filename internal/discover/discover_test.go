@@ -25,16 +25,6 @@ type FakeGit struct {
 	Calls []string
 }
 
-func (f *FakeGit) RepoRoot(dir string) (string, error) {
-	if f.Repos[dir] {
-		return dir, nil
-	}
-	if _, ok := f.Worktrees[dir]; ok {
-		return dir, nil // git returns the worktree itself here - the whole problem
-	}
-	return "", fmt.Errorf("not a git repository: %q", dir)
-}
-
 func (f *FakeGit) MainCheckout(dir string) (string, error) {
 	f.Calls = append(f.Calls, dir)
 	if parent, ok := f.Worktrees[dir]; ok {
@@ -107,7 +97,7 @@ func TestPropose_ReadsTheCwdOutOfEachTranscript(t *testing.T) {
 	mkdirs(t, repo)
 	root := store(t, repo)
 
-	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{repo: true}})
+	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{repo: true}}, nil)
 
 	if err != nil {
 		t.Fatalf("Propose() error = %v, want nil", err)
@@ -124,7 +114,7 @@ func TestPropose_SkipsADirectoryThatIsGone(t *testing.T) {
 	mkdirs(t, alive)
 	root := store(t, alive, dead)
 
-	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{alive: true, dead: true}})
+	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{alive: true, dead: true}}, nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -140,7 +130,7 @@ func TestPropose_SkipsADirectoryThatIsNotARepository(t *testing.T) {
 	mkdirs(t, repo, plain)
 	root := store(t, repo, plain)
 
-	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{repo: true}})
+	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{repo: true}}, nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +150,7 @@ func TestPropose_FoldsAWorktreeIntoItsParent_issue91(t *testing.T) {
 	root := store(t, repo, wt)
 	git := &FakeGit{Repos: map[string]bool{repo: true}, Worktrees: map[string]string{wt: repo}}
 
-	got, err := discover.Propose(root, git)
+	got, err := discover.Propose(root, git, nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +169,7 @@ func TestPropose_OrdersByMostRecentlyUsed(t *testing.T) {
 	writeTranscript(t, root, older, time.Now().Add(-48*time.Hour))
 	writeTranscript(t, root, newer, time.Now())
 
-	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{older: true, newer: true}})
+	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{older: true, newer: true}}, nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -202,7 +192,7 @@ func TestPropose_DeduplicatesKeepingTheMostRecentTime(t *testing.T) {
 	writeTranscript(t, root, wt, recent)
 	git := &FakeGit{Repos: map[string]bool{repo: true}, Worktrees: map[string]string{wt: repo}}
 
-	got, err := discover.Propose(root, git)
+	got, err := discover.Propose(root, git, nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -226,7 +216,7 @@ func TestPropose_SkipsATranscriptWithNoCwd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := discover.Propose(root, &FakeGit{})
+	got, err := discover.Propose(root, &FakeGit{}, nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -251,7 +241,7 @@ func TestPropose_StopsReadingAfterTheLineCap_issue64(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{repo: true}})
+	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{repo: true}}, nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -275,7 +265,7 @@ func TestPropose_SkipsMalformedLinesAndKeepsReading(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{repo: true}})
+	got, err := discover.Propose(root, &FakeGit{Repos: map[string]bool{repo: true}}, nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -288,7 +278,7 @@ func TestPropose_SkipsMalformedLinesAndKeepsReading(t *testing.T) {
 func TestPropose_MissingStoreNamesIt(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "no-such-store")
 
-	_, err := discover.Propose(missing, &FakeGit{})
+	_, err := discover.Propose(missing, &FakeGit{}, nil)
 
 	if err == nil {
 		t.Fatal("Propose() on a missing store returned nil, want an error")
@@ -304,7 +294,7 @@ func TestPropose_EmptyStoreIsNotAnError(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "projects")
 	mkdirs(t, root)
 
-	got, err := discover.Propose(root, &FakeGit{})
+	got, err := discover.Propose(root, &FakeGit{}, nil)
 
 	if err != nil {
 		t.Fatalf("Propose() on an empty store error = %v, want nil", err)

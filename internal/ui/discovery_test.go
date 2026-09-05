@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,23 +14,38 @@ import (
 
 // recordDiscover is a named fake for the two discovery dependencies.
 type recordDiscover struct {
-	Proposed    []registry.Project
+	Proposed    []ui.Proposal
 	ProposeErr  error
 	Registered  []string
 	RegisterErr error
+	// Names is the project name the registry writes for a root, where it
+	// differs from the one discovery proposed (#91).
+	Names map[string]string
 }
 
-func (r *recordDiscover) propose() ([]registry.Project, error) {
+func (r *recordDiscover) propose() ([]ui.Proposal, error) {
 	return r.Proposed, r.ProposeErr
 }
 
-func (r *recordDiscover) register(root string) error {
-	r.Registered = append(r.Registered, root)
-	return r.RegisterErr
+func (r *recordDiscover) register(roots []string) []registry.Registration {
+	out := make([]registry.Registration, 0, len(roots))
+	for _, root := range roots {
+		r.Registered = append(r.Registered, root)
+		name := filepath.Base(root)
+		if n, ok := r.Names[root]; ok {
+			name = n
+		}
+		out = append(out, registry.Registration{
+			Root:    root,
+			Project: registry.Project{Name: name, Root: root},
+			Err:     r.RegisterErr,
+		})
+	}
+	return out
 }
 
-func threeProposals() []registry.Project {
-	return []registry.Project{
+func threeProposals() []ui.Proposal {
+	return []ui.Proposal{
 		{Name: "omatty", Root: "/p/omatty"},
 		{Name: "api-guiaflix", Root: "/work/api-guiaflix"},
 		{Name: "notes", Root: "/p/notes"},
@@ -188,10 +204,74 @@ func TestModel_pickerDropsAScanThatArrivesAfterItClosed_issue91(t *testing.T) {
 	press(m, key('a'))
 	press(m, special(tea.KeyEscape))
 
-	m.Update(ui.ProjectsProposedMsg{Projects: threeProposals()})
+	m.Update(ui.ProjectsProposedMsg{Token: 1, Proposals: threeProposals()})
 
 	if got := m.View().Content; strings.Contains(got, "register project") {
 		t.Errorf("a late scan reopened the picker:\n%s", got)
+	}
+}
+
+// Regression, issue #91: two scans can be in flight - ctrl+o a, esc, ctrl+o a -
+// and the result carried no way to tell which picker it answered. Whichever
+// landed second overwrote the list, so a slow first scan wiped the rows and any
+// marks the operator had already made on the second.
+func TestModel_pickerIgnoresAnOlderScansResult_issue91(t *testing.T) {
+	m, _ := modelWithDiscover(t, &recordDiscover{Proposed: threeProposals()})
+	press(m, ctrl('o'))
+	press(m, key('a'))
+	press(m, special(tea.KeyEscape))
+	openPicker(m) // the second scan fills the list
+
+	m.Update(ui.ProjectsProposedMsg{Token: 1, Proposals: []ui.Proposal{
+		{Name: "stale", Root: "/p/stale"},
+	}})
+
+	if got := m.View().Content; strings.Contains(got, "stale") {
+		t.Errorf("the first scan's result overwrote the second scan's list:\n%s", got)
+	}
+}
+
+// Regression, issue #91: the placeholder renders a live query line and accepts
+// keystrokes into it, so a query typed while the scan ran was thrown away when
+// the result replaced the list wholesale.
+func TestModel_pickerKeepsAQueryTypedWhileScanning_issue91(t *testing.T) {
+	m, _ := modelWithDiscover(t, &recordDiscover{Proposed: threeProposals()})
+	press(m, ctrl('o'))
+	_, cmd := m.Update(key('a'))
+	press(m, key('n'))
+	press(m, key('o'))
+	deliver(m, cmd)
+
+	got := m.View().Content
+	if !strings.Contains(got, "no") {
+		t.Errorf("the query typed during the scan was lost:\n%s", got)
+	}
+	if !strings.Contains(got, "1 of 3") {
+		t.Errorf("the query was kept but not applied to the list:\n%s", got)
+	}
+}
+
+// Regression, issue #91: the sidebar row was built from the picked list item
+// rather than from the project the registry actually wrote. Discovery names a
+// candidate after MainCheckout's directory and AddProject after RepoRoot's, so
+// where those disagree the sidebar showed a name state.json did not have -
+// ctrl+o n on that row failed, and a restart silently renamed it.
+func TestModel_pickerUsesTheNameTheRegistryWrote_issue91(t *testing.T) {
+	r := &recordDiscover{
+		Proposed: []ui.Proposal{{Name: "proposed-name", Root: "/p/omatty"}},
+		Names:    map[string]string{"/p/omatty": "registry-name"},
+	}
+	m, _ := modelWithDiscover(t, r)
+	openPicker(m)
+
+	press(m, special(tea.KeyEnter))
+
+	got := m.View().Content
+	if !strings.Contains(got, "registry-name") {
+		t.Errorf("the sidebar does not show the name the registry wrote:\n%s", got)
+	}
+	if strings.Contains(got, "proposed-name") {
+		t.Errorf("the sidebar shows the proposed name, which state.json does not have:\n%s", got)
 	}
 }
 

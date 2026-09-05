@@ -19,11 +19,21 @@ type recordArchive struct {
 	Removed    [][2]string // repoRoot, dir
 	ArchiveErr error
 	RemoveErr  error
+	// State is what the registry holds. The real RemoveSession re-reads
+	// state.json and returns the row it found there, so this fake reads from
+	// its own copy - which a test can make disagree with the model's, since
+	// that divergence is the whole reason the row is returned (#40).
+	State registry.State
 }
 
-func (r *recordArchive) archive(sessionID string) error {
+func (r *recordArchive) archive(sessionID string) (registry.Session, error) {
 	r.Archived = append(r.Archived, sessionID)
-	return r.ArchiveErr
+	for _, sess := range r.State.Sessions {
+		if sess.ID == sessionID {
+			return sess, r.ArchiveErr
+		}
+	}
+	return registry.Session{}, r.ArchiveErr
 }
 
 func (r *recordArchive) stopTail(sessionID string) { r.Stopped = append(r.Stopped, sessionID) }
@@ -50,16 +60,52 @@ func worktreeState() registry.State {
 func modelWithArchive(t *testing.T, r *recordArchive) (*ui.Model, map[string]*termwrap.Fake) {
 	t.Helper()
 	terms, fakes := fakeTerms(t)
-	d := baseDeps(worktreeState(), terms)
+	st := worktreeState()
+	if len(r.State.Sessions) == 0 {
+		r.State = st // the registry agrees with the model unless a test says otherwise
+	}
+	d := baseDeps(st, terms)
 	d.Archive, d.TailStop, d.RemoveWorktree = r.archive, r.stopTail, r.removeWorktree
 	return ui.NewModel(d), fakes
 }
 
+// Regression, issue #40: the worktree decision was made from the model's copy
+// of the session, and RemoveSession's authoritative one - re-read from
+// state.json - was discarded. Where the two disagree (a second omatty
+// instance, a hand-edited state.json) omatty would run `git worktree remove
+// --force` on a directory the registry no longer marks as a worktree.
+func TestModel_archiveTrustsTheRegistrysRowNotItsOwn_issue40(t *testing.T) {
+	r := &recordArchive{}
+	m, _ := modelWithArchive(t, r)
+	// The registry has since been told this session is not on a worktree; the
+	// model still believes it is, which is what opened the `w` answer.
+	for i := range r.State.Sessions {
+		r.State.Sessions[i].Worktree = false
+	}
+	openArchive(t, m, "s2")
+
+	press(m, key('w'))
+
+	if len(r.Removed) != 0 {
+		t.Errorf("removed = %v, want nothing: the registry says this is not a worktree", r.Removed)
+	}
+}
+
 // openArchive puts the cursor on id and opens the confirmation over it.
-func openArchive(m *ui.Model, id string) {
-	for m.Focused() != id {
+func openArchive(t *testing.T, m *ui.Model, id string) {
+	t.Helper()
+	// Bounded: MoveDown stops at the last row, so a target at or above the
+	// cursor spun forever and turned a mistargeted assertion into a package
+	// timeout with no message. Tests are self-validating (#40).
+	for range m.SidebarRows() {
+		if m.Selected() == id {
+			break
+		}
 		press(m, ctrl('o'))
 		press(m, key('j'))
+	}
+	if m.Selected() != id {
+		t.Fatalf("could not put the cursor on %q; it stopped on %q", id, m.Selected())
 	}
 	press(m, ctrl('o'))
 	press(m, key('x'))
@@ -70,7 +116,7 @@ func openArchive(m *ui.Model, id string) {
 func TestModel_archiveOffersNoWorktreeRemovalForAMainCheckout_issue40(t *testing.T) {
 	m, _ := modelWithArchive(t, &recordArchive{})
 
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	got := m.View().Content
 	if !strings.Contains(got, "archive session") {
@@ -86,7 +132,7 @@ func TestModel_archiveOffersNoWorktreeRemovalForAMainCheckout_issue40(t *testing
 func TestModel_archiveOffersWorktreeRemovalOnItsOwnKey_issue40(t *testing.T) {
 	m, _ := modelWithArchive(t, &recordArchive{})
 
-	openArchive(m, "s2")
+	openArchive(t, m, "s2")
 
 	got := m.View().Content
 	if !strings.Contains(got, "[y]") || !strings.Contains(got, "[w]") {
@@ -100,7 +146,7 @@ func TestModel_archiveOffersWorktreeRemovalOnItsOwnKey_issue40(t *testing.T) {
 func TestModel_archiveTearsDownEverythingTheSessionOwned_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, fakes := modelWithArchive(t, r)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('y'))
 
@@ -116,7 +162,7 @@ func TestModel_archiveTearsDownEverythingTheSessionOwned_issue40(t *testing.T) {
 	if fakes["s2"].Closed || fakes["s3"].Closed {
 		t.Error("archiving one session closed another")
 	}
-	if got := m.View().Content; strings.Contains(got, "» ") && m.Focused() == "s1" {
+	if got := m.View().Content; strings.Contains(got, "» ") && m.Selected() == "s1" {
 		t.Errorf("the archived session is still selected:\n%s", got)
 	}
 }
@@ -125,7 +171,7 @@ func TestModel_archiveTearsDownEverythingTheSessionOwned_issue40(t *testing.T) {
 func TestModel_archiveWithYKeepsTheWorktree_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, _ := modelWithArchive(t, r)
-	openArchive(m, "s2")
+	openArchive(t, m, "s2")
 
 	press(m, key('y'))
 
@@ -137,7 +183,7 @@ func TestModel_archiveWithYKeepsTheWorktree_issue40(t *testing.T) {
 func TestModel_archiveWithWRemovesTheWorktree_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, _ := modelWithArchive(t, r)
-	openArchive(m, "s2")
+	openArchive(t, m, "s2")
 
 	_, cmd := m.Update(key('w'))
 	deliver(m, cmd)
@@ -154,11 +200,11 @@ func TestModel_archiveSizesWhicheverSessionTheCursorLandsOn_issue40(t *testing.T
 	r := &recordArchive{}
 	m, fakes := modelWithArchive(t, r)
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('y'))
 
-	landed := m.Focused()
+	landed := m.Selected()
 	if landed == "" || landed == "s1" {
 		t.Fatalf("cursor is on %q after archiving s1, want another session", landed)
 	}
@@ -174,7 +220,7 @@ func TestModel_archiveSizesWhicheverSessionTheCursorLandsOn_issue40(t *testing.T
 func TestModel_archiveFailureKeepsTheSessionAlive_issue40(t *testing.T) {
 	r := &recordArchive{ArchiveErr: errors.New("state.json is read-only")}
 	m, fakes := modelWithArchive(t, r)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('y'))
 
@@ -210,7 +256,7 @@ func TestModel_worktreeRemovalFailureNamesTheDirectoryLeftBehind_issue40(t *test
 func TestModel_archiveEscCancels_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, fakes := modelWithArchive(t, r)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, special(tea.KeyEscape))
 
@@ -227,7 +273,7 @@ func TestModel_archiveEscCancels_issue40(t *testing.T) {
 func TestModel_archiveIgnoresAnUnofferedKey_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, _ := modelWithArchive(t, r)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('z'))
 
@@ -244,7 +290,7 @@ func TestModel_archiveIgnoresAnUnofferedKey_issue40(t *testing.T) {
 func TestModel_archiveWOnAMainCheckoutDoesNothing_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, _ := modelWithArchive(t, r)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('w'))
 
@@ -257,7 +303,7 @@ func TestModel_archiveWOnAMainCheckoutDoesNothing_issue40(t *testing.T) {
 // operator.
 func TestModel_ctrlCQuitsWhileTheConfirmationIsOpen_issue28(t *testing.T) {
 	m, _ := modelWithArchive(t, &recordArchive{})
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	_, cmd := m.Update(ctrl('c'))
 
@@ -270,7 +316,7 @@ func TestModel_ctrlCQuitsWhileTheConfirmationIsOpen_issue28(t *testing.T) {
 func TestModel_confirmKeysStayOutOfThePTY_issue40(t *testing.T) {
 	m, fakes := modelWithArchive(t, &recordArchive{})
 	before := len(fakes["s1"].Msgs)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('z'))
 

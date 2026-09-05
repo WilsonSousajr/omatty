@@ -106,3 +106,30 @@ func TestRank_NoMatchesIsEmpty(t *testing.T) {
 		t.Errorf("Rank(zzz, ...) = %v, want no matches", got)
 	}
 }
+
+// Regression, issue #42: Match charges nothing for what follows the matched
+// run, so an exact title and a longer one that merely contains it both scored
+// 0 and the winner was whichever came first. Typing a session's full name and
+// pressing enter jumped somewhere else.
+func TestRank_AnExactMatchBeatsALongerOneContainingIt_issue42(t *testing.T) {
+	items := []string{"maintenance", "main", "domain"}
+
+	got := fuzzy.Rank("main", items)
+
+	if len(got) == 0 || items[got[0]] != "main" {
+		t.Errorf("Rank(%q, %v) put %q first, want %q", "main", items, items[got[0]], "main")
+	}
+}
+
+// The tiebreak must not disturb a real score difference: a tighter match on a
+// longer string still beats a loose one on a short string.
+func TestRank_TheLengthTiebreakOnlyBreaksTies_issue42(t *testing.T) {
+	items := []string{"p-s-f", "parser-fix"}
+
+	got := fuzzy.Rank("psf", items)
+
+	if len(got) == 0 || items[got[0]] != "p-s-f" {
+		t.Errorf("Rank(%q, %v) put %q first, want the tighter match %q",
+			"psf", items, items[got[0]], "p-s-f")
+	}
+}

@@ -38,7 +38,8 @@ type pickList struct {
 	Multi   bool
 	matches []int
 	// hay is Label plus Detail per item, built once when the list opens rather
-	// than per keystroke, so typing allocates nothing.
+	// than per keystroke. Ranking still allocates: fuzzy.Match converts both
+	// sides to runes per call, so a keystroke costs O(len(Items)) allocations.
 	hay []string
 }
 
@@ -49,28 +50,43 @@ func newPickList(title string, items []pickItem, multi bool) pickList {
 		hay[i] = it.Label + " " + it.Detail
 	}
 	l := pickList{Title: title, Items: items, Multi: multi, hay: hay}
-	l.SetQuery("")
+	l.refilter()
 	return l
 }
 
-// SetQuery refilters and clamps the cursor. It does no scroll maths: the
-// window follows on the next Move or Window call.
+// SetQuery refilters when the query actually changed. It does no scroll maths:
+// the window follows on the next Window call.
+//
+// An unchanged query is a no-op rather than a re-rank, so the navigation keys
+// that carry no text cost nothing (#42).
 func (l *pickList) SetQuery(q string) {
-	l.Query = q
-	l.matches = fuzzy.Rank(q, l.hay)
-	if l.Cursor >= len(l.matches) {
-		l.Cursor = max(len(l.matches)-1, 0)
+	if q == l.Query {
+		return
 	}
+	l.Query = q
+	l.refilter()
+}
+
+// refilter recomputes the matches and returns the cursor to the best of them.
+//
+// The cursor goes back to the top rather than being clamped in place: a new
+// query reorders the matches, so an index kept across the change points at
+// whichever row happens to land there. Clamping it left the highlight on the
+// worst match after any cursor movement, and enter jumped to a session the
+// operator never picked (#42).
+func (l *pickList) refilter() {
+	l.matches = fuzzy.Rank(l.Query, l.hay)
+	l.Cursor, l.Offset = 0, 0
 }
 
 // Move steps the cursor by delta within the matches, stopping at the ends
-// rather than wrapping, and scrolls the window to follow.
-func (l *pickList) Move(delta, rows int) {
+// rather than wrapping. Window does the scroll maths, the way renderEntries
+// does it for the review column.
+func (l *pickList) Move(delta int) {
 	if len(l.matches) == 0 {
 		return
 	}
 	l.Cursor = min(max(l.Cursor+delta, 0), len(l.matches)-1)
-	l.Offset = ScrollOffset(l.Cursor, l.Offset, rows)
 }
 
 // Current is the item under the cursor, if the query matched anything.
@@ -134,16 +150,21 @@ func (l *pickList) Window(rows int) []pickItem {
 	return shown
 }
 
-// pickRows is how many rows the list shows: the pane, minus its query line and
-// the count beneath it.
+// pickChrome is how many lines pickLines spends on anything but a row: the
+// query line, the blank under it, the blank above the count, and the count.
+const pickChrome = 4
+
+// pickRows is how many rows the list shows: the pane, minus its chrome.
+//
+// Counting three left pickLines one line taller than the pane, so fitBlock cut
+// the count line off the bottom and "N of M" was invisible on exactly the full
+// lists that needed it (#42).
 func (m *Model) pickRows() int {
 	_, h := PaneSize(m.width, m.height, m.review.Open)
-	return h - 3
+	return h - pickChrome
 }
 
 // pickLines draws the query, the matches, and how many of them there are.
-// The marker column is two cells wide whether or not the list is
-// multi-select, so the labels do not shift as marks come and go.
 func (m *Model) pickLines() []string {
 	l := &m.modal.List
 	lines := []string{l.Title + ": " + l.Query + "_", ""}
@@ -153,15 +174,22 @@ func (m *Model) pickLines() []string {
 	return append(lines, "", strconv.Itoa(len(l.matches))+" of "+strconv.Itoa(len(l.Items)))
 }
 
-// pickRow draws one row: its marker, its label, and its detail.
+// pickRow draws one row: its cursor marker, its mark, its label, its detail.
+//
+// The mark column is two cells on a multi-select list whether or not this row
+// is marked, so labels do not jog sideways as marks come and go; a
+// single-select list has no marks and spends no cells on them (#42).
 func pickRow(it pickItem, l *pickList) string {
 	marker := "  "
 	if cur, ok := l.Current(); ok && cur.ID == it.ID {
 		marker = "» "
 	}
 	mark := ""
-	if it.Marked {
-		mark = "* "
+	if l.Multi {
+		mark = "  "
+		if it.Marked {
+			mark = "* "
+		}
 	}
 	return marker + mark + it.Label + "  " + mutedStyle.Render(it.Detail)
 }

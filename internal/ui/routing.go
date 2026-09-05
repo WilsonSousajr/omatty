@@ -84,9 +84,31 @@ func (m *Model) command(msg tea.KeyPressMsg) tea.Cmd {
 		return tea.Quit
 	}
 	if m.modalOpen() {
+		// The leader closes the surface and arms itself rather than being fed
+		// to it. An open modal leaves the terminal unfocused, so keys.Router
+		// never armed on its own here: `ctrl+o q` appended a literal q to a
+		// session title, and in the help box did nothing at all (#41, #103).
+		if msg.Keystroke() == Leader {
+			m.modal = modal{}
+			m.router.Arm()
+			return nil
+		}
 		return m.onModalKey(msg)
 	}
 	return m.navigate(msg.Keystroke())
+}
+
+// openModal takes the keyboard for a surface, closing the note editor if one
+// is open.
+//
+// The note editor is a fourth keyboard-owning surface that predates modalKind
+// and sits outside it, so nothing stopped a rename box opening over an active
+// note: two input lines were drawn at once, both panes carried the focused
+// border, and only one of them received keys. Exactly one surface owns the
+// keyboard, which is what the single Kind field is for (#41).
+func (m *Model) openModal(md modal) {
+	m.review.Note = noteEditor{}
+	m.modal = md
 }
 
 // navigate runs a command key while no prompt is open.
@@ -97,13 +119,13 @@ func (m *Model) navigate(key string) tea.Cmd {
 	case "k":
 		return m.moveCursor(m.sidebar.MoveUp)
 	case "n":
-		m.modal = modal{Kind: modalPrompt}
+		m.openModal(modal{Kind: modalPrompt})
 	// Keystroke() spells a shifted letter with the base key in lower case, so
 	// a terminal reporting the modifier gives "shift+n"; the bare "N" is
 	// accepted too, because a legacy terminal cannot report shift at all. The
 	// upper-case "shift+N" spelling never occurs and was dead (issue #87).
 	case "shift+n", "shift+N", "N":
-		m.modal = modal{Kind: modalPrompt, Editor: lineEditor{Worktree: true}}
+		m.openModal(modal{Kind: modalPrompt, Editor: lineEditor{Worktree: true}})
 	default:
 		return m.paneCommand(key)
 	}
@@ -114,7 +136,7 @@ func (m *Model) navigate(key string) tea.Cmd {
 func (m *Model) paneCommand(key string) tea.Cmd {
 	switch key {
 	case "r":
-		return m.restartFocused()
+		return m.restartSelected()
 	case "d":
 		return m.toggleView(ViewDiff)
 	case "f":
@@ -141,8 +163,13 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 		return m.openSwitcher()
 	case "a":
 		return m.openDiscovery()
-	case "?":
-		m.modal = modal{Kind: modalHelp}
+	// "?" is shift+/ on a US layout, so it takes the same two spellings as the
+	// shifted letters above. Bubble Tea enables the kitty protocol at startup,
+	// so a modern terminal reports the modifier and sends "shift+/" (or
+	// "shift+?" where it also shifts the base key); only a legacy one sends the
+	// bare "?". Matching "?" alone left the whole keymap unreachable (#103).
+	case "shift+/", "shift+?", "?":
+		m.openModal(modal{Kind: modalHelp})
 	}
 	return nil
 }

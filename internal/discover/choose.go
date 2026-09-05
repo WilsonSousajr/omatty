@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // List renders candidates as numbered lines for `omatty discover`, newest
@@ -25,6 +26,11 @@ func List(cands []Candidate, now time.Time) []string {
 }
 
 // ago is a coarse "how long since", enough to tell this week from last year.
+//
+// Prose, where ui.AgeString is glyphs ("3d"): this renders into a CLI list an
+// operator reads once, that one into a sidebar column measured in cells. Same
+// question, two registers - so they stay separate rather than one of them
+// learning a mode.
 func ago(now, then time.Time) string {
 	days := int(now.Sub(then).Hours() / 24)
 	switch {
@@ -33,9 +39,22 @@ func ago(now, then time.Time) string {
 	case days == 1:
 		return "yesterday"
 	case days < 30:
-		return strconv.Itoa(days) + " days ago"
+		return plural(days, "day")
+	case days < 365:
+		return plural(days/30, "month")
 	}
-	return strconv.Itoa(days/30) + " months ago"
+	return plural(days/365, "year")
+}
+
+// plural renders the count with its unit agreeing. Without it every repository
+// last used between 30 and 59 days ago read "1 months ago" - and that is the
+// first bucket past the day count, so it was the common one (#91).
+func plural(n int, unit string) string {
+	out := strconv.Itoa(n) + " " + unit
+	if n != 1 {
+		out += "s"
+	}
+	return out + " ago"
 }
 
 // Choose resolves a selection typed by the operator - "1 3", "1,3", or "all" -
@@ -45,7 +64,13 @@ func ago(now, then time.Time) string {
 //
 //	picked, err := discover.Choose(cands, "1 3")
 func Choose(cands []Candidate, selection string) ([]Candidate, error) {
-	fields := strings.FieldsFunc(selection, func(r rune) bool { return r == ',' || r == ' ' })
+	// Any whitespace, not just the space bar: a tab-separated answer, or one
+	// pasted back out of the rendered table, parsed as a single field and was
+	// rejected as "not a number" - and the error exits, discarding the scan
+	// that produced the list (#91).
+	fields := strings.FieldsFunc(selection, func(r rune) bool {
+		return r == ',' || unicode.IsSpace(r)
+	})
 	if len(fields) == 0 {
 		return nil, nil
 	}

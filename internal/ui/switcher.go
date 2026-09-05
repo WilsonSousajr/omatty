@@ -11,9 +11,14 @@ import (
 
 // openSwitcher lists every session across every project, in sidebar order, so
 // an empty query shows exactly what the sidebar shows.
+//
+// The rows come from the sidebar itself rather than from a second
+// SidebarRows call: the sidebar is what the operator sees, so sourcing the
+// list from anywhere else is a promise the two can drift apart on - and the
+// status map that call needed was built only to be thrown away (#42).
 func (m *Model) openSwitcher() tea.Cmd {
 	items := make([]pickItem, 0, len(m.state.Sessions))
-	for _, row := range SidebarRows(m.state, m.statusMap()) {
+	for _, row := range m.sidebar.Rows() {
 		if row.Session == nil {
 			continue // a project header is a label, never a target
 		}
@@ -26,7 +31,7 @@ func (m *Model) openSwitcher() tea.Cmd {
 	if len(items) == 0 {
 		return nil
 	}
-	m.modal = modal{Kind: modalList, List: newPickList("jump to session", items, false)}
+	m.openModal(modal{Kind: modalList, List: newPickList("jump to session", items, false)})
 	return nil
 }
 
@@ -55,13 +60,17 @@ func (m *Model) editList(msg tea.KeyPressMsg) {
 	l := &m.modal.List
 	switch msg.Keystroke() {
 	case "up", "ctrl+k":
-		l.Move(-1, m.pickRows())
+		l.Move(-1)
 	case "down", "ctrl+j":
-		l.Move(1, m.pickRows())
+		l.Move(1)
 	case "backspace":
 		l.SetQuery(trimLastRune(l.Query))
 	default:
-		l.SetQuery(l.Query + msg.Text)
+		// A key carrying no text - an arrow, home, an unbound ctrl combo - is
+		// not filter input and must not append an empty string (#42).
+		if msg.Text != "" {
+			l.SetQuery(l.Query + msg.Text)
+		}
 	}
 }
 

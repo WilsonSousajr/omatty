@@ -48,8 +48,8 @@ func TestModel_UpdateForwardsEmulatorMessages_issue33(t *testing.T) {
 // that stops being read blocks on its PTY.
 func TestModel_UnfocusedSessionsAreStillPumped_issue33(t *testing.T) {
 	m, fakes := modelWithFakes(t)
-	if m.Focused() != "s1" {
-		t.Fatalf("precondition: Focused() = %q, want s1", m.Focused())
+	if m.Selected() != "s1" {
+		t.Fatalf("precondition: Focused() = %q, want s1", m.Selected())
 	}
 
 	m.Update(emulatorMsg{n: 2})

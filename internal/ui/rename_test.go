@@ -50,10 +50,12 @@ func TestModel_leaderROpensTheRenameBoxFromBothSpellings_issue87(t *testing.T) {
 		press(m, ctrl('o'))
 		press(m, k)
 
-		// Pre-filled with the selected session's title, so correcting a typo
-		// is a small edit rather than a retype.
-		if got := m.View().Content; !strings.Contains(got, "rename") || !strings.Contains(got, "main") {
-			t.Errorf("keystroke %q did not open the rename box on the selected session:\n%s",
+		// The whole box line, not "rename" and "main" separately: the fixture
+		// already contains a session titled "main" on another row, so a bare
+		// Contains passed whether or not the buffer was pre-filled at all.
+		// Dropping the pre-fill left this test green (#41).
+		if got := m.View().Content; !strings.Contains(got, "rename session: main_") {
+			t.Errorf("keystroke %q did not open the rename box pre-filled with the title:\n%s",
 				k.Keystroke(), got)
 		}
 	}
@@ -68,16 +70,19 @@ func TestModel_renameCommitsTheNewTitle_issue41(t *testing.T) {
 	for range len("main") {
 		press(m, special(tea.KeyBackspace))
 	}
-	for _, c := range "parser-fix" {
+	// A title no other row in the fixture has. "parser-fix" is s2's title, so
+	// asserting on it passed on s2's row whatever s1 did: deleting both the
+	// retitle and the SetRows left this test green (#41).
+	for _, c := range "zzz-renamed" {
 		press(m, key(c))
 	}
 	press(m, special(tea.KeyEnter))
 
-	if r.Calls != 1 || r.SessionID != "s1" || r.Title != "parser-fix" {
-		t.Fatalf("rename called %d times with (%q, %q), want once with (s1, parser-fix)",
+	if r.Calls != 1 || r.SessionID != "s1" || r.Title != "zzz-renamed" {
+		t.Fatalf("rename called %d times with (%q, %q), want once with (s1, zzz-renamed)",
 			r.Calls, r.SessionID, r.Title)
 	}
-	if got := m.View().Content; !strings.Contains(got, "parser-fix") {
+	if got := m.View().Content; !strings.Contains(got, "zzz-renamed") {
 		t.Errorf("sidebar does not show the new title:\n%s", got)
 	}
 }
@@ -92,7 +97,7 @@ func TestModel_renameKeepsTheCursorOnTheRenamedSession_issue41(t *testing.T) {
 	press(m, shift('r', "R"))
 	press(m, special(tea.KeyEnter))
 
-	if got := m.Focused(); got != "s2" {
+	if got := m.Selected(); got != "s2" {
 		t.Errorf("focused session = %q after renaming s2, want s2", got)
 	}
 }
@@ -110,8 +115,10 @@ func TestModel_renameFailureSurfacesAndKeepsTheOldTitle_issue41(t *testing.T) {
 	if !strings.Contains(got, "read-only") {
 		t.Errorf("View() does not surface the failure:\n%s", got)
 	}
-	if !strings.Contains(got, "main") {
-		t.Errorf("sidebar lost the old title after a failed rename:\n%s", got)
+	// The would-be title must be absent. Asserting "main" is present proves
+	// nothing: the fixture has a second session with that title (#41).
+	if strings.Contains(got, "mainx") {
+		t.Errorf("sidebar shows a title the registry rejected:\n%s", got)
 	}
 }
 
@@ -128,8 +135,8 @@ func TestModel_renameEscCancelsWithoutPersisting_issue41(t *testing.T) {
 	if r.Calls != 0 {
 		t.Errorf("rename was called %d times after esc, want 0", r.Calls)
 	}
-	if got := m.View().Content; !strings.Contains(got, "main") {
-		t.Errorf("sidebar does not still show the original title:\n%s", got)
+	if got := m.View().Content; strings.Contains(got, "mainz") {
+		t.Errorf("sidebar shows the abandoned edit:\n%s", got)
 	}
 }
 
@@ -177,9 +184,16 @@ func TestModel_editorsAcceptCapitalLetters_issue41(t *testing.T) {
 			press(m, shift('f', "F"))
 			press(m, key('i'))
 			press(m, shift('x', "X"))
+			// A space, not just capitals: Keystroke() spells the space bar
+			// "space", five runes, so the old len([]rune(key)) == 1 guard
+			// rejected it exactly as it rejected "shift+f". You could not type a
+			// space into a session title either, and only the capitals had a
+			// test (#41).
+			press(m, tea.KeyPressMsg{Code: ' ', Text: " "})
+			press(m, key('2'))
 
-			if got := m.View().Content; !strings.Contains(got, "FiX") {
-				t.Errorf("capitals did not reach the %s buffer:\n%s", tc.name, got)
+			if got := m.View().Content; !strings.Contains(got, "FiX 2") {
+				t.Errorf("capitals and a space did not reach the %s buffer:\n%s", tc.name, got)
 			}
 		})
 	}
@@ -209,5 +223,52 @@ func TestModel_renameKeysBuildTheBufferNotThePTY_issue41(t *testing.T) {
 
 	if n := len(fakes["s1"].Msgs); n != 0 {
 		t.Errorf("focused terminal received %d messages while the rename box was open, want 0", n)
+	}
+}
+
+// The complement of the above: a title may contain spaces, but one made of
+// nothing but spaces is blank and must be refused. Both guards tested == ""
+// without trimming, so it was accepted and persisted, producing exactly the
+// blank sidebar row they exist to prevent (#41).
+func TestModel_aWhitespaceOnlyTitleIsRefused_issue41(t *testing.T) {
+	r := &recordRename{}
+	m, _ := modelWithRename(t, r)
+	press(m, ctrl('o'))
+	press(m, shift('r', "R"))
+	for range len("main") {
+		press(m, special(tea.KeyBackspace))
+	}
+
+	press(m, tea.KeyPressMsg{Code: ' ', Text: " "})
+	press(m, tea.KeyPressMsg{Code: ' ', Text: " "})
+	press(m, special(tea.KeyEnter))
+
+	if r.Calls != 0 {
+		t.Errorf("rename was called %d times with a whitespace-only title, want 0", r.Calls)
+	}
+	if got := m.View().Content; !strings.Contains(got, "rename session") {
+		t.Errorf("the editor closed on a blank title instead of staying open:\n%s", got)
+	}
+}
+
+// Regression, issue #41: the editor line was drawn with a plain fitLine, which
+// cuts on the right - so typing past the pane width hid both the tail of the
+// buffer and the cursor block, and the buffer went on growing invisibly. A
+// rename opens pre-filled, so a long title starts near the limit already.
+func TestModel_theEditorLineFollowsTheCursor_issue41(t *testing.T) {
+	m, _ := modelWithRename(t, &recordRename{})
+	m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
+	press(m, ctrl('o'))
+	press(m, shift('r', "R"))
+
+	for _, c := range "0123456789abcdefghijklmnopqrstuvwxyz" {
+		press(m, key(c))
+	}
+
+	// The cursor block must still be on screen, and so must the text just
+	// typed; what scrolls off is the start of the line, not the end.
+	got := m.View().Content
+	if !strings.Contains(got, "vwxyz_") {
+		t.Errorf("the editor line did not follow the cursor past the pane width:\n%s", got)
 	}
 }

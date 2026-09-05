@@ -46,6 +46,17 @@ func NewRouter(leader string) *Router { return &Router{leader: leader} }
 // Pending reports whether the leader was the previous key.
 func (r *Router) Pending() bool { return r.pending }
 
+// Arm makes the next key a command, as though the leader had just been pressed.
+//
+// Next cannot arm the leader while the terminal is unfocused, and an open modal
+// surface is exactly that state - so `ctrl+o q` typed a literal q into a rename
+// box and did nothing at all in the help box. The modal layer closes itself on
+// the leader and calls this, so the pair completes wherever it is pressed
+// (issues #41, #103).
+//
+//	m.router.Arm() // the next key is a command
+func (r *Router) Arm() { r.pending = true }
+
 // Next returns the route for key and advances the router's state.
 //
 // Losing focus disarms a pending leader: otherwise a leader pressed in the

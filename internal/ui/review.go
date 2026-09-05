@@ -131,16 +131,25 @@ func (m *Model) toggleView(v ReviewView) tea.Cmd {
 	if m.review.Open && m.review.View == v {
 		return m.refocusOrClose()
 	}
-	id := m.Focused()
+	id := m.Selected()
 	if id == "" {
 		return nil
 	}
-	if !m.review.Open || m.review.SessionID != id {
+	// A column already open on this session keeps what it loaded. Switching
+	// between the diff and the tree changes neither the session nor the pane's
+	// width, so re-forking git for a diff already in memory is the stall
+	// loadDiff's own comment exists to avoid, and re-issuing an identical
+	// Resize sends claude a needless SIGWINCH and a full repaint (#95).
+	reopened := !m.review.Open || m.review.SessionID != id
+	if reopened {
 		m.review = ReviewPane{Open: true, SessionID: id}
 	}
 	// Each view is a different shape of text, so a pan that made sense in one
 	// is meaningless in the next: switching starts at the left edge (#94).
 	m.review.View, m.review.Focused, m.review.ColOffset = v, true, 0
+	if !reopened {
+		return nil
+	}
 	return tea.Batch(m.resizeSelected(), m.loadDiff(id), m.loadFiles(id))
 }
 
@@ -212,7 +221,7 @@ func (m *Model) commentsFor(id string) *review.Comments {
 // with the tree open wants the next session's tree, not its diff (#24). A
 // preview belongs to the file it read, so it degrades to the tree.
 func (m *Model) followSession() tea.Cmd {
-	id := m.Focused()
+	id := m.Selected()
 	if !m.review.Open || id == "" || id == m.review.SessionID {
 		return nil
 	}
@@ -231,12 +240,27 @@ func keptView(v ReviewView) ReviewView {
 }
 
 func (m *Model) session(id string) (registry.Session, bool) {
-	for _, s := range m.state.Sessions {
-		if s.ID == id {
-			return s, true
+	i, ok := m.sessionIndex(id)
+	if !ok {
+		return registry.Session{}, false
+	}
+	return m.state.Sessions[i], true
+}
+
+// sessionIndex is where id sits in m.state.Sessions, if it is there at all.
+//
+// One scan for the whole package: this loop had been hand-written five times
+// (session, knownSession, sessionTitle, retitle, forgetSession) and each copy
+// had invented its own answer for a miss - the zero value, false, the id
+// itself, or a silent return. Callers that need to mutate take the index;
+// callers that only read go through session (#40, #41).
+func (m *Model) sessionIndex(id string) (int, bool) {
+	for i := range m.state.Sessions {
+		if m.state.Sessions[i].ID == id {
+			return i, true
 		}
 	}
-	return registry.Session{}, false
+	return 0, false
 }
 
 func (m *Model) projectRoot(name string) string {
@@ -259,4 +283,15 @@ func (m *Model) refreshReview(id string, before, after watcher.Status) tea.Cmd {
 		return nil
 	}
 	return m.loadDiff(id)
+}
+
+// reviewOwnsKeys reports whether a plain keystroke would reach the review
+// column right now.
+//
+// m.review.Focused alone is not that question: a modal takes the keyboard
+// without clearing the flag, so the footer went on advertising j/k, c, d, r, S
+// and esc while every one of them typed a character into the prompt instead.
+// One flag was answering two questions, which is the confusion #95 came from.
+func (m *Model) reviewOwnsKeys() bool {
+	return m.review.Focused && !m.modalOpen()
 }

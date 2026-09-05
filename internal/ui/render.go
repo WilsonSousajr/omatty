@@ -29,12 +29,18 @@ const footer = Leader + " q quit  " + Leader + " ? keys  " + Leader + " j/k swit
 
 // reviewFooter replaces footer while the review column has focus: those keys
 // are the ones that do anything there.
+//
+// It ends in the help key for the same reason footer does. At 84 columns it
+// overflowed an 80-column window and cut `h/l pan` off the end entirely - the
+// defect #103 fixed in footer and left standing one constant below it. The
+// keys that came off are in the help modal, which is what the help key reaches
+// (#103).
 const reviewFooter = "j/k move  c comment  d delete  r reload  S submit  esc back  " +
-	Leader + " d close  h/l pan"
+	Leader + " ? keys"
 
 // treeFooter replaces reviewFooter in the tree and preview views, where c and
 // S do nothing and enter does the work (#24).
-const treeFooter = "j/k move  enter open  r reload  esc back  " + Leader + " f close  h/l pan"
+const treeFooter = "j/k move  enter open  r reload  esc back  " + Leader + " ? keys"
 
 // emptyStateHint names the next useful action. With no projects registered,
 // creating a session can only fail, so it points at `omatty add` instead.
@@ -141,7 +147,7 @@ func (m *Model) footerKeys() string {
 	if s := modalFooter(m.modal); s != "" {
 		return s
 	}
-	if !m.review.Focused {
+	if !m.reviewOwnsKeys() {
 		return footer
 	}
 	if m.review.View == ViewDiff {

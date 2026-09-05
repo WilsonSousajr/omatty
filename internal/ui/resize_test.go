@@ -52,11 +52,62 @@ func TestModel_ResizeBehindAnOpenModalStillReachesTheSelectedTerminal_issue95(t 
 			// And it is already right when the pane comes back, rather than
 			// waiting for the next j/k to correct it - the operator-visible
 			// symptom in the issue.
+			//
+			// The window changes size again while the surface is open, so
+			// closing it has something to be right about. Pressing esc alone
+			// asserted the value the check above had just read, and could not
+			// fail for the bug (#95).
+			m.Update(tea.WindowSizeMsg{Width: 140, Height: 44})
 			press(m, special(tea.KeyEscape))
+			wantW, wantH = ui.PTYSize(140, 44, false)
 			if f.Width != wantW || f.Height != wantH {
 				t.Errorf("selected terminal is %dx%d after closing the %s, want %dx%d",
 					f.Width, f.Height, tc.name, wantW, wantH)
 			}
 		})
+	}
+}
+
+// The same class, with the review column open: ptySize reads m.review.Open,
+// which is the one piece of state that changes the expected answer. Every
+// other case here runs with the column closed, so a regression that dropped
+// the review term from the calculation - leaving claude painting 37 columns
+// wider than its pane - would keep the whole table green (#95, #21).
+func TestModel_ResizeBehindAModalAccountsForTheReviewColumn_issue95(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	press(m, ctrl('o'))
+	press(m, key('d')) // open the review column
+	press(m, ctrl('o'))
+	press(m, key('n')) // and a modal over it
+
+	m.Update(tea.WindowSizeMsg{Width: 140, Height: 44})
+
+	wantW, wantH := ui.PTYSize(140, 44, true)
+	f := fakes["s1"]
+	if f.Width != wantW || f.Height != wantH {
+		t.Errorf("selected terminal is %dx%d with the review column open, want %dx%d",
+			f.Width, f.Height, wantW, wantH)
+	}
+}
+
+// Regression, issue #95: a wider window lowers the ceiling on the review
+// column's horizontal pan, and nothing re-clamped it. An offset left over from
+// a narrow window made panLine drop every row shorter than it, so the column
+// rendered blank until h, l or 0 was pressed.
+func TestModel_ResizeReclampsTheReviewColumnsPan_issue95(t *testing.T) {
+	m, _ := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
+	press(m, ctrl('o'))
+	press(m, key('d'))
+	for range 40 { // pan hard right, to whatever the narrow window allows
+		press(m, key('l'))
+	}
+	narrow := m.ReviewColOffset()
+
+	m.Update(tea.WindowSizeMsg{Width: 200, Height: 40})
+
+	if got := m.ReviewColOffset(); got > narrow {
+		t.Errorf("ReviewColOffset() = %d after widening, want at most the old %d", got, narrow)
 	}
 }
