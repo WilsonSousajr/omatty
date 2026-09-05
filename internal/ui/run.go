@@ -68,6 +68,10 @@ type RunDeps struct {
 	// (#91).
 	Discover   DiscoverFunc
 	AddProject AddProjectFunc
+	// Stop ends an archived session's held claude, and Notice says once at
+	// startup when no holder is keeping them (#43).
+	Stop   StopFunc
+	Notice string
 }
 
 // Run starts every session's terminal, the status watcher, and the TUI, and
@@ -85,16 +89,24 @@ func Run(d RunDeps) error {
 		Diff: d.Diff, Files: d.Files, Rename: d.Rename,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree,
 		Discover: d.Discover, AddProject: d.AddProject,
+		Stop: d.Stop, Notice: d.Notice,
 		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
 	})
 	return runProgram(model, len(terms))
 }
 
-// closeTerminals ends every claude process on the way out (issue #72). The
-// map is the one the model adds runtime sessions to, so those close too.
-// Until now the OS closed the PTY masters at exit, which is neither a
-// guarantee nor omatty's decision.
+// closeTerminals closes every PTY on the way out (issue #72). The map is the
+// one the model adds runtime sessions to, so those close too. Until #72 the OS
+// closed the masters at exit, which is neither a guarantee nor omatty's
+// decision.
+//
+// What this ends depends on the holder, and the distinction is the whole point
+// of M6: under Plain it closes the PTY and the claude on the other side of it
+// dies with the SIGHUP, exactly as before; under a detach holder it closes only
+// the dtach *client*, and the master and its claude go on running. Archiving is
+// the one place omatty ends a claude on purpose, and dropSession is where that
+// is written (#43).
 func closeTerminals(terms map[string]termwrap.Terminal) {
 	for id, t := range terms {
 		if err := t.Close(); err != nil {

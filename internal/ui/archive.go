@@ -48,6 +48,19 @@ func noRemoveWorktree(repoRoot, dir string) error {
 	return fmt.Errorf("ui: no worktree remover configured for %q in %q", dir, repoRoot)
 }
 
+// StopFunc ends the claude a detach holder keeps alive for a session.
+// Injected because ui may not name the dtach binary (invariant 4);
+// cmd/omatty closes it over the holder.
+//
+//	deps.Stop = holder.Stop
+type StopFunc func(sessionID string) error
+
+// noStop is the Deps.Stop default. Like the tailer stops and unlike noArchive,
+// it does nothing rather than naming missing wiring: without dtach there is no
+// held process, the claude died with its PTY, and reporting that as a failure
+// would make every archive on such a machine look broken (#43).
+func noStop(string) error { return nil }
+
 // noTailStop is the Deps.TailStop default and noTailStart the Deps.TailStart
 // one: with no watcher running there is no tailer to start or stop, so doing
 // nothing is correct rather than an error. They are the two defaults that do
@@ -208,7 +221,12 @@ func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd 
 	// not to the neighbour, so the cursor can land anywhere - including in
 	// another project. Size whatever it landed on and drag the review column
 	// along: the pair moveCursor uses (#73, #95).
-	cmds := []tea.Cmd{m.resizeSelected(), m.followSession()}
+	//
+	// Closing the terminal is no longer enough to end the session's claude:
+	// under a detach holder the process outlives the PTY on purpose, which is
+	// what makes quitting safe. Archiving is the one place omatty means to end
+	// it, so it is the one place that says so (#43).
+	cmds := []tea.Cmd{m.stopSessionCmd(sess, nil), m.resizeSelected(), m.followSession()}
 	if removeWorktree && sess.Worktree {
 		cmds = append(cmds, m.removeWorktreeCmd(sess))
 	}
@@ -248,6 +266,25 @@ type WorktreeRemovedMsg struct {
 	SessionID string
 	Dir       string
 	Err       error
+}
+
+// stopSessionCmd ends a session's held claude off the Update goroutine, then
+// delivers done - nil where nothing should follow.
+//
+// Off the Update goroutine for the reason removeWorktreeCmd is: Stop signals
+// the process and then polls for up to its two-second grace period, and Update
+// is the one goroutine that repaints every pane and reads every key. Archiving
+// a claude that did not exit promptly - mid-turn, or wedged - froze the whole
+// TUI until it did (#43).
+func (m *Model) stopSessionCmd(sess registry.Session, done tea.Msg) tea.Cmd {
+	stop := m.stop
+	return func() tea.Msg {
+		if err := stop(sess.ID); err != nil {
+			slog.Warn("ending a session's claude",
+				"session", sess.ID, "dir", sess.Dir, "err", err)
+		}
+		return done
+	}
 }
 
 // removeWorktreeCmd deletes the worktree off the Update goroutine: git on a

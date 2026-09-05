@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/discover"
 	"github.com/WilsonSousajr/omatty/internal/hooks"
 	"github.com/WilsonSousajr/omatty/internal/paths"
@@ -220,9 +221,14 @@ func tuiDeps(
 	home string, store *registry.Store, state registry.State, hooksFile string, w, h int,
 ) ui.RunDeps {
 	git := vcs.NewCLI()
+	// One holder, used twice: it wraps each launch and it ends an archived
+	// session's claude. Two would mean two PATH lookups that could disagree.
+	holder := detach.New(home)
 	return ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
-		Launch:         supervisor.NewLauncher("claude", hooksFile, home),
+		Stop:           holder.Stop,
+		Notice:         holder.Notice(),
+		Launch:         supervisor.NewLauncher("claude", hooksFile, home, holder),
 		Factory:        termwrap.Start,
 		Create:         sessionCreator(home, store),
 		Diff:           review.NewSource(git).Load,

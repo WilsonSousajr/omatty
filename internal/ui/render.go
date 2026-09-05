@@ -24,7 +24,12 @@ import (
 // reach it. Its contents are the four keys earlier issues won a guarantee for
 // - q, j/k and n (#30, #28) and d (#21) - plus ? for everything else. A
 // binding added here rather than to helpLines must keep all of that true.
-const footer = Leader + " q quit  " + Leader + " ? keys  " + Leader + " j/k switch  " +
+// exitKey is the guarantee the footer const describes, named once so the
+// startup notice can keep it in front of itself rather than replacing the line
+// that carries it (#28, #30, #43).
+const exitKey = Leader + " q quit"
+
+const footer = exitKey + "  " + Leader + " ? keys  " + Leader + " j/k switch  " +
 	Leader + " n new  " + Leader + " d diff"
 
 // reviewFooter replaces footer while the review column has focus: those keys
@@ -134,9 +139,22 @@ func (m *Model) terminalTitle(w int, now time.Time) string {
 // Errors live here rather than in a pane so they are visible whether or not
 // a session has focus. fitLine, not padRight: on a narrow window the keymap is
 // truncated rather than pushing the frame wider than the screen.
+// A startup notice sits between the two: it outranks the keymap, because it
+// says something the screen cannot, and is outranked by an error, because an
+// error is about what the operator just did. Both are cleared by the next
+// keypress (#43).
 func (m *Model) renderFooter() string {
 	if m.lastErr != "" {
 		return errorStyle.Render(fitLine(" error: "+m.lastErr, m.width))
+	}
+	if m.notice != "" {
+		// The exit comes first, for the reason the footer const gives: the line
+		// is truncated to the window, so whatever falls off the end, the only
+		// way out stays on screen. Replacing the whole line hid `ctrl+o q` on
+		// exactly the machines the notice appears on - a fresh install without
+		// dtach - where the terminal pane owns ctrl+c and the footer is the
+		// only place the way out is written down (#28, #30, #43).
+		return footerStyle.Render(fitLine(" "+exitKey+"  "+m.notice, m.width))
 	}
 	return footerStyle.Render(fitLine(" "+m.footerKeys(), m.width))
 }

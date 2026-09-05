@@ -1,6 +1,7 @@
 package paths_test
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/paths"
@@ -71,6 +72,7 @@ func TestOmattyLocations(t *testing.T) {
 		{"logs", paths.LogDir("/home/u"), "/home/u/.omatty/logs"},
 		{"worktree", paths.WorktreeDir("/home/u", "omatty", "fix"), "/home/u/.omatty/wt/omatty/fix"},
 		{"transcripts", paths.TranscriptsDir("/home/u"), "/home/u/.claude/projects"},
+		{"sessions", paths.SessionDir("/home/u"), "/home/u/.omatty/s"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -78,5 +80,19 @@ func TestOmattyLocations(t *testing.T) {
 				t.Errorf("got %q, want %q", tt.got, tt.want)
 			}
 		})
+	}
+}
+
+// The name is one letter for a reason, and the reason is a hard OS limit
+// rather than taste: a unix socket path caps at 104 bytes on macOS, and a
+// session's socket is this directory plus a 36-character uuid plus ".sock".
+// Lengthening the directory spends budget the uuid needs (#43).
+func TestSessionDir_LeavesRoomForAUUIDSocketUnderTheLimit_issue43(t *testing.T) {
+	const uuid = "0a6b870b-1c2d-4e3f-8a9b-0c1d2e3f4a5b"
+
+	sock := filepath.Join(paths.SessionDir("/Users/wilsonsousa"), uuid+".sock")
+
+	if len(sock) > 104 {
+		t.Errorf("socket path %q is %d bytes, over the 104-byte limit", sock, len(sock))
 	}
 }

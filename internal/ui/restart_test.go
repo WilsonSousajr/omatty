@@ -26,6 +26,9 @@ func TestModel_ctrlOrRestartsTheFocusedSession_issue15(t *testing.T) {
 
 	press(m, ctrl('o'))
 	_, cmd := m.Update(key('r'))
+	// The stop half runs off the Update goroutine and the start half waits for
+	// it, so the restart is not finished until its command has run (#43).
+	settle(m, cmd)
 
 	if len(s.Started) != 1 || s.Started[0] != "s1" {
 		t.Fatalf("started %v, want exactly [s1]", s.Started)
@@ -37,7 +40,7 @@ func TestModel_ctrlOrRestartsTheFocusedSession_issue15(t *testing.T) {
 		t.Error("the new terminal was not initialised; its pane would stay blank (#33)")
 	}
 	if cmd == nil {
-		t.Error("restart returned no command; the new terminal's poll never starts")
+		t.Error("restart returned no command; the held claude is never stopped")
 	}
 	if got := m.Selected(); got != "s1" {
 		t.Errorf("Focused() = %q after restart, want s1 unchanged", got)
@@ -52,7 +55,7 @@ func TestModel_ctrlOrWithNoSessionIsHarmless_issue15(t *testing.T) {
 	m := ui.NewModel(ui.Deps{State: registry.State{}, Terms: map[string]termwrap.Terminal{}, Create: noCreate, Start: s.fn})
 
 	press(m, ctrl('o'))
-	press(m, key('r'))
+	pressAndSettle(m, key('r'))
 
 	if len(s.Started) != 0 {
 		t.Errorf("started %v with no session focused, want nothing", s.Started)
@@ -68,7 +71,7 @@ func TestModel_ctrlOrStartFailureSurfacesAndKeepsTheOldTerminal_issue15(t *testi
 	m, fakes := modelWithStarter(t, s)
 
 	press(m, ctrl('o'))
-	press(m, key('r'))
+	pressAndSettle(m, key('r'))
 
 	if !strings.Contains(m.View().Content, "pty exhausted") {
 		t.Errorf("the failure is not surfaced:\n%s", m.View().Content)
@@ -91,7 +94,7 @@ func TestModel_RestartBirthsAtTheCurrentPTYSize_issue73(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
 
 	press(m, ctrl('o'))
-	press(m, key('r'))
+	pressAndSettle(m, key('r'))
 
 	if s.W != 170 || s.H != 56 {
 		t.Errorf("restarted at %dx%d, want PTYSize(200,60) = 170x56", s.W, s.H)

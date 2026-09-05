@@ -18,7 +18,10 @@ import (
 // does its own key-to-escape translation, so forwarding msg.String() would
 // type the literal word "esc" into Claude.
 func (m *Model) onKey(msg tea.KeyPressMsg) tea.Cmd {
-	m.lastErr = "" // any keypress acknowledges the last error
+	// Any keypress acknowledges the last error and the startup notice alike:
+	// both displace the keymap, and neither is worth keeping once the operator
+	// has started working (#43).
+	m.lastErr, m.notice = "", ""
 	target, focused := m.focus()
 	switch m.router.Next(msg.Keystroke(), focused) {
 	case keys.ToTerminal:

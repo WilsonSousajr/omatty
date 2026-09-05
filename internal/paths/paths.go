@@ -26,6 +26,16 @@ func HookSocket(home string) string { return filepath.Join(Root(home), "sock") }
 // LogDir returns where the slog file handler writes (invariant 5).
 func LogDir(home string) string { return filepath.Join(Root(home), "logs") }
 
+// SessionDir returns where omatty keeps a dtach socket and pidfile per
+// session, e.g. paths.SessionDir("/home/u") is "/home/u/.omatty/s".
+//
+// The name is one letter deliberately. A unix socket path is capped by the
+// kernel - sun_path is 104 bytes on macOS - and a session's socket is this
+// directory plus a 36-character uuid plus ".sock", so every character spent
+// here is budget the uuid needs. bind(2) fails past the cap with an error the
+// operator cannot act on, which is why detach.SocketPath checks it (#43).
+func SessionDir(home string) string { return filepath.Join(Root(home), "s") }
+
 // WorktreeDir returns where omatty places a worktree for a project branch.
 func WorktreeDir(home, project, branch string) string {
 	return filepath.Join(Root(home), "wt", project, branch)

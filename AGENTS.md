@@ -19,7 +19,12 @@ Core design:
 - **Status is read from structured JSONL, never scraped from the screen.** Hooks
   injected via `--settings` give low latency; the JSONL tail gives truth.
 - **A session is a Claude process in a directory.** Worktrees are opt-in.
-- **Crash recovery is `claude --resume <uuid>`.** There is no detach layer.
+- **Crash recovery is `claude --resume <uuid>`.** A crash costs the in-flight
+  turn, not the conversation.
+- **[M6] dtach holds a session while omatty is not attached**, so quitting
+  detaches rather than killing. It is optional: without the binary
+  `internal/detach` returns a Plain holder and omatty behaves as it did
+  before, with a footer notice saying so (#43).
 
 Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 
@@ -44,6 +49,7 @@ internal/
 ├── vcs/            OUR interface over the git CLI (invariant 4).
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
+├── detach/         [M6] OUR interface over the dtach CLI (invariant 4).
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
@@ -79,7 +85,12 @@ smoke test of the real binary in a real, sized PTY**, which a person reads:
 ```bash
 go run ./testdata/ptyrun omatty                              # 100x30, ctrl+o q after 8s
 PTY_COLS=60 PTY_ROWS=20 PTY_KEYS=$'\x0fj\x0fq' go run ./testdata/ptyrun omatty
+go run ./testdata/dtachprobe /tmp/probehome                  # [M6] detach and reattach
 ```
+
+`dtachprobe` is the same argument for `internal/detach`: its unit tests assert
+the command line dtach is given, which is why a missing `~/.omatty/s` shipped
+green and broke every session start (#43). The probe runs the line.
 
 `testdata/` is outside `./...` by Go convention, so the harness is deliberately
 not in the gate.
