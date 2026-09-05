@@ -44,6 +44,34 @@ func modelWithFakes(t *testing.T) (*ui.Model, map[string]*termwrap.Fake) {
 
 func press(m *ui.Model, k tea.KeyPressMsg) { m.Update(k) }
 
+// pressAndSettle presses a key and then runs the work it scheduled, the way the
+// bubbletea runtime does. Needed wherever a keypress deliberately hands a slow
+// step to a tea.Cmd - stopping a held claude, deleting a worktree - because
+// press alone drops the command and the test then asserts against a model that
+// is only half-way through the operation (#43).
+func pressAndSettle(m *ui.Model, k tea.KeyPressMsg) {
+	_, cmd := m.Update(k)
+	settle(m, cmd)
+}
+
+// settle runs cmd and feeds whatever it produces back into the model until
+// nothing is left, unwrapping batches the way the runtime does.
+func settle(m *ui.Model, cmd tea.Cmd) {
+	if cmd == nil {
+		return
+	}
+	switch msg := cmd().(type) {
+	case nil:
+	case tea.BatchMsg:
+		for _, c := range msg {
+			settle(m, c)
+		}
+	default:
+		_, next := m.Update(msg)
+		settle(m, next)
+	}
+}
+
 func key(r rune) tea.KeyPressMsg     { return tea.KeyPressMsg{Code: r, Text: string(r)} }
 func ctrl(r rune) tea.KeyPressMsg    { return tea.KeyPressMsg{Code: r, Mod: tea.ModCtrl} }
 func special(c rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: c} }

@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"runtime"
 
 	"github.com/WilsonSousajr/omatty/internal/paths"
 )
@@ -42,6 +43,15 @@ type Holder interface {
 	// Persists reports whether a session survives quitting omatty, which is
 	// what the UI warns about when it does not.
 	Persists() bool
+	// Notice is what the footer says at startup about this holder, and nothing
+	// at all when there is nothing to say.
+	//
+	// Here rather than in cmd/ because the text names dtach and the command
+	// that installs it, and invariant 4 is that nothing outside this package
+	// does. It was a literal in cmd/omatty and twice more in ui's tests, so
+	// swapping the holder for abduco, tmux or a built-in meant editing all
+	// three (#43).
+	Notice() string
 }
 
 // New returns the holder for this machine: a Dtach when the binary is on PATH,
@@ -78,20 +88,70 @@ func (p *Plain) Stop(_ string) error { return nil }
 // Persists is false: without dtach, quitting omatty still kills every session.
 func (p *Plain) Persists() bool { return false }
 
+// Notice warns that sessions die on quit and names the command that fixes it,
+// because the alternative is a warning an operator cannot act on: dtach is an
+// unusual enough dependency that the warning alone does not imply what to
+// install.
+//
+// It shares the footer line with the exit key rather than replacing it, so it
+// is kept short enough that both fit at the default 80 columns (#28, #43).
+func (p *Plain) Notice() string {
+	return "no dtach: sessions will not survive quit (" + installHint() + ")"
+}
+
+// installHint names the command that installs dtach on this machine.
+//
+// Switched on the platform because the notice named `brew install dtach`
+// everywhere, which on a Linux box is a command the operator does not have -
+// and the README this shipped with documents apt for exactly that reason (#43).
+func installHint() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "brew install dtach"
+	case "linux":
+		return "apt install dtach"
+	default:
+		return "install dtach"
+	}
+}
+
 // Dtach runs each claude under a dtach master, so omatty's own exit detaches
 // rather than killing it.
 type Dtach struct {
 	home string
 	bin  string
+	// maxSock is the socket-path limit this holder enforces, defaulting to
+	// maxSocketPath. A field rather than the const alone so a test can reach
+	// the limit under t.TempDir() (#43).
+	maxSock int
 }
 
 // NewDtach returns a Dtach running bin against the sockets under home.
 //
 //	d := detach.NewDtach(home, "/opt/homebrew/bin/dtach")
-func NewDtach(home, bin string) *Dtach { return &Dtach{home: home, bin: bin} }
+func NewDtach(home, bin string) *Dtach { return NewDtachCapped(home, bin, maxSocketPath) }
+
+// NewDtachCapped is NewDtach with the socket-path limit named, the way NewFor
+// is New with the binary named: a test can exercise the limit from a t.TempDir
+// that is nowhere near it, rather than hunting for a directory short enough to
+// sit under the real one (#43).
+//
+//	d := detach.NewDtachCapped(t.TempDir(), "dtach", 40)
+func NewDtachCapped(home, bin string, maxSock int) *Dtach {
+	return &Dtach{home: home, bin: bin, maxSock: maxSock}
+}
+
+// socketPath is SocketPath under this holder's own limit.
+func (d *Dtach) socketPath(sessionID string) (string, error) {
+	return socketPathWithin(d.home, sessionID, d.maxSock)
+}
 
 // Persists is true: that is the whole point of this holder.
 func (d *Dtach) Persists() bool { return true }
+
+// Notice is empty: sessions survive, so there is nothing to warn about and the
+// footer keeps its keymap.
+func (d *Dtach) Notice() string { return "" }
 
 // Wrap rebuilds cmd as a dtach client for the session, keeping its directory
 // and environment.
@@ -101,7 +161,15 @@ func (d *Dtach) Persists() bool { return true }
 // An over-long socket path is refused here rather than passed to dtach, whose
 // own failure names neither the session nor the limit (#43).
 func (d *Dtach) Wrap(sessionID string, cmd *exec.Cmd) (*exec.Cmd, error) {
-	sock, err := SocketPath(d.home, sessionID)
+	if cmd.Err != nil {
+		// exec.Command records an unresolvable binary here rather than
+		// returning it, and Plain hands cmd straight to Start, which surfaces
+		// it. Rebuilding the command around dtach drops the field, so a
+		// missing claude became a session that started, flashed
+		// "sh: claude: not found" and died with nothing in the log (#43).
+		return nil, fmt.Errorf("detach: session %s: %w", sessionID, cmd.Err)
+	}
+	sock, err := d.socketPath(sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +178,8 @@ func (d *Dtach) Wrap(sessionID string, cmd *exec.Cmd) (*exec.Cmd, error) {
 	}
 	out := exec.Command(d.bin, dtachArgs(sock, PidPath(d.home, sessionID), cmd.Args)...)
 	out.Dir, out.Env = cmd.Dir, cmd.Env
+	out.Stdin, out.Stdout, out.Stderr = cmd.Stdin, cmd.Stdout, cmd.Stderr
+	out.SysProcAttr = cmd.SysProcAttr
 	return out, nil
 }
 
@@ -128,6 +198,13 @@ func ensureSessionDir(home, sessionID string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("detach: session %s: creating %q for its socket: %w", sessionID, dir, err)
 	}
+	// MkdirAll is a no-op on a directory that already exists and never touches
+	// its mode, so a ~/.omatty/s left at 0755 by an earlier build, a restored
+	// backup or a wider umask kept those bits and the 0700 above was a claim
+	// rather than a guarantee.
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return fmt.Errorf("detach: session %s: making %q private: %w", sessionID, dir, err)
+	}
 	return nil
 }
 
@@ -137,7 +214,14 @@ func ensureSessionDir(home, sessionID string) error {
 // has to be able to stop the claude behind it. $0 is the pidfile and $@ is the
 // claude command; exec replaces the shell, so the pid already written is
 // claude's own rather than a shell that has since gone (#43).
-const pidScript = `echo $$ > "$0"; exec "$@"`
+//
+// The write is fatal by design. Without the `|| exit 1` a failed redirection -
+// a full or read-only home - still fell through to exec, and that session was
+// one Stop could never end: readPid found no file, archiving became a silent
+// no-op, and a claude went on running behind a socket with no row in
+// state.json. A session that refuses to start is recoverable; one that cannot
+// be stopped is the leak archive.go says this code exists to prevent.
+const pidScript = `echo $$ > "$0" || exit 1; exec "$@"`
 
 // dtachArgs is the command line, with one comment per flag because each is
 // load-bearing and none is obvious:

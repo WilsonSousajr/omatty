@@ -30,19 +30,53 @@ const stopPoll = 20 * time.Millisecond
 // of holding it (#40, #43). SIGTERM first so the transcript is flushed, then
 // SIGKILL if the process outlives stopGrace. The dtach master exits with its
 // child and unlinks its own socket.
+//
+// The pid is only signalled while the session is still held. See stillHeld:
+// a pidfile outlives the process it names, and a pid is not a stable handle.
 func (d *Dtach) Stop(sessionID string) error {
-	pid, err := readPid(PidPath(d.home, sessionID), sessionID)
+	pidfile := PidPath(d.home, sessionID)
+	pid, err := readPid(pidfile, sessionID)
 	if err != nil || pid == 0 {
 		return err
 	}
-	if err := endProcess(pid, sessionID); err != nil {
+	held, err := d.stillHeld(sessionID)
+	if err != nil {
 		return err
 	}
-	// Best effort: the process is gone, which is what the caller asked for. A
-	// leftover pidfile only means the next Stop finds a pid that no longer
-	// exists, which it already tolerates.
-	_ = os.Remove(PidPath(d.home, sessionID))
+	if held {
+		if err := endProcess(pid, sessionID); err != nil {
+			return err
+		}
+	}
+	// Best effort, and taken on both paths: the process is gone, which is what
+	// the caller asked for. A leftover pidfile only means the next Stop finds a
+	// pid that no longer exists, which it already tolerates - but leaving a
+	// stale one is what lets a later archive signal a stranger.
+	_ = os.Remove(pidfile)
 	return nil
+}
+
+// stillHeld reports whether the session's dtach master is alive, which is what
+// makes the recorded pid safe to signal.
+//
+// dtach unlinks its socket when the master exits, so the socket's presence is
+// the liveness test omatty has. It is needed because nothing removes a pidfile
+// when a claude exits on its own - the operator typed /exit, or it crashed -
+// and pids are recycled: macOS wraps at ~99998. Without this check, archiving
+// such a row hours later sent SIGTERM and then SIGKILL to whatever process had
+// since inherited the number, reported success, and deleted the evidence (#43).
+func (d *Dtach) stillHeld(sessionID string) (bool, error) {
+	sock, err := d.socketPath(sessionID)
+	if err != nil {
+		return false, err
+	}
+	if _, err := os.Stat(sock); errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf(
+			"detach: session %s: checking whether socket %q is still held: %w", sessionID, sock, err)
+	}
+	return true, nil
 }
 
 // readPid reads the pid a session's wrapper recorded. A missing file returns
@@ -69,16 +103,29 @@ func readPid(path, sessionID string) (int, error) {
 	return pid, nil
 }
 
+// gone reports whether a signal error means the process no longer exists.
+//
+// Only ESRCH does. EPERM means the opposite - the process is alive and owned
+// by somebody else, which is what a recycled pid looks like - and reading it as
+// "gone" both reported a successful stop for a process omatty never touched and
+// skipped the SIGKILL escalation for one that was still running (#43).
+func gone(err error) bool {
+	return errors.Is(err, os.ErrProcessDone) || errors.Is(err, syscall.ESRCH)
+}
+
 // endProcess signals pid politely, then forcibly.
 func endProcess(pid int, sessionID string) error {
 	proc, err := os.FindProcess(pid)
 	if err != nil {
 		return fmt.Errorf("detach: session %s: locating process %d: %w", sessionID, pid, err)
 	}
-	if err := proc.Signal(syscall.SIGTERM); err != nil {
-		// Already gone is the common case: the operator quit claude themselves
-		// before archiving the session.
+	err = proc.Signal(syscall.SIGTERM)
+	if gone(err) {
+		// The operator quit claude themselves between the last check and now.
 		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("detach: session %s: signalling process %d: %w", sessionID, pid, err)
 	}
 	if waitGone(proc, stopGrace) {
 		return nil
@@ -92,12 +139,12 @@ func endProcess(pid int, sessionID string) error {
 func waitGone(proc *os.Process, grace time.Duration) bool {
 	deadline := time.Now().Add(grace)
 	for time.Now().Before(deadline) {
-		if proc.Signal(syscall.Signal(0)) != nil {
+		if gone(proc.Signal(syscall.Signal(0))) {
 			return true
 		}
 		time.Sleep(stopPoll)
 	}
-	return proc.Signal(syscall.Signal(0)) != nil
+	return gone(proc.Signal(syscall.Signal(0)))
 }
 
 // killProcess is the escalation for a claude that ignored SIGTERM.

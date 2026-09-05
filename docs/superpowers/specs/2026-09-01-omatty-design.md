@@ -51,7 +51,8 @@ Checked on this machine, not assumed:
 
 1. `--session-id` lets omatty *assign* the UUID before launch → deterministic transcript path → **status from structured JSONL, never from the rendered screen.**
 2. `--settings` injects per-session hooks → **zero footprint** on the user's `~/.claude/settings.json`.
-3. Crash recovery is `claude --resume <uuid>` → **no dtach/tmux dependency.** A crash costs the in-flight turn, not the conversation.
+3. Crash recovery is `claude --resume <uuid>` → **no detach layer is required.** A crash costs the in-flight turn, not the conversation.
+   M6 added an *optional* one: where `dtach` is installed, quitting omatty detaches instead of killing, so the in-flight turn survives too (#43). Absent it, this line stands unchanged.
 
 ## Layout
 
@@ -116,7 +117,12 @@ Core design:
 - **Status is read from structured JSONL, never scraped from the screen.** Hooks
   injected via `--settings` give low latency; the JSONL tail gives truth.
 - **A session is a Claude process in a directory.** Worktrees are opt-in.
-- **Crash recovery is `claude --resume <uuid>`.** There is no detach layer.
+- **Crash recovery is `claude --resume <uuid>`.** A crash costs the in-flight
+  turn, not the conversation.
+- **[M6] dtach holds a session while omatty is not attached**, so quitting
+  detaches rather than killing. It is optional: without the binary
+  `internal/detach` returns a Plain holder and omatty behaves as it did
+  before, with a footer notice saying so (#43).
 
 Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 

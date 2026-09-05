@@ -3,6 +3,7 @@ package detach_test
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -43,13 +44,13 @@ func TestPlain_StopsNothingAndDoesNotPersist(t *testing.T) {
 }
 
 func TestDtach_WrapBuildsTheAttachOrCreateLine_issue43(t *testing.T) {
-	home := shortTempHome(t)
-	sock, err := detach.SocketPath(home, "abc-123")
-	if err != nil {
-		t.Fatal(err)
-	}
+	home := t.TempDir()
+	// Built here rather than through detach.SocketPath: that helper enforces
+	// the real limit, which t.TempDir() is past, and this test is about the
+	// command line rather than the limit.
+	sock := filepath.Join(paths.SessionDir(home), "abc-123.sock")
 
-	out, err := detach.NewDtach(home, "dtach").Wrap("abc-123", claudeCommand())
+	out, err := testDtach(home).Wrap("abc-123", claudeCommand())
 
 	if err != nil {
 		t.Fatalf("Dtach.Wrap() error = %v, want nil", err)
@@ -72,7 +73,7 @@ func TestDtach_WrapBuildsTheAttachOrCreateLine_issue43(t *testing.T) {
 // binds ctrl+\ to detach and ctrl+z to suspend, so without -E and -z it would
 // silently steal two keys from Claude - and nothing on screen would say so.
 func TestDtach_DisablesItsOwnDetachAndSuspendKeys_invariant1(t *testing.T) {
-	out, err := detach.NewDtach(shortTempHome(t), "dtach").Wrap("abc-123", claudeCommand())
+	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeCommand())
 
 	if err != nil {
 		t.Fatal(err)
@@ -87,7 +88,7 @@ func TestDtach_DisablesItsOwnDetachAndSuspendKeys_invariant1(t *testing.T) {
 // The session still has to start in its own worktree, so the wrapped command
 // keeps the directory the supervisor set (#43).
 func TestDtach_WrapKeepsTheWorkingDirectory(t *testing.T) {
-	out, err := detach.NewDtach(shortTempHome(t), "dtach").Wrap("abc-123", claudeCommand())
+	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeCommand())
 
 	if err != nil {
 		t.Fatal(err)
@@ -101,7 +102,7 @@ func TestDtach_WrapKeepsTheWorkingDirectory(t *testing.T) {
 // neither its own pid nor its child's. exec replaces the shell, so the $$ it
 // wrote is claude's own pid rather than a shell that is already gone (#43).
 func TestDtach_WrapRecordsClaudesPidThroughAnExecWrapper_issue43(t *testing.T) {
-	out, err := detach.NewDtach(shortTempHome(t), "dtach").Wrap("abc-123", claudeCommand())
+	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeCommand())
 
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +129,7 @@ func TestDtach_WrapSurfacesAnOverLongSocketPath_issue43(t *testing.T) {
 	if err == nil {
 		t.Fatal("Dtach.Wrap() with a 200-character home returned nil, want an error")
 	}
-	if !strings.Contains(err.Error(), "104") {
+	if !strings.Contains(err.Error(), "103") {
 		t.Errorf("error %q does not name the byte limit", err)
 	}
 }
@@ -168,9 +169,9 @@ func hasArg(args []string, want string) bool {
 // that had never run this before. Every unit test passed, because they all
 // assert the command line rather than run it; the smoke test found it.
 func TestDtach_WrapCreatesTheSessionDirectory_issue43(t *testing.T) {
-	home := shortTempHome(t) // no .omatty/s inside it, as on a fresh machine
+	home := t.TempDir() // no .omatty/s inside it, as on a fresh machine
 
-	if _, err := detach.NewDtach(home, "dtach").Wrap("abc-123", claudeCommand()); err != nil {
+	if _, err := testDtach(home).Wrap("abc-123", claudeCommand()); err != nil {
 		t.Fatalf("Wrap() error = %v, want nil", err)
 	}
 
@@ -186,9 +187,9 @@ func TestDtach_WrapCreatesTheSessionDirectory_issue43(t *testing.T) {
 // The socket lives beside the pidfile and both are omatty's own, so the
 // directory is private: 0700, like every other directory omatty creates.
 func TestDtach_WrapCreatesThatDirectoryPrivate_issue43(t *testing.T) {
-	home := shortTempHome(t)
+	home := t.TempDir()
 
-	if _, err := detach.NewDtach(home, "dtach").Wrap("abc-123", claudeCommand()); err != nil {
+	if _, err := testDtach(home).Wrap("abc-123", claudeCommand()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -201,19 +202,106 @@ func TestDtach_WrapCreatesThatDirectoryPrivate_issue43(t *testing.T) {
 	}
 }
 
-// shortTempHome is a temporary home short enough for a session socket to fit
-// under the 104-byte limit.
+// testDtach is a holder whose socket-path limit is out of the way, so a test
+// about wrapping or stopping is not accidentally a test of the limit.
 //
-// t.TempDir cannot be used here: on macOS it sits under /var/folders/<random>,
-// which is itself long enough that adding ".omatty/s/<uuid>.sock" trips the
-// very guard these tests are not about. A real home is short, so this is a
-// property of the test environment rather than of omatty (#43).
-func shortTempHome(t *testing.T) string {
-	t.Helper()
-	home, err := os.MkdirTemp("/tmp", "om")
+// It exists because t.TempDir() on macOS sits under /var/folders/<random>,
+// itself long enough that adding "/.omatty/s/<uuid>.sock" trips the real cap -
+// a property of the test environment, not of omatty. The previous answer was to
+// mkdir under /tmp directly, which ignored TMPDIR, broke anywhere /tmp is
+// absent or unwritable, and left directories behind when the binary was killed.
+// Naming the limit is the fix at the right depth: every case below uses
+// t.TempDir(), and the limit keeps its own tests in paths_test.go (#43).
+func testDtach(home string) *detach.Dtach {
+	return detach.NewDtachCapped(home, "dtach", 4096)
+}
+
+// Regression, issue #43: Wrap rebuilt the command around dtach and copied only
+// Dir and Env, dropping cmd.Err - where exec.Command records a binary it could
+// not resolve. Under Plain that field reaches Start and names the problem;
+// under Dtach the launch "succeeded", dtach started, and the pane flashed
+// "sh: claude: not found" before dying, with nothing in the log.
+func TestDtach_WrapRefusesACommandThatCouldNotBeResolved_issue43(t *testing.T) {
+	missing := exec.Command("omatty-no-such-claude-binary")
+
+	_, err := testDtach(t.TempDir()).Wrap("abc-123", missing)
+
+	if err == nil {
+		t.Fatal("Dtach.Wrap() with an unresolvable binary returned nil, want the error exec.Command recorded")
+	}
+	if !strings.Contains(err.Error(), "abc-123") {
+		t.Errorf("error %q does not name the session", err)
+	}
+}
+
+// A directory that already exists keeps its mode through MkdirAll, so a
+// ~/.omatty/s left at 0755 by an earlier build or a restored backup stayed
+// world-readable and the 0700 in the fresh-creation path was a claim rather
+// than a guarantee. The socket in it is a control channel into a running
+// claude: anyone who can connect can type into that session.
+func TestDtach_WrapTightensASessionDirectoryThatIsAlreadyTooOpen_issue43(t *testing.T) {
+	home := t.TempDir()
+	dir := paths.SessionDir(home)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o755); err != nil { // MkdirAll applies the umask
+		t.Fatal(err)
+	}
+
+	if _, err := testDtach(home).Wrap("abc-123", claudeCommand()); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := os.Stat(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.RemoveAll(home) })
-	return home
+	if perm := info.Mode().Perm(); perm != 0o700 {
+		t.Errorf("session directory mode = %04o, want 0700: an existing directory is tightened, not accepted", perm)
+	}
+}
+
+// Without the `|| exit 1` a failed redirection - a full or read-only home -
+// left sh free to exec claude anyway, and that session was one Stop could never
+// end: no pidfile, so archiving was a silent no-op and the claude went on
+// running behind a socket with no row in state.json (#43).
+func TestDtach_WrapFailsTheLaunchWhenThePidCannotBeRecorded_issue43(t *testing.T) {
+	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeCommand())
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	line := strings.Join(out.Args, " ")
+	if !strings.Contains(line, "|| exit 1") {
+		t.Errorf("dtach line %q execs claude even when the pid write fails, leaving a session Stop cannot end", line)
+	}
+}
+
+// Without dtach omatty still runs, so this is a notice rather than a failure -
+// but it has to name the fix. "sessions will not survive quit" alone leaves an
+// operator who has never heard of dtach with nothing to do about it (#43).
+func TestPlain_NoticeNamesTheFixForThisPlatform_issue43(t *testing.T) {
+	got := (&detach.Plain{}).Notice()
+
+	if !strings.Contains(got, "install dtach") {
+		t.Errorf("notice = %q, want it to name the command that fixes it", got)
+	}
+	if !strings.Contains(got, "quit") {
+		t.Errorf("notice = %q, want it to say what is lost", got)
+	}
+	// The notice shares the footer line with the exit key, which the footer
+	// const guarantees stays on screen. At the default 80 columns there is no
+	// room for a longer one (#28, #43).
+	if len(got) > 62 {
+		t.Errorf("notice is %d characters; longer than 62 pushes ctrl+o q off an 80-column footer", len(got))
+	}
+}
+
+// With a holder there is nothing to say, and a permanent line saying so would
+// cost the keymap its place in the footer for no reason.
+func TestDtach_NoticeIsSilentWhenSessionsPersist_issue43(t *testing.T) {
+	if got := testDtach(t.TempDir()).Notice(); got != "" {
+		t.Errorf("notice = %q, want empty when sessions already survive quit", got)
+	}
 }

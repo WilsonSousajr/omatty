@@ -214,14 +214,6 @@ func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd 
 	// The map is the one ui.Run's deferred closeTerminals holds, so deleting
 	// here is also what stops it being closed twice at exit (#72).
 	delete(m.terms, sess.ID)
-	// Closing the terminal is no longer enough to end the session's claude:
-	// under a detach holder the process outlives the PTY on purpose, which is
-	// what makes quitting safe. Archiving is the one place omatty means to end
-	// it, so it is the one place that says so (#43).
-	if err := m.stop(sess.ID); err != nil {
-		slog.Warn("ending an archived session's claude",
-			"session", sess.ID, "dir", sess.Dir, "err", err)
-	}
 	m.tailStop(sess.ID)
 	m.forgetSession(sess.ID)
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
@@ -229,7 +221,12 @@ func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd 
 	// not to the neighbour, so the cursor can land anywhere - including in
 	// another project. Size whatever it landed on and drag the review column
 	// along: the pair moveCursor uses (#73, #95).
-	cmds := []tea.Cmd{m.resizeSelected(), m.followSession()}
+	//
+	// Closing the terminal is no longer enough to end the session's claude:
+	// under a detach holder the process outlives the PTY on purpose, which is
+	// what makes quitting safe. Archiving is the one place omatty means to end
+	// it, so it is the one place that says so (#43).
+	cmds := []tea.Cmd{m.stopSessionCmd(sess, nil), m.resizeSelected(), m.followSession()}
 	if removeWorktree && sess.Worktree {
 		cmds = append(cmds, m.removeWorktreeCmd(sess))
 	}
@@ -269,6 +266,25 @@ type WorktreeRemovedMsg struct {
 	SessionID string
 	Dir       string
 	Err       error
+}
+
+// stopSessionCmd ends a session's held claude off the Update goroutine, then
+// delivers done - nil where nothing should follow.
+//
+// Off the Update goroutine for the reason removeWorktreeCmd is: Stop signals
+// the process and then polls for up to its two-second grace period, and Update
+// is the one goroutine that repaints every pane and reads every key. Archiving
+// a claude that did not exit promptly - mid-turn, or wedged - froze the whole
+// TUI until it did (#43).
+func (m *Model) stopSessionCmd(sess registry.Session, done tea.Msg) tea.Cmd {
+	stop := m.stop
+	return func() tea.Msg {
+		if err := stop(sess.ID); err != nil {
+			slog.Warn("ending a session's claude",
+				"session", sess.ID, "dir", sess.Dir, "err", err)
+		}
+		return done
+	}
 }
 
 // removeWorktreeCmd deletes the worktree off the Update goroutine: git on a
