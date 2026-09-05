@@ -37,3 +37,5 @@ func (f *fakeHolder) Stop(sessionID string) error {
 }
 
 func (f *fakeHolder) Persists() bool { return true }
+
+func (f *fakeHolder) Notice() string { return "" }

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -38,7 +40,9 @@ func TestModel_archiveEndsTheDetachedProcess_issue43(t *testing.T) {
 	m := modelWithEnd(t, r)
 	openArchive(t, m, "s2")
 
-	press(m, key('y'))
+	// Stop runs off the Update goroutine now, so the archive is not finished
+	// until its command has (#43).
+	pressAndSettle(m, key('y'))
 
 	if len(r.Ended) != 1 || r.Ended[0] != "s2" {
 		t.Errorf("ended = %v, want the archived session s2", r.Ended)
@@ -66,11 +70,11 @@ func TestModel_quittingEndsNoProcess_issue43(t *testing.T) {
 func TestModel_noticesThatSessionsWillNotSurviveQuit_issue43(t *testing.T) {
 	terms, _ := fakeTerms(t)
 	d := baseDeps(twoProjectState(), terms)
-	d.Notice = "dtach not found: sessions will not survive quit (brew install dtach)"
+	d.Notice = (&detach.Plain{}).Notice()
 
 	got := ui.NewModel(d).View().Content
 
-	if !strings.Contains(got, "brew install dtach") {
+	if !strings.Contains(got, "install dtach") {
 		t.Errorf("the frame does not carry the notice:\n%s", got)
 	}
 }
@@ -81,7 +85,7 @@ func TestModel_noticesThatSessionsWillNotSurviveQuit_issue43(t *testing.T) {
 func TestModel_theNoticeGivesWayToTheKeymapOnTheFirstKey_issue43(t *testing.T) {
 	terms, _ := fakeTerms(t)
 	d := baseDeps(twoProjectState(), terms)
-	d.Notice = "dtach not found: sessions will not survive quit (brew install dtach)"
+	d.Notice = (&detach.Plain{}).Notice()
 	m := ui.NewModel(d)
 
 	press(m, key('x'))
@@ -107,5 +111,44 @@ func TestModel_archiveWithNoStopConfiguredStillArchives_issue43(t *testing.T) {
 
 	if len(r.Archived) != 1 {
 		t.Errorf("archived = %v, want the session archived despite no holder", r.Archived)
+	}
+}
+
+// Regression, issue #43: `dtach -A` attaches to a live master and discards the
+// command it is handed, so a restart that only started a new client swapped the
+// pane and left the wedged claude running. ctrl+o r is documented as the way to
+// restart a crashed session; without the stop it did nothing and said nothing,
+// and archiving the row became the only way to end a stuck one.
+func TestModel_restartEndsTheHeldProcessBeforeStartingAnother_issue43(t *testing.T) {
+	r := &recordEnd{}
+	m := modelWithEnd(t, r)
+
+	press(m, ctrl('o'))
+	pressAndSettle(m, key('r'))
+
+	if len(r.Ended) != 1 || r.Ended[0] != "s1" {
+		t.Errorf("ended = %v on restart, want the focused session s1: under dtach a restart that does not stop is a no-op", r.Ended)
+	}
+}
+
+// Regression, issue #43: the startup notice replaced the footer keymap
+// outright, so on precisely the machines that show it - a fresh install with no
+// dtach - `ctrl+o q` was absent from the screen until the first keypress. The
+// terminal pane owns ctrl+c while a session fills it, which is why the footer
+// const guarantees the exit survives truncation (#28, #30).
+func TestModel_TheStartupNoticeKeepsTheExitOnScreen_issue43(t *testing.T) {
+	terms, _ := fakeTerms(t)
+	d := baseDeps(twoProjectState(), terms)
+	d.Notice = (&detach.Plain{}).Notice()
+	m := ui.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	view := m.View().Content
+
+	if !strings.Contains(view, "install dtach") {
+		t.Errorf("the notice is not on screen:\n%s", view)
+	}
+	if !strings.Contains(view, ui.Leader+" q quit") {
+		t.Errorf("the notice hid the only way out of omatty:\n%s", view)
 	}
 }

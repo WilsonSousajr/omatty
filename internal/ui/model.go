@@ -342,6 +342,8 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 		return m.onWorktreeRemoved(typed)
 	case ProjectsProposedMsg:
 		return m.onProjectsProposed(typed)
+	case sessionRelaunchMsg:
+		return m.relaunch(typed.Session)
 	}
 	return m.onWindowFocus(msg)
 }
@@ -376,17 +378,33 @@ func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// sessionRelaunchMsg carries a session whose held claude has been ended and
+// whose replacement process should now start. It exists because the stop half
+// runs off the Update goroutine and the start half must not begin until it has
+// finished (#15, #43).
+type sessionRelaunchMsg struct{ Session registry.Session }
+
 // restartSelected relaunches the focused session's process in place (issue
-// #15). It covers a crashed pane and a claude that exited. The old terminal
-// is closed only after the new one starts, so a failed restart never leaves
-// the pane empty; the launcher resumes the transcript (#36) so nothing is
-// lost.
+// #15). It covers a crashed pane and a claude that exited.
+//
+// The held process is ended first, and the relaunch waits for that. Under a
+// detach holder `dtach -A` attaches to a live master and discards the command
+// it was handed, so starting without stopping swapped the client and left the
+// wedged claude exactly where it was: the key did nothing and said nothing,
+// and archiving the row became the only way to end a stuck session (#43).
 func (m *Model) restartSelected() tea.Cmd {
 	row, ok := m.sidebar.Selected()
 	if !ok {
 		return nil
 	}
 	sess := *row.Session
+	return m.stopSessionCmd(sess, sessionRelaunchMsg{Session: sess})
+}
+
+// relaunch starts the replacement process. The old terminal is closed only
+// after the new one starts, so a failed restart never leaves the pane empty;
+// the launcher resumes the transcript (#36) so nothing is lost.
+func (m *Model) relaunch(sess registry.Session) tea.Cmd {
 	w, h := m.ptySize()
 	term, err := m.start(sess, w, h)
 	if err != nil {
