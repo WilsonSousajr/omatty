@@ -60,6 +60,7 @@ func TestCLI_AllCommandsValidateTheDirectory_issue29(t *testing.T) {
 
 	checks := map[string]error{
 		"CurrentBranch":  func() error { _, err := g.CurrentBranch(missing); return err }(),
+		"MainCheckout":   func() error { _, err := g.MainCheckout(missing); return err }(),
 		"AddWorktree":    g.AddWorktree(missing, "/tmp/wt", "b", "main"),
 		"RemoveWorktree": g.RemoveWorktree(missing, "/tmp/wt"),
 		"MergeBase":      func() error { _, err := g.MergeBase(missing, "main"); return err }(),

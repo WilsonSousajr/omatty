@@ -26,7 +26,7 @@ func (m *Model) openSwitcher() tea.Cmd {
 	if len(items) == 0 {
 		return nil
 	}
-	m.modal = modal{Kind: modalList, List: newPickList(items, false)}
+	m.modal = modal{Kind: modalList, List: newPickList("jump to session", items, false)}
 	return nil
 }
 
@@ -65,9 +65,17 @@ func (m *Model) editList(msg tea.KeyPressMsg) {
 	}
 }
 
-// commitList jumps to the chosen session. A query that matches nothing leaves
-// the list open rather than closing on a choice that was never made.
+// commitList applies the open list: the picker registers, the switcher jumps.
 func (m *Model) commitList() tea.Cmd {
+	if m.modal.Kind == modalPicker {
+		return m.commitDiscovery()
+	}
+	return m.commitJump()
+}
+
+// commitJump moves to the chosen session. A query that matches nothing leaves
+// the list open rather than closing on a choice that was never made.
+func (m *Model) commitJump() tea.Cmd {
 	chosen, ok := m.modal.List.Current()
 	if !ok {
 		return nil

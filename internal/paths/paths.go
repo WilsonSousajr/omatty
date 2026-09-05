@@ -45,8 +45,14 @@ var slugPattern = regexp.MustCompile(`[^a-zA-Z0-9]`)
 //	paths.TranscriptSlug("/Users/w/LAB SD") // "-Users-w-LAB-SD"
 func TranscriptSlug(dir string) string { return slugPattern.ReplaceAllString(dir, "-") }
 
+// TranscriptsDir returns Claude Code's transcript store: one directory per
+// slug, each holding that directory's sessions.
+//
+//	paths.TranscriptsDir("/home/u") // "/home/u/.claude/projects"
+func TranscriptsDir(home string) string { return filepath.Join(home, ".claude", "projects") }
+
 // Transcript returns the JSONL file Claude Code writes for sessionID running
 // in dir, e.g. "/home/u/.claude/projects/-home-u-p/abc-123.jsonl".
 func Transcript(home, dir, sessionID string) string {
-	return filepath.Join(home, ".claude", "projects", TranscriptSlug(dir), sessionID+".jsonl")
+	return filepath.Join(TranscriptsDir(home), TranscriptSlug(dir), sessionID+".jsonl")
 }

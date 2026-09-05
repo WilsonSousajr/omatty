@@ -27,6 +27,8 @@ type pickItem struct {
 // matches holds the indices the query keeps, best first, recomputed on every
 // keystroke so the cursor can never point at a row that is no longer shown.
 type pickList struct {
+	// Title labels the query line, so the same widget can say what it is for.
+	Title  string
 	Items  []pickItem
 	Query  string
 	Cursor int
@@ -41,12 +43,12 @@ type pickList struct {
 }
 
 // newPickList builds a list over items, unfiltered and on its first row.
-func newPickList(items []pickItem, multi bool) pickList {
+func newPickList(title string, items []pickItem, multi bool) pickList {
 	hay := make([]string, len(items))
 	for i, it := range items {
 		hay[i] = it.Label + " " + it.Detail
 	}
-	l := pickList{Items: items, Multi: multi, hay: hay}
+	l := pickList{Title: title, Items: items, Multi: multi, hay: hay}
 	l.SetQuery("")
 	return l
 }
@@ -87,6 +89,17 @@ func (l *pickList) ToggleMark() {
 	}
 	i := l.matches[l.Cursor]
 	l.Items[i].Marked = !l.Items[i].Marked
+}
+
+// markedCount is how many rows are marked, for the footer.
+func (l *pickList) markedCount() int {
+	n := 0
+	for _, it := range l.Items {
+		if it.Marked {
+			n++
+		}
+	}
+	return n
 }
 
 // Chosen is what committing the list means: every marked item, or the one
@@ -131,9 +144,9 @@ func (m *Model) pickRows() int {
 // pickLines draws the query, the matches, and how many of them there are.
 // The marker column is two cells wide whether or not the list is
 // multi-select, so the labels do not shift as marks come and go.
-func (m *Model) pickLines(title string) []string {
+func (m *Model) pickLines() []string {
 	l := &m.modal.List
-	lines := []string{title + ": " + l.Query + "_", ""}
+	lines := []string{l.Title + ": " + l.Query + "_", ""}
 	for _, it := range l.Window(m.pickRows()) {
 		lines = append(lines, pickRow(it, l))
 	}

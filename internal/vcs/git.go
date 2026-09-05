@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -19,6 +20,7 @@ import (
 // Git is the surface omatty uses. Fake it in tests; do not fake exec.Cmd.
 type Git interface {
 	RepoRoot(dir string) (string, error)
+	MainCheckout(dir string) (string, error)
 	CurrentBranch(dir string) (string, error)
 	AddWorktree(repoRoot, dir, branch, base string) error
 	RemoveWorktree(repoRoot, dir string) error
@@ -99,6 +101,24 @@ func checkDir(dir string) error {
 // RepoRoot returns the top level of the working tree containing dir.
 func (c *CLI) RepoRoot(dir string) (string, error) {
 	return c.run(dir, "rev-parse", "--show-toplevel")
+}
+
+// MainCheckout returns the top level of the repository dir belongs to,
+// resolving a linked worktree to the repository it was forked from.
+//
+// RepoRoot cannot do this: `rev-parse --show-toplevel` inside a linked
+// worktree returns the worktree itself, so discovery would register every
+// worktree as a project of its own (#91). `--git-common-dir` is the main
+// repository's .git wherever it is asked from, so its parent is the main
+// checkout.
+//
+//	root, err := git.MainCheckout("/w/repo/.omatty/wt/repo/fix") // "/w/repo"
+func (c *CLI) MainCheckout(dir string) (string, error) {
+	gitDir, err := c.run(dir, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(gitDir), nil
 }
 
 // CurrentBranch returns the branch checked out in dir.

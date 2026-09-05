@@ -70,6 +70,7 @@ func TestOmattyLocations(t *testing.T) {
 		{"socket", paths.HookSocket("/home/u"), "/home/u/.omatty/sock"},
 		{"logs", paths.LogDir("/home/u"), "/home/u/.omatty/logs"},
 		{"worktree", paths.WorktreeDir("/home/u", "omatty", "fix"), "/home/u/.omatty/wt/omatty/fix"},
+		{"transcripts", paths.TranscriptsDir("/home/u"), "/home/u/.claude/projects"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

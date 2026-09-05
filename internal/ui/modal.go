@@ -26,8 +26,12 @@ const (
 	modalRename
 	// modalConfirm asks before archiving it, opened with x (#40).
 	modalConfirm
-	// modalList is the filtered list: the session switcher, opened with / (#42).
+	// modalList is the session switcher, opened with / (#42).
 	modalList
+	// modalPicker is the same list over discovered repositories, opened with a
+	// (#91). A separate kind rather than a flag on the list, because only the
+	// commit differs and Kind is what already selects a commit.
+	modalPicker
 )
 
 // modal is the open surface's state. Only the member matching Kind is live;
@@ -86,7 +90,7 @@ func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.onEditorKey(msg)
 	case modalConfirm:
 		return m.onConfirmKey(msg.Keystroke())
-	case modalList:
+	case modalList, modalPicker:
 		return m.onListKey(msg)
 	}
 	return nil

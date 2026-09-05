@@ -139,6 +139,8 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 		m.openConfirm()
 	case "/":
 		return m.openSwitcher()
+	case "a":
+		return m.openDiscovery()
 	}
 	return nil
 }
