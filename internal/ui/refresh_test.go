@@ -93,7 +93,7 @@ func TestModel_createdSessionGetsATerminal_issue32(t *testing.T) {
 	if len(s.Started) != 1 || s.Started[0] != "new-id" {
 		t.Fatalf("started %v, want one terminal for new-id", s.Started)
 	}
-	if got := m.Focused(); got != "new-id" {
+	if got := m.Selected(); got != "new-id" {
 		t.Errorf("Focused() = %q, want the session just created", got)
 	}
 	if !strings.Contains(m.View().Content, "terminal for test") {
@@ -129,8 +129,8 @@ func TestModel_startFailureSurfacesAndAddsNoRow_issue32(t *testing.T) {
 	if !strings.Contains(got, "pty exhausted") {
 		t.Errorf("the start failure is not surfaced:\n%s", got)
 	}
-	if m.Focused() != "" {
-		t.Errorf("Focused() = %q after a failed start, want no selection", m.Focused())
+	if m.Selected() != "" {
+		t.Errorf("Focused() = %q after a failed start, want no selection", m.Selected())
 	}
 }
 

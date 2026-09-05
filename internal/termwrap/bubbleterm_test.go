@@ -1,6 +1,7 @@
 package termwrap_test
 
 import (
+	"github.com/taigrr/bubbleterm/emulator"
 	"os/exec"
 	"strings"
 	"testing"
@@ -64,7 +65,14 @@ func TestStart_CursorFollowsTheProcess_issue106(t *testing.T) {
 	}
 	defer func() { _ = term.Close() }()
 
-	pump(t, term, "abc", 5*time.Second)
+	// The frame is checked rather than discarded: pump returns unconditionally
+	// once its deadline passes, so on a loaded box a timeout was reported as a
+	// wrong cursor position instead of as never having pumped. Its sibling
+	// TestStart_RendersRealProcessOutput already checks the returned frame
+	// (#106).
+	if frame := pump(t, term, "abc", 5*time.Second); !strings.Contains(frame, "abc") {
+		t.Fatalf("the process did not render within the deadline; frame = %q", frame)
+	}
 
 	got := term.Cursor()
 	if got.X != 3 || got.Y != 0 {
@@ -103,5 +111,27 @@ func TestStart_FocusAndResizeReachTheEmulator(t *testing.T) {
 	}
 	if cmd := term.Resize(80, 24); cmd == nil {
 		t.Log("Resize returned no command; dimensions still applied")
+	}
+}
+
+// caretShape's underline and bar arms had no coverage: the only real-process
+// test prints plain text (a block, the default arm) and the Fake bypasses the
+// mapping entirely. Swapping the two returns compiled and passed everything,
+// so claude's DECSCUSR bar would have rendered as an underline (#106).
+func TestCaretShape_MapsEveryEmulatorStyle_issue106(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		in   emulator.CursorStyle
+		want tea.CursorShape
+	}{
+		{"block", emulator.CursorBlock, tea.CursorBlock},
+		{"underline", emulator.CursorUnderline, tea.CursorUnderline},
+		{"bar", emulator.CursorBar, tea.CursorBar},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := termwrap.CaretShape(tt.in); got != tt.want {
+				t.Errorf("CaretShape(%v) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
 	}
 }

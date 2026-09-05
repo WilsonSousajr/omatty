@@ -234,7 +234,7 @@ func tuiDeps(
 // LastUsed is carried across rather than flattened away: it is what orders the
 // list, so dropping it left the picker showing rows in an order it could not
 // explain (#91).
-func projectProposer(store *registry.Store, home string, git *vcs.CLI) ui.DiscoverFunc {
+func projectProposer(store *registry.Store, home string, git discover.Git) ui.DiscoverFunc {
 	return func() ([]ui.Proposal, error) {
 		roots, err := registeredRoots(store)
 		if err != nil {
@@ -253,7 +253,7 @@ func projectProposer(store *registry.Store, home string, git *vcs.CLI) ui.Discov
 }
 
 // projectRegistrar adapts registry.RegisterAll to ui.AddProjectFunc.
-func projectRegistrar(store *registry.Store, git *vcs.CLI) ui.AddProjectFunc {
+func projectRegistrar(store *registry.Store, git registry.RepoRooter) ui.AddProjectFunc {
 	return func(roots []string) []registry.Registration {
 		return registry.RegisterAll(store, git, roots)
 	}

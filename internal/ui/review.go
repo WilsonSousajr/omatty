@@ -131,7 +131,7 @@ func (m *Model) toggleView(v ReviewView) tea.Cmd {
 	if m.review.Open && m.review.View == v {
 		return m.refocusOrClose()
 	}
-	id := m.Focused()
+	id := m.Selected()
 	if id == "" {
 		return nil
 	}
@@ -221,7 +221,7 @@ func (m *Model) commentsFor(id string) *review.Comments {
 // with the tree open wants the next session's tree, not its diff (#24). A
 // preview belongs to the file it read, so it degrades to the tree.
 func (m *Model) followSession() tea.Cmd {
-	id := m.Focused()
+	id := m.Selected()
 	if !m.review.Open || id == "" || id == m.review.SessionID {
 		return nil
 	}

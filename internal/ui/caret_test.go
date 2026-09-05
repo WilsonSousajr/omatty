@@ -146,7 +146,7 @@ func TestView_DrawsTheCursorOnThePanesLastCell_issue106(t *testing.T) {
 // nobody is reading.
 func TestView_DrawsNoCursorForAnExitedSession_issue106(t *testing.T) {
 	m := caretModel(t, termwrap.Caret{X: 7, Y: 3, Visible: true})
-	m.Update(ui.StatusMsg{SessionID: m.Focused(), Kind: watcher.SessionEnded})
+	m.Update(ui.StatusMsg{SessionID: m.Selected(), Kind: watcher.SessionEnded})
 
 	if got := m.View().Cursor; got != nil {
 		t.Errorf("View().Cursor = %+v for an exited session, want nil", got)

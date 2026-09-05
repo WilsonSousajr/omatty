@@ -42,9 +42,13 @@ func (b *bubble) Cursor() Caret {
 	return Caret{X: pos.X, Y: pos.Y, Visible: visible, Shape: caretShape(look.Style), Blink: look.Blink}
 }
 
-// caretShape maps the emulator's cursor style to bubbletea's. An explicit
-// switch rather than an int cast, so a change to either iota order is a
-// compile error and not a silently wrong shape.
+// caretShape maps the emulator's cursor style to bubbletea's.
+//
+// Named cases rather than an int cast, so reordering either iota keeps the
+// mapping correct instead of silently shifting every shape by one. That is the
+// benefit; it is not a compile-time guarantee, and the earlier comment claimed
+// one it does not provide: a new style added upstream falls into default and
+// renders as a block, which no test would catch (#106).
 func caretShape(s emulator.CursorStyle) tea.CursorShape {
 	switch s {
 	case emulator.CursorUnderline:

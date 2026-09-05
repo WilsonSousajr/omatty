@@ -97,7 +97,7 @@ func TestModel_renameKeepsTheCursorOnTheRenamedSession_issue41(t *testing.T) {
 	press(m, shift('r', "R"))
 	press(m, special(tea.KeyEnter))
 
-	if got := m.Focused(); got != "s2" {
+	if got := m.Selected(); got != "s2" {
 		t.Errorf("focused session = %q after renaming s2, want s2", got)
 	}
 }
@@ -184,9 +184,16 @@ func TestModel_editorsAcceptCapitalLetters_issue41(t *testing.T) {
 			press(m, shift('f', "F"))
 			press(m, key('i'))
 			press(m, shift('x', "X"))
+			// A space, not just capitals: Keystroke() spells the space bar
+			// "space", five runes, so the old len([]rune(key)) == 1 guard
+			// rejected it exactly as it rejected "shift+f". You could not type a
+			// space into a session title either, and only the capitals had a
+			// test (#41).
+			press(m, tea.KeyPressMsg{Code: ' ', Text: " "})
+			press(m, key('2'))
 
-			if got := m.View().Content; !strings.Contains(got, "FiX") {
-				t.Errorf("capitals did not reach the %s buffer:\n%s", tc.name, got)
+			if got := m.View().Content; !strings.Contains(got, "FiX 2") {
+				t.Errorf("capitals and a space did not reach the %s buffer:\n%s", tc.name, got)
 			}
 		})
 	}
@@ -216,5 +223,52 @@ func TestModel_renameKeysBuildTheBufferNotThePTY_issue41(t *testing.T) {
 
 	if n := len(fakes["s1"].Msgs); n != 0 {
 		t.Errorf("focused terminal received %d messages while the rename box was open, want 0", n)
+	}
+}
+
+// The complement of the above: a title may contain spaces, but one made of
+// nothing but spaces is blank and must be refused. Both guards tested == ""
+// without trimming, so it was accepted and persisted, producing exactly the
+// blank sidebar row they exist to prevent (#41).
+func TestModel_aWhitespaceOnlyTitleIsRefused_issue41(t *testing.T) {
+	r := &recordRename{}
+	m, _ := modelWithRename(t, r)
+	press(m, ctrl('o'))
+	press(m, shift('r', "R"))
+	for range len("main") {
+		press(m, special(tea.KeyBackspace))
+	}
+
+	press(m, tea.KeyPressMsg{Code: ' ', Text: " "})
+	press(m, tea.KeyPressMsg{Code: ' ', Text: " "})
+	press(m, special(tea.KeyEnter))
+
+	if r.Calls != 0 {
+		t.Errorf("rename was called %d times with a whitespace-only title, want 0", r.Calls)
+	}
+	if got := m.View().Content; !strings.Contains(got, "rename session") {
+		t.Errorf("the editor closed on a blank title instead of staying open:\n%s", got)
+	}
+}
+
+// Regression, issue #41: the editor line was drawn with a plain fitLine, which
+// cuts on the right - so typing past the pane width hid both the tail of the
+// buffer and the cursor block, and the buffer went on growing invisibly. A
+// rename opens pre-filled, so a long title starts near the limit already.
+func TestModel_theEditorLineFollowsTheCursor_issue41(t *testing.T) {
+	m, _ := modelWithRename(t, &recordRename{})
+	m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
+	press(m, ctrl('o'))
+	press(m, shift('r', "R"))
+
+	for _, c := range "0123456789abcdefghijklmnopqrstuvwxyz" {
+		press(m, key(c))
+	}
+
+	// The cursor block must still be on screen, and so must the text just
+	// typed; what scrolls off is the start of the line, not the end.
+	got := m.View().Content
+	if !strings.Contains(got, "vwxyz_") {
+		t.Errorf("the editor line did not follow the cursor past the pane width:\n%s", got)
 	}
 }

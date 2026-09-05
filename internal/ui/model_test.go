@@ -93,7 +93,7 @@ func TestModel_leaderThenJSwitchesSessionWithoutTouchingThePTY(t *testing.T) {
 	press(m, ctrl('o'))
 	press(m, key('j'))
 
-	if got := m.Focused(); got != "s2" {
+	if got := m.Selected(); got != "s2" {
 		t.Errorf("Focused() = %q, want %q after ctrl+o j", got, "s2")
 	}
 	for id, f := range fakes {
@@ -111,7 +111,7 @@ func TestModel_leaderThenKMovesBack(t *testing.T) {
 	press(m, ctrl('o'))
 	press(m, key('k'))
 
-	if got := m.Focused(); got != "s1" {
+	if got := m.Selected(); got != "s1" {
 		t.Errorf("Focused() = %q, want %q", got, "s1")
 	}
 }
@@ -145,9 +145,11 @@ func TestModel_ViewShowsEveryProjectAndTheFocusedSession(t *testing.T) {
 	}
 }
 
-// Only the focused terminal is resized on a window change; the others catch
+// Only the *selected* terminal is resized on a window change. Selected, not
+// focused: #95 split the two, because a resize must reach the pane's terminal
+// whether or not a modal currently owns the keyboard.; the others catch
 // up when focused (issue #73). Sizing itself is PTYSize, tested under #35/#75.
-func TestModel_WindowResizeReachesOnlyTheFocusedTerminal(t *testing.T) {
+func TestModel_WindowResizeReachesOnlyTheSelectedTerminal(t *testing.T) {
 	m, fakes := modelWithFakes(t)
 
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
@@ -166,7 +168,7 @@ func TestModel_NoSessionsRendersWithoutPanicking(t *testing.T) {
 	press(m, special(tea.KeyEscape))
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 
-	if got := m.Focused(); got != "" {
+	if got := m.Selected(); got != "" {
 		t.Errorf("Focused() = %q on an empty registry, want \"\"", got)
 	}
 	if m.View().Content == "" {
@@ -178,7 +180,7 @@ func TestModel_NoSessionsRendersWithoutPanicking(t *testing.T) {
 // focus change did not resize the terminal just focused, so j/k onto a
 // session showed claude painted at its birth width inside a wider box - the
 // #51 symptom again.
-func TestModel_FocusChangeResizesTheNewlyFocusedTerminal_issue73(t *testing.T) {
+func TestModel_MovingTheCursorResizesTheNewlySelectedTerminal_issue73(t *testing.T) {
 	m, fakes := modelWithFakes(t)
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 

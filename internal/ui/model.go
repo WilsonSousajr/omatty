@@ -228,8 +228,16 @@ func (m *Model) withRuntimeMaps() *Model {
 	return m
 }
 
-// Focused returns the selected session's id, or "" when none is selected.
-func (m *Model) Focused() string {
+// Selected returns the selected session's id, or "" when none is selected.
+//
+// Selected, not Focused: it answers where the sidebar cursor is, which #95
+// separated from who owns the keyboard. The old name put it on the wrong side
+// of that split - selectedTerminal was implemented by calling Focused() - and
+// left "focus" spanning six unrelated concepts across the package, where
+// AGENTS.md asks a name to return fewer than five grep hits.
+//
+//	if id := m.Selected(); id != "" { ... }
+func (m *Model) Selected() string {
 	row, ok := m.sidebar.Selected()
 	if !ok {
 		return ""
@@ -276,36 +284,36 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.onKey(msg)
 	case tea.WindowSizeMsg:
 		return m, m.onResize(msg)
-	case StatusMsg:
-		return m, m.onStatus(msg)
-	case DiffLoadedMsg:
-		return m, m.onDiffLoaded(msg)
-	case FilesLoadedMsg:
-		return m, m.onFilesLoaded(msg)
+	case tea.MouseMsg:
+		return m, m.onMouse(msg)
 	case TickMsg:
 		return m, scheduleTick()
 	default:
-		return m, m.onLifecycleMsg(msg)
+		return m, m.onDataMsg(msg)
 	}
 }
 
-// onLifecycleMsg handles the results of session-lifecycle work that ran off
-// the Update goroutine, then falls through to window focus and the broadcast.
-// It hangs off the default arm rather than taking a case of its own because
-// Update is at its line limit and M4 adds more of these (#40).
+// onDataMsg handles the results of work that ran off the Update goroutine, then
+// falls through to window focus and the broadcast.
 //
-// The typed check must come first: an unhandled message reaches broadcast and
-// would be fanned out to every emulator. That is why a mouse event is caught
-// here too, though it is not lifecycle work - what every case here shares is
-// that broadcasting it would be wrong (#107).
-func (m *Model) onLifecycleMsg(msg tea.Msg) tea.Cmd {
+// One named switch rather than a default arm that is really a second, unnamed
+// one. Every case here must be matched by type, because anything unmatched
+// reaches broadcast and is fanned out to every emulator at once - so the next
+// person adding a message type has to see this list, not discover it. The mouse
+// has its own case in Update for the same reason: a pointer event carries
+// window coordinates that mean nothing to an individual pane (#40, #107).
+func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	switch typed := msg.(type) {
+	case StatusMsg:
+		return m.onStatus(typed)
+	case DiffLoadedMsg:
+		return m.onDiffLoaded(typed)
+	case FilesLoadedMsg:
+		return m.onFilesLoaded(typed)
 	case WorktreeRemovedMsg:
 		return m.onWorktreeRemoved(typed)
 	case ProjectsProposedMsg:
 		return m.onProjectsProposed(typed)
-	case tea.MouseMsg:
-		return m.onMouse(typed)
 	}
 	return m.onWindowFocus(msg)
 }
@@ -340,12 +348,12 @@ func (m *Model) broadcast(msg tea.Msg) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// restartFocused relaunches the focused session's process in place (issue
+// restartSelected relaunches the focused session's process in place (issue
 // #15). It covers a crashed pane and a claude that exited. The old terminal
 // is closed only after the new one starts, so a failed restart never leaves
 // the pane empty; the launcher resumes the transcript (#36) so nothing is
 // lost.
-func (m *Model) restartFocused() tea.Cmd {
+func (m *Model) restartSelected() tea.Cmd {
 	row, ok := m.sidebar.Selected()
 	if !ok {
 		return nil
@@ -453,7 +461,8 @@ func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
 }
 
 // moveCursor moves the sidebar cursor, sizes the terminal it lands on (issue
-// #73) and moves an open review column along with it (#21).
+// #73) and moves an open review column along with it (#21). It sizes what the
+// cursor selects, not what holds the keyboard - the distinction #95 drew.
 func (m *Model) moveCursor(move func()) tea.Cmd {
 	move()
 	return tea.Batch(m.resizeSelected(), m.followSession())
@@ -486,7 +495,7 @@ func (m *Model) resizeSelected() tea.Cmd {
 //
 // No guard on an empty id: a missing key yields the nil interface the caller
 // already tests for, and a guard that cannot fire reads as an invariant.
-func (m *Model) selectedTerminal() termwrap.Terminal { return m.terms[m.Focused()] }
+func (m *Model) selectedTerminal() termwrap.Terminal { return m.terms[m.Selected()] }
 
 // focusedTerminal returns nil while a modal surface is open, which is what
 // keeps its keys out of the PTY without special-casing the router: an

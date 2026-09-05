@@ -54,7 +54,7 @@ func TestModel_ViewPlacesSidebarBesideTheTerminal_issue35(t *testing.T) {
 
 // Replaces the #34 width assertion, which assumed nothing sat beside the
 // terminal. Now the sidebar does, so the terminal gets PaneSize.
-func TestModel_ResizePassesPaneSizeToTheFocusedTerminal_issue35(t *testing.T) {
+func TestModel_ResizePassesPaneSizeToTheSelectedTerminal_issue35(t *testing.T) {
 	m, fakes := modelWithFakes(t)
 
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})

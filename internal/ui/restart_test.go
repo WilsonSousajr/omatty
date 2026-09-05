@@ -39,7 +39,7 @@ func TestModel_ctrlOrRestartsTheFocusedSession_issue15(t *testing.T) {
 	if cmd == nil {
 		t.Error("restart returned no command; the new terminal's poll never starts")
 	}
-	if got := m.Focused(); got != "s1" {
+	if got := m.Selected(); got != "s1" {
 		t.Errorf("Focused() = %q after restart, want s1 unchanged", got)
 	}
 	if !strings.Contains(m.View().Content, "terminal for") {

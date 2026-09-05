@@ -156,7 +156,7 @@ func (m *Model) onConfirmKey(key string) tea.Cmd {
 //
 // The registry edit comes first because it is the fallible step: a failed save
 // must leave the session running and visible rather than half gone. That is
-// restartFocused's discipline (#15) - do the thing that can fail, and destroy
+// restartSelected's discipline (#15) - do the thing that can fail, and destroy
 // only after it succeeds.
 func (m *Model) archiveSession(removeWorktree bool) tea.Cmd {
 	id := m.modal.Confirm.SessionID

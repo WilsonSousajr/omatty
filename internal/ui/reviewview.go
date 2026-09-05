@@ -63,7 +63,7 @@ func (m *Model) reviewBody(w, rows int) []string {
 		return m.renderEntries(w, rows)
 	}
 	out := m.renderEntries(w, rows-1)
-	return append(out, fitLine("note: "+m.review.Note.Buffer+"_", w))
+	return append(out, editLine("note", m.review.Note.Buffer, w))
 }
 
 // renderEntries draws the rows-high window around the cursor. The offset is

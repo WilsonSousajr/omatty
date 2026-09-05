@@ -36,6 +36,19 @@ type Terminal interface {
 // grid, whether the running application has it shown, and how it asked for it
 // to be drawn. omatty draws no cursor of its own, so without this the caret in
 // Claude's prompt is invisible (issue #106).
+//
+// X and Y are cells of the emulator's grid, not of the window; ui.PaneOrigin
+// is what turns one into the other.
+//
+//	c := term.Cursor()
+//	if c.Visible { x, y := ui.PaneOrigin(); draw(x+c.X, y+c.Y) }
+//
+// Color is deliberately absent. The emulator carries one (OSC 12) and
+// tea.Cursor accepts one, but after an OSC 112 reset vt reports the *default*
+// colour rather than nil, so forwarding it would repaint the host's cursor for
+// every session that ever touched OSC 12 and never hand it back. Shape and
+// Blink come from the same struct and are forwarded, so the gap is a decision
+// rather than an oversight (#106).
 type Caret struct {
 	X, Y    int
 	Visible bool

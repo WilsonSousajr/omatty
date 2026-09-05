@@ -1,6 +1,8 @@
 package ui_test
 
 import (
+	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/registry"
 	"strings"
 	"testing"
 
@@ -27,7 +29,7 @@ func TestModel_switcherJumpsAcrossProjects_issue42(t *testing.T) {
 	openSwitcher(m, "api")
 	press(m, special(tea.KeyEnter))
 
-	if got := m.Focused(); got != "s3" {
+	if got := m.Selected(); got != "s3" {
 		t.Errorf("focused session = %q after jumping to api-svc, want s3", got)
 	}
 }
@@ -40,14 +42,14 @@ func TestModel_switcherJumpsBackwards_issue42(t *testing.T) {
 	press(m, key('j'))
 	press(m, ctrl('o'))
 	press(m, key('j')) // now on s3, the last row
-	if m.Focused() != "s3" {
-		t.Fatalf("precondition: cursor is on %q, want s3", m.Focused())
+	if m.Selected() != "s3" {
+		t.Fatalf("precondition: cursor is on %q, want s3", m.Selected())
 	}
 
 	openSwitcher(m, "parser")
 	press(m, special(tea.KeyEnter))
 
-	if got := m.Focused(); got != "s2" {
+	if got := m.Selected(); got != "s2" {
 		t.Errorf("focused session = %q after jumping back to parser-fix, want s2", got)
 	}
 }
@@ -124,7 +126,7 @@ func TestModel_switcherMovesWithCtrlJAndCtrlK_issue42(t *testing.T) {
 	press(m, ctrl('j')) // onto the second match
 	press(m, special(tea.KeyEnter))
 
-	if got := m.Focused(); got != "s2" {
+	if got := m.Selected(); got != "s2" {
 		t.Errorf("focused session = %q after ctrl+j then enter, want s2", got)
 	}
 }
@@ -144,12 +146,12 @@ func TestModel_switcherEnterOnNoMatchesKeepsTheListOpen_issue42(t *testing.T) {
 
 func TestModel_switcherEscLeavesTheCursorAlone_issue42(t *testing.T) {
 	m, _ := modelWithFakes(t)
-	before := m.Focused()
+	before := m.Selected()
 
 	openSwitcher(m, "api")
 	press(m, special(tea.KeyEscape))
 
-	if got := m.Focused(); got != before {
+	if got := m.Selected(); got != before {
 		t.Errorf("focused session = %q after esc, want the original %q", got, before)
 	}
 }
@@ -189,5 +191,107 @@ func TestModel_switcherKeysStayOutOfThePTY_issue42(t *testing.T) {
 	if got := len(fakes["s1"].Msgs); got != before {
 		t.Errorf("the terminal received %d messages while the switcher was open, want %d",
 			got, before)
+	}
+}
+
+// manySessions is a fixture long enough to fill the picker's window, which the
+// three-session fixture never does: pickRows() is 18 at the default size, so
+// Offset stayed 0 and Window() never sliced. That is why both of #42's real
+// bugs - the clipped match count and the post-narrow offset - passed the gate
+// (#42).
+func manySessions(n int) registry.State {
+	st := registry.State{Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}}}
+	for i := range n {
+		st.Sessions = append(st.Sessions, registry.Session{
+			ID:      fmt.Sprintf("s%02d", i),
+			Project: "omatty",
+			Title:   fmt.Sprintf("session-%02d", i),
+			Dir:     "/p/omatty",
+		})
+	}
+	return st
+}
+
+func modelWithManySessions(t *testing.T, n int) *ui.Model {
+	t.Helper()
+	st := manySessions(n)
+	terms := map[string]termwrap.Terminal{}
+	for _, sess := range st.Sessions {
+		terms[sess.ID] = termwrap.NewFake("")
+	}
+	m := ui.NewModel(baseDeps(st, terms))
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	return m
+}
+
+// Regression, issue #42: pickRows() subtracted three but pickLines emits four
+// non-row lines, so a full list rendered one line taller than the pane and
+// fitBlock dropped the last one - the "N of M" counter, gone exactly when the
+// filter is hiding the most.
+func TestModel_theSwitcherShowsItsMatchCountOnAFullList_issue42(t *testing.T) {
+	m := modelWithManySessions(t, 40)
+
+	press(m, ctrl('o'))
+	press(m, key('/'))
+
+	if got := m.View().Content; !strings.Contains(got, "40 of 40") {
+		t.Errorf("the match count is not on screen for a full list:\n%s", got)
+	}
+}
+
+// Regression, issue #42: SetQuery clamped the cursor instead of resetting it,
+// so narrowing a scrolled list left Offset past the good matches - one row
+// rendered above a column of blanks, with the better matches scrolled off the
+// top.
+func TestModel_narrowingAScrolledListShowsTheBestMatches_issue42(t *testing.T) {
+	m := modelWithManySessions(t, 40)
+	press(m, ctrl('o'))
+	press(m, key('/'))
+	for range 25 { // scroll well past the window
+		press(m, ctrl('j'))
+	}
+
+	press(m, key('3')) // narrows to session-03, -13, -23, -30..-39
+
+	got := m.View().Content
+	if !strings.Contains(got, "session-03") {
+		t.Errorf("the best match is not visible after narrowing a scrolled list:\n%s", got)
+	}
+}
+
+// Regression, issue #42: SetQuery clamped the cursor rather than resetting it,
+// so an index kept across a query change pointed at whatever row happened to
+// land there. The query below keeps more matches than the cursor's index, so
+// clamping leaves it in range and *wrong* - enter jumps to the sixth match
+// instead of the best one, which is the operator-visible bug.
+func TestModel_theSwitcherCursorReturnsToTheBestMatch_issue42(t *testing.T) {
+	m := modelWithManySessions(t, 40)
+	press(m, ctrl('o'))
+	press(m, key('/'))
+	for range 5 {
+		press(m, ctrl('j'))
+	}
+
+	press(m, key('0')) // still matches thirteen sessions, so 5 stays in range
+	press(m, special(tea.KeyEnter))
+
+	if got := m.Selected(); got != "s00" {
+		t.Errorf("enter jumped to %q, want the best match s00", got)
+	}
+}
+
+// Typing a session's exact title and pressing enter must find that session.
+func TestModel_theSwitcherFindsAnExactTitle_issue42(t *testing.T) {
+	m := modelWithManySessions(t, 40)
+	press(m, ctrl('o'))
+	press(m, key('/'))
+
+	for _, c := range "session-07" {
+		press(m, key(c))
+	}
+	press(m, special(tea.KeyEnter))
+
+	if got := m.Selected(); got != "s07" {
+		t.Errorf("enter jumped to %q after typing an exact title, want s07", got)
 	}
 }

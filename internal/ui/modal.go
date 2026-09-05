@@ -109,23 +109,17 @@ func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// onEditorKey edits the buffer.
-//
-// Typed text comes from msg.Text, which carries the character with its
-// modifiers already applied, so a capital arrives as "F". The keystroke name
-// would be "shift+f", which the old guard on len([]rune(key)) == 1 silently
-// dropped: you could not type a capital into a session title. The note editor
-// has always done it this way (#22).
+// onEditorKey edits the buffer. The keystroke handling itself is editKey,
+// shared with the review column's note editor - copying it is what dropped the
+// blank-input guard the first time (#41).
 func (m *Model) onEditorKey(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.Keystroke() {
-	case "esc":
+	buffer, action := editKey(m.modal.Editor.Buffer, msg)
+	m.modal.Editor.Buffer = buffer
+	switch action {
+	case editCancel:
 		m.modal = modal{}
-	case "enter":
+	case editCommit:
 		return m.commitEditor()
-	case "backspace":
-		m.modal.Editor.Buffer = trimLastRune(m.modal.Editor.Buffer)
-	default:
-		m.modal.Editor.Buffer += msg.Text
 	}
 	return nil
 }

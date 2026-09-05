@@ -197,9 +197,10 @@ func elideMiddle(s string, width int) string {
 // with a cursor block, then how to get out. The keys are repeated in the
 // footer, but an operator looking at a box wants them next to the box.
 func (m *Model) editorLines() []string {
+	w, _ := PaneSize(m.width, m.height, m.review.Open)
 	return []string{
 		"",
-		m.editorLabel() + ": " + m.modal.Editor.Buffer + "_",
+		editLine(m.editorLabel(), m.modal.Editor.Buffer, w),
 		"",
 		"enter to confirm, esc to cancel",
 	}

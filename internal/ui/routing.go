@@ -136,7 +136,7 @@ func (m *Model) navigate(key string) tea.Cmd {
 func (m *Model) paneCommand(key string) tea.Cmd {
 	switch key {
 	case "r":
-		return m.restartFocused()
+		return m.restartSelected()
 	case "d":
 		return m.toggleView(ViewDiff)
 	case "f":

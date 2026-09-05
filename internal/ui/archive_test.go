@@ -98,14 +98,14 @@ func openArchive(t *testing.T, m *ui.Model, id string) {
 	// cursor spun forever and turned a mistargeted assertion into a package
 	// timeout with no message. Tests are self-validating (#40).
 	for range m.SidebarRows() {
-		if m.Focused() == id {
+		if m.Selected() == id {
 			break
 		}
 		press(m, ctrl('o'))
 		press(m, key('j'))
 	}
-	if m.Focused() != id {
-		t.Fatalf("could not put the cursor on %q; it stopped on %q", id, m.Focused())
+	if m.Selected() != id {
+		t.Fatalf("could not put the cursor on %q; it stopped on %q", id, m.Selected())
 	}
 	press(m, ctrl('o'))
 	press(m, key('x'))
@@ -162,7 +162,7 @@ func TestModel_archiveTearsDownEverythingTheSessionOwned_issue40(t *testing.T) {
 	if fakes["s2"].Closed || fakes["s3"].Closed {
 		t.Error("archiving one session closed another")
 	}
-	if got := m.View().Content; strings.Contains(got, "» ") && m.Focused() == "s1" {
+	if got := m.View().Content; strings.Contains(got, "» ") && m.Selected() == "s1" {
 		t.Errorf("the archived session is still selected:\n%s", got)
 	}
 }
@@ -204,7 +204,7 @@ func TestModel_archiveSizesWhicheverSessionTheCursorLandsOn_issue40(t *testing.T
 
 	press(m, key('y'))
 
-	landed := m.Focused()
+	landed := m.Selected()
 	if landed == "" || landed == "s1" {
 		t.Fatalf("cursor is on %q after archiving s1, want another session", landed)
 	}

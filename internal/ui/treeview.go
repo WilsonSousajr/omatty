@@ -64,9 +64,15 @@ func (m *Model) renderPreview(w, rows int) []string {
 	if p.Binary {
 		return []string{mutedStyle.Render(p.Path + " is a binary file")}
 	}
-	end := min(m.review.PreviewOffset+rows, len(p.Lines))
+	// The offset is re-clamped here rather than trusted, for the reason
+	// renderEntries and renderTree give: a resize changes rows after the cursor
+	// last moved. Growing the window used to strand a bottom-scrolled preview
+	// against a taller pane, showing its last few lines above a column of
+	// blanks (#94, #95).
+	start := min(m.review.PreviewOffset, max(len(p.Lines)-rows, 0))
+	end := min(start+rows, len(p.Lines))
 	out := make([]string, 0, rows)
-	for i := m.review.PreviewOffset; i < end; i++ {
+	for i := start; i < end; i++ {
 		out = append(out, m.fitContent(previewRow(i, p.Lines[i]), w))
 	}
 	if p.Truncated && end == len(p.Lines) {

@@ -4,15 +4,21 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-
-	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
+
+// RepoRooter is the slice of vcs.Git the registry needs. Declared narrow so a
+// fake in a caller's tests carries one method rather than nine - cmd/omatty's
+// adapters could not be tested at all while they demanded the concrete *vcs.CLI
+// (#91).
+type RepoRooter interface {
+	RepoRoot(dir string) (string, error)
+}
 
 // AddProject registers the git repository containing dir, naming it after
 // the repository's own directory. It is the whole of `omatty add`.
 //
 //	p, err := registry.AddProject(store, vcs.NewCLI(), cwd)
-func AddProject(s *Store, git vcs.Git, dir string) (Project, error) {
+func AddProject(s *Store, git RepoRooter, dir string) (Project, error) {
 	root, err := git.RepoRoot(dir)
 	if err != nil {
 		// Deliberately does not assert the cause: the path may be missing, a
@@ -53,7 +59,7 @@ type Registration struct {
 // collision policy would have had to be made twice or the two would disagree.
 //
 //	for _, r := range registry.RegisterAll(store, git, roots) { ... }
-func RegisterAll(s *Store, git vcs.Git, roots []string) []Registration {
+func RegisterAll(s *Store, git RepoRooter, roots []string) []Registration {
 	out := make([]Registration, 0, len(roots))
 	for _, root := range roots {
 		p, err := AddProject(s, git, root)
