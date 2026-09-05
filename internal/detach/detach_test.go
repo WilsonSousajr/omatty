@@ -13,10 +13,20 @@ import (
 
 // claudeCommand is the command the supervisor hands the holder: exactly what
 // omatty runs today, before any detach layer touches it.
+//
+// Built by hand rather than with exec.Command, which resolves the binary on
+// PATH and records the failure in cmd.Err when it cannot find one. Wrap now
+// refuses such a command, which is the point of the fix - so exec.Command here
+// made every test below pass or fail on whether claude happened to be installed
+// on the machine. It is on the author's and not on CI, so this shipped green
+// locally and red on ubuntu. Path is what a successful lookup would have left
+// behind; Args is what Wrap actually reads (#43).
 func claudeCommand() *exec.Cmd {
-	cmd := exec.Command("claude", "--resume", "abc-123", "--settings", "/home/u/.omatty/hooks.json")
-	cmd.Dir = "/w/parser-fix"
-	return cmd
+	return &exec.Cmd{
+		Path: "/usr/local/bin/claude",
+		Args: []string{"claude", "--resume", "abc-123", "--settings", "/home/u/.omatty/hooks.json"},
+		Dir:  "/w/parser-fix",
+	}
 }
 
 func TestPlain_WrapReturnsTheCommandUnchanged(t *testing.T) {
