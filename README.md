@@ -9,11 +9,14 @@ and shows sessions from *several* repositories side by side.
 
 ## Status
 
-**M3: review.** Projects and sessions are registered, worktrees are created,
-and the real `claude` binary runs inside an embedded terminal pane (M1). The
-sidebar shows live per-session status (M2). A diff pane reviews what a session
-changed and sends your comments back as one message (M3). The file tree is
-next.
+**M6: persistence.** Projects and sessions are registered, worktrees are
+created, and the real `claude` binary runs inside an embedded terminal pane
+(M1). The sidebar shows live per-session status (M2). A diff pane reviews what
+a session changed and sends your comments back as one message, beside a file
+tree of its worktree (M3). Sessions can be renamed, archived, switched between
+by name, and their projects discovered (M4). With `dtach` installed, quitting
+detaches instead of ending them and relaunching reattaches; sessions claude
+already has can be adopted (M6).
 
 ## Install
 
@@ -44,6 +47,7 @@ run last week's code while the tests pass on this week's.
 
 ```bash
 omatty discover                       # pick from the repos claude already knows
+omatty adopt my-app                   # pick from the claude sessions already in it
 omatty add ~/Projects/my-app          # or register one by hand
 omatty new my-app main                # a session on the main checkout
 omatty new my-app parser-fix parser-fix   # a session on a fresh worktree
@@ -71,6 +75,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o x` | archive the selected session |
 | `ctrl+o /` | jump to a session by typing part of its name |
 | `ctrl+o a` | register a project claude already knows you use |
+| `ctrl+o A` | adopt a claude session already in this project |
 | `ctrl+o q` | quit |
 
 `ctrl+o R` opens the session's title for editing, pre-filled, so correcting a
@@ -92,6 +97,15 @@ and `k` are filter text here rather than movement — `ctrl+j` and `ctrl+k` move
 
 `ctrl+o a` is `omatty discover` inside the TUI: the same proposed list, `tab`
 to mark several, `enter` to register them all at once.
+
+`ctrl+o A` is the same thing one level down: the claude sessions already in the
+project under the cursor that omatty does not yet track, titled by the first
+thing you typed in each. Adopting one registers it and opens it in a pane,
+resumed where it left off. It is how a session you started in a plain terminal,
+or one lost from `state.json`, gets back on the sidebar. `omatty adopt
+<project>` does the same from the command line. An adopted session is never
+treated as a worktree omatty owns, so archiving it will not offer to delete its
+directory.
 
 `esc`, `shift+tab`, `ctrl+r` and `ctrl+c` all reach Claude untouched.
 

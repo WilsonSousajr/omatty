@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-09-04, when M4 was built and opened for review.
+Last revised 2026-09-05, when M6 was built and opened for review.
 
 omatty is a terminal ADE: several projects and several parallel Claude Code
 sessions in one window, each session the real `claude` binary in an embedded
@@ -21,7 +21,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M3 | Review | **Done.** #21-#24 merged to develop; diff, comments, submit, file tree. |
 | M4 | Lifecycle | **In review.** #95, #41, #40, #42, #91, #103 built as PRs #98-#104. |
 | M5 | File tree | Folded into M3 on 2026-09-03; #24 shipped there. |
-| M6 | Persistence | Planned. Issue #43 in Backlog. |
+| M6 | Persistence | **In review.** #43 and #122 built as PRs #121 and the adoption PR. |
 | M7 | Reach | Planned. Issues #44-#46 in Backlog. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
@@ -224,6 +224,12 @@ than tmux, so omatty inherits no prefix key, no status bar and no nested
 multiplexer. On relaunch omatty attaches to the socket instead of starting a
 new process. #36's `--resume` remains the fallback when the socket is gone.
 
+**dtach is optional**, which was not obvious when this was planned. It is not
+installed by default anywhere, so requiring it would have made omatty harder to
+run in exchange for a feature you only notice when you quit. Absent, omatty
+behaves exactly as it did before and says so once in the footer - the same
+degradation as a hook socket that will not bind (#49).
+
 **Why this late:** it was cut from v1 and you confirmed it is not the top
 pain. It is the biggest technical risk left - nested terminal emulation on
 top of a detached PTY - and it is fully isolated from everything above it. It
@@ -234,8 +240,36 @@ session from its transcript and resuming it, and reattaching to a session
 omatty itself started, are the same problem seen from two sides; M6 is where
 that machinery exists. M4 discovers projects only.
 
+Built as #122: `ctrl+o A` lists the claude sessions in the project under the
+cursor that omatty does not already hold, titled by their first typed prompt,
+and adopting one registers it and starts it. `omatty adopt <project>` is the
+CLI twin. An adopted session records `worktree: false`, because omatty did not
+create that directory and archive must never offer to delete it (#40).
+
 **Done when:** you quit omatty mid-turn, relaunch, and the turn finishes on
 screen.
+
+**Built** on 2026-09-05 as two PRs to `develop`, one issue each: #43
+(persistence) and #122 (adoption). The plan is
+`docs/superpowers/plans/2026-09-05-m6-persistence.md`.
+
+Three things worth remembering from building it:
+
+- **The unit tests could not have found either real bug.** `internal/detach`'s
+  tests assert the command line dtach is *given*, so a missing `~/.omatty/s`
+  shipped green and broke every session start; and the adoption key matched
+  `shift+A`, a spelling no terminal sends, so it opened nothing on a real
+  terminal while every test passed sending the legacy `A`. Both were found by
+  running the binary. That is rule 2 twice in one milestone.
+- **A test can pass for the wrong reason and look thorough.** `Stop`'s first
+  test killed a stand-in process and asserted it died - but the test was the
+  process's parent, so the zombie's pid still answered signal 0, `Stop` waited
+  out its whole grace period, and the test was really proving the SIGKILL
+  escalation. Reaping in a goroutine models production (dtach's master reaps
+  claude) and turned 2s into 30ms. The timing *is* the assertion.
+- **Quitting needed no code at all.** Closing the PTY ends the dtach client and
+  leaves the master, so persistence arrived by adding nothing to the quit path -
+  and the test that matters most is the one asserting quit ends *nothing*.
 
 ## M7 - Reach
 
