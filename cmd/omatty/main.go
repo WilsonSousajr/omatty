@@ -6,6 +6,7 @@
 //	omatty                            run the TUI
 //	omatty add [dir]                  register the repository containing dir
 //	omatty discover                   register from the repositories claude knows
+//	omatty adopt <project>            register claude sessions already in that project
 //	omatty new <project> <title> [branch]  create a session
 //	omatty hook                       forward a claude hook event (internal)
 //
@@ -92,9 +93,111 @@ func dispatch(cmd string, args []string, home string, store *registry.Store) err
 		return newSession(store, home, args)
 	case "discover":
 		return discoverProjects(store, home, os.Stdin)
+	case "adopt":
+		return adoptSessions(store, home, vcs.NewCLI(), args, os.Stdin)
 	default:
-		return fmt.Errorf("unknown command %q (want add, new, discover, or no argument)", cmd)
+		return fmt.Errorf("unknown command %q (want add, new, discover, adopt, or no argument)", cmd)
 	}
+}
+
+// adoptSessions lists the claude sessions in one registered project that omatty
+// does not yet hold, and registers the ones the operator picks. The CLI twin of
+// the ctrl+o A picker, and the sibling of discoverProjects: one finds
+// repositories, this finds sessions inside one (#122).
+//
+// git is a parameter rather than built here so the flow is testable without a
+// real repository; everything else follows discoverProjects exactly.
+func adoptSessions(
+	store *registry.Store, home string, git discover.Git, args []string, in io.Reader,
+) error {
+	p, err := namedProject(store, args)
+	if err != nil {
+		return err
+	}
+	cands, err := proposeSessions(store, home, git, p)
+	if err != nil {
+		return err
+	}
+	if len(cands) == 0 {
+		report("no unregistered claude sessions found in " + p.Root)
+		return nil
+	}
+	return chooseAndAdopt(store, p, cands, in)
+}
+
+// chooseAndAdopt prints the list, reads the answer, and registers each pick.
+func chooseAndAdopt(
+	store *registry.Store, p registry.Project, cands []discover.SessionCandidate, in io.Reader,
+) error {
+	for _, line := range discover.ListSessions(cands, time.Now()) {
+		report(line)
+	}
+	report("")
+	report("adopt which? (numbers, or `all`, or enter for none)")
+	picked, err := discover.ChooseSessions(cands, readLine(in))
+	if err != nil {
+		return err
+	}
+	return adoptAll(store, p.Name, picked)
+}
+
+// adoptAll registers each pick, carrying on past a failure so one bad row does
+// not abandon the rest of a bulk pick - RegisterAll's rule, for sessions (#91).
+func adoptAll(store *registry.Store, project string, picked []discover.SessionCandidate) error {
+	for _, c := range picked {
+		sess, err := registry.AdoptSession(store, c.ID, project, c.Title, c.Dir)
+		if err != nil {
+			report("skipped " + c.ID + ": " + err.Error())
+			continue
+		}
+		report("adopted " + sess.ID + " (" + sess.Title + ") in " + sess.Dir)
+	}
+	return nil
+}
+
+// namedProject resolves the project argument, which adopt requires: it acts on
+// one project, so a missing name is a usage error rather than a scan of
+// everything the operator has ever registered.
+func namedProject(store *registry.Store, args []string) (registry.Project, error) {
+	if len(args) == 0 {
+		return registry.Project{}, fmt.Errorf("adopt: want <project>, got no argument")
+	}
+	st, err := store.Load()
+	if err != nil {
+		return registry.Project{}, err
+	}
+	for _, p := range st.Projects {
+		if p.Name == args[0] {
+			return p, nil
+		}
+	}
+	return registry.Project{}, fmt.Errorf("adopt: no project named %q is registered", args[0])
+}
+
+// proposeSessions is the scan: the project's sessions, minus the ones state.json
+// already holds.
+func proposeSessions(
+	store *registry.Store, home string, git discover.Git, p registry.Project,
+) ([]discover.SessionCandidate, error) {
+	ids, err := registeredSessionIDs(store)
+	if err != nil {
+		return nil, err
+	}
+	return discover.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids)
+}
+
+// registeredSessionIDs is what state.json already holds, so adoption does not
+// offer a session that can only fail on commit (#91, #122).
+func registeredSessionIDs(store *registry.Store) ([]string, error) {
+	st, err := store.Load()
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(st.Sessions))
+	for _, s := range st.Sessions {
+		ids = append(ids, s.ID)
+	}
+	return ids, nil
 }
 
 // discoverProjects lists the repositories claude has been used in and
