@@ -32,6 +32,9 @@ const (
 	// (#91). A separate kind rather than a flag on the list, because only the
 	// commit differs and Kind is what already selects a commit.
 	modalPicker
+	// modalHelp lists every leader key, opened with ? (#103). It takes no
+	// input at all: any key closes it.
+	modalHelp
 )
 
 // modal is the open surface's state. Only the member matching Kind is live;
@@ -92,6 +95,8 @@ func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.onConfirmKey(msg.Keystroke())
 	case modalList, modalPicker:
 		return m.onListKey(msg)
+	case modalHelp:
+		return m.onHelpKey(msg.Keystroke())
 	}
 	return nil
 }
@@ -113,6 +118,20 @@ func (m *Model) onEditorKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.modal.Editor.Buffer = trimLastRune(m.modal.Editor.Buffer)
 	default:
 		m.modal.Editor.Buffer += msg.Text
+	}
+	return nil
+}
+
+// onHelpKey dismisses the keymap.
+//
+// esc only, not "any key". A modal makes the terminal unfocused, so the router
+// never arms the leader while one is open - which means a help box that closed
+// on any key would swallow the ctrl+o of `ctrl+o q` and send the q straight to
+// Claude. Found by the M4 smoke test, where a literal q appeared in the pane
+// (#103).
+func (m *Model) onHelpKey(key string) tea.Cmd {
+	if key == "esc" {
+		m.modal = modal{}
 	}
 	return nil
 }
