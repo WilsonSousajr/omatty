@@ -59,6 +59,10 @@ type Deps struct {
 	// (#91).
 	Discover   DiscoverFunc
 	AddProject AddProjectFunc
+	// AdoptPropose lists the claude sessions inside a project that omatty does
+	// not yet hold, and AdoptCommit registers the chosen ones (#122).
+	AdoptPropose AdoptFunc
+	AdoptCommit  AdoptCommitFunc
 	// Stop ends the claude a detach holder keeps alive for a session. It is
 	// called when a session is archived and never when omatty quits, which is
 	// the whole point of holding it (#43).
@@ -113,6 +117,12 @@ type Model struct {
 	tailStop         func(sessionID string)
 	discover         DiscoverFunc
 	registerProjects AddProjectFunc
+	adoptPropose     AdoptFunc
+	adoptCommit      AdoptCommitFunc
+	// adoptable is the last adoption scan's proposals, kept so committing a
+	// marked row resolves back to the proposal it came from - a pickItem
+	// carries a label and a detail, not a working directory (#122).
+	adoptable []SessionProposal
 	// scanToken numbers discovery scans so a stale result cannot overwrite a
 	// newer picker (#91).
 	scanToken int
@@ -204,6 +214,12 @@ func (d Deps) withDiscoveryDefaults() Deps {
 	if d.AddProject == nil {
 		d.AddProject = noAddProject
 	}
+	if d.AdoptPropose == nil {
+		d.AdoptPropose = noAdopt
+	}
+	if d.AdoptCommit == nil {
+		d.AdoptCommit = noAdoptCommit
+	}
 	return d
 }
 
@@ -234,6 +250,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.rename, m.archive = d.Rename, d.Archive
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
 	m.discover, m.registerProjects = d.Discover, d.AddProject
+	m.adoptPropose, m.adoptCommit = d.AdoptPropose, d.AdoptCommit
 	m.stop, m.notice = d.Stop, d.Notice
 	return m
 }
@@ -322,14 +339,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // onDataMsg handles the results of work that ran off the Update goroutine, then
-// falls through to window focus and the broadcast.
+// falls through to onSessionMsg and, past that, window focus and the broadcast.
 //
-// One named switch rather than a default arm that is really a second, unnamed
-// one. Every case here must be matched by type, because anything unmatched
-// reaches broadcast and is fanned out to every emulator at once - so the next
-// person adding a message type has to see this list, not discover it. The mouse
+// Named switches rather than a default arm that is really a second, unnamed
+// one. Every case must be matched by type, because anything unmatched reaches
+// broadcast and is fanned out to every emulator at once - so the next person
+// adding a message type has to see these lists, not discover them. The mouse
 // has its own case in Update for the same reason: a pointer event carries
 // window coordinates that mean nothing to an individual pane (#40, #107).
+//
+// The split into two is paneCommand's: one table ran past the length limit, and
+// the second is named here so the pair still reads as one list (#122).
 func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	switch typed := msg.(type) {
 	case StatusMsg:
@@ -340,8 +360,18 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 		return m.onFilesLoaded(typed)
 	case WorktreeRemovedMsg:
 		return m.onWorktreeRemoved(typed)
+	}
+	return m.onSessionMsg(msg)
+}
+
+// onSessionMsg is onDataMsg's second table: the messages that change which
+// sessions exist, or which process is behind one.
+func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
+	switch typed := msg.(type) {
 	case ProjectsProposedMsg:
 		return m.onProjectsProposed(typed)
+	case SessionsProposedMsg:
+		return m.onSessionsProposed(typed)
 	case sessionRelaunchMsg:
 		return m.relaunch(typed.Session)
 	}
@@ -451,6 +481,18 @@ func (m *Model) addSession(project, title, branch string) (tea.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
+	return m.foldInSession(sess)
+}
+
+// foldInSession brings a session omatty has just learned about into the running
+// app: its terminal, its state, its sidebar row, its tailer.
+//
+// Shared by creation (#32) and adoption (#122), which differ only in where the
+// Session came from - the registry made one, the transcript store named the
+// other. Every step here is load-bearing, and a second copy that dropped one
+// would fail quietly: no terminal is a row you cannot focus, no tailer is a
+// session that never shows status (#33).
+func (m *Model) foldInSession(sess registry.Session) (tea.Cmd, error) {
 	w, h := m.ptySize()
 	term, err := m.start(sess, w, h)
 	if err != nil {
@@ -460,7 +502,8 @@ func (m *Model) addSession(project, title, branch string) (tea.Cmd, error) {
 	m.state.Sessions = append(m.state.Sessions, sess)
 	m.sidebar = NewSidebar(SidebarRows(m.state, m.statusMap()))
 	if !m.selectSession(sess.ID) {
-		slog.Warn("a new session is not in the rebuilt sidebar", "session", sess.ID, "project", project)
+		slog.Warn("a new session is not in the rebuilt sidebar",
+			"session", sess.ID, "project", sess.Project)
 	}
 	m.tailStart(sess)
 	// The new terminal needs its own poll started; the others already have

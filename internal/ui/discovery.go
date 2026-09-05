@@ -170,9 +170,14 @@ func (m *Model) commitDiscovery() tea.Cmd {
 
 // pickerFooter names the marking key, which is the picker's one difference
 // from the switcher.
-func pickerFooter(marked int) string {
+func pickerFooter(marked int) string { return markFooter(marked, "register") }
+
+// markFooter is both pickers' footer, with the verb the enter key performs
+// passed in. One function rather than two near-copies, so the two cannot say
+// different things about the same key (#122).
+func markFooter(marked int, verb string) string {
 	if marked == 0 {
-		return "type to filter  ctrl+j/ctrl+k move  tab mark  enter register  esc cancel"
+		return "type to filter  ctrl+j/ctrl+k move  tab mark  enter " + verb + "  esc cancel"
 	}
-	return "marked " + strconv.Itoa(marked) + "  tab mark  enter register  esc cancel"
+	return "marked " + strconv.Itoa(marked) + "  tab mark  enter " + verb + "  esc cancel"
 }

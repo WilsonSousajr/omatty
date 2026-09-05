@@ -25,6 +25,32 @@ func List(cands []Candidate, now time.Time) []string {
 	return lines
 }
 
+// ListSessions renders adoptable sessions as numbered lines for `omatty adopt`,
+// newest first, each with its title and when it was last used (#122).
+//
+//	for _, line := range discover.ListSessions(cands, time.Now()) { report(line) }
+//
+// The title rather than the id leads, because a uuid tells the operator nothing
+// about which session it is; the id is shown too, since it is what `--resume`
+// takes and what appears in an error.
+func ListSessions(cands []SessionCandidate, now time.Time) []string {
+	lines := make([]string, 0, len(cands))
+	for i, c := range cands {
+		lines = append(lines, fmt.Sprintf("%2d  %-40s %s  (%s)",
+			i+1, c.Title, shortID(c.ID), ago(now, c.LastUsed)))
+	}
+	return lines
+}
+
+// shortID is the leading block of a uuid, which is enough to tell two sessions
+// apart in a list without spending forty columns on one.
+func shortID(id string) string {
+	if i := strings.IndexByte(id, '-'); i > 0 {
+		return id[:i]
+	}
+	return id
+}
+
 // ago is a coarse "how long since", enough to tell this week from last year.
 //
 // Prose, where ui.AgeString is glyphs ("3d"): this renders into a CLI list an
@@ -64,6 +90,47 @@ func plural(n int, unit string) string {
 //
 //	picked, err := discover.Choose(cands, "1 3")
 func Choose(cands []Candidate, selection string) ([]Candidate, error) {
+	return pick(cands, selection)
+}
+
+// ChooseSessions is Choose over adoptable sessions, for `omatty adopt` (#122).
+// The grammar is identical on purpose: an operator who has learnt one list has
+// learnt the other.
+//
+//	picked, err := discover.ChooseSessions(cands, "1 3")
+func ChooseSessions(cands []SessionCandidate, selection string) ([]SessionCandidate, error) {
+	return pick(cands, selection)
+}
+
+// pick resolves a typed selection into the entries it names.
+//
+// Generic over the candidate type so the grammar exists once. The two callers
+// differ only in what a row is, and a policy written twice drifts - the reason
+// RegisterAll exists rather than a loop in cmd and another in ui (#91, #122).
+func pick[T any](cands []T, selection string) ([]T, error) {
+	indices, all, err := parseSelection(selection, len(cands))
+	if err != nil {
+		return nil, err
+	}
+	if all {
+		return cands, nil
+	}
+	picked := make([]T, 0, len(indices))
+	for _, i := range indices {
+		picked = append(picked, cands[i])
+	}
+	return picked, nil
+}
+
+// parseSelection turns "1 3", "1,3" or "all" into zero-based indices.
+//
+// It returns nothing for an empty selection, which is how you back out:
+// discovery and adoption both propose, and nothing is registered without being
+// asked for (invariant 9).
+//
+// One bad field rejects the whole selection rather than registering the good
+// half: a partial answer to "which of these" is not an answer.
+func parseSelection(selection string, n int) (indices []int, all bool, err error) {
 	// Any whitespace, not just the space bar: a tab-separated answer, or one
 	// pasted back out of the rendered table, parsed as a single field and was
 	// rejected as "not a number" - and the error exits, discarding the scan
@@ -72,32 +139,31 @@ func Choose(cands []Candidate, selection string) ([]Candidate, error) {
 		return r == ',' || unicode.IsSpace(r)
 	})
 	if len(fields) == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 	if len(fields) == 1 && strings.EqualFold(fields[0], "all") {
-		return cands, nil
+		return nil, true, nil
 	}
-	picked := make([]Candidate, 0, len(fields))
 	for _, f := range fields {
-		c, err := at(cands, f)
+		i, err := indexOf(f, n)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		picked = append(picked, c)
+		indices = append(indices, i)
 	}
-	return picked, nil
+	return indices, false, nil
 }
 
-// at resolves one 1-based entry from the printed list.
-func at(cands []Candidate, field string) (Candidate, error) {
-	n, err := strconv.Atoi(field)
+// indexOf resolves one 1-based entry from the printed list.
+func indexOf(field string, n int) (int, error) {
+	i, err := strconv.Atoi(field)
 	if err != nil {
-		return Candidate{}, fmt.Errorf(
+		return 0, fmt.Errorf(
 			"discover: %q is not a number; want numbers from the list, or `all`", field)
 	}
-	if n < 1 || n > len(cands) {
-		return Candidate{}, fmt.Errorf(
-			"discover: %d is out of range; the list has %d entries", n, len(cands))
+	if i < 1 || i > n {
+		return 0, fmt.Errorf(
+			"discover: %d is out of range; the list has %d entries", i, n)
 	}
-	return cands[n-1], nil
+	return i - 1, nil
 }

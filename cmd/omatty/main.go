@@ -6,6 +6,7 @@
 //	omatty                            run the TUI
 //	omatty add [dir]                  register the repository containing dir
 //	omatty discover                   register from the repositories claude knows
+//	omatty adopt <project>            register claude sessions already in that project
 //	omatty new <project> <title> [branch]  create a session
 //	omatty hook                       forward a claude hook event (internal)
 //
@@ -92,9 +93,103 @@ func dispatch(cmd string, args []string, home string, store *registry.Store) err
 		return newSession(store, home, args)
 	case "discover":
 		return discoverProjects(store, home, os.Stdin)
+	case "adopt":
+		return adoptSessions(store, home, vcs.NewCLI(), args, os.Stdin)
 	default:
-		return fmt.Errorf("unknown command %q (want add, new, discover, or no argument)", cmd)
+		return fmt.Errorf("unknown command %q (want add, new, discover, adopt, or no argument)", cmd)
 	}
+}
+
+// adoptSessions lists the claude sessions in one registered project that omatty
+// does not yet hold, and registers the ones the operator picks. The CLI twin of
+// the ctrl+o A picker, and the sibling of discoverProjects: one finds
+// repositories, this finds sessions inside one (#122).
+//
+// git is a parameter rather than built here so the flow is testable without a
+// real repository; everything else follows discoverProjects exactly.
+func adoptSessions(
+	store *registry.Store, home string, git discover.Git, args []string, in io.Reader,
+) error {
+	p, err := namedProject(store, args)
+	if err != nil {
+		return err
+	}
+	cands, err := proposeSessions(store, home, git, p)
+	if err != nil {
+		return err
+	}
+	if len(cands) == 0 {
+		report("no unregistered claude sessions found in " + p.Root)
+		return nil
+	}
+	return chooseAndAdopt(store, p, cands, in)
+}
+
+// chooseAndAdopt prints the list, reads the answer, and registers each pick.
+func chooseAndAdopt(
+	store *registry.Store, p registry.Project, cands []discover.SessionCandidate, in io.Reader,
+) error {
+	for _, line := range discover.ListSessions(cands, time.Now()) {
+		report(line)
+	}
+	report("")
+	report("adopt which? (numbers, or `all`, or enter for none)")
+	picked, err := discover.ChooseSessions(cands, readLine(in))
+	if err != nil {
+		return err
+	}
+	return adoptAll(store, vcs.NewCLI(), p.Name, picked)
+}
+
+// adoptAll reports what registry.AdoptAll did with each pick. The loop is the
+// registry's; this one only says so on stdout (invariant 10).
+func adoptAll(
+	store *registry.Store, git registry.SessionBrancher,
+	project string, picked []discover.SessionCandidate,
+) error {
+	for _, a := range registry.AdoptAll(store, git, project, sessionPicks(picked)) {
+		if a.Err != nil {
+			report("skipped: " + a.Err.Error())
+			continue
+		}
+		report("adopted " + a.Session.ID + " (" + a.Session.Title + ") in " + a.Session.Dir)
+	}
+	return nil
+}
+
+// sessionPicks narrows candidates to what the registry writes a row from.
+func sessionPicks(picked []discover.SessionCandidate) []registry.SessionPick {
+	out := make([]registry.SessionPick, 0, len(picked))
+	for _, c := range picked {
+		out = append(out, registry.SessionPick{ID: c.ID, Title: c.Title, Dir: c.Dir})
+	}
+	return out
+}
+
+// namedProject resolves the project argument, which adopt requires: it acts on
+// one project, so a missing name is a usage error rather than a scan of
+// everything the operator has ever registered.
+func namedProject(store *registry.Store, args []string) (registry.Project, error) {
+	if len(args) == 0 {
+		return registry.Project{}, fmt.Errorf("adopt: want <project>, got no argument")
+	}
+	p, err := registry.NamedProject(store, args[0])
+	if err != nil {
+		return registry.Project{}, fmt.Errorf("adopt: %w", err)
+	}
+	return p, nil
+}
+
+// proposeSessions is the scan: the project's sessions, minus the ones state.json
+// already holds.
+func proposeSessions(
+	store *registry.Store, home string, git discover.Git, p registry.Project,
+) ([]discover.SessionCandidate, error) {
+	ids, err := registry.KnownSessionIDs(store)
+	if err != nil {
+		return nil, err
+	}
+	return discover.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids)
 }
 
 // discoverProjects lists the repositories claude has been used in and
@@ -224,21 +319,63 @@ func tuiDeps(
 	// One holder, used twice: it wraps each launch and it ends an archived
 	// session's claude. Two would mean two PATH lookups that could disagree.
 	holder := detach.New(home)
-	return ui.RunDeps{
+	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
-		Stop:           holder.Stop,
-		Notice:         holder.Notice(),
-		Launch:         supervisor.NewLauncher("claude", hooksFile, home, holder),
-		Factory:        termwrap.Start,
-		Create:         sessionCreator(home, store),
-		Diff:           review.NewSource(git).Load,
-		Files:          git.ListFiles,
-		Rename:         sessionRenamer(store),
-		Archive:        sessionArchiver(store),
-		RemoveWorktree: git.RemoveWorktree,
-		Discover:       projectProposer(store, home, git),
-		AddProject:     projectRegistrar(store, git),
+		Stop:    holder.Stop,
+		Notice:  holder.Notice(),
+		Launch:  supervisor.NewLauncher("claude", hooksFile, home, holder),
+		Factory: termwrap.Start,
+		Create:  sessionCreator(home, store),
+		Diff:    review.NewSource(git).Load,
+		Files:   git.ListFiles,
 	}
+	return withStoreDeps(deps, store, home, git)
+}
+
+// wiringGit is the slice of vcs.CLI the dependency wiring below needs.
+//
+// Declared narrow so these adapters can be built with a fake. While they
+// demanded the concrete *vcs.CLI not one of them could be called from a test -
+// the defect registry.RepoRooter's own doc records for #91, and the reason
+// main_test.go concedes this wiring is covered only by the milestone's PTY
+// smoke test (#122).
+type wiringGit interface {
+	registry.RepoRooter
+	registry.SessionBrancher
+	discover.Git
+	RemoveWorktree(repoRoot, dir string) error
+}
+
+// withStoreDeps adds the dependencies that close over the registry store: the
+// lifecycle commands (#40, #41) and the two pickers that propose from claude's
+// own transcript store (#91, #122).
+//
+// Split from tuiDeps because the one list ran past the twenty-line limit when
+// adoption arrived. The seam is where it is because these all share the store,
+// and the fields above share nothing but the window.
+func withStoreDeps(
+	deps ui.RunDeps, store *registry.Store, home string, git wiringGit,
+) ui.RunDeps {
+	return withPickerDeps(withLifecycleDeps(deps, store, git), store, home, git)
+}
+
+// withLifecycleDeps adds rename, archive and worktree removal (#40, #41).
+func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui.RunDeps {
+	deps.Rename = sessionRenamer(store)
+	deps.Archive = sessionArchiver(store)
+	deps.RemoveWorktree = git.RemoveWorktree
+	return deps
+}
+
+// withPickerDeps adds the project picker (#91) and the adoption picker (#122).
+func withPickerDeps(
+	deps ui.RunDeps, store *registry.Store, home string, git wiringGit,
+) ui.RunDeps {
+	deps.Discover = projectProposer(store, home, git)
+	deps.AddProject = projectRegistrar(store, git)
+	deps.AdoptPropose = sessionProposer(store, home, git)
+	deps.AdoptCommit = sessionAdopter(store, git)
+	return deps
 }
 
 // projectProposer adapts discover.Propose to ui.DiscoverFunc.
@@ -261,6 +398,44 @@ func projectProposer(store *registry.Store, home string, git discover.Git) ui.Di
 			proposals = append(proposals, ui.Proposal{Name: c.Name, Root: c.Root, LastUsed: c.LastUsed})
 		}
 		return proposals, nil
+	}
+}
+
+// sessionProposer adapts discover.ProposeSessions to ui.AdoptFunc.
+//
+// LastUsed and Dir are carried across rather than flattened away: one orders
+// the list and the other is where the adopted session must actually start, and
+// they differ for a session that ran in a linked worktree (#122).
+func sessionProposer(store *registry.Store, home string, git discover.Git) ui.AdoptFunc {
+	return func(projectRoot string) ([]ui.SessionProposal, error) {
+		ids, err := registry.KnownSessionIDs(store)
+		if err != nil {
+			return nil, err
+		}
+		cands, err := discover.ProposeSessions(paths.TranscriptsDir(home), git, projectRoot, ids)
+		if err != nil {
+			return nil, err
+		}
+		proposals := make([]ui.SessionProposal, 0, len(cands))
+		for _, c := range cands {
+			proposals = append(proposals, ui.SessionProposal{
+				ID: c.ID, Title: c.Title, Dir: c.Dir, LastUsed: c.LastUsed,
+			})
+		}
+		return proposals, nil
+	}
+}
+
+// sessionAdopter adapts registry.AdoptAll to ui.AdoptCommitFunc, reporting one
+// result per pick in the order given so the picker can name the row that failed
+// rather than the batch - and can start the row the registry actually wrote.
+func sessionAdopter(store *registry.Store, git registry.SessionBrancher) ui.AdoptCommitFunc {
+	return func(project string, picks []ui.SessionProposal) []registry.Adoption {
+		out := make([]registry.SessionPick, 0, len(picks))
+		for _, p := range picks {
+			out = append(out, registry.SessionPick{ID: p.ID, Title: p.Title, Dir: p.Dir})
+		}
+		return registry.AdoptAll(store, git, project, out)
 	}
 }
 
