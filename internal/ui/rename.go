@@ -34,10 +34,10 @@ func (m *Model) openRename() {
 	if !ok {
 		return
 	}
-	m.modal = modal{
+	m.openModal(modal{
 		Kind:   modalRename,
 		Editor: lineEditor{Target: row.Session.ID, Buffer: row.Session.Title},
-	}
+	})
 }
 
 // commitRename persists the new title and rebuilds the sidebar. The editor

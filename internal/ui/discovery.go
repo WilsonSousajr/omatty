@@ -75,11 +75,11 @@ type ProjectsProposedMsg struct {
 func (m *Model) openDiscovery() tea.Cmd {
 	m.scanToken++
 	token := m.scanToken
-	m.modal = modal{
+	m.openModal(modal{
 		Kind: modalPicker,
 		List: newPickList("scanning for repositories", nil, true),
 		Scan: token,
-	}
+	})
 	propose := m.discover
 	return func() tea.Msg {
 		proposals, err := propose()

@@ -135,12 +135,21 @@ func (m *Model) toggleView(v ReviewView) tea.Cmd {
 	if id == "" {
 		return nil
 	}
-	if !m.review.Open || m.review.SessionID != id {
+	// A column already open on this session keeps what it loaded. Switching
+	// between the diff and the tree changes neither the session nor the pane's
+	// width, so re-forking git for a diff already in memory is the stall
+	// loadDiff's own comment exists to avoid, and re-issuing an identical
+	// Resize sends claude a needless SIGWINCH and a full repaint (#95).
+	reopened := !m.review.Open || m.review.SessionID != id
+	if reopened {
 		m.review = ReviewPane{Open: true, SessionID: id}
 	}
 	// Each view is a different shape of text, so a pan that made sense in one
 	// is meaningless in the next: switching starts at the left edge (#94).
 	m.review.View, m.review.Focused, m.review.ColOffset = v, true, 0
+	if !reopened {
+		return nil
+	}
 	return tea.Batch(m.resizeSelected(), m.loadDiff(id), m.loadFiles(id))
 }
 
@@ -274,4 +283,15 @@ func (m *Model) refreshReview(id string, before, after watcher.Status) tea.Cmd {
 		return nil
 	}
 	return m.loadDiff(id)
+}
+
+// reviewOwnsKeys reports whether a plain keystroke would reach the review
+// column right now.
+//
+// m.review.Focused alone is not that question: a modal takes the keyboard
+// without clearing the flag, so the footer went on advertising j/k, c, d, r, S
+// and esc while every one of them typed a character into the prompt instead.
+// One flag was answering two questions, which is the confusion #95 came from.
+func (m *Model) reviewOwnsKeys() bool {
+	return m.review.Focused && !m.modalOpen()
 }

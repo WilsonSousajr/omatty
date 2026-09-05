@@ -281,3 +281,31 @@ func TestUpdate_TheWheelIsIgnoredBehindAModal_issue107(t *testing.T) {
 		t.Errorf("page keys = %v with a modal open, want none", got)
 	}
 }
+
+// inPaneGrid bounds the wheel target on PTYSize, which shrinks when the review
+// column opens. Every other wheel test runs with the column closed, so that
+// term was never exercised by the mouse path: dropping it would let a notch
+// over the diff scroll Claude, and the suite would stay green (#107).
+func TestUpdate_TheWheelTargetShrinksWithTheReviewColumn_issue107(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	press(m, ctrl('o'))
+	press(m, key('d'))
+	press(m, special(tea.KeyEscape)) // column open, keyboard back on the pane
+
+	// A column that is inside the pane while the review column is closed, and
+	// outside it once the column takes its width.
+	ox, oy := ui.PaneOrigin()
+	wide, _ := ui.PTYSize(120, 40, false)
+	narrow, _ := ui.PTYSize(120, 40, true)
+	if narrow >= wide {
+		t.Fatalf("the review column did not narrow the pane: %d -> %d", wide, narrow)
+	}
+	for range ui.WheelNotchesPerPage * 2 {
+		m.Update(wheel(ox+narrow+1, oy+2, tea.MouseWheelDown))
+	}
+
+	if got := pageKeys(fakes["s1"].Msgs); len(got) != 0 {
+		t.Errorf("the wheel sent %v from a cell the review column now covers, want nothing", got)
+	}
+}

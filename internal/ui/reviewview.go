@@ -26,7 +26,11 @@ func (m *Model) renderReview(w, h int) string {
 	default:
 		lines = append(lines, m.reviewBody(w, h-1)...)
 	}
-	return paneBox(m.review.Focused).Render(fitBlock(lines, w, h))
+	// The modal check, not m.review.Focused alone: a modal takes the keyboard
+	// without clearing that flag, so opening ctrl+o n over a focused review
+	// column drew a focused border on both at once while every advertised key
+	// went to the prompt. The border says where a keystroke lands (#21, #95).
+	return paneBox(m.reviewOwnsKeys()).Render(fitBlock(lines, w, h))
 }
 
 // reviewTitle names what the column is showing, so a glance at the top row

@@ -48,9 +48,13 @@ func noRemoveWorktree(repoRoot, dir string) error {
 	return fmt.Errorf("ui: no worktree remover configured for %q in %q", dir, repoRoot)
 }
 
-// noTailStop is the Deps.TailStop default: with no watcher running there is no
-// tailer to stop, so doing nothing is correct rather than an error.
+// noTailStop is the Deps.TailStop default and noTailStart the Deps.TailStart
+// one: with no watcher running there is no tailer to start or stop, so doing
+// nothing is correct rather than an error. They are the two defaults that do
+// not name missing wiring, and that is deliberate.
 func noTailStop(string) {}
+
+func noTailStart(registry.Session) {}
 
 // confirmChoice is one answer in a confirmation. Key is the keystroke that
 // picks it; esc is always cancel and is not listed here.
@@ -107,13 +111,13 @@ func (m *Model) openConfirm() {
 	if !ok {
 		return
 	}
-	m.modal = modal{Kind: modalConfirm, Confirm: confirmBox{
+	m.openModal(modal{Kind: modalConfirm, Confirm: confirmBox{
 		SessionID: row.Session.ID,
 		Title:     row.Session.Title,
 		Question:  "archive session " + strconv.Quote(row.Session.Title) + "?",
 		Note:      queuedCommentsNote(m.comments[row.Session.ID]),
 		Choices:   archiveChoices(row.Session.Worktree),
-	}}
+	}})
 }
 
 // queuedCommentsNote warns that archiving discards review comments.

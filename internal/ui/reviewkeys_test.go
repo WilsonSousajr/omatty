@@ -178,3 +178,30 @@ func TestScrollOffset_KeepsTheCursorVisible(t *testing.T) {
 		}
 	}
 }
+
+// Regression, issue #41: the note editor is a keyboard-owning surface that
+// predates modalKind and sits outside it, so nothing stopped a rename box
+// opening over an active note. Two input lines were drawn at once, both panes
+// carried the focused border, and only the rename box received keys - the
+// state the single Kind field exists to make unrepresentable.
+func TestModel_openingAModalClosesTheNoteEditor_issue41(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	leader(m, key('d'))
+	down(m, 4)         // onto a line a comment can anchor to
+	press(m, key('c')) // start a note
+	press(m, key('h'))
+	press(m, key('i'))
+	if got := m.View().Content; !strings.Contains(got, "note") {
+		t.Fatalf("the note editor did not open:\n%s", got)
+	}
+
+	leader(m, shift('r', "R"))
+
+	got := m.View().Content
+	if !strings.Contains(got, "rename session") {
+		t.Fatalf("the rename box did not open over the note:\n%s", got)
+	}
+	if strings.Contains(got, "note: hi") {
+		t.Errorf("the note editor is still drawn beside the rename box:\n%s", got)
+	}
+}

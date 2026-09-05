@@ -144,9 +144,13 @@ func (d Deps) withReviewDefaults() Deps {
 	return d
 }
 
-// withLifecycleDefaults fills the rename and archive commands (#40, #41). Each
-// default names its missing wiring rather than doing nothing, so an unwired
-// dependency shows up in the pane instead of failing silently.
+// withLifecycleDefaults fills the rename and archive commands (#40, #41).
+//
+// Every default here is non-nil once this has run, so no method needs a guard -
+// which is the promise Deps makes. Most name their missing wiring so an unwired
+// dependency shows up in the pane rather than failing silently; noTailStop and
+// noTailStart are the exceptions, because with no watcher running there is
+// genuinely no tailer to start or stop and doing nothing is the right answer.
 func (d Deps) withLifecycleDefaults() Deps {
 	if d.Rename == nil {
 		d.Rename = noRename
@@ -156,6 +160,13 @@ func (d Deps) withLifecycleDefaults() Deps {
 	}
 	if d.RemoveWorktree == nil {
 		d.RemoveWorktree = noRemoveWorktree
+	}
+	if d.TailStart == nil {
+		// Defaulted alongside TailStop rather than left nil: half a dependency
+		// defaulted meant addSession still needed `if m.tailStart != nil` while
+		// dropSession did not, so a reader could not tell from Deps which
+		// injected funcs are guaranteed (#40).
+		d.TailStart = noTailStart
 	}
 	if d.TailStop == nil {
 		d.TailStop = noTailStop
@@ -394,18 +405,26 @@ func (m *Model) addSession(project, title, branch string) (tea.Cmd, error) {
 	m.terms[sess.ID] = term
 	m.state.Sessions = append(m.state.Sessions, sess)
 	m.sidebar = NewSidebar(SidebarRows(m.state, m.statusMap()))
-	m.selectSession(sess.ID)
-	if m.tailStart != nil {
-		m.tailStart(sess)
+	if !m.selectSession(sess.ID) {
+		slog.Warn("a new session is not in the rebuilt sidebar", "session", sess.ID, "project", project)
 	}
+	m.tailStart(sess)
 	// The new terminal needs its own poll started; the others already have
-	// theirs (issue #33).
-	return term.Init(), nil
+	// theirs (issue #33). followSession goes with it: this moves the selection,
+	// and every other site that moves the selection drags an open review column
+	// along. Without it the column kept showing the previous session's diff,
+	// title and comments beside the new session's terminal, and r/S/c acted on
+	// the wrong session (#21, #95).
+	return tea.Batch(term.Init(), m.followSession()), nil
 }
 
 // selectSession moves the cursor onto id, so a freshly created session is the
-// one you are looking at.
-func (m *Model) selectSession(id string) { m.sidebar.SelectByID(id) }
+// one you are looking at, and reports whether the row was there to move to.
+//
+// The bool is not discarded: a session that was just created and added to the
+// rebuilt rows and is still not found means the rebuild dropped it, which is
+// the one case addSession would want to hear about.
+func (m *Model) selectSession(id string) bool { return m.sidebar.SelectByID(id) }
 
 func trimLastRune(s string) string {
 	r := []rune(s)
@@ -423,6 +442,13 @@ func (m *Model) onResize(msg tea.WindowSizeMsg) tea.Cmd {
 		return nil
 	}
 	m.width, m.height = msg.Width, msg.Height
+	// A wider window raises the review column's width, which lowers the
+	// ceiling on how far it may be panned. Nothing else re-clamps ColOffset, so
+	// an offset left over from a narrow window made panLine drop every row
+	// shorter than it and the column rendered blank until h/l was pressed - the
+	// same "a resize reaches nothing" class #95 is about. renderEntries and
+	// renderTree already recompute their vertical offsets for this reason.
+	m.panReview(0)
 	return m.resizeSelected()
 }
 
@@ -448,17 +474,19 @@ func (m *Model) resizeSelected() tea.Cmd {
 	return term.Resize(m.ptySize())
 }
 
-// selectedTerminal is the terminal the sidebar cursor is on, whether or not it
-// currently owns the keyboard. Layout asks this one; key routing asks
-// focusedTerminal. Answering both questions with one nil is issue #95: a
-// resize arriving behind an open prompt reached no terminal at all.
-func (m *Model) selectedTerminal() termwrap.Terminal {
-	id := m.Focused()
-	if id == "" {
-		return nil
-	}
-	return m.terms[id]
-}
+// selectedTerminal is the terminal the sidebar cursor is on, whether or not any
+// surface currently owns the keyboard. Layout asks this one; key routing asks
+// focusedTerminal. Answering both questions with one nil is issue #95: a resize
+// arriving behind an open prompt reached no terminal at all.
+//
+// focusedTerminal is not "does the PTY own the keyboard" either - it only nils
+// out for a modal, and the review column and note editor take keys without one.
+// The question it answers is "no modal is open and a session is selected"; for
+// the keyboard itself, ask focus().
+//
+// No guard on an empty id: a missing key yields the nil interface the caller
+// already tests for, and a guard that cannot fire reads as an invariant.
+func (m *Model) selectedTerminal() termwrap.Terminal { return m.terms[m.Focused()] }
 
 // focusedTerminal returns nil while a modal surface is open, which is what
 // keeps its keys out of the PTY without special-casing the router: an

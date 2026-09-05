@@ -147,7 +147,7 @@ func (m *Model) footerKeys() string {
 	if s := modalFooter(m.modal); s != "" {
 		return s
 	}
-	if !m.review.Focused {
+	if !m.reviewOwnsKeys() {
 		return footer
 	}
 	if m.review.View == ViewDiff {

@@ -31,7 +31,7 @@ func (m *Model) openSwitcher() tea.Cmd {
 	if len(items) == 0 {
 		return nil
 	}
-	m.modal = modal{Kind: modalList, List: newPickList("jump to session", items, false)}
+	m.openModal(modal{Kind: modalList, List: newPickList("jump to session", items, false)})
 	return nil
 }
 

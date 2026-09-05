@@ -98,6 +98,19 @@ func (m *Model) command(msg tea.KeyPressMsg) tea.Cmd {
 	return m.navigate(msg.Keystroke())
 }
 
+// openModal takes the keyboard for a surface, closing the note editor if one
+// is open.
+//
+// The note editor is a fourth keyboard-owning surface that predates modalKind
+// and sits outside it, so nothing stopped a rename box opening over an active
+// note: two input lines were drawn at once, both panes carried the focused
+// border, and only one of them received keys. Exactly one surface owns the
+// keyboard, which is what the single Kind field is for (#41).
+func (m *Model) openModal(md modal) {
+	m.review.Note = noteEditor{}
+	m.modal = md
+}
+
 // navigate runs a command key while no prompt is open.
 func (m *Model) navigate(key string) tea.Cmd {
 	switch key {
@@ -106,13 +119,13 @@ func (m *Model) navigate(key string) tea.Cmd {
 	case "k":
 		return m.moveCursor(m.sidebar.MoveUp)
 	case "n":
-		m.modal = modal{Kind: modalPrompt}
+		m.openModal(modal{Kind: modalPrompt})
 	// Keystroke() spells a shifted letter with the base key in lower case, so
 	// a terminal reporting the modifier gives "shift+n"; the bare "N" is
 	// accepted too, because a legacy terminal cannot report shift at all. The
 	// upper-case "shift+N" spelling never occurs and was dead (issue #87).
 	case "shift+n", "shift+N", "N":
-		m.modal = modal{Kind: modalPrompt, Editor: lineEditor{Worktree: true}}
+		m.openModal(modal{Kind: modalPrompt, Editor: lineEditor{Worktree: true}})
 	default:
 		return m.paneCommand(key)
 	}
@@ -156,7 +169,7 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 	// "shift+?" where it also shifts the base key); only a legacy one sends the
 	// bare "?". Matching "?" alone left the whole keymap unreachable (#103).
 	case "shift+/", "shift+?", "?":
-		m.modal = modal{Kind: modalHelp}
+		m.openModal(modal{Kind: modalHelp})
 	}
 	return nil
 }

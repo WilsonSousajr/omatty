@@ -82,7 +82,7 @@ func TestModel_archiveTrustsTheRegistrysRowNotItsOwn_issue40(t *testing.T) {
 	for i := range r.State.Sessions {
 		r.State.Sessions[i].Worktree = false
 	}
-	openArchive(m, "s2")
+	openArchive(t, m, "s2")
 
 	press(m, key('w'))
 
@@ -92,10 +92,20 @@ func TestModel_archiveTrustsTheRegistrysRowNotItsOwn_issue40(t *testing.T) {
 }
 
 // openArchive puts the cursor on id and opens the confirmation over it.
-func openArchive(m *ui.Model, id string) {
-	for m.Focused() != id {
+func openArchive(t *testing.T, m *ui.Model, id string) {
+	t.Helper()
+	// Bounded: MoveDown stops at the last row, so a target at or above the
+	// cursor spun forever and turned a mistargeted assertion into a package
+	// timeout with no message. Tests are self-validating (#40).
+	for range m.SidebarRows() {
+		if m.Focused() == id {
+			break
+		}
 		press(m, ctrl('o'))
 		press(m, key('j'))
+	}
+	if m.Focused() != id {
+		t.Fatalf("could not put the cursor on %q; it stopped on %q", id, m.Focused())
 	}
 	press(m, ctrl('o'))
 	press(m, key('x'))
@@ -106,7 +116,7 @@ func openArchive(m *ui.Model, id string) {
 func TestModel_archiveOffersNoWorktreeRemovalForAMainCheckout_issue40(t *testing.T) {
 	m, _ := modelWithArchive(t, &recordArchive{})
 
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	got := m.View().Content
 	if !strings.Contains(got, "archive session") {
@@ -122,7 +132,7 @@ func TestModel_archiveOffersNoWorktreeRemovalForAMainCheckout_issue40(t *testing
 func TestModel_archiveOffersWorktreeRemovalOnItsOwnKey_issue40(t *testing.T) {
 	m, _ := modelWithArchive(t, &recordArchive{})
 
-	openArchive(m, "s2")
+	openArchive(t, m, "s2")
 
 	got := m.View().Content
 	if !strings.Contains(got, "[y]") || !strings.Contains(got, "[w]") {
@@ -136,7 +146,7 @@ func TestModel_archiveOffersWorktreeRemovalOnItsOwnKey_issue40(t *testing.T) {
 func TestModel_archiveTearsDownEverythingTheSessionOwned_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, fakes := modelWithArchive(t, r)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('y'))
 
@@ -161,7 +171,7 @@ func TestModel_archiveTearsDownEverythingTheSessionOwned_issue40(t *testing.T) {
 func TestModel_archiveWithYKeepsTheWorktree_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, _ := modelWithArchive(t, r)
-	openArchive(m, "s2")
+	openArchive(t, m, "s2")
 
 	press(m, key('y'))
 
@@ -173,7 +183,7 @@ func TestModel_archiveWithYKeepsTheWorktree_issue40(t *testing.T) {
 func TestModel_archiveWithWRemovesTheWorktree_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, _ := modelWithArchive(t, r)
-	openArchive(m, "s2")
+	openArchive(t, m, "s2")
 
 	_, cmd := m.Update(key('w'))
 	deliver(m, cmd)
@@ -190,7 +200,7 @@ func TestModel_archiveSizesWhicheverSessionTheCursorLandsOn_issue40(t *testing.T
 	r := &recordArchive{}
 	m, fakes := modelWithArchive(t, r)
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('y'))
 
@@ -210,7 +220,7 @@ func TestModel_archiveSizesWhicheverSessionTheCursorLandsOn_issue40(t *testing.T
 func TestModel_archiveFailureKeepsTheSessionAlive_issue40(t *testing.T) {
 	r := &recordArchive{ArchiveErr: errors.New("state.json is read-only")}
 	m, fakes := modelWithArchive(t, r)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('y'))
 
@@ -246,7 +256,7 @@ func TestModel_worktreeRemovalFailureNamesTheDirectoryLeftBehind_issue40(t *test
 func TestModel_archiveEscCancels_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, fakes := modelWithArchive(t, r)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, special(tea.KeyEscape))
 
@@ -263,7 +273,7 @@ func TestModel_archiveEscCancels_issue40(t *testing.T) {
 func TestModel_archiveIgnoresAnUnofferedKey_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, _ := modelWithArchive(t, r)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('z'))
 
@@ -280,7 +290,7 @@ func TestModel_archiveIgnoresAnUnofferedKey_issue40(t *testing.T) {
 func TestModel_archiveWOnAMainCheckoutDoesNothing_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, _ := modelWithArchive(t, r)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('w'))
 
@@ -293,7 +303,7 @@ func TestModel_archiveWOnAMainCheckoutDoesNothing_issue40(t *testing.T) {
 // operator.
 func TestModel_ctrlCQuitsWhileTheConfirmationIsOpen_issue28(t *testing.T) {
 	m, _ := modelWithArchive(t, &recordArchive{})
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	_, cmd := m.Update(ctrl('c'))
 
@@ -306,7 +316,7 @@ func TestModel_ctrlCQuitsWhileTheConfirmationIsOpen_issue28(t *testing.T) {
 func TestModel_confirmKeysStayOutOfThePTY_issue40(t *testing.T) {
 	m, fakes := modelWithArchive(t, &recordArchive{})
 	before := len(fakes["s1"].Msgs)
-	openArchive(m, "s1")
+	openArchive(t, m, "s1")
 
 	press(m, key('z'))
 

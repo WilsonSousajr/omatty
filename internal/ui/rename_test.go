@@ -50,10 +50,12 @@ func TestModel_leaderROpensTheRenameBoxFromBothSpellings_issue87(t *testing.T) {
 		press(m, ctrl('o'))
 		press(m, k)
 
-		// Pre-filled with the selected session's title, so correcting a typo
-		// is a small edit rather than a retype.
-		if got := m.View().Content; !strings.Contains(got, "rename") || !strings.Contains(got, "main") {
-			t.Errorf("keystroke %q did not open the rename box on the selected session:\n%s",
+		// The whole box line, not "rename" and "main" separately: the fixture
+		// already contains a session titled "main" on another row, so a bare
+		// Contains passed whether or not the buffer was pre-filled at all.
+		// Dropping the pre-fill left this test green (#41).
+		if got := m.View().Content; !strings.Contains(got, "rename session: main_") {
+			t.Errorf("keystroke %q did not open the rename box pre-filled with the title:\n%s",
 				k.Keystroke(), got)
 		}
 	}
@@ -68,16 +70,19 @@ func TestModel_renameCommitsTheNewTitle_issue41(t *testing.T) {
 	for range len("main") {
 		press(m, special(tea.KeyBackspace))
 	}
-	for _, c := range "parser-fix" {
+	// A title no other row in the fixture has. "parser-fix" is s2's title, so
+	// asserting on it passed on s2's row whatever s1 did: deleting both the
+	// retitle and the SetRows left this test green (#41).
+	for _, c := range "zzz-renamed" {
 		press(m, key(c))
 	}
 	press(m, special(tea.KeyEnter))
 
-	if r.Calls != 1 || r.SessionID != "s1" || r.Title != "parser-fix" {
-		t.Fatalf("rename called %d times with (%q, %q), want once with (s1, parser-fix)",
+	if r.Calls != 1 || r.SessionID != "s1" || r.Title != "zzz-renamed" {
+		t.Fatalf("rename called %d times with (%q, %q), want once with (s1, zzz-renamed)",
 			r.Calls, r.SessionID, r.Title)
 	}
-	if got := m.View().Content; !strings.Contains(got, "parser-fix") {
+	if got := m.View().Content; !strings.Contains(got, "zzz-renamed") {
 		t.Errorf("sidebar does not show the new title:\n%s", got)
 	}
 }
@@ -110,8 +115,10 @@ func TestModel_renameFailureSurfacesAndKeepsTheOldTitle_issue41(t *testing.T) {
 	if !strings.Contains(got, "read-only") {
 		t.Errorf("View() does not surface the failure:\n%s", got)
 	}
-	if !strings.Contains(got, "main") {
-		t.Errorf("sidebar lost the old title after a failed rename:\n%s", got)
+	// The would-be title must be absent. Asserting "main" is present proves
+	// nothing: the fixture has a second session with that title (#41).
+	if strings.Contains(got, "mainx") {
+		t.Errorf("sidebar shows a title the registry rejected:\n%s", got)
 	}
 }
 
@@ -128,8 +135,8 @@ func TestModel_renameEscCancelsWithoutPersisting_issue41(t *testing.T) {
 	if r.Calls != 0 {
 		t.Errorf("rename was called %d times after esc, want 0", r.Calls)
 	}
-	if got := m.View().Content; !strings.Contains(got, "main") {
-		t.Errorf("sidebar does not still show the original title:\n%s", got)
+	if got := m.View().Content; strings.Contains(got, "mainz") {
+		t.Errorf("sidebar shows the abandoned edit:\n%s", got)
 	}
 }
 
