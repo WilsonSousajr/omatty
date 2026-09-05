@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/discover"
 	"github.com/WilsonSousajr/omatty/internal/hooks"
 	"github.com/WilsonSousajr/omatty/internal/paths"
@@ -222,7 +223,7 @@ func tuiDeps(
 	git := vcs.NewCLI()
 	return ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
-		Launch:         supervisor.NewLauncher("claude", hooksFile, home),
+		Launch:         supervisor.NewLauncher("claude", hooksFile, home, detach.New(home)),
 		Factory:        termwrap.Start,
 		Create:         sessionCreator(home, store),
 		Diff:           review.NewSource(git).Load,

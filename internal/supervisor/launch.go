@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
@@ -14,19 +15,24 @@ import (
 
 // Launcher builds and starts the claude process for a session.
 //
-//	l := supervisor.NewLauncher("claude", paths.HooksFile(home), home)
+//	l := supervisor.NewLauncher("claude", paths.HooksFile(home), home, detach.New(home))
 //	term, err := l.Start(termwrap.Start, sess, 80, 24)
 type Launcher struct {
 	bin       string
 	hooksFile string
 	home      string
+	// holder keeps the process alive across omatty's own exit. It is an
+	// interface, not the dtach type, because invariant 4 keeps the binary
+	// inside internal/detach and because a machine without dtach gets the
+	// Plain holder instead (#43).
+	holder detach.Holder
 }
 
 // NewLauncher returns a Launcher invoking bin with hooksFile as its settings.
 // home is where claude keeps transcripts; it decides between a fresh start
-// and a resume.
-func NewLauncher(bin, hooksFile, home string) *Launcher {
-	return &Launcher{bin: bin, hooksFile: hooksFile, home: home}
+// and a resume. holder decides whether the process survives quitting omatty.
+func NewLauncher(bin, hooksFile, home string, holder detach.Holder) *Launcher {
+	return &Launcher{bin: bin, hooksFile: hooksFile, home: home, holder: holder}
 }
 
 // Command returns the process omatty starts for a session.
@@ -37,14 +43,19 @@ func NewLauncher(bin, hooksFile, home string) *Launcher {
 // in use" - because the transcript itself is the claim; there is no lock file.
 // So a session with a transcript is started with --resume instead (issue #36).
 // Either way --settings names omatty's own file, never the user's (invariant 3).
-func (l *Launcher) Command(sessionID, dir string) *exec.Cmd {
+//
+// The claude command built here is then handed to the holder, which under dtach
+// returns a client attaching to a master that outlives omatty. The two decisions
+// compose rather than interact: the holder never inspects the claude line, and
+// the flag choice above is unaware a holder exists (#43).
+func (l *Launcher) Command(sessionID, dir string) (*exec.Cmd, error) {
 	flag := "--session-id"
 	if HasTranscript(l.home, dir, sessionID) {
 		flag = "--resume"
 	}
 	cmd := exec.Command(l.bin, flag, sessionID, "--settings", l.hooksFile)
 	cmd.Dir = dir
-	return cmd
+	return l.holder.Wrap(sessionID, cmd)
 }
 
 // HasTranscript reports whether claude has written a transcript for the
@@ -59,7 +70,11 @@ func HasTranscript(home, dir, sessionID string) bool {
 func (l *Launcher) Start(
 	f termwrap.Factory, sess registry.Session, w, h int,
 ) (termwrap.Terminal, error) {
-	term, err := f(w, h, l.Command(sess.ID, sess.Dir))
+	cmd, err := l.Command(sess.ID, sess.Dir)
+	if err != nil {
+		return nil, err
+	}
+	term, err := f(w, h, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("supervisor: starting session %s in %q: %w", sess.ID, sess.Dir, err)
 	}

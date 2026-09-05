@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
@@ -20,7 +21,7 @@ func TestStartTerminals_OnePerSessionInItsOwnDirectory(t *testing.T) {
 	}
 
 	terms, err := ui.StartTerminals(
-		twoProjectState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir()), factory, 80, 24)
+		twoProjectState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24)
 
 	if err != nil {
 		t.Fatalf("StartTerminals() error = %v, want nil", err)
@@ -44,7 +45,7 @@ func TestStartTerminals_FailureNamesTheSession(t *testing.T) {
 	}
 
 	_, err := ui.StartTerminals(
-		twoProjectState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir()), factory, 80, 24)
+		twoProjectState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24)
 
 	if err == nil {
 		t.Fatal("StartTerminals() returned nil after a factory failure, want an error")
@@ -62,7 +63,7 @@ func TestStartTerminals_EmptyRegistryStartsNothing(t *testing.T) {
 	}
 
 	terms, err := ui.StartTerminals(
-		emptyState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir()), factory, 80, 24)
+		emptyState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24)
 
 	if err != nil {
 		t.Fatalf("StartTerminals() error = %v, want nil", err)
@@ -80,7 +81,7 @@ func TestStartTerminals_WrapsEveryTerminalInAGuard(t *testing.T) {
 	}
 
 	terms, err := ui.StartTerminals(
-		twoProjectState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir()), factory, 80, 24)
+		twoProjectState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +103,7 @@ func TestStartTerminals_BirthsThePTYAtThePaneSize_issue51(t *testing.T) {
 		return termwrap.NewFake(""), nil
 	}
 
-	_, err := ui.StartTerminals(oneSessionState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir()),
+	_, err := ui.StartTerminals(oneSessionState(), supervisor.NewLauncher("claude", "/h.json", t.TempDir(), &detach.Plain{}),
 		factory, 140, 40)
 	if err != nil {
 		t.Fatal(err)
