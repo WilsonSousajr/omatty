@@ -22,11 +22,14 @@ import (
 // ArchiveFunc drops a session from the registry. Injected so ui never reaches
 // the store itself; cmd/omatty closes it over the store.
 //
-//	deps.Archive = func(id string) error {
-//	        _, err := registry.RemoveSession(store, id)
-//	        return err
+// It returns the row the registry actually removed, which is the one whose
+// Worktree field decides whether a directory may be deleted. RemoveSession
+// re-reads state.json, so its copy outranks the model's (#40).
+//
+//	deps.Archive = func(id string) (registry.Session, error) {
+//	        return registry.RemoveSession(store, id)
 //	}
-type ArchiveFunc func(sessionID string) error
+type ArchiveFunc func(sessionID string) (registry.Session, error)
 
 // RemoveWorktreeFunc deletes a linked worktree. Injected because ui may never
 // shell out to git (invariant 4); the arguments mirror vcs.Git.RemoveWorktree.
@@ -35,8 +38,8 @@ type RemoveWorktreeFunc func(repoRoot, dir string) error
 // noArchive is the Deps.Archive default. It names the missing wiring rather
 // than appearing to succeed, which would drop a row from the sidebar that
 // state.json still holds - the same reasoning as noDiff and noRename.
-func noArchive(sessionID string) error {
-	return fmt.Errorf("ui: no archive source configured for session %s", sessionID)
+func noArchive(sessionID string) (registry.Session, error) {
+	return registry.Session{}, fmt.Errorf("ui: no archive source configured for session %s", sessionID)
 }
 
 // noRemoveWorktree is the Deps.RemoveWorktree default, for the same reason. A
@@ -163,11 +166,16 @@ func (m *Model) archiveSession(removeWorktree bool) tea.Cmd {
 		m.lastErr = fmt.Sprintf("session %s is no longer in the registry; nothing was archived", id)
 		return nil
 	}
-	if err := m.archive(id); err != nil {
+	removed, err := m.archive(id)
+	if err != nil {
 		slog.Error("archiving session", "session", id, "err", err)
 		m.lastErr = err.Error()
 		return nil
 	}
+	// The registry's copy, not the model's: only that one is guaranteed to
+	// match what was on disk when the row was removed, and it is Worktree that
+	// decides whether a directory is about to be deleted (#40).
+	sess.Worktree, sess.Dir = removed.Worktree, removed.Dir
 	return m.dropSession(sess, removeWorktree)
 }
 

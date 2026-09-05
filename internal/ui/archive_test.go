@@ -19,11 +19,21 @@ type recordArchive struct {
 	Removed    [][2]string // repoRoot, dir
 	ArchiveErr error
 	RemoveErr  error
+	// State is what the registry holds. The real RemoveSession re-reads
+	// state.json and returns the row it found there, so this fake reads from
+	// its own copy - which a test can make disagree with the model's, since
+	// that divergence is the whole reason the row is returned (#40).
+	State registry.State
 }
 
-func (r *recordArchive) archive(sessionID string) error {
+func (r *recordArchive) archive(sessionID string) (registry.Session, error) {
 	r.Archived = append(r.Archived, sessionID)
-	return r.ArchiveErr
+	for _, sess := range r.State.Sessions {
+		if sess.ID == sessionID {
+			return sess, r.ArchiveErr
+		}
+	}
+	return registry.Session{}, r.ArchiveErr
 }
 
 func (r *recordArchive) stopTail(sessionID string) { r.Stopped = append(r.Stopped, sessionID) }
@@ -50,9 +60,35 @@ func worktreeState() registry.State {
 func modelWithArchive(t *testing.T, r *recordArchive) (*ui.Model, map[string]*termwrap.Fake) {
 	t.Helper()
 	terms, fakes := fakeTerms(t)
-	d := baseDeps(worktreeState(), terms)
+	st := worktreeState()
+	if len(r.State.Sessions) == 0 {
+		r.State = st // the registry agrees with the model unless a test says otherwise
+	}
+	d := baseDeps(st, terms)
 	d.Archive, d.TailStop, d.RemoveWorktree = r.archive, r.stopTail, r.removeWorktree
 	return ui.NewModel(d), fakes
+}
+
+// Regression, issue #40: the worktree decision was made from the model's copy
+// of the session, and RemoveSession's authoritative one - re-read from
+// state.json - was discarded. Where the two disagree (a second omatty
+// instance, a hand-edited state.json) omatty would run `git worktree remove
+// --force` on a directory the registry no longer marks as a worktree.
+func TestModel_archiveTrustsTheRegistrysRowNotItsOwn_issue40(t *testing.T) {
+	r := &recordArchive{}
+	m, _ := modelWithArchive(t, r)
+	// The registry has since been told this session is not on a worktree; the
+	// model still believes it is, which is what opened the `w` answer.
+	for i := range r.State.Sessions {
+		r.State.Sessions[i].Worktree = false
+	}
+	openArchive(m, "s2")
+
+	press(m, key('w'))
+
+	if len(r.Removed) != 0 {
+		t.Errorf("removed = %v, want nothing: the registry says this is not a worktree", r.Removed)
+	}
 }
 
 // openArchive puts the cursor on id and opens the confirmation over it.

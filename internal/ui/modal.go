@@ -49,6 +49,9 @@ type modal struct {
 	// HelpOffset is the first keymap row the help modal shows. The list is
 	// taller than a short window's pane, so it scrolls (#103).
 	HelpOffset int
+	// Scan identifies the discovery scan this picker is waiting for, so a
+	// slower earlier scan cannot overwrite it (#91).
+	Scan int
 }
 
 // modalOpen reports whether a surface owns the keyboard. It is the single

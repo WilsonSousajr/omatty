@@ -100,12 +100,15 @@ type Model struct {
 	rename   RenameFunc
 	// The archive path's three halves: forget the session, stop its tailer,
 	// and optionally delete its worktree (#40).
-	archive        ArchiveFunc
-	removeWorktree RemoveWorktreeFunc
-	tailStop       func(sessionID string)
-	discover       DiscoverFunc
-	addProject     AddProjectFunc
-	lastErr        string
+	archive          ArchiveFunc
+	removeWorktree   RemoveWorktreeFunc
+	tailStop         func(sessionID string)
+	discover         DiscoverFunc
+	registerProjects AddProjectFunc
+	// scanToken numbers discovery scans so a stale result cannot overwrite a
+	// newer picker (#91).
+	scanToken int
+	lastErr   string
 	// wheel counts scroll notches so a momentum flick becomes a few pages of
 	// transcript rather than tens of them (#107).
 	wheel  wheelAccumulator
@@ -192,7 +195,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.rename, m.archive = d.Rename, d.Archive
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
-	m.discover, m.addProject = d.Discover, d.AddProject
+	m.discover, m.registerProjects = d.Discover, d.AddProject
 	return m
 }
 

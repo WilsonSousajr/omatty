@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -43,9 +44,11 @@ type Candidate struct {
 
 // Git is the slice of vcs.Git discovery needs. It is declared here, not
 // imported as the whole interface, so a fake in this package's tests carries
-// two methods rather than nine.
+// one method rather than nine.
+//
+// One, not two: RepoRoot was declared here and never called, so every
+// implementer paid for a method the package could not use (#91).
 type Git interface {
-	RepoRoot(dir string) (string, error)
 	MainCheckout(dir string) (string, error)
 }
 
@@ -57,28 +60,36 @@ type Git interface {
 // been deleted, five are not repositories, and the rest include worktrees that
 // must fold into their parents.
 //
-//	cands, err := discover.Propose(paths.TranscriptsDir(home), vcs.NewCLI())
-func Propose(storeRoot string, git Git) ([]Candidate, error) {
+// registered is the roots already in state.json, which are left out. Offering
+// them again made every row of a second `omatty discover` fail on commit with
+// "already registered", and nothing on screen said why - and the store only
+// grows, so the second use of the feature is the common one (#91).
+//
+//	cands, err := discover.Propose(paths.TranscriptsDir(home), vcs.NewCLI(), roots)
+func Propose(storeRoot string, git Git, registered []string) ([]Candidate, error) {
 	entries, err := os.ReadDir(storeRoot)
 	if err != nil {
 		return nil, fmt.Errorf("discover: cannot read the transcript store %q: %w", storeRoot, err)
+	}
+	known := make(map[string]bool, len(registered))
+	for _, root := range registered {
+		known[root] = true
 	}
 	byRoot := map[string]Candidate{}
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		keepNewest(byRoot, filepath.Join(storeRoot, e.Name()), git)
+		keepNewest(byRoot, filepath.Join(storeRoot, e.Name()), git, known)
 	}
 	return sorted(byRoot), nil
 }
 
 // keepNewest resolves one slug directory to a candidate and keeps whichever of
-// the two is more recent. A slug that resolves to nothing is skipped in
-// silence: a deleted repository is the normal case, not an error.
-func keepNewest(byRoot map[string]Candidate, slugDir string, git Git) {
+// the two is more recent, unless the root is already registered.
+func keepNewest(byRoot map[string]Candidate, slugDir string, git Git, known map[string]bool) {
 	cand, ok := candidateOf(slugDir, git)
-	if !ok {
+	if !ok || known[cand.Root] {
 		return
 	}
 	if seen, dup := byRoot[cand.Root]; dup && seen.LastUsed.After(cand.LastUsed) {
@@ -87,46 +98,84 @@ func keepNewest(byRoot map[string]Candidate, slugDir string, git Git) {
 	byRoot[cand.Root] = cand
 }
 
+// transcript is one session file with the time it was last written.
+type transcript struct {
+	Path string
+	Used time.Time
+}
+
 // candidateOf turns one slug directory into a candidate, applying the three
 // filters: the directory must still exist, it must be a git repository, and a
 // linked worktree resolves to the repository it was forked from.
 func candidateOf(slugDir string, git Git) (Candidate, bool) {
-	transcript, used, ok := newestTranscript(slugDir)
+	found := transcripts(slugDir)
+	if len(found) == 0 {
+		return Candidate{}, false
+	}
+	dir, ok := firstCwd(found)
 	if !ok {
 		return Candidate{}, false
 	}
-	dir, ok := readCwd(transcript)
+	root, ok := resolveRoot(dir, git)
 	if !ok {
 		return Candidate{}, false
 	}
+	// found[0] is the newest, which is when the directory was last worked in,
+	// even where the cwd came from an older transcript.
+	return Candidate{Name: filepath.Base(root), Root: root, LastUsed: found[0].Used}, true
+}
+
+// firstCwd is the working directory named by the newest transcript that names
+// one at all.
+//
+// Reading only the newest file dropped the whole repository whenever that one
+// was a session still being written, a stub, or one whose first record ran past
+// the byte cap - quite possibly the directory worked in seconds ago. An older
+// transcript in the same slug names the same cwd, and costs one more read (#91).
+func firstCwd(found []transcript) (string, bool) {
+	for _, t := range found {
+		if dir, ok := readCwd(t.Path); ok {
+			return dir, true
+		}
+	}
+	return "", false
+}
+
+// resolveRoot validates a recorded cwd against the filesystem and against git.
+func resolveRoot(dir string, git Git) (string, bool) {
 	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
-		return Candidate{}, false // the repository was deleted or moved
+		return "", false // the repository was deleted or moved: the normal case
 	}
 	root, err := git.MainCheckout(dir)
 	if err != nil {
-		return Candidate{}, false // not a repository at all
+		slog.Debug("discovery skipped a directory git does not own", "dir", dir, "err", err)
+		return "", false
 	}
-	return Candidate{Name: filepath.Base(root), Root: root, LastUsed: used}, true
+	return root, true
 }
 
-// newestTranscript is the most recently modified .jsonl in a slug directory,
-// with its modification time. That time is when the directory was last worked
-// in, which is what orders the list.
-func newestTranscript(slugDir string) (string, time.Time, bool) {
+// transcripts lists a slug directory's session files, newest first.
+//
+// A directory that cannot be read is logged rather than dropped in silence: a
+// permission error and "this repository was deleted" produced the same empty
+// result, so an operator seeing "no repositories found" had no way to learn
+// which it was (#91).
+func transcripts(slugDir string) []transcript {
 	entries, err := os.ReadDir(slugDir)
 	if err != nil {
-		return "", time.Time{}, false
+		slog.Warn("discovery cannot read a transcript directory", "dir", slugDir, "err", err)
+		return nil
 	}
-	var newest string
-	var at time.Time
+	out := make([]transcript, 0, len(entries))
 	for _, e := range entries {
 		info, err := e.Info()
-		if err != nil || filepath.Ext(e.Name()) != ".jsonl" || !info.ModTime().After(at) {
+		if err != nil || filepath.Ext(e.Name()) != ".jsonl" {
 			continue
 		}
-		newest, at = filepath.Join(slugDir, e.Name()), info.ModTime()
+		out = append(out, transcript{Path: filepath.Join(slugDir, e.Name()), Used: info.ModTime()})
 	}
-	return newest, at, newest != ""
+	sort.Slice(out, func(a, b int) bool { return out[a].Used.After(out[b].Used) })
+	return out
 }
 
 // cwdRecord is the one field discovery reads out of a transcript.
@@ -159,6 +208,14 @@ func readCwd(path string) (string, bool) {
 		if err := json.Unmarshal(scan.Bytes(), &rec); err == nil && rec.Cwd != "" {
 			return rec.Cwd, true
 		}
+	}
+	// A record longer than the byte cap stops the scan on its first line with
+	// ErrTooLong, which is indistinguishable from "this transcript names no
+	// cwd" unless it is said out loud - and the cap is reachable, since one
+	// record is routinely hundreds of kilobytes (#91).
+	if err := scan.Err(); err != nil {
+		slog.Warn("discovery could not read a transcript head",
+			"transcript", path, "byteCap", maxHeadBytes, "err", err)
 	}
 	return "", false
 }

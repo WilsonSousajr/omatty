@@ -34,6 +34,34 @@ func AddProject(s *Store, git vcs.Git, dir string) (Project, error) {
 	return p, s.Save(st)
 }
 
+// Registration is what became of one root RegisterAll was given. Project is
+// the row that was actually written, so a caller never has to reconstruct it.
+type Registration struct {
+	Root    string
+	Project Project
+	Err     error
+}
+
+// RegisterAll registers each root, carrying on past a failure so one collision
+// does not abandon the rest of a bulk pick. AddProject refuses a duplicate
+// *name* even when the roots differ, which one repository at a time is a rare
+// annoyance and in bulk is not (#91).
+//
+// It exists so `omatty discover` and the TUI picker share one algorithm. They
+// had a copy each - the same loop in cmd/omatty and in ui - which invariant 10
+// forbids and which `dupl` cannot see across packages, so a change to the
+// collision policy would have had to be made twice or the two would disagree.
+//
+//	for _, r := range registry.RegisterAll(store, git, roots) { ... }
+func RegisterAll(s *Store, git vcs.Git, roots []string) []Registration {
+	out := make([]Registration, 0, len(roots))
+	for _, root := range roots {
+		p, err := AddProject(s, git, root)
+		out = append(out, Registration{Root: root, Project: p, Err: err})
+	}
+	return out
+}
+
 // RenameSession retitles a session in place. The title is display-only, so
 // this touches nothing that relaunching a session depends on (invariant 9):
 // it is a state.json edit and a sidebar rebuild (#41).
