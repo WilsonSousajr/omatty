@@ -34,6 +34,11 @@ const (
 	// (#91). A separate kind rather than a flag on the list, because only the
 	// commit differs and Kind is what already selects a commit.
 	modalPicker
+	// modalAdopt is the same list over the claude sessions inside the selected
+	// project, opened with A (#122). A kind of its own rather than a flag,
+	// because Kind is what selects the commit and adoption's commit both
+	// registers and starts each pick.
+	modalAdopt
 	// modalHelp lists every leader key, opened with ? (#103). It takes no text:
 	// esc closes it, and the leader closes it and arms the next key.
 	modalHelp
@@ -101,7 +106,7 @@ func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.onEditorKey(msg)
 	case modalConfirm:
 		return m.onConfirmKey(msg.Keystroke())
-	case modalList, modalPicker:
+	case modalList, modalPicker, modalAdopt:
 		return m.onListKey(msg)
 	case modalHelp:
 		return m.onHelpKey(msg.Keystroke())

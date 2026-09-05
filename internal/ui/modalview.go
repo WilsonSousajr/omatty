@@ -20,7 +20,7 @@ func (m *Model) modalLines() []string {
 		return m.editorLines()
 	case modalConfirm:
 		return m.confirmLines()
-	case modalList, modalPicker:
+	case modalList, modalPicker, modalAdopt:
 		return m.pickLines()
 	case modalHelp:
 		return m.helpLines()
@@ -45,6 +45,7 @@ var leaderKeys = []keyHelp{
 	{"n", "new session on the main checkout"},
 	{"N", "new session on a fresh worktree"},
 	{"a", "register a project claude already knows"},
+	{"A", "adopt a session claude already knows"},
 	{"R", "rename the selected session"},
 	{"x", "archive the selected session"},
 	{"r", "restart a crashed session"},
@@ -237,6 +238,8 @@ func modalFooter(md modal) string {
 		return "type to filter  ctrl+j/ctrl+k move  enter jump  esc cancel"
 	case modalPicker:
 		return pickerFooter(md.List.markedCount())
+	case modalAdopt:
+		return adoptFooter(md.List.markedCount())
 	case modalHelp:
 		// The body already carries its own closing hint, so this names the way
 		// out that every other modal footer names and the body does not.

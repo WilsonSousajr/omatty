@@ -76,8 +76,11 @@ func (m *Model) editList(msg tea.KeyPressMsg) {
 
 // commitList applies the open list: the picker registers, the switcher jumps.
 func (m *Model) commitList() tea.Cmd {
-	if m.modal.Kind == modalPicker {
+	switch m.modal.Kind {
+	case modalPicker:
 		return m.commitDiscovery()
+	case modalAdopt:
+		return m.commitAdoption()
 	}
 	return m.commitJump()
 }

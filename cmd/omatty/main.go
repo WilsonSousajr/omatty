@@ -327,21 +327,49 @@ func tuiDeps(
 	// One holder, used twice: it wraps each launch and it ends an archived
 	// session's claude. Two would mean two PATH lookups that could disagree.
 	holder := detach.New(home)
-	return ui.RunDeps{
+	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
-		Stop:           holder.Stop,
-		Notice:         persistNotice(holder.Persists()),
-		Launch:         supervisor.NewLauncher("claude", hooksFile, home, holder),
-		Factory:        termwrap.Start,
-		Create:         sessionCreator(home, store),
-		Diff:           review.NewSource(git).Load,
-		Files:          git.ListFiles,
-		Rename:         sessionRenamer(store),
-		Archive:        sessionArchiver(store),
-		RemoveWorktree: git.RemoveWorktree,
-		Discover:       projectProposer(store, home, git),
-		AddProject:     projectRegistrar(store, git),
+		Stop:    holder.Stop,
+		Notice:  persistNotice(holder.Persists()),
+		Launch:  supervisor.NewLauncher("claude", hooksFile, home, holder),
+		Factory: termwrap.Start,
+		Create:  sessionCreator(home, store),
+		Diff:    review.NewSource(git).Load,
+		Files:   git.ListFiles,
 	}
+	return withStoreDeps(deps, store, home, git)
+}
+
+// withStoreDeps adds the dependencies that close over the registry store: the
+// lifecycle commands (#40, #41) and the two pickers that propose from claude's
+// own transcript store (#91, #122).
+//
+// Split from tuiDeps because the one list ran past the twenty-line limit when
+// adoption arrived. The seam is where it is because these all share the store,
+// and the fields above share nothing but the window.
+func withStoreDeps(
+	deps ui.RunDeps, store *registry.Store, home string, git *vcs.CLI,
+) ui.RunDeps {
+	return withPickerDeps(withLifecycleDeps(deps, store, git), store, home, git)
+}
+
+// withLifecycleDeps adds rename, archive and worktree removal (#40, #41).
+func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git *vcs.CLI) ui.RunDeps {
+	deps.Rename = sessionRenamer(store)
+	deps.Archive = sessionArchiver(store)
+	deps.RemoveWorktree = git.RemoveWorktree
+	return deps
+}
+
+// withPickerDeps adds the project picker (#91) and the adoption picker (#122).
+func withPickerDeps(
+	deps ui.RunDeps, store *registry.Store, home string, git *vcs.CLI,
+) ui.RunDeps {
+	deps.Discover = projectProposer(store, home, git)
+	deps.AddProject = projectRegistrar(store, git)
+	deps.AdoptPropose = sessionProposer(store, home, git)
+	deps.AdoptCommit = sessionAdopter(store)
+	return deps
 }
 
 // persistNotice is what the footer says at startup when nothing is holding the
@@ -377,6 +405,45 @@ func projectProposer(store *registry.Store, home string, git discover.Git) ui.Di
 			proposals = append(proposals, ui.Proposal{Name: c.Name, Root: c.Root, LastUsed: c.LastUsed})
 		}
 		return proposals, nil
+	}
+}
+
+// sessionProposer adapts discover.ProposeSessions to ui.AdoptFunc.
+//
+// LastUsed and Dir are carried across rather than flattened away: one orders
+// the list and the other is where the adopted session must actually start, and
+// they differ for a session that ran in a linked worktree (#122).
+func sessionProposer(store *registry.Store, home string, git discover.Git) ui.AdoptFunc {
+	return func(projectRoot string) ([]ui.SessionProposal, error) {
+		ids, err := registeredSessionIDs(store)
+		if err != nil {
+			return nil, err
+		}
+		cands, err := discover.ProposeSessions(paths.TranscriptsDir(home), git, projectRoot, ids)
+		if err != nil {
+			return nil, err
+		}
+		proposals := make([]ui.SessionProposal, 0, len(cands))
+		for _, c := range cands {
+			proposals = append(proposals, ui.SessionProposal{
+				ID: c.ID, Title: c.Title, Dir: c.Dir, LastUsed: c.LastUsed,
+			})
+		}
+		return proposals, nil
+	}
+}
+
+// sessionAdopter adapts registry.AdoptSession to ui.AdoptCommitFunc, reporting
+// one result per pick in the order given so the picker can name the row that
+// failed rather than the batch.
+func sessionAdopter(store *registry.Store) ui.AdoptCommitFunc {
+	return func(project string, picks []ui.SessionProposal) []error {
+		errs := make([]error, 0, len(picks))
+		for _, p := range picks {
+			_, err := registry.AdoptSession(store, p.ID, project, p.Title, p.Dir)
+			errs = append(errs, err)
+		}
+		return errs
 	}
 }
 
