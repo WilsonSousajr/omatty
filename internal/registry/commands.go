@@ -140,6 +140,47 @@ func sessionIDs(st *State) []string {
 	return ids
 }
 
+// AdoptSession registers a claude session that already exists, so omatty can
+// show and resume one it did not create (#122).
+//
+//	sess, err := registry.AdoptSession(store, cand.ID, "omatty", cand.Title, cand.Dir)
+//
+// Worktree is false and that is load-bearing rather than incidental: omatty did
+// not create dir, so archive must never offer to delete it. That is the rule
+// archiveChoices already applies to a main-checkout session (#40).
+//
+// Nothing else is needed to relaunch it (invariant 9): the launcher stats the
+// transcript, finds one, and uses `--resume` (#36).
+func AdoptSession(s *Store, id, project, title, dir string) (Session, error) {
+	if strings.TrimSpace(title) == "" {
+		return Session{}, fmt.Errorf(
+			"registry: session %q: title %q is blank, want a name with a non-space character", id, title)
+	}
+	st, err := s.Load()
+	if err != nil {
+		return Session{}, err
+	}
+	if _, err := findProject(&st, project); err != nil {
+		return Session{}, err
+	}
+	if err := refuseKnownSession(&st, id); err != nil {
+		return Session{}, err
+	}
+	sess := Session{ID: id, Project: project, Title: title, Dir: dir}
+	st.Sessions = append(st.Sessions, sess)
+	return sess, s.Save(st)
+}
+
+// refuseKnownSession rejects an id the registry already holds. Two sidebar rows
+// sharing one session would share its process, and the second would fight the
+// first for the PTY.
+func refuseKnownSession(st *State, id string) error {
+	if _, err := indexOfSession(st, id); err == nil {
+		return fmt.Errorf("registry: session %q is already registered", id)
+	}
+	return nil
+}
+
 // AddSession creates and persists a session. It is the whole of `omatty new`.
 // State is saved only after the session is fully created, so a failed
 // worktree leaves nothing behind.
