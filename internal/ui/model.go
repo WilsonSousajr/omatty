@@ -26,15 +26,6 @@ type CreateFunc func(project, title, branch string) (registry.Session, error)
 // the size is a parameter so it is never frozen at startup (issue #73).
 type StartFunc func(sess registry.Session, w, h int) (termwrap.Terminal, error)
 
-// Prompt is the pending new-session input. The zero value means no prompt.
-type Prompt struct {
-	Active bool
-	// Worktree is true when the prompt was opened with N, meaning the buffer
-	// names a branch to create a worktree on.
-	Worktree bool
-	Buffer   string
-}
-
 // Deps is everything a Model needs. Constructor injection, so no field is
 // set after the fact and no method needs a nil guard (issue #76). The zero
 // value of an optional field means: no status stream, the wall clock, a
@@ -57,6 +48,8 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
+	// Rename persists a session's new title (#41).
+	Rename RenameFunc
 }
 
 // Model is omatty's root Bubble Tea model.
@@ -84,14 +77,17 @@ type Model struct {
 	// first tailer poll replays old turns (issue #70).
 	startedAt time.Time
 	hasFocus  bool
-	prompt    Prompt
-	review    ReviewPane
+	// modal is the surface that currently owns the keyboard, if any: the
+	// new-session prompt or the rename box (#41).
+	modal  modal
+	review ReviewPane
 	// comments is each session's pending review queue, kept across opening and
 	// closing the column; only submit drains it (#22).
 	comments map[string]*review.Comments
 	diff     DiffFunc
 	files    ListFilesFunc
 	preview  PreviewFunc
+	rename   RenameFunc
 	lastErr  string
 	width    int
 	height   int
@@ -111,6 +107,9 @@ func (d Deps) withDefaults() Deps {
 	}
 	if d.Files == nil {
 		d.Files = noFiles
+	}
+	if d.Rename == nil {
+		d.Rename = noRename
 	}
 	// The real reader has no dependency to inject, so it is the default
 	// rather than an error: only a test replaces it (#24).
@@ -136,6 +135,7 @@ func NewModel(deps Deps) *Model {
 		notifier:  d.Notifier,
 		// The three review-column sources, grouped: they are one concern.
 		diff: d.Diff, files: d.Files, preview: d.Preview,
+		rename:    d.Rename,
 		startedAt: d.Clock(),
 		hasFocus:  true,
 		// Until the first WindowSizeMsg arrives the frame is laid out for a
@@ -155,9 +155,6 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.comments = map[string]*review.Comments{}
 	return m
 }
-
-// Prompt returns the pending new-session input, if any.
-func (m *Model) Prompt() Prompt { return m.prompt }
 
 // Focused returns the selected session's id, or "" when none is selected.
 func (m *Model) Focused() string {
@@ -275,38 +272,19 @@ func (m *Model) restartFocused() tea.Cmd {
 	return term.Init()
 }
 
-// onPromptKey edits the prompt buffer. A worktree prompt uses the buffer as
-// both the session title and the branch name.
-func (m *Model) onPromptKey(key string) tea.Cmd {
-	switch key {
-	case "esc":
-		m.prompt = Prompt{}
-	case "enter":
-		return m.submitPrompt()
-	case "backspace":
-		m.prompt.Buffer = trimLastRune(m.prompt.Buffer)
-	default:
-		if len([]rune(key)) == 1 {
-			m.prompt.Buffer += key
-		}
-	}
-	return nil
-}
-
-// submitPrompt creates the session. An empty title leaves the prompt open
-// rather than registering a nameless session.
+// submitPrompt creates the session. A worktree prompt uses the buffer as both
+// the session title and the branch name. The buffer is known non-empty:
+// commitEditor leaves the editor open rather than registering a nameless
+// session.
 func (m *Model) submitPrompt() tea.Cmd {
-	if m.prompt.Buffer == "" {
-		return nil
-	}
 	branch := ""
-	if m.prompt.Worktree {
-		branch = m.prompt.Buffer
+	if m.modal.Editor.Worktree {
+		branch = m.modal.Editor.Buffer
 	}
 	m.lastErr = ""
 	project := m.SelectedProject()
-	title := m.prompt.Buffer
-	m.prompt = Prompt{}
+	title := m.modal.Editor.Buffer
+	m.modal = modal{}
 	cmd, err := m.addSession(project, title, branch)
 	if err != nil {
 		slog.Error("creating session",
@@ -412,12 +390,12 @@ func (m *Model) selectedTerminal() termwrap.Terminal {
 	return m.terms[id]
 }
 
-// focusedTerminal returns nil while a prompt is open, which is what keeps
-// prompt keys out of the PTY without special-casing the router: an unfocused
-// terminal already routes every key to omatty. Only key routing and rendering
-// may ask this - sizing the pane must not (issue #95).
+// focusedTerminal returns nil while a modal surface is open, which is what
+// keeps its keys out of the PTY without special-casing the router: an
+// unfocused terminal already routes every key to omatty. Only key routing and
+// rendering may ask this - sizing the pane must not (issue #95).
 func (m *Model) focusedTerminal() termwrap.Terminal {
-	if m.prompt.Active {
+	if m.modalOpen() {
 		return nil
 	}
 	return m.selectedTerminal()

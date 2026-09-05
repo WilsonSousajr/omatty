@@ -47,7 +47,12 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o d` | open or close the diff pane |
 | `ctrl+o f` | open or close the file tree |
 | `ctrl+o r` | restart a crashed session |
+| `ctrl+o R` | rename the selected session |
 | `ctrl+o q` | quit |
+
+`ctrl+o R` opens the session's title for editing, pre-filled, so correcting a
+typo is a small edit. `enter` confirms, `esc` cancels. The title is
+display-only, so a rename never disturbs the session itself.
 
 `esc`, `shift+tab`, `ctrl+r` and `ctrl+c` all reach Claude untouched.
 

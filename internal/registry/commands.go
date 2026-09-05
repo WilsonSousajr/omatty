@@ -33,6 +33,49 @@ func AddProject(s *Store, git vcs.Git, dir string) (Project, error) {
 	return p, s.Save(st)
 }
 
+// RenameSession retitles a session in place. The title is display-only, so
+// this touches nothing that relaunching a session depends on (invariant 9):
+// it is a state.json edit and a sidebar rebuild (#41).
+//
+//	err := registry.RenameSession(store, sess.ID, "parser-fix")
+func RenameSession(s *Store, id, title string) error {
+	// An empty title would leave a blank sidebar row with nothing to aim at.
+	if title == "" {
+		return fmt.Errorf("registry: session %q: title is empty, want a non-blank name", id)
+	}
+	st, err := s.Load()
+	if err != nil {
+		return err
+	}
+	i, err := indexOfSession(&st, id)
+	if err != nil {
+		return err
+	}
+	st.Sessions[i].Title = title
+	return s.Save(st)
+}
+
+// indexOfSession locates a session by id. It returns an index rather than a
+// Session because callers mutate the one inside the state they are about to
+// save; a copy would be written back over.
+func indexOfSession(st *State, id string) (int, error) {
+	for i := range st.Sessions {
+		if st.Sessions[i].ID == id {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf(
+		"registry: no session with id %q (known sessions: %v)", id, sessionIDs(st))
+}
+
+func sessionIDs(st *State) []string {
+	ids := make([]string, 0, len(st.Sessions))
+	for _, sess := range st.Sessions {
+		ids = append(ids, sess.ID)
+	}
+	return ids
+}
+
 // AddSession creates and persists a session. It is the whole of `omatty new`.
 // State is saved only after the session is fully created, so a failed
 // worktree leaves nothing behind.

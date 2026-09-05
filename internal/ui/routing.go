@@ -24,17 +24,17 @@ func (m *Model) onKey(msg tea.KeyPressMsg) tea.Cmd {
 	case keys.ToTerminal:
 		return m.dispatch(target, msg)
 	case keys.ToOmatty:
-		return m.command(msg.Keystroke())
+		return m.command(msg)
 	default: // keys.Swallow - the leader itself
 		return nil
 	}
 }
 
-// focus reports which pane owns plain keystrokes and whether any does. A
-// prompt or an empty sidebar leaves nothing focused, so every key is an omatty
-// command and ctrl+c quits (issue #28).
+// focus reports which pane owns plain keystrokes and whether any does. An open
+// modal surface or an empty sidebar leaves nothing focused, so every key is an
+// omatty command and ctrl+c quits (issue #28).
 func (m *Model) focus() (focusTarget, bool) {
-	if m.prompt.Active {
+	if m.modalOpen() {
 		return focusTerminal, false
 	}
 	if m.review.Note.Active {
@@ -72,19 +72,21 @@ func (m *Model) onPaneKey(key string) tea.Cmd {
 }
 
 // command runs an omatty command key, pressed after the leader or while a
-// prompt is open.
-func (m *Model) command(key string) tea.Cmd {
-	// ctrl+c is the unconditional escape hatch, checked before the prompt so
-	// an open prompt cannot trap the operator (issue #28). With a session
-	// focused this is never reached: ctrl+c belongs to Claude, which uses it
-	// to interrupt a turn (invariant 1).
-	if key == "ctrl+c" {
+// modal surface is open. It takes the message rather than the keystroke
+// because the text editors need msg.Text: the keystroke name spells a capital
+// "shift+f", which is not what belongs in a session title (#41).
+func (m *Model) command(msg tea.KeyPressMsg) tea.Cmd {
+	// ctrl+c is the unconditional escape hatch, checked before the modal so an
+	// open surface cannot trap the operator (issue #28). With a session focused
+	// this is never reached: ctrl+c belongs to Claude, which uses it to
+	// interrupt a turn (invariant 1).
+	if msg.Keystroke() == "ctrl+c" {
 		return tea.Quit
 	}
-	if m.prompt.Active {
-		return m.onPromptKey(key)
+	if m.modalOpen() {
+		return m.onModalKey(msg)
 	}
-	return m.navigate(key)
+	return m.navigate(msg.Keystroke())
 }
 
 // navigate runs a command key while no prompt is open.
@@ -95,13 +97,13 @@ func (m *Model) navigate(key string) tea.Cmd {
 	case "k":
 		return m.moveCursor(m.sidebar.MoveUp)
 	case "n":
-		m.prompt = Prompt{Active: true}
+		m.modal = modal{Kind: modalPrompt}
 	// Keystroke() spells a shifted letter with the base key in lower case, so
 	// a terminal reporting the modifier gives "shift+n"; the bare "N" is
 	// accepted too, because a legacy terminal cannot report shift at all. The
 	// upper-case "shift+N" spelling never occurs and was dead (issue #87).
 	case "shift+n", "shift+N", "N":
-		m.prompt = Prompt{Active: true, Worktree: true}
+		m.modal = modal{Kind: modalPrompt, Editor: lineEditor{Worktree: true}}
 	default:
 		return m.paneCommand(key)
 	}
@@ -119,6 +121,20 @@ func (m *Model) paneCommand(key string) tea.Cmd {
 		return m.toggleView(ViewTree)
 	case "q":
 		return tea.Quit
+	}
+	return m.modalCommand(key)
+}
+
+// modalCommand opens a surface that takes the keyboard. It is a third table
+// beside navigate and paneCommand for the reason paneCommand was split off in
+// the first place: M4's keys would push one switch past gocyclo's limit.
+func (m *Model) modalCommand(key string) tea.Cmd {
+	switch key {
+	// Two spellings: a terminal reporting the modifier gives "shift+r", a
+	// legacy one the bare "R"; the upper-case "shift+R" never occurs (issue
+	// #87). Lower-case r is restart, so getting this wrong is silent.
+	case "shift+r", "R":
+		m.openRename()
 	}
 	return nil
 }
