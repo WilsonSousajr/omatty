@@ -45,7 +45,13 @@ const reviewFooter = "j/k move  c comment  d delete  r reload  S submit  esc bac
 
 // treeFooter replaces reviewFooter in the tree and preview views, where c and
 // S do nothing and enter does the work (#24).
-const treeFooter = "j/k move  enter open  r reload  esc back  " + Leader + " ? keys"
+//
+// It names h/l because it has the room to: at 64 columns it still fits the
+// 80-column DefaultWidth, while the same eight cells would take reviewFooter
+// to 83 and push a working key off the end. Half of #125 was that the axis
+// existed and nothing on screen said so.
+const treeFooter = "j/k move  h/l/0 pan  enter open  r reload  esc back  " +
+	Leader + " ? keys"
 
 // emptyStateHint names the next useful action. With no projects registered,
 // creating a session can only fail, so it points at `omatty add` instead.

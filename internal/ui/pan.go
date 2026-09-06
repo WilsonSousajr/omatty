@@ -23,9 +23,24 @@ func (m *Model) ReviewColOffset() int { return m.review.ColOffset }
 // far end matters as much as at the near one: without it l walks the text off
 // the screen and leaves a blank pane with no clue how far it went.
 func (m *Model) panReview(delta int) {
+	// A pan that cannot raise the offset needs no ceiling, and skipping the
+	// walk for it is what keeps the mouse affordable. ColOffset is only ever
+	// set through this function or to 0, so it already sits at or below the
+	// ceiling in force and a smaller value cannot exceed it. h was one press
+	// per walk; a trackpad flick is dozens of notches in a burst, each one
+	// paying reviewMaxWidth on the same goroutine the PTY output queues on -
+	// 3 ms per notch at the 256 KiB bound a preview is read to (#125).
+	//
+	// delta 0 still walks whenever the offset is non-zero: that is onResize
+	// asking for exactly this clamp, because a wider window lowers the
+	// ceiling under an offset set against a narrower one.
+	if delta < 0 || m.review.ColOffset+delta <= 0 {
+		m.review.ColOffset = max(m.review.ColOffset+delta, 0)
+		return
+	}
 	w := ReviewWidth(m.width, true) - 2
 	last := max(m.reviewMaxWidth()-w, 0)
-	m.review.ColOffset = min(max(m.review.ColOffset+delta, 0), last)
+	m.review.ColOffset = min(m.review.ColOffset+delta, last)
 }
 
 // panKey handles the horizontal keys shared by all three views, reporting

@@ -52,18 +52,68 @@ func (m *Model) onMouse(msg tea.MouseMsg) tea.Cmd {
 }
 
 // scrollPane sends a wheel notch to whatever is under the pointer.
+//
+// The review column is offered the whole message rather than a direction,
+// because it is the only surface with two axes: the button and the modifier
+// together pick which one a notch drives (#125).
+//
+// Everywhere else keeps taking a direction, which is what drops a horizontal
+// notch over the session pane: wheelDirection reports false for buttons 6 and
+// 7, so this returns before scrollTerminal. Claude has no horizontal scroll,
+// and inventing one out of arrow keys is the corruption #107 fixed.
 func (m *Model) scrollPane(msg tea.MouseWheelMsg) tea.Cmd {
+	if m.overReview(msg.X) {
+		return m.wheelReview(msg)
+	}
 	direction, ok := wheelDirection(msg.Button)
 	if !ok {
 		return nil
 	}
-	if m.overReview(msg.X) {
-		return m.scrollReview(direction)
-	}
 	return m.scrollTerminal(direction, msg.X, msg.Y)
 }
 
-// wheelDirection is +1 for a notch down the page, -1 for one up.
+// wheelReview drives one of the review column's two axes with a notch:
+// sideways for a horizontal button or a shifted vertical one, down the view
+// for a plain vertical one. It is reached only from scrollPane's overReview
+// arm, so the pointer is over the column by the time it runs.
+func (m *Model) wheelReview(msg tea.MouseWheelMsg) tea.Cmd {
+	if delta, ok := panDirection(msg); ok {
+		m.panReview(delta * panStep)
+		return nil
+	}
+	direction, ok := wheelDirection(msg.Button)
+	if !ok {
+		return nil
+	}
+	return m.scrollReview(direction)
+}
+
+// panDirection is +1 for a notch that pans right, -1 for one that pans left,
+// and false for a notch that is not on the horizontal axis at all.
+//
+// Two gestures answer to it because neither is sufficient alone. Buttons 6 and
+// 7 - what a trackpad's two-finger swipe reports - always arrive, but a
+// wheel-only mouse cannot send them; shift+wheel covers that mouse, and yet
+// Ghostty, kitty, xterm and Alacritty bypass mouse reporting on shift so the
+// operator can select text, so there it never arrives at all (#125).
+func panDirection(msg tea.MouseWheelMsg) (int, bool) {
+	switch msg.Button {
+	case tea.MouseWheelRight:
+		return 1, true
+	case tea.MouseWheelLeft:
+		return -1, true
+	}
+	if msg.Mod&tea.ModShift == 0 {
+		return 0, false
+	}
+	// A shifted vertical notch takes the vertical mapping onto this axis:
+	// down is right and up is left, which is how every pager reads it.
+	return wheelDirection(msg.Button)
+}
+
+// wheelDirection is +1 for a notch down the page, -1 for one up, and false
+// for the horizontal buttons - which is what keeps them off the session pane
+// (#125).
 func wheelDirection(b tea.MouseButton) (int, bool) {
 	switch b {
 	case tea.MouseWheelUp:
