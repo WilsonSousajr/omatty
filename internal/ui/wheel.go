@@ -56,6 +56,11 @@ func (m *Model) onMouse(msg tea.MouseMsg) tea.Cmd {
 // The review column is offered the whole message rather than a direction,
 // because it is the only surface with two axes: the button and the modifier
 // together pick which one a notch drives (#125).
+//
+// Everywhere else keeps taking a direction, which is what drops a horizontal
+// notch over the session pane: wheelDirection reports false for buttons 6 and
+// 7, so this returns before scrollTerminal. Claude has no horizontal scroll,
+// and inventing one out of arrow keys is the corruption #107 fixed.
 func (m *Model) scrollPane(msg tea.MouseWheelMsg) tea.Cmd {
 	if m.overReview(msg.X) {
 		return m.wheelReview(msg)
@@ -69,11 +74,8 @@ func (m *Model) scrollPane(msg tea.MouseWheelMsg) tea.Cmd {
 
 // wheelReview drives one of the review column's two axes with a notch:
 // sideways for a horizontal button or a shifted vertical one, down the view
-// for a plain vertical one.
-//
-// Over the session pane a horizontal notch is dropped instead, by
-// wheelDirection reporting false for it: claude has no horizontal scroll, and
-// inventing one out of arrow keys is the corruption #107 fixed.
+// for a plain vertical one. It is reached only from scrollPane's overReview
+// arm, so the pointer is over the column by the time it runs.
 func (m *Model) wheelReview(msg tea.MouseWheelMsg) tea.Cmd {
 	if delta, ok := panDirection(msg); ok {
 		m.panReview(delta * panStep)

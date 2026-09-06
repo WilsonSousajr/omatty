@@ -50,7 +50,7 @@ const reviewFooter = "j/k move  c comment  d delete  r reload  S submit  esc bac
 // 80-column DefaultWidth, while the same eight cells would take reviewFooter
 // to 83 and push a working key off the end. Half of #125 was that the axis
 // existed and nothing on screen said so.
-const treeFooter = "j/k move  h/l pan  enter open  r reload  esc back  " +
+const treeFooter = "j/k move  h/l/0 pan  enter open  r reload  esc back  " +
 	Leader + " ? keys"
 
 // emptyStateHint names the next useful action. With no projects registered,
