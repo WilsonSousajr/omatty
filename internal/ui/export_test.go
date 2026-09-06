@@ -31,3 +31,7 @@ func Footers() map[string]string {
 // SidebarRows is how many rows the sidebar holds, so a test helper that walks
 // the cursor can bound its loop instead of spinning when it never arrives.
 func (m *Model) SidebarRows() int { return len(m.sidebar.Rows()) }
+
+// PanStep is how far one h, one l or one sideways wheel notch moves the review
+// column, so a test spins a real gesture rather than hard-coding 8 (#125).
+const PanStep = panStep

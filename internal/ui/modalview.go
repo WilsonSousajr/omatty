@@ -76,7 +76,8 @@ var claudeKeys = []keyHelp{
 // (#103).
 var reviewKeys = []keyHelp{
 	{"j / k", "move the cursor"},
-	{"h / l", "pan a wide diff sideways"},
+	{"h / l", "pan the diff, tree or preview sideways"},
+	{"wheel sideways", "pan too - shift+wheel where the terminal sends it"},
 	{"c", "comment on the line under the cursor"},
 	{"S", "submit the queued comments"},
 	{"esc", "leave the column"},
