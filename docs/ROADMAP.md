@@ -1,6 +1,7 @@
 # omatty roadmap
 
-Last revised 2026-09-05, when M6 was built and opened for review.
+Last revised 2026-09-07, when M4 and M6 landed on `develop` and M7 took in
+what a week of running the real binary found.
 
 omatty is a terminal ADE: several projects and several parallel Claude Code
 sessions in one window, each session the real `claude` binary in an embedded
@@ -19,10 +20,10 @@ not only the coverage gate. See "Rules" at the end for why.
 | M1 | Skeleton | **Done.** #36, #35, #15 closed; merged to develop. |
 | M2 | Status | **Done.** Live glyphs, age, tokens, notifications; merged to develop. |
 | M3 | Review | **Done.** #21-#24 merged to develop; diff, comments, submit, file tree. |
-| M4 | Lifecycle | **In review.** #95, #41, #40, #42, #91, #103 built as PRs #98-#104. |
+| M4 | Lifecycle | **Done.** PRs #98-#104 merged to develop 2026-09-05, review findings in #119. |
 | M5 | File tree | Folded into M3 on 2026-09-03; #24 shipped there. |
-| M6 | Persistence | **In review.** #43 and #122 built as PRs #121 and the adoption PR. |
-| M7 | Reach | Planned. Issues #44-#46 in Backlog. |
+| M6 | Persistence | **Done.** #43 and #122 merged as PRs #121 and #123 on 2026-09-05. |
+| M7 | Reach | **In progress.** Twelve issues: #44-#46 and #124-#134, all in Sprint Backlog. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -175,7 +176,8 @@ from inside omatty.
 
 **Built** on 2026-09-04 as six PRs to `develop`, one issue each: #98 (#95, the
 resize bug), #99 (#41 rename), #100 (#40 archive), #101 (#42 switcher), #102
-(#91 discovery) and #104 (#103, the help modal). The plan is
+(#91 discovery) and #104 (#103, the help modal). All six merged to `develop`
+on 2026-09-05, followed by #119 for the review findings (#111). The plan is
 `docs/superpowers/plans/2026-09-04-m4-lifecycle.md`.
 
 Three things worth remembering from building it:
@@ -250,8 +252,8 @@ create that directory and archive must never offer to delete it (#40).
 screen.
 
 **Built** on 2026-09-05 as two PRs to `develop`, one issue each: #43
-(persistence) and #122 (adoption). The plan is
-`docs/superpowers/plans/2026-09-05-m6-persistence.md`.
+(persistence) and #122 (adoption), both merged to `develop` the same day. The
+plan is `docs/superpowers/plans/2026-09-05-m6-persistence.md`.
 
 Three things worth remembering from building it:
 
@@ -273,20 +275,98 @@ Three things worth remembering from building it:
 
 ## M7 - Reach
 
-**Delivers:** the open-source door.
+**Delivers:** the open-source door, and the polish a week of real use turned
+out to need before anyone walks through it.
 
-- **Config file** (`~/.omatty/config.toml`): leader key, claude binary path,
-  worktree root, default base branch. All hardcoded today. First because the
-  other two need it.
-- **Mouse**: click a session row, scroll the pane. bubbleterm already forwards
-  mouse events; the sidebar needs hit-testing.
-- **Other agents** (Codex, opencode): an agent is a command template plus a
-  status adapter. The seam is kept thin on purpose; this is the milestone
-  that widens it.
+M7 was three issues when this document was written. It is now twelve. Nine of
+them arrived after M4 and M6 landed, because those two milestones put enough of
+omatty in front of the operator for a day's real use to find what a coverage
+gate never will: seven reports on 2026-09-05 and 2026-09-06, one more found
+while reviewing the fix for the previous one, and one from auditing the branch
+itself. They belong here rather than in a milestone of their own because they
+are the same thing the original three are - the difference between software
+that works and software a stranger would keep.
+
+**Ordering.** Bugs first, because they make shipped features unusable rather
+than merely awkward. Then navigation, which is the friction the operator hits
+every day. Then the original three, in their existing order, since the config
+file is what the last two need. Chrome last, because it touches every renderer
+and the bugs live in those same files.
+
+**Plan:** `docs/superpowers/plans/2026-09-07-m7-reach.md`. #134 was deferred on
+2026-09-07 - no promotion of `develop` to `main` yet - so the "Done when" clause
+below is revisited when that decision is made.
+
+### Blocking bugs
+
+- **#131 - the file tree hangs on "listing files..." forever** if you open the
+  diff before the tree. `nil` from `treeRows()` is being asked to mean "not
+  loaded yet", and two states that never resolve produce it too. This kills
+  #24 - a whole M3 deliverable - on the path most people take to it.
+- **#124 - the review column cannot be closed once you press `esc`.** `esc`
+  drops keyboard focus but leaves the column on screen; `ctrl+o d` then takes
+  focus back rather than closing. The reflex cycles forever and half the
+  window stays gone.
+- **#129 - the sidebar never scrolls.** Rows past the fold are never drawn,
+  nothing indicates the list continues, and the cursor still moves onto them.
+  One tall project is enough to hit it; seven make it the first thing you see.
+
+### Navigation and naming
+
+- **#130 - no way to move between projects.** The cursor skips project headers
+  by design (`sidebar.go:47`), which is right for `j`/`k` and leaves nothing
+  that jumps to project 2. The other half of #129's report.
+- **#126 - `ctrl+o j`/`k` dead-end at both ends** instead of rotating, with no
+  feedback saying why. On a two-session project that turns a leader key into
+  counting rows and reversing at each end.
+- **#127 - name a session and its worktree automatically.** `ctrl+o n` demands
+  a title before the work it would describe exists, and under `N` that same
+  buffer becomes the branch name. One headless call can name both from the
+  first prompt. This is omatty doing its own housekeeping, not an agent acting
+  on the work, which is what keeps it clear of the orchestration cut below.
+
+### The original three
+
+- **Config file** (`~/.omatty/config.toml`, #44): leader key, claude binary
+  path, worktree root, default base branch. All hardcoded today. First of the
+  three because the other two need it.
+- **Mouse** (#45): click a session row, scroll the pane. Partly built already,
+  and not as part of this milestone - #107 gave the session pane a wheel and
+  #125 gave the review column a horizontal axis. What remains is the sidebar
+  hit-testing, so that a click selects a row.
+- **Other agents** (#46, Codex and opencode): an agent is a command template
+  plus a status adapter. The seam has been kept thin on purpose since M1; this
+  is the milestone that widens it. Needs #44 for the binary path.
+
+### Carried in from review
+
+- **#133 - `panReview` rebuilds every row of the view on each rightward
+  notch**, so a wheel flick over a large preview blocks `Update` for ~180 ms.
+  Found reviewing PR #132 and half-fixed there. `reviewMaxWidth()` walks and
+  rebuilds rather than caching, a trade #94 made deliberately for one `l` press
+  at human repeat rate. A wheel sends a burst, and the budget does not survive
+  it.
+- **#128 - give omatty a visual identity.** Four colours, six ASCII status
+  glyphs and a rounded border today; nothing on screen is drawn rather than
+  written. Activity lanes, meters and denser panel chrome, closer to `btop`.
+
+### Release
+
+- **#134 - `develop` has never been promoted to `main`.** Six milestones and
+  164 commits sit on `develop`; `main` is the branch a stranger clones and it
+  shows none of them. The door M7 opens leads to that branch, so the promotion
+  rule - what it is and what gate it clears - has to exist before this
+  milestone can claim to be done. No tag without approval; the decision comes
+  first.
 
 Nothing in M1-M6 is allowed to bake in a personal path or assumption that
 M7 would have to undo. That is the cost of "open source later" and it is
 paid continuously, not here.
+
+**Done when:** omatty reads its settings from a file rather than from its own
+source, a click selects a session, a second agent runs in a pane, the nine
+reports above are closed with regression tests where the rules require them,
+and the branch a stranger clones is the software this repository has built.
 
 ---
 
