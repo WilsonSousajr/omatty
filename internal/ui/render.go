@@ -90,12 +90,17 @@ func (m *Model) View() tea.View {
 	return v
 }
 
-// renderSidebar boxes the project/session rows at exactly SidebarWidth.
+// renderSidebar boxes the project/session rows at exactly SidebarWidth. The
+// "projects" line is chrome and stays pinned; the rows beneath it scroll so
+// the cursor is always drawn (#129). A project header scrolled off leaves its
+// sessions unlabelled, deliberately: pinning the current project's header
+// would spend a second row of chrome in a pane that is already short, and the
+// marker and the pane title name the session either way.
 func (m *Model) renderSidebar(rows int, now time.Time) string {
 	inner := SidebarWidth - 2
 	lines := make([]string, 0, rows)
 	lines = append(lines, headerStyle.Render(padRight("projects", inner)))
-	for _, row := range m.sidebar.Rows() {
+	for _, row := range m.sidebar.Window(rows - sidebarHeaderRows) {
 		lines = append(lines, m.renderRow(row, inner, now))
 	}
 	return paneBox(false).Render(fitBlock(lines, inner, rows))

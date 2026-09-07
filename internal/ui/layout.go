@@ -18,6 +18,12 @@ const (
 	titleRows  = 1
 )
 
+// sidebarHeaderRows is the pinned "projects" line renderSidebar draws above
+// the scrolling rows (#129). Named here so the renderer that applies it and
+// the click hit-test that undoes it (#45) cannot drift, and so moving the
+// header into the box's top rule (#128) is one constant.
+const sidebarHeaderRows = 1
+
 // DefaultWidth and DefaultHeight are the size assumed before the terminal
 // reports its own, and the fallback cmd uses when it cannot query one.
 const (
