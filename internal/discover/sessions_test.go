@@ -379,3 +379,50 @@ func TestProposeSessions_TruncatesATitleToDisplayCellsNotRunes_issue122(t *testi
 		t.Errorf("title occupies %d columns, want at most 60: the pane is fifty wide", w)
 	}
 }
+
+func transcriptOf(root, repo, id string) string {
+	return filepath.Join(root, paths.TranscriptSlug(repo), id+".jsonl")
+}
+
+func TestFirstPromptTitle_ReadsTheFirstTypedPrompt_issue127(t *testing.T) {
+	repo := filepath.Join(t.TempDir(), "omatty")
+	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: "fix the wheel"})
+
+	got, err := discover.FirstPromptTitle(transcriptOf(root, repo, "s1"))
+
+	if err != nil || got != "fix the wheel" {
+		t.Fatalf("FirstPromptTitle() = %q, %v; want \"fix the wheel\"", got, err)
+	}
+}
+
+// A session that has not been spoken to has no transcript yet. That is not a
+// failure: the model asks again on the next event.
+func TestFirstPromptTitle_IsEmptyAndNotAnErrorBeforeAnyPrompt_issue127(t *testing.T) {
+	got, err := discover.FirstPromptTitle(filepath.Join(t.TempDir(), "none.jsonl"))
+	if err != nil || got != "" {
+		t.Fatalf("FirstPromptTitle() with no transcript = %q, %v; want \"\" and nil", got, err)
+	}
+}
+
+// The leading records are claude's own (#61), and a typed prompt is
+// flattened before it can reach a row (#122).
+func TestFirstPromptTitle_SkipsInjectedEntriesAndFlattensTheRest_issue127(t *testing.T) {
+	repo := filepath.Join(t.TempDir(), "omatty")
+	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: "fix\u202e the\nwheel"})
+
+	got, err := discover.FirstPromptTitle(transcriptOf(root, repo, "s1"))
+
+	if err != nil || got != "fix the wheel" {
+		t.Fatalf("FirstPromptTitle() = %q, %v; want the flattened prompt", got, err)
+	}
+}
+
+func TestFirstPromptTitle_SurfacesAnUnreadableTranscript_issue127(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "s1.jsonl")
+	if err := os.MkdirAll(dir, 0o755); err != nil { // a directory where the file should be
+		t.Fatal(err)
+	}
+	if _, err := discover.FirstPromptTitle(dir); err == nil {
+		t.Fatal("FirstPromptTitle() on an unreadable transcript = nil error, want one")
+	}
+}

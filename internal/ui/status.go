@@ -46,8 +46,15 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 	after := watcher.Apply(m.status[e.SessionID], e)
 	m.status[e.SessionID] = after
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
-	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after.Status),
-		m.refreshReview(e.SessionID, before, after.Status))
+	return m.afterStatus(e, before, after.Status)
+}
+
+// afterStatus is everything a status event sets in motion off the Update
+// goroutine: the next wait, a notification, a diff refresh, and a name for a
+// session still carrying its placeholder (#127).
+func (m *Model) afterStatus(e watcher.Event, before, after watcher.Status) tea.Cmd {
+	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after),
+		m.refreshReview(e.SessionID, before, after), m.maybeName(e.SessionID))
 }
 
 func (m *Model) knownSession(id string) bool {

@@ -5,7 +5,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -33,7 +36,11 @@ func runTUI(home string, cfg config.Config, store *registry.Store) error {
 	}
 	w, h := windowSize()
 	env := tuiEnv{Home: home, Cfg: cfg, HooksFile: hooksFile, Holder: detach.New(home), Width: w, Height: h}
-	return ui.Run(tuiDeps(env, store, state))
+	deps := tuiDeps(env, store, state)
+	namer, closeNamer := modelNamer(cfg)
+	deps.ModelName = namer
+	defer closeNamer()
+	return ui.Run(deps)
 }
 
 // tuiEnv is what the wiring needs before it can build ui.RunDeps: where
@@ -66,6 +73,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Factory: termwrap.Start,
 		Create:  sessionCreator(env.Cfg, store),
 		Leader:  env.Cfg.Leader,
+		Name:    sessionNamer(home),
 		Diff:    review.NewSource(git).Load,
 		Files:   git.ListFiles,
 	}
@@ -206,6 +214,35 @@ func sessionRenamer(store *registry.Store) ui.RenameFunc {
 func sessionArchiver(store *registry.Store) ui.ArchiveFunc {
 	return func(sessionID string) (registry.Session, error) {
 		return registry.RemoveSession(store, sessionID)
+	}
+}
+
+// namingTimeout bounds one headless naming call: long enough for a small
+// model round trip, short enough that a stalled one is invisible.
+const namingTimeout = 10 * time.Second
+
+// modelNamer adapts supervisor.Namer to ui.ModelNameFunc, or returns nil when
+// the operator has not opted in (#44, #127). The closer removes the namer's
+// working directory; ui.Run cannot, because it receives a func, not the
+// Namer.
+func modelNamer(cfg config.Config) (ui.ModelNameFunc, func()) {
+	if !cfg.Naming.Model {
+		return nil, func() {}
+	}
+	n := supervisor.NewNamer(supervisor.NamerOpts{Bin: cfg.ClaudeBin, Timeout: namingTimeout})
+	name := func(prompt string) (string, error) { return n.Name(context.Background(), prompt) }
+	return name, func() {
+		if err := n.Close(); err != nil {
+			slog.Warn("removing the naming directory", "err", err)
+		}
+	}
+}
+
+// sessionNamer adapts discover.FirstPromptTitle to ui.NameFunc, so the model
+// can name a session from its transcript without reading one itself (#127).
+func sessionNamer(home string) ui.NameFunc {
+	return func(sess registry.Session) (string, error) {
+		return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ID))
 	}
 }
 

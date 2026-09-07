@@ -47,15 +47,23 @@ func (m *Model) commitRename() tea.Cmd {
 	id, title := m.modal.Editor.Target, m.modal.Editor.Buffer
 	m.modal = modal{}
 	m.lastErr = ""
-	if err := m.rename(id, title); err != nil {
+	if err := m.applyTitle(id, title); err != nil {
 		slog.Error("renaming session", "session", id, "title", title, "err", err)
 		m.lastErr = err.Error()
-		return nil
+	}
+	return nil
+}
+
+// applyTitle is the three steps a new title takes: persist, retitle in
+// memory, rebuild the sidebar keeping the selection (#41). Shared by the
+// rename box and the auto-namer (#127) so the two cannot end up doing
+// different amounts of work.
+func (m *Model) applyTitle(id, title string) error {
+	if err := m.rename(id, title); err != nil {
+		return err
 	}
 	if !m.retitle(id, title) {
-		slog.Error("renaming session", "session", id, "title", title, "err", "renamed on disk but not in memory")
-		m.lastErr = fmt.Sprintf("session %s was renamed on disk but is not in the sidebar; reload to see it", id)
-		return nil
+		return fmt.Errorf("session %s was renamed on disk but is not in the sidebar; reload to see it", id)
 	}
 	// SetRows, not NewSidebar: it re-finds the selection by id, so the row you
 	// just renamed is still the row you are on.

@@ -45,8 +45,13 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
-	// Rename persists a session's new title (#41).
+	// Rename persists a session's new title (#41), and Name reads the first
+	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
+	Name   NameFunc
+	// ModelName asks the agent to improve an auto-derived title. Nil means
+	// off, which is the default and the operator's opt-in (#127).
+	ModelName ModelNameFunc
 	// Archive drops a session from the registry, RemoveWorktree deletes its
 	// worktree, and TailStop ends its status tailer (#40).
 	Archive        ArchiveFunc
@@ -113,6 +118,9 @@ func (d Deps) withReviewDefaults() Deps {
 func (d Deps) withLifecycleDefaults() Deps {
 	if d.Rename == nil {
 		d.Rename = noRename
+	}
+	if d.Name == nil {
+		d.Name = noName
 	}
 	if d.Archive == nil {
 		d.Archive = noArchive

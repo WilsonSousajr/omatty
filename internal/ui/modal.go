@@ -63,6 +63,16 @@ type modal struct {
 // predicate every other site asks, so nothing else compares Kind to modalNone.
 func (m *Model) modalOpen() bool { return m.modal.Kind != modalNone }
 
+// namingRequired reports whether the open editor's buffer must be non-blank.
+// A rename would blank a title that exists, and a worktree prompt's buffer
+// becomes a git branch name, which cannot be deferred: `git worktree add -b`
+// runs at creation and bakes the name into the directory and into state.json
+// (#41, #127). A plain ctrl+o n has nothing to lose - the session is
+// registered under a placeholder and named by its first prompt.
+func (m *Model) namingRequired() bool {
+	return m.modal.Kind == modalRename || m.modal.Editor.Worktree
+}
+
 // lineEditor is the one-line text input behind both the new-session prompt and
 // the rename box. Target names the session being renamed and is empty for a
 // prompt, which creates one rather than editing one.
@@ -165,7 +175,7 @@ func (m *Model) scrollHelp(delta int) {
 // prevent, and on an N prompt it went on to become a git branch name (#41).
 func (m *Model) commitEditor() tea.Cmd {
 	trimmed := strings.TrimSpace(m.modal.Editor.Buffer)
-	if trimmed == "" {
+	if trimmed == "" && m.namingRequired() {
 		return nil
 	}
 	m.modal.Editor.Buffer = trimmed

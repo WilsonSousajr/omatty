@@ -219,7 +219,7 @@ func (m *Model) editorLabel() string {
 	if m.modal.Editor.Worktree {
 		return "new branch (worktree)"
 	}
-	return "new session title"
+	return "new session title (blank: named by its first prompt)"
 }
 
 // modalFooter is the keymap while a surface is open, or "" when none is. The

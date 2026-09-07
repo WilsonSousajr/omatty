@@ -14,8 +14,10 @@ package discover
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -205,8 +207,35 @@ type promptRecord struct {
 	} `json:"message"`
 }
 
+// FirstPromptTitle is the title to give a session, read from the first thing
+// the operator typed into its transcript, or "" when it holds none yet.
+//
+//	title, err := discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ID))
+//
+// Exported so a session omatty created is named the way an adopted one is:
+// titleOf is this function's other caller, and two rules for what a session
+// is called is how created and adopted rows would drift apart (#122, #127).
+// The error is for a transcript that exists and cannot be read. A missing
+// one is not an error: a session that has not spoken yet simply has no title.
+func FirstPromptTitle(path string) (string, error) {
+	f, err := os.Open(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("discover: transcript %s: %w", path, err)
+	}
+	defer func() { _ = f.Close() }()
+	title, err := scanFirstPrompt(f)
+	if err != nil {
+		return "", fmt.Errorf("discover: reading the head of transcript %s (%d-byte cap): %w", path, maxHeadBytes, err)
+	}
+	return title, nil
+}
+
 // firstPrompt is the first thing the operator actually typed, flattened for
-// display, or "" when the head of the transcript holds none.
+// display, or "" when the head of the transcript holds none or cannot be
+// opened.
 //
 // The content is untrusted (AGENTS.md, Security): it is read to make a display
 // string and for nothing else, and it is flattened before it can reach a
@@ -217,24 +246,32 @@ func firstPrompt(path string) string {
 		return ""
 	}
 	defer func() { _ = f.Close() }()
-	scan := bufio.NewScanner(&io.LimitedReader{R: f, N: maxHeadBytes})
-	scan.Buffer(nil, maxHeadBytes)
-	for i := 0; i < maxHeadLines && scan.Scan(); i++ {
-		if text, ok := typedPrompt(scan.Bytes()); ok {
-			return flatten(text)
-		}
-	}
+	title, err := scanFirstPrompt(f)
 	// The same cap readCwd hits, and the same argument: one record is routinely
 	// hundreds of kilobytes, so a head that blows it stops the scan with
 	// ErrTooLong - indistinguishable from "this transcript opens with no typed
 	// prompt" unless it is said out loud. The row then falls back to the raw
 	// uuid, and Debug is dropped by the default handler, so the operator saw an
 	// unreadable row and no trace of why (#91, #122).
-	if err := scan.Err(); err != nil {
+	if err != nil {
 		slog.Warn("adoption could not read a transcript head",
 			"transcript", path, "byteCap", maxHeadBytes, "err", err)
 	}
-	return ""
+	return title
+}
+
+// scanFirstPrompt reads the head of an open transcript for a typed prompt.
+// The error is the scanner's: a head over the byte cap, or a file that
+// cannot be read.
+func scanFirstPrompt(f io.Reader) (string, error) {
+	scan := bufio.NewScanner(&io.LimitedReader{R: f, N: maxHeadBytes})
+	scan.Buffer(nil, maxHeadBytes)
+	for i := 0; i < maxHeadLines && scan.Scan(); i++ {
+		if text, ok := typedPrompt(scan.Bytes()); ok {
+			return flatten(text), nil
+		}
+	}
+	return "", scan.Err()
 }
 
 // typedPrompt reports the text of one line if it is a prompt the operator

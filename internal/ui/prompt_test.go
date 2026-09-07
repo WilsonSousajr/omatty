@@ -159,22 +159,6 @@ func TestModel_promptEscCancelsWithoutCreating(t *testing.T) {
 	}
 }
 
-func TestModel_promptEnterOnAnEmptyBufferDoesNotCreate(t *testing.T) {
-	c := &recordCreate{}
-	m, _ := modelWithCreate(t, c)
-
-	press(m, ctrl('o'))
-	press(m, key('n'))
-	press(m, special(tea.KeyEnter))
-
-	if c.Calls != 0 {
-		t.Errorf("create was called %d times for an empty title, want 0", c.Calls)
-	}
-	if !m.Prompt().Active {
-		t.Error("Prompt() closed on an empty title, want it to stay open")
-	}
-}
-
 func TestModel_promptCreateFailureClosesThePromptAndShowsTheError(t *testing.T) {
 	c := &recordCreate{Err: errors.New("branch exists")}
 	m, _ := modelWithCreate(t, c)
@@ -242,5 +226,38 @@ func TestModel_leaderNOpensAWorktreePromptFromTheBaseKey_issue87(t *testing.T) {
 	if p := m.Prompt(); !p.Active || !p.Worktree {
 		t.Errorf("Prompt() = %+v, want an active worktree prompt; Keystroke() spelled this %q",
 			p, tea.KeyPressMsg{Code: 'n', Mod: tea.ModShift, Text: "N"}.Keystroke())
+	}
+}
+
+// A plain ctrl+o n has nothing to lose from a blank name: the session is
+// registered under a placeholder and named by its first prompt (#127).
+func TestModel_LeaderNWithABlankBufferCreatesAnUntitledSession_issue127(t *testing.T) {
+	c := &recordCreate{}
+	m, _ := modelWithCreate(t, c)
+	press(m, ctrl('o'))
+	press(m, key('n'))
+
+	pressAndSettle(m, special(tea.KeyEnter))
+
+	if m.Prompt().Active {
+		t.Fatal("ctrl+o n then enter on a blank buffer left the editor open")
+	}
+	if c.Calls != 1 || c.Title != "" || c.Branch != "" {
+		t.Errorf("Create called %d times with title %q branch %q; want once, blank, no branch", c.Calls, c.Title, c.Branch)
+	}
+}
+
+// A worktree prompt's buffer becomes a git branch, which cannot be deferred,
+// so it still refuses a blank (#127).
+func TestModel_LeaderShiftNStillRefusesABlankBranch_issue127(t *testing.T) {
+	c := &recordCreate{}
+	m, _ := modelWithCreate(t, c)
+	press(m, ctrl('o'))
+	press(m, tea.KeyPressMsg{Code: 'n', Mod: tea.ModShift, Text: "N"})
+
+	press(m, special(tea.KeyEnter))
+
+	if !m.Prompt().Active || c.Calls != 0 {
+		t.Errorf("worktree prompt: active=%v creates=%d; want it still open and nothing created", m.Prompt().Active, c.Calls)
 	}
 }
