@@ -148,7 +148,7 @@ func TestModel_TheStartupNoticeKeepsTheExitOnScreen_issue43(t *testing.T) {
 	if !strings.Contains(view, "install dtach") {
 		t.Errorf("the notice is not on screen:\n%s", view)
 	}
-	if !strings.Contains(view, ui.Leader+" q quit") {
+	if !strings.Contains(view, ui.DefaultLeader+" q quit") {
 		t.Errorf("the notice hid the only way out of omatty:\n%s", view)
 	}
 }

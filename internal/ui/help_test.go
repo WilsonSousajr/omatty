@@ -30,8 +30,8 @@ func TestModel_helpListsEveryLeaderKey_issue103(t *testing.T) {
 
 	got := m.View().Content
 	for _, k := range ui.LeaderKeys() {
-		if !strings.Contains(got, ui.Leader+" "+k) {
-			t.Errorf("the help modal does not list %q:\n%s", ui.Leader+" "+k, got)
+		if !strings.Contains(got, ui.DefaultLeader+" "+k) {
+			t.Errorf("the help modal does not list %q:\n%s", ui.DefaultLeader+" "+k, got)
 		}
 	}
 }
@@ -135,7 +135,7 @@ func TestModel_escClosesTheHelpModal_issue103(t *testing.T) {
 
 	press(m, special(tea.KeyEscape))
 
-	if got := m.View().Content; strings.Contains(got, ui.Leader+" keys") {
+	if got := m.View().Content; strings.Contains(got, ui.DefaultLeader+" keys") {
 		t.Errorf("esc did not close the help modal:\n%s", got)
 	}
 }
@@ -155,7 +155,7 @@ func TestModel_theLeaderCompletesACommandFromInsideAModal_issue103(t *testing.T)
 	press(m, key('?'))
 
 	press(m, ctrl('o'))
-	if got := m.View().Content; strings.Contains(got, ui.Leader+" keys") {
+	if got := m.View().Content; strings.Contains(got, ui.DefaultLeader+" keys") {
 		t.Errorf("the leader did not close the help modal:\n%s", got)
 	}
 	_, cmd := m.Update(key('q'))
@@ -192,7 +192,7 @@ func TestModel_theLeaderQuitsFromInsideTheRenameBox_issue41(t *testing.T) {
 // check on the drawn frame passes for a footer of any length whatsoever and
 // could not fail for this bug.
 func TestModel_footerFitsTheDefaultWindow_issue103(t *testing.T) {
-	for name, s := range ui.Footers() {
+	for name, s := range ui.Footers(ui.DefaultLeader) {
 		if w := lipgloss.Width(s); w > ui.DefaultWidth {
 			t.Errorf("%s is %d columns wide, want at most %d:\n%s", name, w, ui.DefaultWidth, s)
 		}
@@ -208,7 +208,7 @@ func TestModel_theFooterShowsTheHelpKey_issue103(t *testing.T) {
 	lines := strings.Split(m.View().Content, "\n")
 	last := lines[len(lines)-1]
 
-	if !strings.Contains(last, ui.Leader+" ?") {
+	if !strings.Contains(last, ui.DefaultLeader+" ?") {
 		t.Errorf("the footer does not show the help key at %d columns:\n%s", ui.DefaultWidth, last)
 	}
 }

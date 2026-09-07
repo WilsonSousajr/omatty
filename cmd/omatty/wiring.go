@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/discover"
 	"github.com/WilsonSousajr/omatty/internal/paths"
@@ -21,7 +22,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
-func runTUI(home string, store *registry.Store) error {
+func runTUI(home string, cfg config.Config, store *registry.Store) error {
 	state, err := store.Load()
 	if err != nil {
 		return err
@@ -31,7 +32,8 @@ func runTUI(home string, store *registry.Store) error {
 		return err
 	}
 	w, h := windowSize()
-	return ui.Run(tuiDeps(tuiEnv{Home: home, HooksFile: hooksFile, Width: w, Height: h}, store, state))
+	env := tuiEnv{Home: home, Cfg: cfg, HooksFile: hooksFile, Holder: detach.New(home), Width: w, Height: h}
+	return ui.Run(tuiDeps(env, store, state))
 }
 
 // tuiEnv is what the wiring needs before it can build ui.RunDeps: where
@@ -40,9 +42,14 @@ func runTUI(home string, store *registry.Store) error {
 // M7's config, naming and agent seams each add one (#136).
 type tuiEnv struct {
 	Home      string
+	Cfg       config.Config
 	HooksFile string
-	Width     int
-	Height    int
+	// Holder keeps sessions alive across quit. One holder, used twice: it
+	// wraps each launch and it ends an archived session's claude. Two would
+	// mean two PATH lookups that could disagree (#43).
+	Holder detach.Holder
+	Width  int
+	Height int
 }
 
 // tuiDeps wires the TUI's dependencies: the launcher, the terminal factory,
@@ -50,17 +57,15 @@ type tuiEnv struct {
 // because ui may do neither itself (invariants 4 and 10).
 func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps {
 	home, hooksFile, w, h := env.Home, env.HooksFile, env.Width, env.Height
-	git := vcs.NewCLI()
-	// One holder, used twice: it wraps each launch and it ends an archived
-	// session's claude. Two would mean two PATH lookups that could disagree.
-	holder := detach.New(home)
+	git, holder := vcs.NewCLI(), env.Holder
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
 		Stop:    holder.Stop,
 		Notice:  holder.Notice(),
-		Launch:  supervisor.NewLauncher("claude", hooksFile, home, holder),
+		Launch:  supervisor.NewLauncher(env.Cfg.ClaudeBin, hooksFile, home, holder),
 		Factory: termwrap.Start,
-		Create:  sessionCreator(home, store),
+		Create:  sessionCreator(env.Cfg, store),
+		Leader:  env.Cfg.Leader,
 		Diff:    review.NewSource(git).Load,
 		Files:   git.ListFiles,
 	}
@@ -204,14 +209,21 @@ func sessionArchiver(store *registry.Store) ui.ArchiveFunc {
 	}
 }
 
+// creatorOpts is the one place the config's worktree keys become creator
+// options, so the TUI and `omatty new` cannot disagree about where a
+// worktree goes or what it forks from (#44).
+func creatorOpts(cfg config.Config) registry.CreatorOpts {
+	return registry.CreatorOpts{WorktreeRoot: cfg.WorktreeRoot, BaseBranch: cfg.BaseBranch}
+}
+
 // sessionCreator adapts registry.AddSession to ui.CreateFunc. The project
 // comes from the cursor, so a session created while looking at one repository
 // never lands in another.
 //
 // The session is registered but not started: starting it needs a terminal
 // factory inside the running program, which M2 wires up along with status.
-func sessionCreator(home string, store *registry.Store) ui.CreateFunc {
-	c := registry.NewCreator(vcs.NewCLI(), home, uuid.NewString)
+func sessionCreator(cfg config.Config, store *registry.Store) ui.CreateFunc {
+	c := registry.NewCreator(vcs.NewCLI(), creatorOpts(cfg), uuid.NewString)
 	return func(project, title, branch string) (registry.Session, error) {
 		if project == "" {
 			return registry.Session{}, fmt.Errorf("no project selected; run `omatty add <dir>` first")

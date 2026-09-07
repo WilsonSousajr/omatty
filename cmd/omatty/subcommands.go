@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/discover"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -21,12 +22,12 @@ import (
 
 // dispatch runs a subcommand. `add` registers a repository; `new` creates a
 // session, with a branch argument meaning "in a fresh worktree".
-func dispatch(cmd string, args []string, home string, store *registry.Store) error {
+func dispatch(cmd string, args []string, home string, cfg config.Config, store *registry.Store) error {
 	switch cmd {
 	case "add":
 		return addProject(store, args)
 	case "new":
-		return newSession(store, home, args)
+		return newSession(store, cfg, args)
 	case "discover":
 		return discoverProjects(store, home, os.Stdin)
 	case "adopt":
@@ -207,7 +208,7 @@ func addProject(store *registry.Store, args []string) error {
 	return nil
 }
 
-func newSession(store *registry.Store, home string, args []string) error {
+func newSession(store *registry.Store, cfg config.Config, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("new: want <project> <title> [branch], got %v", args)
 	}
@@ -215,7 +216,7 @@ func newSession(store *registry.Store, home string, args []string) error {
 	if len(args) > 2 {
 		branch = args[2]
 	}
-	c := registry.NewCreator(vcs.NewCLI(), home, uuid.NewString)
+	c := registry.NewCreator(vcs.NewCLI(), creatorOpts(cfg), uuid.NewString)
 	sess, err := registry.AddSession(store, c, args[0], args[1], branch)
 	if err != nil {
 		return err

@@ -105,10 +105,10 @@ func (m *Model) helpRows() int {
 // were cut off with no way to reach them (#103, #107).
 func (m *Model) helpLines() []string {
 	w, _ := PaneSize(m.width, m.height, m.review.Open)
-	body, rows := helpBody(w), m.helpRows()
+	body, rows := helpBody(m.leader, w), m.helpRows()
 	start := min(max(m.modal.HelpOffset, 0), max(len(body)-rows, 0))
 	end := min(start+rows, len(body))
-	lines := append([]string{Leader + " keys", ""}, body[start:end]...)
+	lines := append([]string{m.leader + " keys", ""}, body[start:end]...)
 	if len(body) > rows {
 		return append(lines, "j/k scroll  esc close  ctrl+c quit")
 	}
@@ -118,11 +118,11 @@ func (m *Model) helpLines() []string {
 // helpBody is one line per binding, keys padded into a column and descriptions
 // trimmed to the pane. A narrow pane loses the description rather than wrapping
 // the key away from what it does.
-func helpBody(width int) []string {
-	gutter := helpGutter()
+func helpBody(leader string, width int) []string {
+	gutter := helpGutter(leader)
 	lines := make([]string, 0, len(leaderKeys)+len(reviewKeys)+len(claudeKeys)+4)
 	for _, k := range leaderKeys {
-		lines = append(lines, helpRow(Leader+" "+k.Key, k.Does, gutter, width))
+		lines = append(lines, helpRow(leader+" "+k.Key, k.Does, gutter, width))
 	}
 	for _, section := range []struct {
 		title string
@@ -147,10 +147,10 @@ func helpRow(key, does string, gutter, width int) string {
 // helpGutter is the key column's width: the longest key in either table, so a
 // new binding widens the column instead of pushing its description out of line
 // with every other one (#103).
-func helpGutter() int {
+func helpGutter(leader string) int {
 	w := 0
 	for _, k := range leaderKeys {
-		w = max(w, lipgloss.Width(Leader+" "+k.Key))
+		w = max(w, lipgloss.Width(leader+" "+k.Key))
 	}
 	for _, table := range [][]keyHelp{reviewKeys, claudeKeys} {
 		for _, k := range table {

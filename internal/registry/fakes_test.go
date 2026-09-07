@@ -12,6 +12,8 @@ type FakeGit struct {
 	// AddedFrom is the start point the worktree was forked from (#21).
 	AddedFrom string
 	Removed   []string
+	// CurrentBranchCalls counts the git forks a configured base saves (#44).
+	CurrentBranchCalls int
 }
 
 // RepoRoot echoes dir, so tests can pick the project name by choosing a path.
@@ -21,7 +23,10 @@ func (f *FakeGit) RepoRoot(dir string) (string, error) { return dir, nil }
 // fakes the whole interface for itself.
 func (f *FakeGit) MainCheckout(dir string) (string, error) { return dir, nil }
 
-func (f *FakeGit) CurrentBranch(string) (string, error) { return f.Branch, nil }
+func (f *FakeGit) CurrentBranch(string) (string, error) {
+	f.CurrentBranchCalls++
+	return f.Branch, nil
+}
 
 func (f *FakeGit) RemoveWorktree(_, dir string) error {
 	f.Removed = append(f.Removed, dir)

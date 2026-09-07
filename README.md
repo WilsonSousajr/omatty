@@ -109,6 +109,26 @@ directory.
 
 `esc`, `shift+tab`, `ctrl+r` and `ctrl+c` all reach Claude untouched.
 
+## Configuration
+
+omatty reads `~/.omatty/config.toml` at startup. Every key is optional; with
+no file at all these are the values in force:
+
+```toml
+leader = "ctrl+o"          # the one key omatty intercepts; bubbletea spelling ("ctrl+a", not "C-a")
+claude_bin = "claude"      # the binary each session runs, resolved on PATH or absolute
+worktree_root = "~/.omatty/wt"   # where `omatty new ... <branch>` and ctrl+o N put worktrees
+base_branch = ""           # fork worktrees from this branch; empty means the checkout's current one
+
+[naming]
+model = false              # let a headless claude call improve auto-derived session titles
+```
+
+A malformed file, a wrong type or a key omatty does not know is an error at
+startup naming the file and the key, printed before the TUI opens. A blank
+leader is refused: with a session focused `ctrl+c` belongs to Claude, so a
+leader that never arrives would leave no way to quit.
+
 ## Review
 
 `ctrl+o d` opens a diff of everything the session changed: its commits since

@@ -83,7 +83,7 @@ func TestModel_projectWithNoSessionsPointsAtTheNewSessionKey_issue28(t *testing.
 
 	got := m.View().Content
 
-	if !strings.Contains(got, ui.Leader+" n") {
+	if !strings.Contains(got, ui.DefaultLeader+" n") {
 		t.Errorf("hint does not mention the new-session key:\n%s", got)
 	}
 }
@@ -112,7 +112,7 @@ func TestModel_keyHintsStayVisibleWithASessionFocused_issue30(t *testing.T) {
 	if !strings.Contains(got, "quit") {
 		t.Errorf("View() hides the exit while a session is focused:\n%s", got)
 	}
-	if !strings.Contains(got, ui.Leader+" q") {
+	if !strings.Contains(got, ui.DefaultLeader+" q") {
 		t.Errorf("View() does not name the working quit key:\n%s", got)
 	}
 }
@@ -123,7 +123,7 @@ func TestModel_footerNamesTheNavigationKeys_issue30(t *testing.T) {
 
 	got := m.View().Content
 
-	for _, want := range []string{ui.Leader + " j", ui.Leader + " n"} {
+	for _, want := range []string{ui.DefaultLeader + " j", ui.DefaultLeader + " n"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("footer does not mention %q:\n%s", want, got)
 		}

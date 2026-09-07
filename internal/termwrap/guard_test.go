@@ -29,7 +29,7 @@ func (p *PanicTerminal) Focused() bool            { panic("emulator exploded") }
 func (p *PanicTerminal) Close() error             { panic("emulator exploded") }
 
 func TestGuard_ViewPanicBecomesAnErrorFrame(t *testing.T) {
-	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")})
+	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")}, "ctrl+o r")
 
 	got := g.View()
 
@@ -42,7 +42,7 @@ func TestGuard_ViewPanicBecomesAnErrorFrame(t *testing.T) {
 }
 
 func TestGuard_UpdatePanicIsContained(t *testing.T) {
-	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")})
+	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")}, "ctrl+o r")
 
 	if cmd := g.Update(tea.WindowSizeMsg{}); cmd != nil {
 		t.Errorf("Update() = %v after a panic, want nil", cmd)
@@ -55,7 +55,7 @@ func TestGuard_UpdatePanicIsContained(t *testing.T) {
 // Once a terminal has panicked it is not asked again: a repeatedly panicking
 // emulator would otherwise burn a recover on every frame.
 func TestGuard_StaysCrashedWithoutReenteringTheTerminal(t *testing.T) {
-	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")})
+	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")}, "ctrl+o r")
 	g.View()
 
 	if got := g.View(); !strings.Contains(got, "crashed") {
@@ -68,7 +68,7 @@ func TestGuard_StaysCrashedWithoutReenteringTheTerminal(t *testing.T) {
 
 func TestGuard_HealthyTerminalPassesThrough(t *testing.T) {
 	f := termwrap.NewFake("hello")
-	g := termwrap.NewGuard(f)
+	g := termwrap.NewGuard(f, "ctrl+o r")
 
 	if got := g.View(); got != "hello" {
 		t.Errorf("View() = %q, want %q", got, "hello")
@@ -106,7 +106,7 @@ func TestGuard_ContainsAPanicFromEveryMethod_issue112(t *testing.T) {
 		"Close":     func(g *termwrap.Guard) { _ = g.Close() },
 	} {
 		t.Run(name, func(t *testing.T) {
-			g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")})
+			g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")}, "ctrl+o r")
 
 			defer func() {
 				if r := recover(); r != nil {
@@ -129,7 +129,7 @@ func TestGuard_ContainsAPanicFromEveryMethod_issue112(t *testing.T) {
 func TestGuard_CursorReportsTheWrappedTerminalsCaret_issue118(t *testing.T) {
 	f := termwrap.NewFake("")
 	f.Caret = termwrap.Caret{X: 4, Y: 2, Visible: true}
-	g := termwrap.NewGuard(f)
+	g := termwrap.NewGuard(f, "ctrl+o r")
 
 	got := g.Cursor()
 
@@ -140,7 +140,7 @@ func TestGuard_CursorReportsTheWrappedTerminalsCaret_issue118(t *testing.T) {
 
 // A crashed terminal shows the crash frame, which has no caret of its own.
 func TestGuard_CrashedTerminalReportsNoCaret_issue118(t *testing.T) {
-	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")})
+	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")}, "ctrl+o r")
 	g.View() // crash it
 
 	if got := g.Cursor(); got != (termwrap.Caret{}) {
@@ -152,10 +152,19 @@ func TestGuard_CrashedTerminalReportsNoCaret_issue118(t *testing.T) {
 // the claude process behind it is worse than a second panic, which the recover
 // contains anyway. It reports the failure rather than swallowing it (#40).
 func TestGuard_CloseStillRunsOnACrashedTerminal_issue112(t *testing.T) {
-	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")})
+	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")}, "ctrl+o r")
 	g.View() // crash it
 
 	if err := g.Close(); err == nil {
 		t.Error("Close() = nil on a terminal that panics while closing, want an error naming it")
+	}
+}
+
+// The crash frame names the key it was given, because the leader is
+// configurable and termwrap cannot know it (#44).
+func TestGuard_CrashFrameNamesTheRestartKeyItWasGiven_issue44(t *testing.T) {
+	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")}, "ctrl+a r")
+	if frame := g.View(); !strings.Contains(frame, "press ctrl+a r to restart") {
+		t.Errorf("crash frame %q does not name ctrl+a r", frame)
 	}
 }

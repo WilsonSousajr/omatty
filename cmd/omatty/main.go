@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/hooks"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -68,11 +69,19 @@ func run() error {
 	if err := openLog(home); err != nil {
 		return err
 	}
+	// After openLog so a malformed file is logged, before runTUI so the error
+	// reaches stderr rather than the alt screen (invariant 5). runHook never
+	// reads it: that path may depend on nothing that can fail (invariant 11).
+	cfg, err := config.Load(paths.ConfigFile(home), home)
+	if err != nil {
+		return err
+	}
+	slog.Info("config", "leader", cfg.Leader, "claude_bin", cfg.ClaudeBin, "worktree_root", cfg.WorktreeRoot)
 	store := registry.NewStore(paths.StateFile(home))
 	if len(os.Args) < 2 {
-		return runTUI(home, store)
+		return runTUI(home, cfg, store)
 	}
-	return dispatch(os.Args[1], os.Args[2:], home, store)
+	return dispatch(os.Args[1], os.Args[2:], home, cfg, store)
 }
 
 // readLine reads the operator's answer. An unreadable stdin means no answer,

@@ -61,7 +61,7 @@ func TestAddSession_PersistsTheNewSession(t *testing.T) {
 	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
-	creator := registry.NewCreator(git, "/home/u", stubID)
+	creator := registry.NewCreator(git, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
 
 	got, err := registry.AddSession(store, creator, "omatty", "parser", "parser-fix")
 
@@ -82,7 +82,7 @@ func TestAddSession_PersistsTheNewSession(t *testing.T) {
 
 func TestAddSession_FailureLeavesStateUnchanged(t *testing.T) {
 	store, _ := newStoreAt(t)
-	creator := registry.NewCreator(&FakeGit{}, "/home/u", stubID)
+	creator := registry.NewCreator(&FakeGit{}, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
 
 	if _, err := registry.AddSession(store, creator, "ghost", "t", ""); err == nil {
 		t.Fatal("AddSession() for an unknown project returned nil, want an error")

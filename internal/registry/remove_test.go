@@ -19,7 +19,7 @@ func seedTwoSessions(t *testing.T) (*registry.Store, string, string) {
 	ids := make([]string, 0, 2)
 	for i, branch := range []string{"", "parser-fix"} {
 		n := i
-		c := registry.NewCreator(git, "/home/u", func() string { return string(rune('a' + n)) })
+		c := registry.NewCreator(git, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, func() string { return string(rune('a' + n)) })
 		sess, err := registry.AddSession(store, c, "omatty", "session-"+string(rune('a'+n)), branch)
 		if err != nil {
 			t.Fatal(err)

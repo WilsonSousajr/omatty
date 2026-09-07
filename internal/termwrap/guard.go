@@ -7,9 +7,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// crashFrame replaces a crashed session's output. It names the recovery key
-// so the operator is not left staring at a dead pane.
-const crashFrame = "x this session's terminal crashed - press ctrl+o r to restart it"
+// crashFrameFor is what replaces a crashed session's output. It names the
+// recovery key so the operator is not left staring at a dead pane; the key is
+// a parameter because the leader is configurable (#44) and termwrap may not
+// import the package that knows it.
+func crashFrameFor(restartKey string) string {
+	return "x this session's terminal crashed - press " + restartKey + " to restart it"
+}
 
 // Guard wraps a Terminal so a panic inside the emulator takes down one
 // session's widget rather than the whole app (invariant 6). bubbleterm is
@@ -21,16 +25,20 @@ const crashFrame = "x this session's terminal crashed - press ctrl+o r to restar
 // change including behind a modal (#95), and Close became a mid-run call when
 // a session can be archived (#40). A panic in either took the whole app down.
 //
-//	term = termwrap.NewGuard(term)
+//	term = termwrap.NewGuard(term, "ctrl+o r")
 type Guard struct {
 	Terminal
 	// Panicked reports whether the wrapped terminal has ever panicked. A
 	// guarded terminal is not retried; the session stays marked crashed.
-	Panicked bool
+	Panicked   bool
+	crashFrame string
 }
 
-// NewGuard wraps t.
-func NewGuard(t Terminal) *Guard { return &Guard{Terminal: t} }
+// NewGuard wraps t. restartKey completes "press <key> to restart it" in the
+// frame a crashed session shows.
+func NewGuard(t Terminal, restartKey string) *Guard {
+	return &Guard{Terminal: t, crashFrame: crashFrameFor(restartKey)}
+}
 
 // guarded runs fn unless this terminal has already panicked, containing any
 // panic it raises to this one session. It is the single recover site: three
@@ -55,7 +63,7 @@ func (g *Guard) guarded(what string, fn func()) {
 
 // View renders the wrapped terminal, substituting an error frame if it panics.
 func (g *Guard) View() (frame string) {
-	frame = crashFrame
+	frame = g.crashFrame
 	g.guarded("while rendering", func() { frame = g.Terminal.View() })
 	return frame
 }

@@ -20,11 +20,11 @@ func LeaderKeys() []string {
 // Footers is every footer constant by name, so a width assertion measures the
 // constant rather than the rendered line - which fitLine has already capped to
 // the window and which therefore cannot fail for an over-long footer.
-func Footers() map[string]string {
+func Footers(leader string) map[string]string {
 	return map[string]string{
-		"footer":       footer,
-		"reviewFooter": reviewFooter,
-		"treeFooter":   treeFooter,
+		"footer":       footerLine(leader),
+		"reviewFooter": reviewFooterLine(leader),
+		"treeFooter":   treeFooterLine(leader),
 	}
 }
 

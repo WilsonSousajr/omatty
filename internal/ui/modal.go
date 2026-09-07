@@ -152,7 +152,7 @@ func (m *Model) onHelpKey(key string) tea.Cmd {
 // clamps too, because a resize can shrink the pane after the last keypress.
 func (m *Model) scrollHelp(delta int) {
 	w, _ := PaneSize(m.width, m.height, m.review.Open)
-	last := max(len(helpBody(w))-m.helpRows(), 0)
+	last := max(len(helpBody(m.leader, w))-m.helpRows(), 0)
 	m.modal.HelpOffset = min(max(m.modal.HelpOffset+delta, 0), last)
 }
 

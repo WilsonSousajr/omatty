@@ -12,8 +12,11 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
-// Leader is the one key omatty intercepts while the terminal has focus.
-const Leader = "ctrl+o"
+// DefaultLeader is the key omatty intercepts while the terminal has focus,
+// unless the config file names another (#44). It stays a constant because
+// keys.NewRouter, the help gutter and the footers all need a value before
+// any Deps is read.
+const DefaultLeader = "ctrl+o"
 
 // Model is omatty's root Bubble Tea model.
 //
@@ -26,6 +29,7 @@ type Model struct {
 	sidebar *Sidebar
 	terms   map[string]termwrap.Terminal
 	router  *keys.Router
+	leader  string // the key the router intercepts; DefaultLeader unless configured (#44)
 	create  CreateFunc
 	start   StartFunc
 	// status is the live per-session state from the watcher; events feeds it.
@@ -89,7 +93,8 @@ func NewModel(deps Deps) *Model {
 		state:     d.State,
 		sidebar:   NewSidebar(SidebarRows(d.State, nil)),
 		terms:     d.Terms,
-		router:    keys.NewRouter(Leader),
+		router:    keys.NewRouter(d.Leader),
+		leader:    d.Leader,
 		create:    d.Create,
 		start:     d.Start,
 		events:    d.Events,

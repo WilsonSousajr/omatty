@@ -21,7 +21,7 @@ func TestCreator_OnMainCheckoutMakesNoWorktree(t *testing.T) {
 	g := &FakeGit{}
 	st := baseState()
 
-	got, err := registry.NewCreator(g, "/home/u", stubID).Create(st, "omatty", "poke", "")
+	got, err := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).Create(st, "omatty", "poke", "")
 
 	if err != nil {
 		t.Fatalf("Create() error = %v, want nil", err)
@@ -43,7 +43,7 @@ func TestCreator_OnMainCheckoutMakesNoWorktree(t *testing.T) {
 func TestCreator_OnBranchCreatesWorktree(t *testing.T) {
 	g := &FakeGit{}
 
-	got, err := registry.NewCreator(g, "/home/u", stubID).
+	got, err := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(baseState(), "omatty", "parser", "parser-fix")
 
 	if err != nil {
@@ -66,7 +66,7 @@ func TestCreator_OnBranchCreatesWorktree(t *testing.T) {
 func TestCreator_RecordsTheBaseBranchAndForksFromIt_issue21(t *testing.T) {
 	g := &FakeGit{Branch: "develop"}
 
-	got, err := registry.NewCreator(g, "/home/u", stubID).
+	got, err := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(baseState(), "omatty", "parser", "parser-fix")
 
 	if err != nil {
@@ -85,7 +85,7 @@ func TestCreator_RecordsTheBaseBranchAndForksFromIt_issue21(t *testing.T) {
 func TestCreator_DetachedRootLeavesBaseEmpty_issue21(t *testing.T) {
 	g := &FakeGit{Branch: "HEAD"}
 
-	got, err := registry.NewCreator(g, "/home/u", stubID).
+	got, err := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(baseState(), "omatty", "t", "b")
 
 	if err != nil {
@@ -97,7 +97,7 @@ func TestCreator_DetachedRootLeavesBaseEmpty_issue21(t *testing.T) {
 }
 
 func TestCreator_MainCheckoutHasNoBase_issue21(t *testing.T) {
-	got, err := registry.NewCreator(&FakeGit{Branch: "main"}, "/home/u", stubID).
+	got, err := registry.NewCreator(&FakeGit{Branch: "main"}, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(baseState(), "omatty", "poke", "")
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func TestCreator_MainCheckoutHasNoBase_issue21(t *testing.T) {
 }
 
 func TestCreator_UnknownProjectNamesItAndTheKnownOnes(t *testing.T) {
-	_, err := registry.NewCreator(&FakeGit{}, "/home/u", stubID).
+	_, err := registry.NewCreator(&FakeGit{}, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(baseState(), "ghost", "t", "")
 
 	if err == nil {
@@ -126,11 +126,46 @@ func TestCreator_WorktreeFailureAddsNoSession(t *testing.T) {
 	g := &FakeGit{AddErr: errors.New("branch exists")}
 	st := baseState()
 
-	if _, err := registry.NewCreator(g, "/home/u", stubID).
+	if _, err := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(st, "omatty", "t", "dup"); err == nil {
 		t.Fatal("Create() returned nil after a worktree failure, want an error")
 	}
 	if len(st.Sessions) != 0 {
 		t.Errorf("state holds %d sessions after a failure, want 0", len(st.Sessions))
+	}
+}
+
+func TestCreator_ConfiguredBaseBranchOverridesTheCurrentBranch_issue44(t *testing.T) {
+	g := &FakeGit{Branch: "main"}
+	c := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: "/vol/wt", BaseBranch: "develop"}, stubID)
+
+	got, err := c.Create(baseState(), "omatty", "parser", "parser-fix")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.AddedFrom != "develop" || got.Base != "develop" {
+		t.Errorf("worktree forked from %q, session records %q; want develop for both", g.AddedFrom, got.Base)
+	}
+	if g.CurrentBranchCalls != 0 {
+		t.Errorf("CurrentBranch asked %d times with a configured base, want 0", g.CurrentBranchCalls)
+	}
+}
+
+func TestCreator_NoConfiguredBaseFallsBackToTheCurrentBranch_issue44(t *testing.T) {
+	g := &FakeGit{Branch: "main"}
+	c := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: "/vol/wt"}, stubID)
+	got, err := c.Create(baseState(), "omatty", "parser", "parser-fix")
+	if err != nil || got.Base != "main" {
+		t.Fatalf("Base = %q err = %v, want main from the checkout", got.Base, err)
+	}
+}
+
+func TestCreator_PlacesTheWorktreeUnderTheConfiguredRoot_issue44(t *testing.T) {
+	g := &FakeGit{Branch: "main"}
+	c := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: "/vol/wt"}, stubID)
+	got, err := c.Create(baseState(), "omatty", "parser", "parser-fix")
+	if err != nil || got.Dir != "/vol/wt/omatty/parser-fix" {
+		t.Fatalf("Dir = %q err = %v, want /vol/wt/omatty/parser-fix", got.Dir, err)
 	}
 }
