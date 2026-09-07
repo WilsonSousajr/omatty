@@ -23,7 +23,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M4 | Lifecycle | **Done.** PRs #98-#104 merged to develop 2026-09-05, review findings in #119. |
 | M5 | File tree | Folded into M3 on 2026-09-03; #24 shipped there. |
 | M6 | Persistence | **Done.** #43 and #122 merged as PRs #121 and #123 on 2026-09-05. |
-| M7 | Reach | **In progress.** Twelve issues: #44-#46 and #124-#134, all in Sprint Backlog. |
+| M7 | Reach | **Done** except #134, deferred. Eleven issues merged as PRs #135-#148 on 2026-09-07. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -293,10 +293,6 @@ every day. Then the original three, in their existing order, since the config
 file is what the last two need. Chrome last, because it touches every renderer
 and the bugs live in those same files.
 
-**Plan:** `docs/superpowers/plans/2026-09-07-m7-reach.md`. #134 was deferred on
-2026-09-07 - no promotion of `develop` to `main` yet - so the "Done when" clause
-below is revisited when that decision is made.
-
 ### Blocking bugs
 
 - **#131 - the file tree hangs on "listing files..." forever** if you open the
@@ -363,10 +359,40 @@ Nothing in M1-M6 is allowed to bake in a personal path or assumption that
 M7 would have to undo. That is the cost of "open source later" and it is
 paid continuously, not here.
 
-**Done when:** omatty reads its settings from a file rather than from its own
-source, a click selects a session, a second agent runs in a pane, the nine
-reports above are closed with regression tests where the rules require them,
-and the branch a stranger clones is the software this repository has built.
+**Built** on 2026-09-07 as thirteen PRs to `develop`, one issue each plus a
+refactor that brought `model.go` and `main.go` under the 500-line limit first:
+#135 (plan), #137 (#136 split), #138 (#131), #139 (#124), #140 (#133), #141
+(#126), #142 (#129), #143 (#130), #144 (#44), #145 (#45), #146 (#127), #147
+(#46) and #148 (#128). All merged the same day. The plan is
+`docs/superpowers/plans/2026-09-07-m7-reach.md`. Scope decided that morning:
+#127 shipped steps 1 and 2, #46 shipped the seam with claude as its only
+profile, #128 shipped its first slice, and #134 was deferred.
+
+Three things worth remembering from building it:
+
+- **The smoke harness has two traps of its own.** A scratch HOME under a
+  long path makes the hook socket exceed the 104-byte unix limit and `bind`
+  fails silently into tailer-only mode; use a short one. And `ptyrun`'s
+  default key is `ctrl+o q`, which leaves the captured final screen blank -
+  pass a non-quitting key. A third: `esc` must end its key chunk, because
+  `\x1b\x0f` in one write parses as alt+ctrl+o.
+- **`claude -p` writes a transcript and waits for stdin.** A headless call
+  leaves a session under `~/.claude/projects/<slug of cwd>/`, so the namer
+  runs in a temp directory it removes on exit; and it waits three seconds for
+  piped input unless stdin is closed. One call cost about $0.60 at list
+  price, which is why `[naming] model` is off by default.
+- **Every "one more row" is one constant.** `titleRows`, `sidebarHeaderRows`,
+  `laneCells`: the caret, the wheel target, the click hit-test and the PTY
+  height all derive from them, so #128 moved the title into the border by
+  changing a 1 to a 0 and eight pinned tests moved with it. The tests that
+  pin literals are the ones that catch a constant nobody meant to change.
+
+**Done when** (revisited with #134): omatty reads its settings from a file
+rather than from its own source - done; a click selects a session - done; a
+second agent runs in a pane - the seam is built, the second agent is a
+follow-up; the nine reports above are closed with regression tests - done;
+and the branch a stranger clones is the software this repository has built -
+deferred with #134.
 
 ---
 

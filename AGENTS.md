@@ -282,7 +282,9 @@ message and explain why the behaviour it asserted was never correct.
   deliberately cut. Read it before proposing a feature.
 - `docs/superpowers/specs/2026-09-01-omatty-design.md` — the design this repo
   implements.
-- `docs/ARCHITECTURE.md` — data flow, package breakdown, invariant rationale.
+- `internal/agent` package doc — the agent seam (#46): an agent is a command
+  template plus a status adapter, and why the adapter interface lives in
+  `watcher`. (`docs/ARCHITECTURE.md` was listed here but never written.)
 - `README.md` — install and usage.
 
 <!-- ai-memory:start -->
