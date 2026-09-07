@@ -18,7 +18,7 @@ import (
 // size, so claude paints at the right width from its first frame instead of
 // racing a later resize (issue #51).
 func StartTerminals(
-	st registry.State, l *supervisor.Launcher, f termwrap.Factory, w, h int,
+	st registry.State, l *supervisor.Launcher, f termwrap.Factory, w, h int, leader string,
 ) (map[string]termwrap.Terminal, error) {
 	// The review column is closed at birth, so the terminal gets the full
 	// width beside the sidebar (#21).
@@ -30,7 +30,7 @@ func StartTerminals(
 			return nil, fmt.Errorf("ui: starting terminal for session %s: %w", sess.ID, err)
 		}
 		// Invariant 6: one emulator panic must not take down the app.
-		terms[sess.ID] = termwrap.NewGuard(term)
+		terms[sess.ID] = termwrap.NewGuard(term, leader+" r")
 	}
 	return terms, nil
 }
@@ -76,12 +76,17 @@ type RunDeps struct {
 	// startup when no holder is keeping them (#43).
 	Stop   StopFunc
 	Notice string
+	// Leader is the configured leader key; empty means DefaultLeader (#44).
+	Leader string
 }
 
 // Run starts every session's terminal, the status watcher, and the TUI, and
 // runs until the user quits.
 func Run(d RunDeps) error {
-	terms, err := StartTerminals(d.State, d.Launch, d.Factory, d.Width, d.Height)
+	if d.Leader == "" {
+		d.Leader = DefaultLeader
+	}
+	terms, err := StartTerminals(d.State, d.Launch, d.Factory, d.Width, d.Height, d.Leader)
 	if err != nil {
 		return err
 	}
@@ -89,12 +94,12 @@ func Run(d RunDeps) error {
 	watch := watcher.Start(d.Home, d.State.Sessions, time.Now)
 	defer watch.Close()
 	model := NewModel(Deps{
-		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory),
+		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
 		Diff: d.Diff, Files: d.Files, Rename: d.Rename,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,
-		Stop: d.Stop, Notice: d.Notice,
+		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader,
 		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
 	})
@@ -130,12 +135,12 @@ func runProgram(model *Model, sessions int) error {
 
 // guardedStarter starts a session's terminal wrapped in a panic guard
 // (invariant 6). The model passes the live pane size on every call.
-func guardedStarter(l *supervisor.Launcher, f termwrap.Factory) StartFunc {
+func guardedStarter(l *supervisor.Launcher, f termwrap.Factory, leader string) StartFunc {
 	return func(sess registry.Session, w, h int) (termwrap.Terminal, error) {
 		term, err := l.Start(f, sess, w, h)
 		if err != nil {
 			return nil, err
 		}
-		return termwrap.NewGuard(term), nil
+		return termwrap.NewGuard(term, leader+" r"), nil
 	}
 }

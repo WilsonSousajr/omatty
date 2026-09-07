@@ -91,7 +91,7 @@ func (m *Model) command(msg tea.KeyPressMsg) tea.Cmd {
 		// to it. An open modal leaves the terminal unfocused, so keys.Router
 		// never armed on its own here: `ctrl+o q` appended a literal q to a
 		// session title, and in the help box did nothing at all (#41, #103).
-		if msg.Keystroke() == Leader {
+		if msg.Keystroke() == m.leader {
 			m.modal = modal{}
 			m.router.Arm()
 			return nil

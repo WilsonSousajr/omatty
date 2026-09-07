@@ -68,6 +68,8 @@ type Deps struct {
 	// what an operator has to know at startup and cannot discover from the
 	// screen - today, that dtach is missing so sessions will not survive quit.
 	Notice string
+	// Leader is the key omatty intercepts. Empty means DefaultLeader (#44).
+	Leader string
 }
 
 // withDefaults fills the optional fields: the wall clock and a silent
@@ -78,6 +80,9 @@ func (d Deps) withDefaults() Deps {
 	}
 	if d.Notifier == nil {
 		d.Notifier = notify.Silent{}
+	}
+	if d.Leader == "" {
+		d.Leader = DefaultLeader
 	}
 	return d.withReviewDefaults().withLifecycleDefaults()
 }

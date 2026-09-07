@@ -220,7 +220,7 @@ func TestUpdate_TheSidewaysWheelStopsAtBothEdgesOfTheTree_issue125(t *testing.T)
 // treeFooter has the room; reviewFooter does not, and points at ctrl+o ?
 // instead - which the width assertion in help_test.go holds both to.
 func TestModel_theTreeFooterNamesThePanKeys_issue125(t *testing.T) {
-	if got := ui.Footers()["treeFooter"]; !strings.Contains(got, "h/l/0 pan") {
+	if got := ui.Footers(ui.DefaultLeader)["treeFooter"]; !strings.Contains(got, "h/l/0 pan") {
 		t.Errorf("treeFooter does not name the pan keys: %q", got)
 	}
 }

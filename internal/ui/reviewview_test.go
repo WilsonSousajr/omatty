@@ -90,7 +90,7 @@ func TestModel_FooterSwapsToTheReviewKeymapWhileFocused_issue21(t *testing.T) {
 	}
 	press(m, special(tea.KeyEscape))
 	lines = strings.Split(strings.TrimRight(m.View().Content, "\n"), "\n")
-	if !strings.Contains(lines[len(lines)-1], ui.Leader+" d diff") {
+	if !strings.Contains(lines[len(lines)-1], ui.DefaultLeader+" d diff") {
 		t.Errorf("main footer lacks the diff key: %q", lines[len(lines)-1])
 	}
 }

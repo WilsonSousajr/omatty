@@ -24,34 +24,42 @@ import (
 // reach it. Its contents are the four keys earlier issues won a guarantee for
 // - q, j/k and n (#30, #28) and d (#21) - plus ? for everything else. A
 // binding added here rather than to helpLines must keep all of that true.
-// exitKey is the guarantee the footer const describes, named once so the
-// startup notice can keep it in front of itself rather than replacing the line
-// that carries it (#28, #30, #43).
-const exitKey = Leader + " q quit"
+// exitKeyFor is the guarantee the footer describes, named once so the startup
+// notice can keep it in front of itself rather than replacing the line that
+// carries it (#28, #30, #43). Built per leader, because the leader is
+// configurable (#44).
+func exitKeyFor(leader string) string { return leader + " q quit" }
 
-const footer = exitKey + "  " + Leader + " ? keys  " + Leader + " j/k switch  " +
-	Leader + " n new  " + Leader + " d diff"
+// footerLine is the resting keymap. At DefaultLeader it is the 76 columns
+// #103 measured; a longer leader is cut from the right, where the help key
+// is, and never from the exit key (#44).
+func footerLine(leader string) string {
+	return exitKeyFor(leader) + "  " + leader + " ? keys  " + leader + " j/k switch  " +
+		leader + " n new  " + leader + " d diff"
+}
 
-// reviewFooter replaces footer while the review column has focus: those keys
-// are the ones that do anything there.
+// reviewFooterLine replaces the footer while the review column has focus:
+// those keys are the ones that do anything there.
 //
 // It ends in the help key for the same reason footer does. At 84 columns it
 // overflowed an 80-column window and cut `h/l pan` off the end entirely - the
 // defect #103 fixed in footer and left standing one constant below it. The
 // keys that came off are in the help modal, which is what the help key reaches
 // (#103).
-const reviewFooter = "j/k move  c comment  d delete  r reload  S submit  esc back  " +
-	Leader + " ? keys"
+func reviewFooterLine(leader string) string {
+	return "j/k move  c comment  d delete  r reload  S submit  esc back  " + leader + " ? keys"
+}
 
-// treeFooter replaces reviewFooter in the tree and preview views, where c and
-// S do nothing and enter does the work (#24).
+// treeFooterLine replaces reviewFooterLine in the tree and preview views,
+// where c and S do nothing and enter does the work (#24).
 //
 // It names h/l because it has the room to: at 64 columns it still fits the
 // 80-column DefaultWidth, while the same eight cells would take reviewFooter
 // to 83 and push a working key off the end. Half of #125 was that the axis
 // existed and nothing on screen said so.
-const treeFooter = "j/k move  h/l/0 pan  enter open  r reload  esc back  " +
-	Leader + " ? keys"
+func treeFooterLine(leader string) string {
+	return "j/k move  h/l/0 pan  enter open  r reload  esc back  " + leader + " ? keys"
+}
 
 // emptyTreeHint is the tree's empty state: a repository that listed
 // successfully and holds nothing, which is not a listing still in flight (#131).
@@ -63,7 +71,7 @@ func (m *Model) emptyStateHint() string {
 	if len(m.sidebar.Rows()) == 0 {
 		return "no projects - run `omatty add <dir>` to register one"
 	}
-	return "no sessions - press " + Leader + " n to create one"
+	return "no sessions - press " + m.leader + " n to create one"
 }
 
 // View lays the sidebar beside the focused session's terminal, with the
@@ -126,7 +134,7 @@ func (m *Model) renderTerminal(w, h int, now time.Time) string {
 // out. With no session focused ctrl+c also quits, which is worth saying because
 // it is the reflex an operator reaches for first (issue #28).
 func (m *Model) emptyLines() []string {
-	return []string{"", m.emptyStateHint(), "", "ctrl+c or " + Leader + " q to quit"}
+	return []string{"", m.emptyStateHint(), "", "ctrl+c or " + m.leader + " q to quit"}
 }
 
 // terminalTitle is the header line inside the focused session's box: its
@@ -169,7 +177,7 @@ func (m *Model) renderFooter() string {
 		// exactly the machines the notice appears on - a fresh install without
 		// dtach - where the terminal pane owns ctrl+c and the footer is the
 		// only place the way out is written down (#28, #30, #43).
-		return footerStyle.Render(fitLine(" "+exitKey+"  "+m.notice, m.width))
+		return footerStyle.Render(fitLine(" "+exitKeyFor(m.leader)+"  "+m.notice, m.width))
 	}
 	return footerStyle.Render(fitLine(" "+m.footerKeys(), m.width))
 }
@@ -181,12 +189,12 @@ func (m *Model) footerKeys() string {
 		return s
 	}
 	if !m.reviewOwnsKeys() {
-		return footer
+		return footerLine(m.leader)
 	}
 	if m.review.View == ViewDiff {
-		return reviewFooter
+		return reviewFooterLine(m.leader)
 	}
-	return treeFooter
+	return treeFooterLine(m.leader)
 }
 
 // renderRow draws one sidebar line: a project header, or a session with its

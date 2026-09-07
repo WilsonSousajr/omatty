@@ -88,7 +88,7 @@ type SessionsProposedMsg struct {
 func (m *Model) openAdoption() tea.Cmd {
 	root := m.projectRoot(m.SelectedProject())
 	if root == "" {
-		m.lastErr = "no project selected; register one with " + Leader + " a first"
+		m.lastErr = "no project selected; register one with " + m.leader + " a first"
 		return nil
 	}
 	m.scanToken++
