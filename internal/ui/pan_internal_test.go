@@ -68,3 +68,41 @@ func BenchmarkPanReview(b *testing.B) {
 		})
 	}
 }
+
+// A burst of rightward notches must cost one walk, not one per notch. The
+// test proves it without a counter: after the first pan, a line is widened
+// behind the cache's back; the ceiling must not move until contentChanged
+// is called, which is what every real mutation site does (#133).
+func TestPanReview_ABurstWalksTheContentOnce_issue133(t *testing.T) {
+	m := benchPreview(50)
+	w := ReviewWidth(m.width, true) - 2
+	ceiling := 46 - w // previewRow of forty x's is "%4d  " plus forty cells
+	m.panReview(panStep)
+	if !m.review.Widest.valid {
+		t.Fatal("the first pan did not memoize the width")
+	}
+
+	m.review.Preview.Lines[0] = strings.Repeat("x", 400)
+	for range 60 {
+		m.panReview(panStep)
+	}
+	if m.review.ColOffset != ceiling {
+		t.Fatalf("ColOffset after a burst = %d, want the memoized ceiling %d: the content was re-walked", m.review.ColOffset, ceiling)
+	}
+
+	m.contentChanged()
+	m.panReview(panStep)
+	if m.review.ColOffset != ceiling+panStep {
+		t.Errorf("after contentChanged ColOffset = %d, want %d: the new width was not walked", m.review.ColOffset, ceiling+panStep)
+	}
+}
+
+// Switching views walks the other view's content: the cache is per view.
+func TestPanReview_TheCacheIsPerView_issue133(t *testing.T) {
+	m := benchPreview(50)
+	m.panReview(panStep)
+	m.review.View = ViewTree
+	if got := m.reviewMaxWidth(); got != 0 {
+		t.Errorf("reviewMaxWidth on an unlisted tree = %d; the preview's width served the tree", got)
+	}
+}

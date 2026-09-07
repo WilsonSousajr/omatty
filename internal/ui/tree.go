@@ -50,6 +50,7 @@ func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
 	}
 	m.review.TreeErr = ""
 	m.review.Tree = review.NewTree(msg.Paths, m.touched())
+	m.contentChanged()
 	m.moveTreeCursor(0)
 	return nil
 }
@@ -70,6 +71,7 @@ func (m *Model) touched() map[string]bool {
 func (m *Model) retouchTree() {
 	if m.review.Tree != nil {
 		m.review.Tree.Retouch(m.touched())
+		m.contentChanged()
 	}
 }
 
@@ -121,6 +123,7 @@ func (m *Model) openTreeNode() tea.Cmd {
 	n := rows[m.review.TreeCursor]
 	if n.IsDir {
 		m.review.Tree.Toggle(n.Path)
+		m.contentChanged()
 		m.moveTreeCursor(0)
 		return nil
 	}
@@ -142,6 +145,7 @@ func (m *Model) previewFile(rel string) {
 		return
 	}
 	m.review.Preview, m.review.PreviewOffset, m.review.View = p, 0, ViewPreview
+	m.contentChanged()
 	m.review.ColOffset = 0 // a new file opens at its left edge, not mid-line (#94)
 }
 

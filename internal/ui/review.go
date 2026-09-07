@@ -91,6 +91,9 @@ type ReviewPane struct {
 	// Stale marks content loaded before a turn that ended while the column
 	// was closed. A hidden pane does not fork git; the reopen does (#124).
 	Stale bool
+	// Widest memoizes the current view's widest row for the horizontal clamp
+	// (#133).
+	Widest widthCache
 }
 
 // noteEditor is the one-line comment input opened with c on a diff line. It
@@ -220,6 +223,7 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 func (m *Model) rebuildEntries() {
 	placed := review.Place(m.review.Diff, m.commentsFor(m.review.SessionID).All())
 	m.review.Entries = review.Flatten(m.review.Diff, placed)
+	m.contentChanged()
 	if m.review.Cursor >= len(m.review.Entries) {
 		m.review.Cursor = max(len(m.review.Entries)-1, 0)
 	}
