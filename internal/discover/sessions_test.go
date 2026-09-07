@@ -408,7 +408,7 @@ func TestFirstPromptTitle_IsEmptyAndNotAnErrorBeforeAnyPrompt_issue127(t *testin
 // flattened before it can reach a row (#122).
 func TestFirstPromptTitle_SkipsInjectedEntriesAndFlattensTheRest_issue127(t *testing.T) {
 	repo := filepath.Join(t.TempDir(), "omatty")
-	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: "fix‮ the\nwheel"})
+	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: "fix\u202e the\nwheel"})
 
 	got, err := discover.FirstPromptTitle(transcriptOf(root, repo, "s1"))
 
