@@ -51,6 +51,7 @@ func sessionRows(st registry.State, project string, status map[string]watcher.St
 type Sidebar struct {
 	rows   []Row
 	cursor int
+	offset int // first row drawn; recomputed by Window each frame (#129)
 }
 
 // NewSidebar returns a Sidebar with the cursor on the first session row.
@@ -102,6 +103,36 @@ func (s *Sidebar) Selected() (Row, bool) {
 	}
 	return s.rows[s.cursor], true
 }
+
+// Window returns the rows to draw when only rows lines fit, keeping the
+// cursor inside them. The offset is recomputed from the cursor on every call
+// rather than trusted from the last move, because a resize can shrink the
+// pane after the cursor last moved - the same reason renderTree does it (#129).
+//
+//	for _, row := range sb.Window(paneRows - 1) { ... }
+func (s *Sidebar) Window(rows int) []Row {
+	s.offset = s.revealHeader(ScrollOffset(max(s.cursor, 0), s.offset, rows))
+	end := min(s.offset+rows, len(s.rows))
+	if s.offset >= end {
+		return nil
+	}
+	return s.rows[s.offset:end]
+}
+
+// revealHeader scrolls one more row when the cursor sits on the top line
+// and the row above it is its own project's header, so moving up onto a
+// project's first session shows the project's name too rather than an
+// unlabelled row at the top of the pane (#129).
+func (s *Sidebar) revealHeader(offset int) int {
+	if offset > 0 && offset == s.cursor && s.rows[offset-1].Session == nil {
+		return offset - 1
+	}
+	return offset
+}
+
+// Offset is the index of the first row Window drew, so a pointer row can be
+// mapped back to a Row (#45).
+func (s *Sidebar) Offset() int { return s.offset }
 
 // MoveDown advances to the next session row, wrapping to the first (#126).
 func (s *Sidebar) MoveDown() { s.seek(1) }

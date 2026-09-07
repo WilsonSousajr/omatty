@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -184,5 +185,81 @@ func TestSidebar_HeadersOnlyReturnsWithoutSelecting_issue126(t *testing.T) {
 
 	if _, ok := s.Selected(); ok {
 		t.Error("Selected() ok=true on a sidebar of headers only")
+	}
+}
+
+func sevenProjectState() registry.State {
+	var st registry.State
+	for p := range 7 {
+		name := fmt.Sprintf("p%d", p)
+		st.Projects = append(st.Projects, registry.Project{Name: name})
+		for i := range 2 {
+			st.Sessions = append(st.Sessions, registry.Session{
+				ID: fmt.Sprintf("%s-s%d", name, i), Project: name, Title: "t"})
+		}
+	}
+	return st
+}
+
+// Twenty-one rows, ten fit: the window must hold the cursor, whatever moved it.
+func TestSidebar_WindowFollowsTheCursor_issue129(t *testing.T) {
+	s := ui.NewSidebar(ui.SidebarRows(sevenProjectState(), nil))
+	s.SelectByID("p5-s1") // row 17
+
+	win := s.Window(10)
+
+	if len(win) != 10 {
+		t.Fatalf("Window(10) = %d rows, want 10", len(win))
+	}
+	found := false
+	for _, r := range win {
+		found = found || (r.Session != nil && r.Session.ID == "p5-s1")
+	}
+	if !found {
+		t.Errorf("the selected row is not in the window: %+v", win)
+	}
+	if s.Offset() != 8 {
+		t.Errorf("Offset() = %d, want 8 (cursor 17 on the last of 10 rows)", s.Offset())
+	}
+}
+
+func TestSidebar_WindowScrollsBackToZeroAtTheTop_issue129(t *testing.T) {
+	s := ui.NewSidebar(ui.SidebarRows(sevenProjectState(), nil))
+	s.SelectByID("p5-s1")
+	s.Window(10)
+	s.SelectByID("p0-s0")
+
+	s.Window(10)
+
+	if s.Offset() != 0 {
+		t.Errorf("Offset() = %d after returning to the top, want 0", s.Offset())
+	}
+}
+
+// Fewer rows than fit: nothing scrolls, the whole list is the window.
+func TestSidebar_WindowIsTheWholeListWhenItFits_issue129(t *testing.T) {
+	s := ui.NewSidebar(ui.SidebarRows(twoProjectState(), nil))
+	if got := s.Window(20); len(got) != 5 || s.Offset() != 0 {
+		t.Errorf("Window(20) = %d rows offset %d, want 5 and 0", len(got), s.Offset())
+	}
+}
+
+// A shrink after the last move: the offset is recomputed, not trusted.
+func TestSidebar_WindowShrinkingKeepsTheCursorVisible_issue129(t *testing.T) {
+	s := ui.NewSidebar(ui.SidebarRows(sevenProjectState(), nil))
+	s.SelectByID("p3-s0") // row 10
+	s.Window(20)          // fits, offset 0
+
+	win := s.Window(5)
+
+	if s.Offset() != 6 || len(win) != 5 {
+		t.Errorf("Window(5) after shrinking: offset %d len %d, want 6 and 5", s.Offset(), len(win))
+	}
+}
+
+func TestSidebar_WindowWithNoSessionsIsSafe_issue129(t *testing.T) {
+	s := ui.NewSidebar(nil)
+	if got := s.Window(5); len(got) != 0 || s.Offset() != 0 {
+		t.Errorf("Window(5) on nothing = %d rows offset %d", len(got), s.Offset())
 	}
 }
