@@ -54,9 +54,10 @@ func (m *Model) relaunch(sess registry.Session) tea.Cmd {
 }
 
 // submitPrompt creates the session. A worktree prompt uses the buffer as both
-// the session title and the branch name. The buffer is known non-empty:
-// commitEditor leaves the editor open rather than registering a nameless
-// session.
+// the session title and the branch name, and for that prompt the buffer is
+// known non-empty: commitEditor leaves it open rather than registering a
+// nameless branch. A plain prompt may be blank; the creator registers a
+// placeholder title and the first prompt names the session (#127).
 func (m *Model) submitPrompt() tea.Cmd {
 	branch := ""
 	if m.modal.Editor.Worktree {

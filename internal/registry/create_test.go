@@ -169,3 +169,21 @@ func TestCreator_PlacesTheWorktreeUnderTheConfiguredRoot_issue44(t *testing.T) {
 		t.Fatalf("Dir = %q err = %v, want /vol/wt/omatty/parser-fix", got.Dir, err)
 	}
 }
+
+// A session created before the work it would describe exists is registered
+// under a placeholder; its first prompt names it (#127).
+func TestCreator_ABlankTitleBecomesThePlaceholder_issue127(t *testing.T) {
+	c := registry.NewCreator(&FakeGit{Branch: "main"}, registry.CreatorOpts{WorktreeRoot: "/vol/wt"}, stubID)
+	sess, err := c.Create(baseState(), "omatty", "  ", "")
+	if err != nil || sess.Title != registry.PlaceholderTitle("fixed-uuid") {
+		t.Fatalf("Title = %q err = %v, want the placeholder %q", sess.Title, err, registry.PlaceholderTitle("fixed-uuid"))
+	}
+}
+
+func TestCreator_ATypedTitleIsKept_issue127(t *testing.T) {
+	c := registry.NewCreator(&FakeGit{Branch: "main"}, registry.CreatorOpts{WorktreeRoot: "/vol/wt"}, stubID)
+	sess, err := c.Create(baseState(), "omatty", "parser fix", "")
+	if err != nil || sess.Title != "parser fix" {
+		t.Fatalf("Title = %q err = %v, want parser fix", sess.Title, err)
+	}
+}

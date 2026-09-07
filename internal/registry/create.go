@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/vcs"
@@ -41,7 +42,8 @@ func (c *Creator) Create(st *State, project, title, branch string) (Session, err
 	if err != nil {
 		return Session{}, err
 	}
-	sess := Session{ID: c.newID(), Project: project, Title: title, Dir: p.Root, Branch: branch}
+	id := c.newID()
+	sess := Session{ID: id, Project: project, Title: titleOr(title, id), Dir: p.Root, Branch: branch}
 	if branch != "" {
 		if err := c.addWorktree(&sess, p); err != nil {
 			return Session{}, err
@@ -65,6 +67,16 @@ func (c *Creator) addWorktree(sess *Session, p Project) error {
 	}
 	sess.Dir, sess.Base, sess.Worktree = dir, recordedBase(base), true
 	return nil
+}
+
+// titleOr is the name to register a session under: what the operator typed,
+// or a placeholder for one created before the work it would describe exists.
+// The placeholder is replaced by the session's first prompt (#127).
+func titleOr(title, id string) string {
+	if strings.TrimSpace(title) == "" {
+		return PlaceholderTitle(id)
+	}
+	return title
 }
 
 // base is the branch a new worktree forks from: the configured one, or the
