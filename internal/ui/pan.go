@@ -60,15 +60,41 @@ func (m *Model) panKey(key string) bool {
 	return true
 }
 
+// widthCache remembers the widest row of one view. It sits on ReviewPane so
+// that every reset of the pane drops it, and every site that changes what a
+// view draws calls contentChanged (#133).
+type widthCache struct {
+	view  ReviewView
+	width int
+	valid bool
+}
+
+// contentChanged forgets the memoized width. Called wherever the rows a view
+// draws are replaced or retouched; a missed call shows as a pan that stops
+// short of a line that grew, which TestPanReview_ABurstWalksTheContentOnce
+// pins from the other side.
+func (m *Model) contentChanged() { m.review.Widest = widthCache{} }
+
 // reviewMaxWidth is the widest row the current view can draw, measured from
 // the same text builders the renderers use so the clamp and the frame can
 // never disagree about how wide a row is.
 //
-// It walks the whole content on every press rather than caching: a preview is
-// bounded to 256 KiB and a diff is smaller, so the walk costs far less than a
-// frame, and a cached width would be one more thing to invalidate every time a
-// comment rebuilds the entries or a listing is retouched.
+// It used to walk the whole content on every press rather than caching, on
+// the argument that a cached width would be one more thing to invalidate. That
+// budget was set for one l press at human repeat rate (#94); a trackpad flick
+// is dozens of notches, and walking a 256 KiB preview per notch blocked
+// Update for ~180 ms (#133). The width is memoized per view now, and the
+// invalidation lives at the handful of sites that change a view's rows.
 func (m *Model) reviewMaxWidth() int {
+	if c := m.review.Widest; c.valid && c.view == m.review.View {
+		return c.width
+	}
+	w := m.walkMaxWidth()
+	m.review.Widest = widthCache{view: m.review.View, width: w, valid: true}
+	return w
+}
+
+func (m *Model) walkMaxWidth() int {
 	switch m.review.View {
 	case ViewTree:
 		return m.treeMaxWidth()
