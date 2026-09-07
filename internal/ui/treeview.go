@@ -14,10 +14,20 @@ func (m *Model) renderTree(w, rows int) []string {
 	if m.review.TreeErr != "" {
 		return []string{errorStyle.Render(fitLine(m.review.TreeErr, w))}
 	}
-	nodes := m.treeRows()
-	if nodes == nil {
+	// Three states, told apart explicitly: no *Tree is "not listed yet", a
+	// *Tree with no rows is "listed, and there is nothing" (#131).
+	if m.review.Tree == nil {
 		return []string{mutedStyle.Render("listing files...")}
 	}
+	nodes := m.treeRows()
+	if len(nodes) == 0 {
+		return []string{mutedStyle.Render(fitLine(emptyTreeHint, w))}
+	}
+	return m.treeLines(nodes, w, rows)
+}
+
+// treeLines draws the window of rows around the cursor.
+func (m *Model) treeLines(nodes []review.TreeNode, w, rows int) []string {
 	off := ScrollOffset(m.review.TreeCursor, m.review.TreeOffset, rows)
 	out := make([]string, 0, rows)
 	for i := off; i < min(off+rows, len(nodes)); i++ {

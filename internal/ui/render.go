@@ -53,6 +53,10 @@ const reviewFooter = "j/k move  c comment  d delete  r reload  S submit  esc bac
 const treeFooter = "j/k move  h/l/0 pan  enter open  r reload  esc back  " +
 	Leader + " ? keys"
 
+// emptyTreeHint is the tree's empty state: a repository that listed
+// successfully and holds nothing, which is not a listing still in flight (#131).
+const emptyTreeHint = "no files - the repository is empty; press r to list again"
+
 // emptyStateHint names the next useful action. With no projects registered,
 // creating a session can only fail, so it points at `omatty add` instead.
 func (m *Model) emptyStateHint() string {

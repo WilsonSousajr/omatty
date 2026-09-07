@@ -148,7 +148,7 @@ func (m *Model) toggleView(v ReviewView) tea.Cmd {
 	// is meaningless in the next: switching starts at the left edge (#94).
 	m.review.View, m.review.Focused, m.review.ColOffset = v, true, 0
 	if !reopened {
-		return nil
+		return m.loadFilesIfMissing(id)
 	}
 	return tea.Batch(m.resizeSelected(), m.loadDiff(id), m.loadFiles(id))
 }
