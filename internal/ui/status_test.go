@@ -42,8 +42,8 @@ func TestModel_StatusMsgUpdatesTheGlyph_issue20(t *testing.T) {
 
 	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PermissionRequested, At: fixedNow})
 
-	// s1 is titled "main"; the waiting glyph "!" must sit on its row.
-	if got := rowOf(t, m, "main"); !strings.Contains(got, "!") {
+	// s1 is titled "main"; the waiting glyph ⏸ must sit on its row (#128).
+	if got := rowOf(t, m, "main"); !strings.Contains(got, "⏸") {
 		t.Errorf("the waiting glyph is not shown after a PermissionRequested event: %q", got)
 	}
 }
@@ -65,7 +65,7 @@ func TestModel_OlderStatusMsgIsIgnored_issue20(t *testing.T) {
 	// A stale "thinking" from before must not overwrite the fresh "waiting".
 	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PromptSubmitted, At: fixedNow.Add(-time.Minute)})
 
-	if got := rowOf(t, m, "main"); !strings.Contains(got, "!") || strings.Contains(got, "*") {
+	if got := rowOf(t, m, "main"); !strings.Contains(got, "⏸") || strings.Contains(got, "●") {
 		t.Errorf("an older event overwrote the newer waiting status: %q", got)
 	}
 }
@@ -122,7 +122,7 @@ func TestNewModel_DefaultsTheOptionalDeps_issue76(t *testing.T) {
 	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PermissionRequested, At: time.Now().Add(time.Second)})
 
 	runCmd(cmd) // the silent notifier must not panic
-	if got := rowOf(t, m, "main"); !strings.Contains(got, "!") {
+	if got := rowOf(t, m, "main"); !strings.Contains(got, "⏸") {
 		t.Errorf("status was not applied with default deps: %q", got)
 	}
 }

@@ -50,11 +50,15 @@ var (
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)
 )
 
-// statusGlyphs pairs each status with its one-column marker; a status not
-// listed renders "-".
+// statusGlyphs pairs each status with its one-column marker - the set the
+// roadmap's M2 approved, restored by #128; a status not listed renders "-".
+// ● is East Asian Ambiguous, like the rounded border and the lane cells: a
+// terminal set to RUNEWIDTH_EASTASIAN=1 doubles all of them or none. ⚙ and
+// ⏸ are pictographic; if a font draws them two cells wide, ⋯ and ▮ are the
+// neutral fallbacks.
 var statusGlyphs = map[watcher.Status]string{
-	watcher.StatusThinking: "*", watcher.StatusTool: "@", watcher.StatusWaiting: "!",
-	watcher.StatusDone: "+", watcher.StatusError: "x", watcher.StatusExited: "∅",
+	watcher.StatusThinking: "●", watcher.StatusTool: "⚙", watcher.StatusWaiting: "⏸",
+	watcher.StatusDone: "✓", watcher.StatusError: "✗", watcher.StatusExited: "∅",
 }
 
 func statusGlyph(s watcher.Status) string {

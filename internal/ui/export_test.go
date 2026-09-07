@@ -36,6 +36,16 @@ func (m *Model) SidebarRows() int { return len(m.sidebar.Rows()) }
 // click test can aim at a row by index (#45).
 func SidebarTop() int { return sidebarTop() }
 
+// StatusGlyphs is every status marker, so a width test measures the real
+// table (#128).
+func StatusGlyphs() []string {
+	out := make([]string, 0, len(statusGlyphs))
+	for _, g := range statusGlyphs {
+		out = append(out, g)
+	}
+	return out
+}
+
 // PanStep is how far one h, one l or one sideways wheel notch moves the review
 // column, so a test spins a real gesture rather than hard-coding 8 (#125).
 const PanStep = panStep
