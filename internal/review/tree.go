@@ -74,7 +74,9 @@ func touchedUnder(path string, isDir bool, touched map[string]bool) bool {
 // run of nodes under its path; the trailing slash is what keeps "internal"
 // from swallowing a sibling named "internal-old".
 func (t *Tree) Visible() []TreeNode {
-	var out []TreeNode
+	// Non-nil even when empty: the ui tells "not listed yet" from "listed,
+	// nothing there" by this (#131).
+	out := make([]TreeNode, 0, len(t.nodes))
 	hidden := ""
 	for _, n := range t.nodes {
 		if hidden != "" && strings.HasPrefix(n.Path, hidden) {

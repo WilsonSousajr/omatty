@@ -99,3 +99,16 @@ func TestNewTree_NoPathsIsAnEmptyListing_issue24(t *testing.T) {
 		t.Errorf("Visible() = %v, want none", got)
 	}
 }
+
+// Three tree states have to stay distinguishable: not requested (nil *Tree),
+// loaded and empty, and failed. Visible() returning nil for an empty listing
+// collapsed the first two into one and the panel spun forever (#131).
+func TestTree_VisibleOnAnEmptyTreeIsEmptyNotNil_issue131(t *testing.T) {
+	got := review.NewTree(nil, nil).Visible()
+	if got == nil {
+		t.Fatal("Visible() on an empty tree = nil, want a non-nil empty slice")
+	}
+	if len(got) != 0 {
+		t.Errorf("Visible() = %v, want no rows", got)
+	}
+}
