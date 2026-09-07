@@ -1,6 +1,7 @@
 package registry_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,5 +92,21 @@ func TestSession_HasNoPersistedStatusField(t *testing.T) {
 	}
 	if strings.Contains(string(b), "status") {
 		t.Errorf("state.json contains a status field:\n%s", b)
+	}
+}
+
+// Invariant 9: an empty Agent is claude and is not written, so every row
+// written before #46 reads back unchanged and Version stays 1.
+func TestSession_AgentIsOmittedWhenEmptyAndRoundTrips_issue46(t *testing.T) {
+	raw, err := json.Marshal(registry.Session{ID: "a"})
+	if err != nil || strings.Contains(string(raw), "agent") {
+		t.Errorf("an empty Agent was written: %s (err %v)", raw, err)
+	}
+	var back registry.Session
+	if err := json.Unmarshal([]byte(`{"id":"a","agent":"claude"}`), &back); err != nil || back.Agent != "claude" {
+		t.Errorf("Agent did not round-trip: %+v (err %v)", back, err)
+	}
+	if registry.Version != 1 {
+		t.Errorf("Version = %d, want 1: Agent is derivable and needs no migration", registry.Version)
 	}
 }

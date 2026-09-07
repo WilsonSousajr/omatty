@@ -52,6 +52,9 @@ func main() {
 // runHook is the whole of `omatty hook`. Every error and panic is swallowed
 // here rather than logged: the log file is the one thing this path must not
 // depend on.
+// runHook is agent-blind on purpose: adding a profile lookup here would add
+// a config read and an error path to the one code path that may have neither
+// (invariant 11, #46).
 func runHook() {
 	defer func() { _ = recover() }()
 	home, err := os.UserHomeDir()

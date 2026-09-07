@@ -29,6 +29,7 @@ type Tailer struct {
 	path      string
 	sink      chan<- Event
 	clock     func() time.Time
+	adapter   Adapter // the agent's parser (#46)
 
 	offset      int64   // bytes already consumed
 	ring        []Entry // last ringSize relevant entries
@@ -47,10 +48,15 @@ type Tailer struct {
 // it. clock is injected so a test can prove the event carries the entry's own
 // timestamp, not now.
 //
-//	tl := watcher.Tail(sess.ID, paths.Transcript(home, sess.Dir, sess.ID), events, time.Now, time.Second)
+//	tl := watcher.Tail(sess.ID, path, events, time.Now, time.Second, watcher.ClaudeAdapter())
 //	defer tl.Close()
-func Tail(sessionID, path string, sink chan<- Event, clock func() time.Time, every time.Duration) *Tailer {
-	tl := &Tailer{sessionID: sessionID, path: path, sink: sink, clock: clock,
+//
+// adapter is the agent's own parser: which lines matter and what they mean is
+// the agent's business, not the tailer's (#46).
+func Tail(
+	sessionID, path string, sink chan<- Event, clock func() time.Time, every time.Duration, adapter Adapter,
+) *Tailer {
+	tl := &Tailer{sessionID: sessionID, path: path, sink: sink, clock: clock, adapter: adapter,
 		stop: make(chan struct{}), done: make(chan struct{})}
 	go tl.loop(every)
 	return tl
@@ -147,7 +153,7 @@ func (tl *Tailer) consume(fresh []byte) {
 }
 
 func (tl *Tailer) ingest(line []byte) {
-	e, ok := ParseEntry(line)
+	e, ok := tl.adapter.ParseEntry(line)
 	if !ok {
 		return
 	}
@@ -168,7 +174,7 @@ func (tl *Tailer) ingest(line []byte) {
 // emit sends the derived status if it changed and the usage total if it
 // changed. Any append used to re-send both (issue #66).
 func (tl *Tailer) emit() {
-	kind, at, ok := DeriveKind(tl.ring)
+	kind, at, ok := tl.adapter.DeriveKind(tl.ring)
 	if ok && (kind != tl.last.Kind || !at.Equal(tl.last.At)) {
 		tl.last = Event{Kind: kind, At: at}
 		tl.send(Event{SessionID: tl.sessionID, Kind: kind, At: at})

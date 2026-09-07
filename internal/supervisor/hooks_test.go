@@ -16,7 +16,7 @@ import (
 func TestInstallHooks_WritesTheRunningBinaryPath_issue79(t *testing.T) {
 	home := t.TempDir()
 
-	path, err := supervisor.InstallHooks(home, []string{"Stop"})
+	path, err := supervisor.InstallHooks(fakeProfile(home), home)
 	if err != nil {
 		t.Fatalf("InstallHooks() error = %v", err)
 	}

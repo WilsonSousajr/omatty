@@ -46,7 +46,7 @@ const promptLine = `{"type":"user","timestamp":"2026-09-02T12:00:01Z","message":
 func TestTailer_EmitsStatusWhenTheFileGrows_issue19(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.jsonl")
 	sink := make(chan watcher.Event, 8)
-	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour, watcher.ClaudeAdapter())
 	defer tl.Close()
 
 	if err := os.WriteFile(path, []byte(promptLine), 0o600); err != nil {
@@ -70,7 +70,7 @@ func TestTailer_EventTimeIsTheEntryTimestampNotNow_issue19(t *testing.T) {
 	// A clock far from the entry's own timestamp: the status event must carry
 	// the entry's time so newer-wins compares like with like.
 	future := func() time.Time { return time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC) }
-	tl := watcher.Tail("s1", path, sink, future, time.Hour)
+	tl := watcher.Tail("s1", path, sink, future, time.Hour, watcher.ClaudeAdapter())
 	defer tl.Close()
 	_ = os.WriteFile(path, []byte(promptLine), 0o600)
 
@@ -87,7 +87,7 @@ func TestTailer_EventTimeIsTheEntryTimestampNotNow_issue19(t *testing.T) {
 func TestTailer_EmitsCumulativeUsage_issue39(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.jsonl")
 	sink := make(chan watcher.Event, 8)
-	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour, watcher.ClaudeAdapter())
 	defer tl.Close()
 	line := `{"type":"assistant","timestamp":"2026-09-02T12:00:02Z","message":{"stop_reason":"end_turn","content":[{"type":"text","text":"x"}],"usage":{"input_tokens":40,"output_tokens":8}}}` + "\n"
 	_ = os.WriteFile(path, []byte(line+line), 0o600)
@@ -111,7 +111,7 @@ func TestTailer_CountsUsageOncePerResponse_issue59(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.jsonl")
 	_ = os.WriteFile(path, fixture, 0o600)
 	sink := make(chan watcher.Event, 8)
-	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour, watcher.ClaudeAdapter())
 	defer tl.Close()
 
 	tl.Poll()
@@ -125,7 +125,7 @@ func TestTailer_CountsUsageOncePerResponse_issue59(t *testing.T) {
 
 func TestTailer_MissingFileIsNotAnError_issue19(t *testing.T) {
 	sink := make(chan watcher.Event, 1)
-	tl := watcher.Tail("s1", filepath.Join(t.TempDir(), "never"), sink, time.Now, time.Hour)
+	tl := watcher.Tail("s1", filepath.Join(t.TempDir(), "never"), sink, time.Now, time.Hour, watcher.ClaudeAdapter())
 	defer tl.Close()
 
 	tl.Poll() // must not panic
@@ -138,7 +138,7 @@ func TestTailer_MissingFileIsNotAnError_issue19(t *testing.T) {
 func TestTailer_ReadsOnlyNewBytes_issue19(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.jsonl")
 	sink := make(chan watcher.Event, 16)
-	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour, watcher.ClaudeAdapter())
 	defer tl.Close()
 	first := `{"type":"assistant","timestamp":"2026-09-02T12:00:01Z","message":{"stop_reason":"tool_use","content":[{"type":"tool_use","id":"a","name":"Read","input":{}}],"usage":{"input_tokens":10,"output_tokens":1}}}` + "\n"
 	_ = os.WriteFile(path, []byte(first), 0o600)
@@ -168,7 +168,7 @@ func TestTailer_ReadsOnlyNewBytes_issue19(t *testing.T) {
 func TestTailer_HandlesTruncation_issue19(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.jsonl")
 	sink := make(chan watcher.Event, 16)
-	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour, watcher.ClaudeAdapter())
 	defer tl.Close()
 	long := promptLine + promptLine + promptLine
 	_ = os.WriteFile(path, []byte(long), 0o600)
@@ -193,7 +193,7 @@ func TestTailer_HandlesTruncation_issue19(t *testing.T) {
 func TestTailer_DropsALineOverTheCapAndKeepsGoing_issue64(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.jsonl")
 	sink := make(chan watcher.Event, 8)
-	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour, watcher.ClaudeAdapter())
 	defer tl.Close()
 	huge := `{"type":"user","timestamp":"2026-09-02T12:00:09Z","message":{"content":"` +
 		strings.Repeat("x", 2<<20) + `"}}` + "\n"
@@ -214,7 +214,7 @@ func TestTailer_CloseUnblocksAPollParkedOnTheSink_issue65(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.jsonl")
 	_ = os.WriteFile(path, []byte(promptLine), 0o600)
 	sink := make(chan watcher.Event) // nobody reads: the first emit parks
-	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour, watcher.ClaudeAdapter())
 	polled := make(chan struct{})
 	go func() { tl.Poll(); close(polled) }()
 
@@ -228,7 +228,7 @@ func TestTailer_CloseUnblocksAPollParkedOnTheSink_issue65(t *testing.T) {
 }
 
 func TestTailer_DoneClosesWhenTheLoopExits_issue65(t *testing.T) {
-	tl := watcher.Tail("s1", filepath.Join(t.TempDir(), "never"), make(chan watcher.Event, 1), time.Now, time.Hour)
+	tl := watcher.Tail("s1", filepath.Join(t.TempDir(), "never"), make(chan watcher.Event, 1), time.Now, time.Hour, watcher.ClaudeAdapter())
 
 	tl.Close()
 
@@ -244,7 +244,7 @@ func TestTailer_DoneClosesWhenTheLoopExits_issue65(t *testing.T) {
 func TestTailer_NoiseOnlyAppendEmitsNothing_issue66(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.jsonl")
 	sink := make(chan watcher.Event, 8)
-	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour, watcher.ClaudeAdapter())
 	defer tl.Close()
 	_ = os.WriteFile(path, []byte(promptLine), 0o600)
 	tl.Poll()

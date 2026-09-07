@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/discover"
@@ -22,7 +23,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"github.com/WilsonSousajr/omatty/internal/vcs"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 func runTUI(home string, cfg config.Config, store *registry.Store) error {
@@ -30,13 +30,23 @@ func runTUI(home string, cfg config.Config, store *registry.Store) error {
 	if err != nil {
 		return err
 	}
-	hooksFile, err := supervisor.InstallHooks(home, watcher.HookEventNames())
+	// Claude is the only profile today; an empty name resolves to it (#46).
+	profile, err := agent.Lookup("")
+	if err != nil {
+		return err
+	}
+	hooksFile, err := supervisor.InstallHooks(profile, home)
 	if err != nil {
 		return err
 	}
 	w, h := windowSize()
-	env := tuiEnv{Home: home, Cfg: cfg, HooksFile: hooksFile, Holder: detach.New(home), Width: w, Height: h}
-	deps := tuiDeps(env, store, state)
+	env := tuiEnv{Home: home, Cfg: cfg, Agent: profile, HooksFile: hooksFile, Holder: detach.New(home), Width: w, Height: h}
+	return runWithNamer(tuiDeps(env, store, state), cfg)
+}
+
+// runWithNamer runs the TUI with the opt-in model namer attached, closing
+// the namer's working directory on the way out (#127).
+func runWithNamer(deps ui.RunDeps, cfg config.Config) error {
 	namer, closeNamer := modelNamer(cfg)
 	deps.ModelName = namer
 	defer closeNamer()
@@ -50,6 +60,7 @@ func runTUI(home string, cfg config.Config, store *registry.Store) error {
 type tuiEnv struct {
 	Home      string
 	Cfg       config.Config
+	Agent     agent.Profile
 	HooksFile string
 	// Holder keeps sessions alive across quit. One holder, used twice: it
 	// wraps each launch and it ends an archived session's claude. Two would
@@ -69,7 +80,8 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Home: home, State: state, Width: w, Height: h,
 		Stop:    holder.Stop,
 		Notice:  holder.Notice(),
-		Launch:  supervisor.NewLauncher(env.Cfg.ClaudeBin, hooksFile, home, holder),
+		Launch:  supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
+		Agent:   env.Agent,
 		Factory: termwrap.Start,
 		Create:  sessionCreator(env.Cfg, store),
 		Leader:  env.Cfg.Leader,

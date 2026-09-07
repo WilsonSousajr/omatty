@@ -22,12 +22,12 @@ const pollEvery = time.Second
 // knows the socket path, the transcript path, the poll interval, or the
 // buffer size (issue #77).
 //
-//	w := watcher.Start(home, st.Sessions, time.Now)
+//	w := watcher.Start(watcher.WatchDeps{Home: home, Clock: time.Now,
+//	        Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}, st.Sessions)
 //	defer w.Close()
 //	model := ui.NewModel(ui.Deps{Events: w.Events(), TailStart: w.Add, /* ... */})
 type Watch struct {
-	home     string
-	clock    func() time.Time
+	deps     WatchDeps
 	events   chan Event
 	listener *Listener // nil when the socket could not bind (issue #49)
 	mu       sync.Mutex
@@ -42,13 +42,16 @@ type Watch struct {
 // bind degrades to tailer-only with a logged warning (issue #49): the
 // listener is the low-latency source, the tailer is the source of truth, so
 // a lost socket costs only the instant hook-driven "waiting" glyph.
-func Start(home string, sessions []registry.Session, clock func() time.Time) *Watch {
+//
+// The adapter and the transcript path come from the agent's profile, so
+// this package never names claude's own layout (#46).
+func Start(d WatchDeps, sessions []registry.Session) *Watch {
 	w := &Watch{
-		home: home, clock: clock,
+		deps:    d,
 		events:  make(chan Event, eventBuffer),
 		tailers: map[string]*Tailer{},
 	}
-	l, err := Listen(paths.HookSocket(home), w.events, clock)
+	l, err := Listen(paths.HookSocket(d.Home), w.events, d.Clock, d.Adapter)
 	if err != nil {
 		slog.Warn("hook socket unavailable; status comes from the transcript only", "err", err)
 	}
@@ -66,7 +69,7 @@ func (w *Watch) Events() <-chan Event { return w.events }
 // runtime as well as the initial ones. Adding an id that is already tailed
 // stops the tailer it displaces, which nothing else holds a reference to (#40).
 func (w *Watch) Add(sess registry.Session) {
-	tl := Tail(sess.ID, paths.Transcript(w.home, sess.Dir, sess.ID), w.events, w.clock, pollEvery)
+	tl := Tail(sess.ID, w.deps.TranscriptPath(w.deps.Home, sess.Dir, sess.ID), w.events, w.deps.Clock, pollEvery, w.deps.Adapter)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if old := w.tailers[sess.ID]; old != nil {
