@@ -103,16 +103,22 @@ func (s *Sidebar) Selected() (Row, bool) {
 	return s.rows[s.cursor], true
 }
 
-// MoveDown advances to the next session row, stopping at the last one.
+// MoveDown advances to the next session row, wrapping to the first (#126).
 func (s *Sidebar) MoveDown() { s.seek(1) }
 
-// MoveUp retreats to the previous session row, stopping at the first one.
+// MoveUp retreats to the previous session row, wrapping to the last (#126).
 func (s *Sidebar) MoveUp() { s.seek(-1) }
 
-// seek moves the cursor by step until it lands on a session row, leaving it
-// where it was if there is none in that direction.
+// seek moves the cursor by step until it lands on a session row, taking the
+// index modulo the row count so the two ends join. At most one lap: a list
+// with no session row (a project registered with nothing under it) leaves
+// the cursor where it was instead of spinning (#126). From the -1 sentinel
+// NewSidebar and SetRows start at, a downward seek scans from row 0.
 func (s *Sidebar) seek(step int) {
-	for i := s.cursor + step; i >= 0 && i < len(s.rows); i += step {
+	n := len(s.rows)
+	i := s.cursor
+	for lap := 0; lap < n; lap++ {
+		i = ((i+step)%n + n) % n
 		if s.rows[i].Session != nil {
 			s.cursor = i
 			return

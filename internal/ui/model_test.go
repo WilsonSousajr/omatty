@@ -219,3 +219,25 @@ func TestModel_MovingTheCursorResizesTheNewlySelectedTerminal_issue73(t *testing
 		t.Errorf("newly focused s2 is %dx%d, want PTYSize(120,40) = 90x36", f.Width, f.Height)
 	}
 }
+
+// The ends of the sidebar join (#126): ctrl+o j on the last session focuses
+// the first, and the wrapped target is resized like any other move (#73).
+func TestModel_leaderJOnTheLastSessionFocusesTheFirst_issue126(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	leader(m, key('j'))
+	leader(m, key('j'))
+	if m.Selected() != "s3" {
+		t.Fatalf("Selected() = %q after two moves, want s3", m.Selected())
+	}
+
+	leader(m, key('j'))
+
+	if m.Selected() != "s1" {
+		t.Fatalf("Selected() = %q, want s1 after wrapping", m.Selected())
+	}
+	w, h := ui.PTYSize(100, 30, false)
+	if f := fakes["s1"]; f.Width != w || f.Height != h {
+		t.Errorf("s1 is %dx%d after the wrapped move, want %dx%d", f.Width, f.Height, w, h)
+	}
+}
