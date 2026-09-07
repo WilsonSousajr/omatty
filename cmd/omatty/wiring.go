@@ -66,6 +66,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Factory: termwrap.Start,
 		Create:  sessionCreator(env.Cfg, store),
 		Leader:  env.Cfg.Leader,
+		Name:    sessionNamer(home),
 		Diff:    review.NewSource(git).Load,
 		Files:   git.ListFiles,
 	}
@@ -206,6 +207,14 @@ func sessionRenamer(store *registry.Store) ui.RenameFunc {
 func sessionArchiver(store *registry.Store) ui.ArchiveFunc {
 	return func(sessionID string) (registry.Session, error) {
 		return registry.RemoveSession(store, sessionID)
+	}
+}
+
+// sessionNamer adapts discover.FirstPromptTitle to ui.NameFunc, so the model
+// can name a session from its transcript without reading one itself (#127).
+func sessionNamer(home string) ui.NameFunc {
+	return func(sess registry.Session) (string, error) {
+		return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ID))
 	}
 }
 
