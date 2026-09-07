@@ -231,3 +231,20 @@ func TestModel_LeaderFRefocusesAnOpenTreeBeforeClosingIt_issue90(t *testing.T) {
 		t.Error("ctrl+o f on a focused tree should close it")
 	}
 }
+
+// A repository with nothing in it lists successfully as nothing. That must
+// read as an empty state, not as a listing that never finishes (#131).
+func TestModel_AnEmptyListingIsAnEmptyStateNotASpinner_issue131(t *testing.T) {
+	m, _, lister, _ := modelWithTree(t)
+	lister.Paths = nil
+
+	leader(m, key('f'))
+
+	view := m.View().Content
+	if strings.Contains(view, "listing files...") {
+		t.Error("an empty listing still shows the loading line")
+	}
+	if !strings.Contains(view, "no files") {
+		t.Error("an empty listing shows no empty-state line")
+	}
+}
