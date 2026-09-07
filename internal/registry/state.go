@@ -28,6 +28,13 @@ type Session struct {
 	// empty value is derivable).
 	Base     string `json:"base,omitempty"`
 	Worktree bool   `json:"worktree"` // true if omatty created Dir
+	// Agent names which coding agent runs this session. Empty means claude,
+	// which is what every row written before #46 has and what agent.Lookup
+	// resolves it to - so the field is derivable and Version stays 1
+	// (invariant 9), the argument Base carries above. Write "" for claude,
+	// never "claude": two spellings of one agent in one file is the drift the
+	// derivable default exists to avoid.
+	Agent string `json:"agent,omitempty"`
 }
 
 // State is the whole persisted registry.

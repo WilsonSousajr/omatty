@@ -7,17 +7,22 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/detach"
-	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
 
 // Launcher builds and starts the claude process for a session.
 //
-//	l := supervisor.NewLauncher("claude", paths.HooksFile(home), home, detach.New(home))
+//	l := supervisor.NewLauncher(agent.Claude(), cfg.ClaudeBin, paths.HooksFile(home), home, detach.New(home))
 //	term, err := l.Start(termwrap.Start, sess, 80, 24)
+//
+// One profile per Launcher because M7 has one agent. When a second arrives,
+// Start resolves sess.Agent and Command takes the profile as a parameter;
+// the change is local to this file, which is what the seam buys (#46).
 type Launcher struct {
+	profile   agent.Profile
 	bin       string
 	hooksFile string
 	home      string
@@ -28,41 +33,38 @@ type Launcher struct {
 	holder detach.Holder
 }
 
-// NewLauncher returns a Launcher invoking bin with hooksFile as its settings.
-// home is where claude keeps transcripts; it decides between a fresh start
-// and a resume. holder decides whether the process survives quitting omatty.
-func NewLauncher(bin, hooksFile, home string, holder detach.Holder) *Launcher {
-	return &Launcher{bin: bin, hooksFile: hooksFile, home: home, holder: holder}
+// NewLauncher returns a Launcher running profile's agent as bin with
+// hooksFile as its settings. home is where the agent keeps transcripts; it
+// decides between a fresh start and a resume. holder decides whether the
+// process survives quitting omatty.
+func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder detach.Holder) *Launcher {
+	return &Launcher{profile: profile, bin: bin, hooksFile: hooksFile, home: home, holder: holder}
 }
 
-// Command returns the process omatty starts for a session.
-//
-// A session that has never spoken starts with --session-id, which lets omatty
-// choose the uuid and so know the transcript path (invariant 2). Once a
-// transcript exists claude refuses that flag - "Session ID <uuid> is already
-// in use" - because the transcript itself is the claim; there is no lock file.
-// So a session with a transcript is started with --resume instead (issue #36).
-// Either way --settings names omatty's own file, never the user's (invariant 3).
+// Command returns the process omatty starts for a session, built from the
+// profile's template. The flag choice - a fresh start or a resume - is still
+// made here, because it is a fact about this session's transcript rather
+// than about the agent; which flags express it is the profile's business
+// (#36, #46). For claude that is --session-id versus --resume, and --settings
+// naming omatty's own file, never the user's (invariant 3).
 //
 // The claude command built here is then handed to the holder, which under dtach
 // returns a client attaching to a master that outlives omatty. The two decisions
 // compose rather than interact: the holder never inspects the claude line, and
 // the flag choice above is unaware a holder exists (#43).
 func (l *Launcher) Command(sessionID, dir string) (*exec.Cmd, error) {
-	flag := "--session-id"
-	if HasTranscript(l.home, dir, sessionID) {
-		flag = "--resume"
-	}
-	cmd := exec.Command(l.bin, flag, sessionID, "--settings", l.hooksFile)
+	resume := HasTranscript(l.profile, l.home, dir, sessionID)
+	args := l.profile.Command(l.bin, sessionID, dir, resume, l.hooksFile)
+	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Dir = dir
 	return l.holder.Wrap(sessionID, cmd)
 }
 
-// HasTranscript reports whether claude has written a transcript for the
-// session, which is the condition under which it must be resumed rather than
-// started (issue #36).
-func HasTranscript(home, dir, sessionID string) bool {
-	info, err := os.Stat(paths.Transcript(home, dir, sessionID))
+// HasTranscript reports whether the profile's agent has written a transcript
+// for the session, which is the condition under which it must be resumed
+// rather than started (#36, #46).
+func HasTranscript(profile agent.Profile, home, dir, sessionID string) bool {
+	info, err := os.Stat(profile.TranscriptPath(home, dir, sessionID))
 	return err == nil && !info.IsDir()
 }
 

@@ -81,6 +81,7 @@ func notificationKind(notifType string) (Kind, bool) {
 type Listener struct {
 	ln      net.Listener
 	clock   func() time.Time
+	adapter Adapter // the agent's hook vocabulary (#46)
 	sink    chan<- Event
 	stop    chan struct{}
 	slots   chan struct{}
@@ -95,9 +96,12 @@ type Listener struct {
 // to sink. A stale socket file is replaced; the socket is user-only. clock
 // stamps each event so it compares like-for-like with tailer timestamps.
 //
-//	l, err := watcher.Listen(paths.HookSocket(home), events, time.Now)
+//	l, err := watcher.Listen(paths.HookSocket(home), events, time.Now, watcher.ClaudeAdapter())
 //	defer l.Close()
-func Listen(path string, sink chan<- Event, clock func() time.Time) (*Listener, error) {
+//
+// adapter maps each payload to a Kind; which hook names an agent reports is
+// the agent's business (#46).
+func Listen(path string, sink chan<- Event, clock func() time.Time, adapter Adapter) (*Listener, error) {
 	if err := refuseIfLive(path); err != nil {
 		return nil, err
 	}
@@ -113,7 +117,7 @@ func Listen(path string, sink chan<- Event, clock func() time.Time) (*Listener, 
 		_ = ln.Close()
 		return nil, fmt.Errorf("watcher: securing socket %q: %w", path, err)
 	}
-	l := &Listener{ln: ln, clock: clock, sink: sink, stop: make(chan struct{}),
+	l := &Listener{ln: ln, clock: clock, adapter: adapter, sink: sink, stop: make(chan struct{}),
 		slots: make(chan struct{}, maxInFlight), conns: map[net.Conn]struct{}{}}
 	l.wg.Add(1)
 	go l.accept()
@@ -195,7 +199,7 @@ func (l *Listener) decode(conn net.Conn) (Event, bool) {
 	if json.Unmarshal(line, &p) != nil {
 		return Event{}, false
 	}
-	kind, ok := KindOf(p)
+	kind, ok := l.adapter.KindOf(p)
 	if !ok {
 		return Event{}, false
 	}

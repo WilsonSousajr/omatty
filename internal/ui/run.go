@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
@@ -82,6 +83,9 @@ type RunDeps struct {
 	Notice string
 	// Leader is the configured leader key; empty means DefaultLeader (#44).
 	Leader string
+	// Agent is the profile every session runs: its status adapter and its
+	// transcript location feed the watcher (#46). The zero value is claude.
+	Agent agent.Profile
 }
 
 // Run starts every session's terminal, the status watcher, and the TUI, and
@@ -93,7 +97,7 @@ func Run(d RunDeps) error {
 		return err
 	}
 	defer closeTerminals(terms)
-	watch := watcher.Start(d.Home, d.State.Sessions, time.Now)
+	watch := watcher.Start(watchDeps(d), d.State.Sessions)
 	defer watch.Close()
 	model := NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
@@ -106,6 +110,17 @@ func Run(d RunDeps) error {
 		TailStart: watch.Add, TailStop: watch.Remove,
 	})
 	return runProgram(model, len(terms))
+}
+
+// watchDeps is the watcher's slice of the agent profile: its status adapter
+// and its transcript location. An unset profile is claude (#46).
+func watchDeps(d RunDeps) watcher.WatchDeps {
+	profile := d.Agent
+	if profile.Status == nil {
+		profile = agent.Claude()
+	}
+	return watcher.WatchDeps{Home: d.Home, Clock: time.Now,
+		Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}
 }
 
 // leaderOr is the configured leader, or DefaultLeader for an empty one (#44).

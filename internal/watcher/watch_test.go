@@ -28,6 +28,12 @@ func shortHome(t *testing.T) string {
 	return dir
 }
 
+// claudeDeps is Start's dependencies for claude, so the tests written before
+// the seam (#46) read as they did.
+func claudeDeps(home string) WatchDeps {
+	return WatchDeps{Home: home, Clock: time.Now, Adapter: ClaudeAdapter(), TranscriptPath: paths.Transcript}
+}
+
 func twoSessions() []registry.Session {
 	return []registry.Session{
 		{ID: "s1", Project: "p", Title: "one", Dir: "/p"},
@@ -36,7 +42,7 @@ func twoSessions() []registry.Session {
 }
 
 func TestStart_OneTailerPerSessionAndAddGrowsIt_issue77(t *testing.T) {
-	w := Start(shortHome(t), twoSessions(), time.Now)
+	w := Start(claudeDeps(shortHome(t)), twoSessions())
 	defer w.Close()
 
 	if len(w.tailers) != 2 {
@@ -49,7 +55,7 @@ func TestStart_OneTailerPerSessionAndAddGrowsIt_issue77(t *testing.T) {
 }
 
 func TestStart_CloseStopsEveryTailer_issue77(t *testing.T) {
-	w := Start(shortHome(t), twoSessions(), time.Now)
+	w := Start(claudeDeps(shortHome(t)), twoSessions())
 
 	w.Close()
 
@@ -66,7 +72,7 @@ func TestStart_CloseStopsEveryTailer_issue77(t *testing.T) {
 // Otherwise the goroutine keeps stat-ing a path that no longer exists once a
 // second, holding its ring of entries, until omatty quits.
 func TestWatch_RemoveStopsOnlyThatSessionsTailer_issue40(t *testing.T) {
-	w := Start(shortHome(t), twoSessions(), time.Now)
+	w := Start(claudeDeps(shortHome(t)), twoSessions())
 	defer w.Close()
 	doomed, survivor := w.tailers["s1"], w.tailers["s2"]
 
@@ -90,7 +96,7 @@ func TestWatch_RemoveStopsOnlyThatSessionsTailer_issue40(t *testing.T) {
 // Remove on an id that was never added must not panic or disturb the rest: the
 // model calls it for every archive, including one whose tailer never started.
 func TestWatch_RemoveOfAnUnknownSessionIsANoOp_issue40(t *testing.T) {
-	w := Start(shortHome(t), twoSessions(), time.Now)
+	w := Start(claudeDeps(shortHome(t)), twoSessions())
 	defer w.Close()
 
 	w.Remove("ghost")
@@ -103,7 +109,7 @@ func TestWatch_RemoveOfAnUnknownSessionIsANoOp_issue40(t *testing.T) {
 // Add twice for one id would otherwise leak the first tailer: nothing else
 // holds a reference, so it would poll forever (#40).
 func TestWatch_AddingTheSameSessionTwiceStopsTheDisplacedTailer_issue40(t *testing.T) {
-	w := Start(shortHome(t), twoSessions(), time.Now)
+	w := Start(claudeDeps(shortHome(t)), twoSessions())
 	defer w.Close()
 	first := w.tailers["s1"]
 
@@ -121,7 +127,7 @@ func TestWatch_AddingTheSameSessionTwiceStopsTheDisplacedTailer_issue40(t *testi
 
 func TestStart_ListensOnTheHookSocket_issue77(t *testing.T) {
 	home := shortHome(t)
-	w := Start(home, twoSessions(), time.Now)
+	w := Start(claudeDeps(home), twoSessions())
 	defer w.Close()
 
 	c, err := net.Dial("unix", paths.HookSocket(home))
@@ -147,7 +153,7 @@ func TestStart_DegradesToTailerOnlyWhenTheSocketCannotBind_issue49(t *testing.T)
 	// A HOME long enough that the socket path exceeds the macOS sun_path cap.
 	home := filepath.Join(t.TempDir(), strings.Repeat("x", 120))
 	sess := registry.Session{ID: "s1", Project: "p", Title: "one", Dir: "/p"}
-	w := Start(home, []registry.Session{sess}, time.Now)
+	w := Start(claudeDeps(home), []registry.Session{sess})
 	defer w.Close()
 	if w.listener != nil {
 		t.Fatal("precondition: the listener bound on an over-long path")

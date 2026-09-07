@@ -58,7 +58,7 @@ func TestListen_EmitsAnEventPerConnection_issue18(t *testing.T) {
 	fixed := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
 	sink := make(chan watcher.Event, 4)
 
-	l, err := watcher.Listen(path, sink, func() time.Time { return fixed })
+	l, err := watcher.Listen(path, sink, func() time.Time { return fixed }, watcher.ClaudeAdapter())
 	if err != nil {
 		t.Fatalf("Listen() error = %v", err)
 	}
@@ -82,7 +82,7 @@ func TestListen_EmitsAnEventPerConnection_issue18(t *testing.T) {
 func TestListen_RejectsOversizedPayloadButKeepsAccepting_issue18(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
 	sink := make(chan watcher.Event, 4)
-	l, err := watcher.Listen(path, sink, time.Now)
+	l, err := watcher.Listen(path, sink, time.Now, watcher.ClaudeAdapter())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestListen_ReplacesAStaleSocketFile_issue18(t *testing.T) {
 	if err := os.WriteFile(path, []byte("stale"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	l, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now)
+	l, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now, watcher.ClaudeAdapter())
 	if err != nil {
 		t.Fatalf("Listen() did not replace a stale socket file: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestListen_ReplacesAStaleSocketFile_issue18(t *testing.T) {
 
 func TestListen_SocketIsUserOnly_issue18(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
-	l, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now)
+	l, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now, watcher.ClaudeAdapter())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func dial(t *testing.T, path, payload string) {
 func TestListen_UnbindablePathReturnsAnError_issue49(t *testing.T) {
 	// A path well over the macOS sun_path cap (~104 bytes).
 	long := filepath.Join(shortDir(t), string(make([]byte, 120)))
-	_, err := watcher.Listen(long, make(chan watcher.Event, 1), time.Now)
+	_, err := watcher.Listen(long, make(chan watcher.Event, 1), time.Now, watcher.ClaudeAdapter())
 	if err == nil {
 		t.Fatal("Listen on an oversized path returned nil error, want a failure the caller can handle")
 	}
@@ -194,7 +194,7 @@ func TestListen_UnbindablePathReturnsAnError_issue49(t *testing.T) {
 func TestListen_ASilentPeerDoesNotStarveLaterHooks_issue67(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
 	sink := make(chan watcher.Event, 4)
-	l, err := watcher.Listen(path, sink, time.Now)
+	l, err := watcher.Listen(path, sink, time.Now, watcher.ClaudeAdapter())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestListen_ASilentPeerDoesNotStarveLaterHooks_issue67(t *testing.T) {
 
 func TestListen_CloseReturnsWithASilentPeerConnected_issue67(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
-	l, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now)
+	l, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now, watcher.ClaudeAdapter())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestListen_CloseReturnsWithASilentPeerConnected_issue67(t *testing.T) {
 // listener, which would stall every hook on the machine.
 func TestListen_DropsInsteadOfBlockingOnAFullSink_issue67(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
-	l, err := watcher.Listen(path, make(chan watcher.Event), time.Now) // unbuffered, never read
+	l, err := watcher.Listen(path, make(chan watcher.Event), time.Now, watcher.ClaudeAdapter()) // unbuffered, never read
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,13 +264,13 @@ func TestListen_DropsInsteadOfBlockingOnAFullSink_issue67(t *testing.T) {
 func TestListen_RefusesWhenAnotherInstanceIsLive_issue68(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
 	sink := make(chan watcher.Event, 4)
-	first, err := watcher.Listen(path, sink, time.Now)
+	first, err := watcher.Listen(path, sink, time.Now, watcher.ClaudeAdapter())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = first.Close() }()
 
-	second, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now)
+	second, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now, watcher.ClaudeAdapter())
 
 	if err == nil {
 		_ = second.Close()

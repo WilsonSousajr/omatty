@@ -6,6 +6,10 @@
 // offer that list instead. It only ever *proposes*: nothing here writes to the
 // registry, so state.json stays the single source of truth (invariant 9).
 //
+// Discovery and adoption read claude's transcript store and are claude-only;
+// adopting another agent's sessions is a separate issue with a separate
+// store (#46).
+//
 // Transcript content is untrusted (AGENTS.md, Security). Only `cwd` is read
 // out of it, and it is validated against the filesystem and against git before
 // it is offered.

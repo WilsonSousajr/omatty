@@ -143,7 +143,7 @@ func listenUnderHome(t *testing.T) (string, <-chan watcher.Event, func()) {
 	}
 	sock := filepath.Join(dir, ".omatty", "sock")
 	events := make(chan watcher.Event, 4)
-	l, err := watcher.Listen(sock, events, time.Now)
+	l, err := watcher.Listen(sock, events, time.Now, watcher.ClaudeAdapter())
 	if err != nil {
 		t.Fatal(err)
 	}

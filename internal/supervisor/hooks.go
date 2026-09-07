@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/WilsonSousajr/omatty/internal/hooks"
+	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 )
 
@@ -16,13 +16,17 @@ import (
 // --settings on a missing file (issue #31) and the binary path moves with
 // `go install`. It was four steps of logic in cmd (invariant 10, issue #79).
 //
-//	hooksFile, err := supervisor.InstallHooks(home, watcher.HookEventNames())
-func InstallHooks(home string, eventNames []string) (string, error) {
+//	hooksFile, err := supervisor.InstallHooks(agent.Claude(), home)
+//
+// The events and the settings schema are the profile's (#46). One file for
+// the whole app: a second agent whose schema differs will need a file per
+// profile, which is noted here rather than built.
+func InstallHooks(profile agent.Profile, home string) (string, error) {
 	bin, err := os.Executable()
 	if err != nil {
 		return "", fmt.Errorf("supervisor: locating the omatty binary: %w", err)
 	}
-	content, err := hooks.Render(bin, eventNames)
+	content, err := profile.RenderSettings(bin, profile.HookEvents())
 	if err != nil {
 		return "", fmt.Errorf("supervisor: rendering hooks for %q: %w", bin, err)
 	}

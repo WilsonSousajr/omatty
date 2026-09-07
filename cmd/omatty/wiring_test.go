@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -16,7 +17,7 @@ func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T)
 	// launcher derives a socket path from it and refuses one over 103 bytes,
 	// which t.TempDir() exceeds on macOS (#43).
 	home := "/h"
-	env := tuiEnv{Home: home, HooksFile: filepath.Join(home, "hooks.json"), Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: home, Agent: agent.Claude(), HooksFile: filepath.Join(home, "hooks.json"), Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults(home)
 	env.Cfg.ClaudeBin = "/opt/claude"
 	env.Cfg.Leader = "ctrl+a"
