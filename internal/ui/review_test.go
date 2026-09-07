@@ -236,10 +236,10 @@ func TestModel_OpenReviewReloadsWhenItsSessionStops_issue21(t *testing.T) {
 	}
 }
 
-// Regression, issue #90: esc leaves the column open but unfocused, and the
-// leader key that opened it took the close branch, so stepping back into a
-// pane still on screen cost two presses and reloaded the diff.
-func TestModel_LeaderRefocusesAnOpenColumnBeforeClosingIt_issue90(t *testing.T) {
+// Regression, issue #90, re-stated by #124: esc leaves the column open but
+// unfocused; the leader then closes it without asking git again, because the
+// loaded diff survives the close.
+func TestModel_LeaderDOnAnUnfocusedColumnClosesItWithoutReloading_issue90(t *testing.T) {
 	m, _, rec := modelWithDiff(t)
 	leader(m, key('d'))
 	press(m, special(tea.KeyEscape))
@@ -250,15 +250,74 @@ func TestModel_LeaderRefocusesAnOpenColumnBeforeClosingIt_issue90(t *testing.T) 
 
 	leader(m, key('d'))
 
-	if !m.ReviewOpen() || !m.ReviewFocused() {
-		t.Fatalf("ctrl+o d on an unfocused column: open=%v focused=%v, want it focused",
-			m.ReviewOpen(), m.ReviewFocused())
-	}
-	if len(rec.Asked) != 1 {
-		t.Errorf("the diff was loaded %d times, want 1: refocusing is not a reload", len(rec.Asked))
+	if m.ReviewOpen() {
+		t.Fatal("ctrl+o d on an unfocused column left it open")
 	}
 	leader(m, key('d'))
+	if len(rec.Asked) != 1 {
+		t.Errorf("the diff was loaded %d times across open, close, open; want 1", len(rec.Asked))
+	}
+}
+
+// The loop from the report: d, esc, d, esc ... never closed anything, because
+// the leader refocused an unfocused column instead of closing it (#124).
+func TestModel_LeaderDClosesAnUnfocusedColumn_issue124(t *testing.T) {
+	m, fakes, _ := modelWithDiff(t)
+	leader(m, key('d'))
+	press(m, special(tea.KeyEscape))
+
+	leader(m, key('d'))
+
 	if m.ReviewOpen() {
-		t.Error("ctrl+o d on a focused column should close it")
+		t.Fatal("ctrl+o d on an unfocused column left it open")
+	}
+	w, h := ui.PTYSize(100, 30, false)
+	if f := fakes["s1"]; f.Width != w || f.Height != h {
+		t.Errorf("terminal after close is %dx%d, want the full width %dx%d", f.Width, f.Height, w, h)
+	}
+}
+
+// Reopening on the same session shows what was loaded and asks git nothing:
+// the cache #90 wanted, kept across a close rather than by refusing to close.
+func TestModel_ReopeningTheColumnReusesTheLoadedDiff_issue124(t *testing.T) {
+	m, _, rec := modelWithDiff(t)
+	leader(m, key('d'))
+	leader(m, key('d'))
+
+	leader(m, key('d'))
+
+	if !m.ReviewOpen() || !m.ReviewFocused() {
+		t.Fatalf("open=%v focused=%v, want open and focused", m.ReviewOpen(), m.ReviewFocused())
+	}
+	if len(rec.Asked) != 1 {
+		t.Errorf("diff loaded %d times across open, close, open; want 1", len(rec.Asked))
+	}
+	if !strings.Contains(m.View().Content, "model.go") {
+		t.Error("reopened column shows no diff rows")
+	}
+}
+
+// A turn ending while the column is closed must not leave a stale diff on
+// reopen, and must not fork git for a pane nobody can see (#124).
+func TestModel_ATurnEndingWhileClosedReloadsOnReopen_issue124(t *testing.T) {
+	m, _, rec := modelWithDiff(t)
+	leader(m, key('d'))
+	leader(m, key('d'))
+
+	for _, ev := range []ui.StatusMsg{
+		{SessionID: "s1", Kind: watcher.PromptSubmitted, At: fixedNow},
+		{SessionID: "s1", Kind: watcher.TurnEnded, At: fixedNow},
+	} {
+		_, cmd := m.Update(ev)
+		deliver(m, cmd)
+	}
+	if len(rec.Asked) != 1 {
+		t.Fatalf("a hidden column reloaded the diff: %d loads, want 1", len(rec.Asked))
+	}
+
+	leader(m, key('d'))
+
+	if len(rec.Asked) != 2 {
+		t.Errorf("reopening after a finished turn loaded %d times, want 2", len(rec.Asked))
 	}
 }
