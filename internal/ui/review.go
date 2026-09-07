@@ -88,6 +88,9 @@ type ReviewPane struct {
 	// line wider than the column can still be read (issue #94). One offset
 	// serves all three views, so h and l behave the same wherever you are.
 	ColOffset int
+	// Stale marks content loaded before a turn that ended while the column
+	// was closed. A hidden pane does not fork git; the reopen does (#124).
+	Stale bool
 }
 
 // noteEditor is the one-line comment input opened with c on a diff line. It
@@ -122,47 +125,61 @@ func (m *Model) ReviewFocused() bool { return m.review.Focused }
 func (m *Model) ReviewView() ReviewView { return m.review.View }
 
 // toggleView opens the review column on v, switches an open column to v, or
-// steps back into it and then closes it when it already shows v. Either way
-// the terminal is resized to what is left (#21). Comments survive a close:
-// they live on the model, keyed by session. The tree's collapse state does
-// not - it is rebuilt from the listing, which is cheap and always current
-// (#24).
+// closes it when it already shows v - from either focus state, which is what
+// the help text has promised since #103 and what esc-then-leader needs to
+// terminate (#124). Content survives a close: it is keyed by SessionID and
+// only a different session throws it away. Comments survive too: they live
+// on the model, keyed by session (#21). The tree's collapse state does not -
+// it is rebuilt from the listing, which is cheap and always current (#24).
 func (m *Model) toggleView(v ReviewView) tea.Cmd {
-	if m.review.Open && m.review.View == v {
-		return m.refocusOrClose()
+	// The preview is the tree's child (keptView), so f over a preview closes
+	// the column rather than switching it back to the listing (#124).
+	if m.review.Open && keptView(m.review.View) == v {
+		return m.closeColumn()
 	}
 	id := m.Selected()
 	if id == "" {
 		return nil
 	}
-	// A column already open on this session keeps what it loaded. Switching
-	// between the diff and the tree changes neither the session nor the pane's
-	// width, so re-forking git for a diff already in memory is the stall
-	// loadDiff's own comment exists to avoid, and re-issuing an identical
-	// Resize sends claude a needless SIGWINCH and a full repaint (#95).
-	reopened := !m.review.Open || m.review.SessionID != id
-	if reopened {
-		m.review = ReviewPane{Open: true, SessionID: id}
+	wasOpen, fresh := m.review.Open, m.review.SessionID != id
+	if fresh {
+		m.review = ReviewPane{SessionID: id}
 	}
 	// Each view is a different shape of text, so a pan that made sense in one
 	// is meaningless in the next: switching starts at the left edge (#94).
-	m.review.View, m.review.Focused, m.review.ColOffset = v, true, 0
-	if !reopened {
-		return m.loadFilesIfMissing(id)
-	}
-	return tea.Batch(m.resizeSelected(), m.loadDiff(id), m.loadFiles(id))
+	m.review.Open, m.review.View, m.review.Focused, m.review.ColOffset = true, v, true, 0
+	return tea.Batch(m.resizeIfWidthChanged(wasOpen), m.reloadIfNeeded(id, fresh), m.loadFilesIfMissing(id))
 }
 
-// refocusOrClose handles the leader key for the view already on screen. esc
-// leaves the column open but unfocused, and nothing else gives it the keys
-// back, so closing here would shut a pane the operator was stepping into -
-// and reopening would reload git for a diff already loaded (issue #90).
-func (m *Model) refocusOrClose() tea.Cmd {
-	if !m.review.Focused {
-		m.review.Focused = true
+// resizeIfWidthChanged resizes the terminal only when the column appeared:
+// switching views changes no width, and an identical Resize is a needless
+// SIGWINCH and repaint for claude (#95).
+func (m *Model) resizeIfWidthChanged(wasOpen bool) tea.Cmd {
+	if wasOpen {
 		return nil
 	}
-	m.review = ReviewPane{}
+	return m.resizeSelected()
+}
+
+// reloadIfNeeded fetches the diff for a session the column has not loaded,
+// or one whose cached diff went stale behind a closed column (#124). A
+// column already open on this session keeps what it loaded: re-forking git
+// for a diff already in memory is the stall loadDiff's own comment exists
+// to avoid.
+func (m *Model) reloadIfNeeded(id string, fresh bool) tea.Cmd {
+	if !fresh && !m.review.Stale {
+		return nil
+	}
+	m.review.Stale = false
+	return m.loadDiff(id)
+}
+
+// closeColumn hides the column and gives the keys back, keeping what it
+// loaded so reopening on the same session asks git nothing. #90 made the
+// leader refocus instead of close, to spare that reload; the cache answers
+// the reload, and the refocus made esc-then-leader an endless loop (#124).
+func (m *Model) closeColumn() tea.Cmd {
+	m.review.Open, m.review.Focused = false, false
 	return m.resizeSelected()
 }
 
@@ -276,10 +293,16 @@ func (m *Model) projectRoot(name string) string {
 // stops for a question: that is the moment the operator looks at what changed,
 // and a diff from before the turn would be stale on arrival (#21).
 func (m *Model) refreshReview(id string, before, after watcher.Status) tea.Cmd {
-	if !m.review.Open || id != m.review.SessionID || before == after {
+	if id != m.review.SessionID || before == after {
 		return nil
 	}
 	if after != watcher.StatusDone && after != watcher.StatusWaiting {
+		return nil
+	}
+	// A closed column keeps its content for the reopen (#124); forking git
+	// for a pane nobody can see would be waste, so the reopen pays instead.
+	if !m.review.Open {
+		m.review.Stale = true
 		return nil
 	}
 	return m.loadDiff(id)

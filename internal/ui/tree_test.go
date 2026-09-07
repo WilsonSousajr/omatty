@@ -210,25 +210,22 @@ func TestModel_PreviewScrollsAndStopsAtTheEnds_issue24(t *testing.T) {
 	}
 }
 
-// The tree view refocuses on its own leader key for the same reason as the
-// diff (issue #90).
-func TestModel_LeaderFRefocusesAnOpenTreeBeforeClosingIt_issue90(t *testing.T) {
+// The tree view closes on its own leader key the way the diff does (#90,
+// #124), and reopening does not re-list.
+func TestModel_LeaderFOnAnUnfocusedTreeClosesItWithoutReloading_issue90(t *testing.T) {
 	m, _, lister, _ := modelWithTree(t)
 	leader(m, key('f'))
 	press(m, special(tea.KeyEscape))
 
 	leader(m, key('f'))
 
-	if !m.ReviewOpen() || !m.ReviewFocused() || m.ReviewView() != ui.ViewTree {
-		t.Fatalf("open=%v focused=%v view=%v, want a focused tree",
-			m.ReviewOpen(), m.ReviewFocused(), m.ReviewView())
-	}
-	if len(lister.Asked) != 1 {
-		t.Errorf("listed %d times, want 1: refocusing is not a re-list", len(lister.Asked))
+	if m.ReviewOpen() {
+		t.Fatal("ctrl+o f on an unfocused tree left it open")
 	}
 	leader(m, key('f'))
-	if m.ReviewOpen() {
-		t.Error("ctrl+o f on a focused tree should close it")
+	if !m.ReviewOpen() || m.ReviewView() != ui.ViewTree || len(lister.Asked) != 1 {
+		t.Errorf("reopen: open=%v view=%v listed %d times; want an open tree listed once",
+			m.ReviewOpen(), m.ReviewView(), len(lister.Asked))
 	}
 }
 
@@ -277,5 +274,45 @@ func TestModel_TogglingBackToTheTreeDoesNotRelist_issue131(t *testing.T) {
 
 	if len(lister.Asked) != 1 {
 		t.Errorf("files listed %d times across f, d, f; want 1", len(lister.Asked))
+	}
+}
+
+// From a preview, esc steps back to the tree and a second esc drops focus;
+// the leader must then close the column, not switch it (#124).
+func TestModel_LeaderFClosesAnUnfocusedTreeAndPreview_issue124(t *testing.T) {
+	m, _, _, _ := modelWithTree(t)
+	leader(m, key('f'))
+	pressAndSettle(m, special(tea.KeyEnter))
+	if m.ReviewView() != ui.ViewPreview {
+		t.Fatalf("view = %v after enter on the first row, want the preview", m.ReviewView())
+	}
+	press(m, special(tea.KeyEscape))
+	press(m, special(tea.KeyEscape))
+	if !m.ReviewOpen() || m.ReviewFocused() || m.ReviewView() != ui.ViewTree {
+		t.Fatalf("open=%v focused=%v view=%v, want an open unfocused tree",
+			m.ReviewOpen(), m.ReviewFocused(), m.ReviewView())
+	}
+
+	leader(m, key('f'))
+
+	if m.ReviewOpen() {
+		t.Error("ctrl+o f on an unfocused tree left the column open")
+	}
+}
+
+// With the preview still showing, ctrl+o f closes the column: the preview is
+// the tree's child (keptView), not a third view to switch to (#124).
+func TestModel_LeaderFOnAPreviewClosesTheColumn_issue124(t *testing.T) {
+	m, _, _, _ := modelWithTree(t)
+	leader(m, key('f'))
+	pressAndSettle(m, special(tea.KeyEnter))
+	if m.ReviewView() != ui.ViewPreview {
+		t.Fatalf("view = %v, want the preview", m.ReviewView())
+	}
+
+	leader(m, key('f'))
+
+	if m.ReviewOpen() {
+		t.Error("ctrl+o f on a preview left the column open")
 	}
 }
