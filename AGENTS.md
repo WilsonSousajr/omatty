@@ -256,9 +256,12 @@ message and explain why the behaviour it asserted was never correct.
   - Type: `feat` `fix` `docs` `test` `refactor` `perf` `chore` `build` `ci` —
     the same set as the commit-message types, so a `feat`-labelled issue
     produces `feat(#N):` commits.
-  - Milestone: `M1` `M2` `M3` `M4`.
+  - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7`. Every open issue carries
+    one, including a bug found against an already-shipped milestone - it takes
+    the milestone it will be fixed in, not the one that introduced it.
   - Area: `area:paths` `area:registry` `area:vcs` `area:termwrap`
-    `area:supervisor` `area:keys` `area:ui` `area:cmd`.
+    `area:supervisor` `area:keys` `area:ui` `area:cmd` `area:hooks`
+    `area:watcher` `area:notify` `area:discover`.
   - Flags: `invariant` (changing this touches a cross-cutting invariant —
     argue it explicitly, never assume it is safe), `regression` (needs a test
     that fails before the fix), `blocked`.
