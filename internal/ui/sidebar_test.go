@@ -79,7 +79,7 @@ func TestSidebarRows_ProjectWithNoSessionsStillShows(t *testing.T) {
 	}
 }
 
-func TestSidebar_CursorSkipsProjectHeaders(t *testing.T) {
+func TestSidebar_CursorSkipsProjectHeadersAndWraps_issue126(t *testing.T) {
 	s := ui.NewSidebar(ui.SidebarRows(twoProjectState(), nil))
 
 	got, ok := s.Selected()
@@ -95,17 +95,16 @@ func TestSidebar_CursorSkipsProjectHeaders(t *testing.T) {
 		t.Errorf("after two MoveDowns, Selected() = %q, want s3 (header skipped)", got.Session.ID)
 	}
 	s.MoveDown()
+	if got, _ := s.Selected(); got.Session.ID != "s1" {
+		t.Errorf("MoveDown at the end moved to %q, want to wrap to s1 (#126)", got.Session.ID)
+	}
+	s.MoveUp()
 	if got, _ := s.Selected(); got.Session.ID != "s3" {
-		t.Errorf("MoveDown at the end moved to %q, want to stay on s3", got.Session.ID)
+		t.Errorf("MoveUp at the start moved to %q, want to wrap to s3 (#126)", got.Session.ID)
 	}
 	s.MoveUp()
 	if got, _ := s.Selected(); got.Session.ID != "s2" {
-		t.Errorf("after MoveUp, Selected() = %q, want s2", got.Session.ID)
-	}
-	s.MoveUp()
-	s.MoveUp()
-	if got, _ := s.Selected(); got.Session.ID != "s1" {
-		t.Errorf("MoveUp at the start moved to %q, want to stay on s1", got.Session.ID)
+		t.Errorf("after MoveUp, Selected() = %q, want s2 (header skipped)", got.Session.ID)
 	}
 }
 
@@ -139,3 +138,51 @@ func TestSidebar_HeaderOnlyProjectFirstStillSelectsALaterSession(t *testing.T) {
 }
 
 func emptyState() registry.State { return registry.State{} }
+
+func TestSidebar_MoveDownFromTheLastSessionWrapsToTheFirst_issue126(t *testing.T) {
+	s := ui.NewSidebar(ui.SidebarRows(twoProjectState(), nil))
+	s.SelectByID("s3")
+
+	s.MoveDown()
+
+	if got, _ := s.Selected(); got.Session.ID != "s1" {
+		t.Errorf("MoveDown from the last session selected %q, want s1 past both headers", got.Session.ID)
+	}
+}
+
+func TestSidebar_MoveUpFromTheFirstSessionWrapsToTheLast_issue126(t *testing.T) {
+	s := ui.NewSidebar(ui.SidebarRows(twoProjectState(), nil))
+
+	s.MoveUp()
+
+	if got, _ := s.Selected(); got.Session.ID != "s3" {
+		t.Errorf("MoveUp from the first session selected %q, want s3", got.Session.ID)
+	}
+}
+
+func TestSidebar_OneSessionStaysPutInBothDirections_issue126(t *testing.T) {
+	st := registry.State{
+		Projects: []registry.Project{{Name: "omatty"}},
+		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "main"}},
+	}
+	s := ui.NewSidebar(ui.SidebarRows(st, nil))
+	s.MoveDown()
+	s.MoveUp()
+	if got, ok := s.Selected(); !ok || got.Session.ID != "s1" {
+		t.Errorf("Selected() = %+v ok=%v, want s1", got, ok)
+	}
+}
+
+// A project with no sessions under it has header rows and nothing to land on.
+// Written without a lap bound, a modulo walk spins here forever.
+func TestSidebar_HeadersOnlyReturnsWithoutSelecting_issue126(t *testing.T) {
+	st := registry.State{Projects: []registry.Project{{Name: "empty"}, {Name: "also"}}}
+	s := ui.NewSidebar(ui.SidebarRows(st, nil))
+
+	s.MoveDown()
+	s.MoveUp()
+
+	if _, ok := s.Selected(); ok {
+		t.Error("Selected() ok=true on a sidebar of headers only")
+	}
+}

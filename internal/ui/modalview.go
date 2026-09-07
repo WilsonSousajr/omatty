@@ -40,7 +40,7 @@ type keyHelp struct {
 // This is the one place the full keymap is written down: the footer shows a
 // working subset, because it is truncated to the window (#30, #103).
 var leaderKeys = []keyHelp{
-	{"j / k", "move between sessions"},
+	{"j / k", "next / previous session, wrapping"},
 	{"/", "jump to a session by name"},
 	{"n", "new session on the main checkout"},
 	{"N", "new session on a fresh worktree"},
