@@ -60,9 +60,10 @@ func TestModel_ResizePassesPaneSizeToTheSelectedTerminal_issue35(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	f := fakes["s1"]
-	// PaneSize 90x37 minus the title row (issue #75).
-	if f.Width != 90 || f.Height != 36 {
-		t.Errorf("terminal resized to %dx%d, want PTYSize 90x36", f.Width, f.Height)
+	// PaneSize 90x37; the title is in the rule, so the PTY is the whole pane
+	// (issue #75, #128).
+	if f.Width != 90 || f.Height != 37 {
+		t.Errorf("terminal resized to %dx%d, want PTYSize 90x37", f.Width, f.Height)
 	}
 }
 
@@ -108,14 +109,17 @@ func TestModel_NoLineExceedsTheWindowWidth_issue35(t *testing.T) {
 	}
 }
 
-// Regression, issue #75: the PTY was born and resized at PaneSize, but the
-// pane spends its first row on the title and renders h-1 rows, so claude's
-// bottom line was always clipped.
+// Regression, issue #75: the PTY was born and resized at PaneSize while the
+// pane spent its first row on the title and drew h-1 rows, so claude's
+// bottom line was always clipped. The property is that the PTY is exactly
+// what the pane draws; since #128 the title lives in the rule and that is
+// the whole pane.
 func TestPTYSize_IsOneRowShorterThanThePane_issue75(t *testing.T) {
 	w, h := ui.PTYSize(120, 40, false)
+	pw, ph := ui.PaneSize(120, 40, false)
 
-	if w != 90 || h != 36 {
-		t.Errorf("PTYSize(120, 40) = (%d, %d), want (90, 36): PaneSize 90x37 minus the title row", w, h)
+	if w != pw || h != ph || h != 37 {
+		t.Errorf("PTYSize(120, 40) = (%d, %d), want the pane's own (%d, %d)", w, h, pw, ph)
 	}
 }
 
@@ -153,5 +157,31 @@ func TestPaneSize_ReviewColumnTakesTwoFifthsOfTheRest_issue21(t *testing.T) {
 func TestReviewWidth_FloorsOnANarrowWindow_issue21(t *testing.T) {
 	if got := ui.ReviewWidth(60, true); got != 24 {
 		t.Errorf("ReviewWidth(60) = %d, want the floor 24", got)
+	}
+}
+
+func TestTopRule_IsExactlyTheBoxWidth_issue128(t *testing.T) {
+	for _, tt := range []struct {
+		title string
+		w     int
+	}{{"", 10}, {"parser-fix", 30}, {strings.Repeat("x", 80), 20}, {"日本語のタイトル", 12}, {"t", 3}} {
+		got := ui.TopRule(false, tt.title, tt.w)
+		if lipgloss.Width(got) != tt.w+2 {
+			t.Errorf("TopRule(%q, %d) is %d cells, want %d", tt.title, tt.w, lipgloss.Width(got), tt.w+2)
+		}
+	}
+}
+
+// The title is in the rule and the row it used to take goes to the emulator.
+func TestView_ThePaneTitleIsInTheTopBorderAndTheRowGoesToTheEmulator_issue128(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	lines := strings.Split(m.View().Content, "\n")
+	if !strings.Contains(lines[0], "main") || !strings.Contains(lines[0], "projects") {
+		t.Errorf("the first line does not carry the pane and sidebar titles: %q", lines[0])
+	}
+	w, h := ui.PaneSize(100, 30, false)
+	if f := fakes["s1"]; f.Width != w || f.Height != h {
+		t.Errorf("emulator is %dx%d, want the whole pane %dx%d", f.Width, f.Height, w, h)
 	}
 }

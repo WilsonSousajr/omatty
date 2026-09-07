@@ -156,9 +156,10 @@ func TestModel_terminalHeightLeavesRoomForFooterAndBorders_issue34(t *testing.T)
 
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
-	// The footer row, two border rows and the title row come off: 30 - 4 = 26.
-	if got := fakes["s1"].Height; got != 26 {
-		t.Errorf("terminal height = %d, want 26 (30 minus footer, borders and title)", got)
+	// The footer row and two border rows come off: 30 - 3 = 27. The title is
+	// in the top rule, not on a row of its own (#128).
+	if got := fakes["s1"].Height; got != 27 {
+		t.Errorf("terminal height = %d, want 27 (30 minus footer and borders)", got)
 	}
 }
 

@@ -81,7 +81,7 @@ func (m *Model) emptyStateHint() string {
 func (m *Model) View() tea.View {
 	termW, termH := PaneSize(m.width, m.height, m.review.Open)
 	now := m.clock() // once per frame, so every row ages against the same instant
-	columns := []string{m.renderSidebar(termH, now), m.renderTerminal(termW, termH, now)}
+	columns := []string{m.renderSidebar(termH), m.renderTerminal(termW, termH, now)}
 	if m.review.Open {
 		columns = append(columns, m.renderReview(ReviewWidth(m.width, true)-2, termH))
 	}
@@ -104,14 +104,13 @@ func (m *Model) View() tea.View {
 // sessions unlabelled, deliberately: pinning the current project's header
 // would spend a second row of chrome in a pane that is already short, and the
 // marker and the pane title name the session either way.
-func (m *Model) renderSidebar(rows int, now time.Time) string {
+func (m *Model) renderSidebar(rows int) string {
 	inner := SidebarWidth - 2
 	lines := make([]string, 0, rows)
-	lines = append(lines, headerStyle.Render(padRight("projects", inner)))
 	for _, row := range m.sidebar.Window(rows - sidebarHeaderRows) {
-		lines = append(lines, m.renderRow(row, inner, now))
+		lines = append(lines, m.renderRow(row, inner))
 	}
-	return paneBox(false).Render(fitBlock(lines, inner, rows))
+	return titledBox(false, "projects", inner, fitBlock(lines, inner, rows))
 }
 
 // renderTerminal boxes the open modal surface, the focused terminal, or the
@@ -119,15 +118,16 @@ func (m *Model) renderSidebar(rows int, now time.Time) string {
 // size, never a size of its own (#95).
 func (m *Model) renderTerminal(w, h int, now time.Time) string {
 	if m.modalOpen() {
-		return paneBox(true).Render(fitBlock(m.modalLines(), w, h))
+		return titledBox(true, "", w, fitBlock(m.modalLines(), w, h))
 	}
 	if term := m.focusedTerminal(); term != nil {
-		body := fitBlock(strings.Split(term.View(), "\n"), w, h-1)
+		// h rows, not h-1: the title is in the rule now (#128).
+		body := fitBlock(strings.Split(term.View(), "\n"), w, h)
 		// Dimmed while the review column has the keys, so the border says
 		// where a keystroke will land (#21).
-		return paneBox(!m.review.Focused).Render(m.terminalTitle(w, now) + "\n" + body)
+		return titledBox(!m.review.Focused, m.terminalTitle(now), w, body)
 	}
-	return paneBox(false).Render(fitBlock(m.emptyLines(), w, h))
+	return titledBox(false, "", w, fitBlock(m.emptyLines(), w, h))
 }
 
 // emptyLines is the pane with no session to show: what to do next, and the way
@@ -139,10 +139,10 @@ func (m *Model) emptyLines() []string {
 
 // terminalTitle is the header line inside the focused session's box: its
 // title, coloured status, age and cumulative tokens.
-func (m *Model) terminalTitle(w int, now time.Time) string {
+func (m *Model) terminalTitle(now time.Time) string {
 	row, ok := m.sidebar.Selected()
 	if !ok {
-		return padRight("", w)
+		return ""
 	}
 	st := m.status[row.Session.ID]
 	parts := row.Session.Title
@@ -155,7 +155,7 @@ func (m *Model) terminalTitle(w int, now time.Time) string {
 	if st.Tokens.In+st.Tokens.Out > 0 {
 		parts += " · " + mutedStyle.Render(KString(st.Tokens.In)+" in / "+KString(st.Tokens.Out)+" out")
 	}
-	return headerStyle.Render(fitLine(parts, w))
+	return parts
 }
 
 // renderFooter shows the keymap, or the last error until the next keypress.
@@ -198,8 +198,16 @@ func (m *Model) footerKeys() string {
 }
 
 // renderRow draws one sidebar line: a project header, or a session with its
-// focus marker and coloured status glyph.
-func (m *Model) renderRow(row Row, width int, now time.Time) string {
+// focus marker, coloured status glyph, name and activity lane:
+//
+//	» ● parser-fix    ▁▃▇█▅▂▁▁
+//
+// The age left this row for the focused pane's rule, the one place it is
+// worth a look, and its columns became the lane (#128). Every width here is
+// lipgloss.Width: the old len(age) was a byte count, correct only while
+// AgeString returned pure ASCII, and the lane is the first non-ASCII thing
+// in this expression.
+func (m *Model) renderRow(row Row, width int) string {
 	if row.Session == nil {
 		return mutedStyle.Render(padRight("> "+row.Project, width))
 	}
@@ -208,13 +216,14 @@ func (m *Model) renderRow(row Row, width int, now time.Time) string {
 		marker = "» "
 	}
 	glyph := glyphStyle(row.Status).Render(statusGlyph(row.Status))
-	age := ""
-	if st, ok := m.status[row.Session.ID]; ok {
-		age = AgeString(now, st.At)
-	}
-	title := padRight(row.Session.Title, width-4-len(age)-1)
-	return marker + glyph + " " + title + " " + mutedStyle.Render(age)
+	title := fitLine(row.Session.Title, width-rowChrome)
+	return marker + glyph + " " + title + " " + m.renderLane(row.Session.ID)
 }
+
+// rowChrome is what a session row spends on anything but its name: the two
+// marker cells, the glyph and the space after it, the lane and the space
+// before it. Thirteen columns of name at SidebarWidth 28.
+const rowChrome = 2 + 1 + 1 + 1 + laneCells
 
 // fitBlock forces lines to exactly width x height so a border lands
 // precisely: short lines are padded, long ones cut, missing rows added.

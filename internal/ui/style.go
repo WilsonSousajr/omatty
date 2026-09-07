@@ -28,11 +28,21 @@ var statusColors = map[watcher.Status]color.Color{
 
 // paneBox draws a rounded border; focused panes are coloured, others grey.
 func paneBox(focused bool) lipgloss.Style {
-	c := colorBlurred
+	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(borderColor(focused))
+}
+
+// borderColor is the pane border's colour: focused or blurred.
+func borderColor(focused bool) color.Color {
 	if focused {
-		c = colorFocused
+		return colorFocused
 	}
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(c)
+	return colorBlurred
+}
+
+// borderStyle draws the rule a pane box's title sits in, in the border's
+// own colour, so the top of the box matches its other three sides (#128).
+func borderStyle(focused bool) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(borderColor(focused))
 }
 
 // glyphStyle colours a status glyph.
@@ -50,11 +60,15 @@ var (
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)
 )
 
-// statusGlyphs pairs each status with its one-column marker; a status not
-// listed renders "-".
+// statusGlyphs pairs each status with its one-column marker - the set the
+// roadmap's M2 approved, restored by #128; a status not listed renders "-".
+// ● is East Asian Ambiguous, like the rounded border and the lane cells: a
+// terminal set to RUNEWIDTH_EASTASIAN=1 doubles all of them or none. ⚙ and
+// ⏸ are pictographic; if a font draws them two cells wide, ⋯ and ▮ are the
+// neutral fallbacks.
 var statusGlyphs = map[watcher.Status]string{
-	watcher.StatusThinking: "*", watcher.StatusTool: "@", watcher.StatusWaiting: "!",
-	watcher.StatusDone: "+", watcher.StatusError: "x", watcher.StatusExited: "∅",
+	watcher.StatusThinking: "●", watcher.StatusTool: "⚙", watcher.StatusWaiting: "⏸",
+	watcher.StatusDone: "✓", watcher.StatusError: "✗", watcher.StatusExited: "∅",
 }
 
 func statusGlyph(s watcher.Status) string {

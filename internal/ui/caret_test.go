@@ -32,20 +32,20 @@ func TestView_PlacesTheEmbeddedCursorOnTheWindow_issue106(t *testing.T) {
 	// itself. Asserting against the function under test cannot fail: rewriting
 	// PaneOrigin to return 0, 0 - which draws the caret in the sidebar's top
 	// corner - left every issue106 test green (#106).
-	if got.X != ui.SidebarWidth+1+7 || got.Y != 2+3 {
+	if got.X != ui.SidebarWidth+1+7 || got.Y != 1+3 {
 		t.Errorf("cursor at (%d, %d), want (%d, %d)",
-			got.X, got.Y, ui.SidebarWidth+1+7, 2+3)
+			got.X, got.Y, ui.SidebarWidth+1+7, 1+3)
 	}
 }
 
 // PaneOrigin is where the caret and the wheel both measure from, so its value
 // is pinned here rather than only derived. The sidebar box, then the pane
-// box's left border; the pane box's top border, then its title row.
+// box's left border; the pane box's top rule, which carries the title (#128).
 func TestPaneOrigin_IsTheEmulatorsTopLeftCell_issue106(t *testing.T) {
 	x, y := ui.PaneOrigin()
 
-	if x != ui.SidebarWidth+1 || y != 2 {
-		t.Errorf("PaneOrigin() = (%d, %d), want (%d, 2)", x, y, ui.SidebarWidth+1)
+	if x != ui.SidebarWidth+1 || y != 1 {
+		t.Errorf("PaneOrigin() = (%d, %d), want (%d, 1)", x, y, ui.SidebarWidth+1)
 	}
 }
 

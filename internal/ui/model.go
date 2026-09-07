@@ -64,6 +64,8 @@ type Model struct {
 	// persisted, and correctly empty after a relaunch: whether a session
 	// still needs a name is derived from its title, not from this map.
 	namePending map[string]bool
+	// lane is each session's recent-status trace for the sidebar (#128).
+	lane map[string]activityLane
 	// The archive path's three halves: forget the session, stop its tailer,
 	// and optionally delete its worktree (#40).
 	archive          ArchiveFunc
@@ -144,6 +146,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.notified = map[string]time.Time{}
 	m.comments = map[string]*review.Comments{}
 	m.namePending = map[string]bool{}
+	m.lane = map[string]activityLane{}
 	return m
 }
 
