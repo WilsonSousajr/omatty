@@ -132,7 +132,9 @@ func (m *Model) ReviewView() ReviewView { return m.review.View }
 // on the model, keyed by session (#21). The tree's collapse state does not -
 // it is rebuilt from the listing, which is cheap and always current (#24).
 func (m *Model) toggleView(v ReviewView) tea.Cmd {
-	if m.review.Open && m.review.View == v {
+	// The preview is the tree's child (keptView), so f over a preview closes
+	// the column rather than switching it back to the listing (#124).
+	if m.review.Open && keptView(m.review.View) == v {
 		return m.closeColumn()
 	}
 	id := m.Selected()
