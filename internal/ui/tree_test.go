@@ -248,3 +248,34 @@ func TestModel_AnEmptyListingIsAnEmptyStateNotASpinner_issue131(t *testing.T) {
 		t.Error("an empty listing shows no empty-state line")
 	}
 }
+
+// The reported path: ctrl+o d, then ctrl+o f. The column was already open, so
+// the tree switch dispatched nothing and the panel spun forever (#131).
+func TestModel_TreeOpenedAfterTheDiffStillLists_issue131(t *testing.T) {
+	m, _, lister, _ := modelWithTree(t)
+	leader(m, key('d'))
+	if len(lister.Asked) != 0 {
+		t.Fatalf("opening the diff listed files %d times, want 0", len(lister.Asked))
+	}
+
+	leader(m, key('f'))
+
+	if len(lister.Asked) != 1 {
+		t.Fatalf("switching to the tree listed files %d times, want 1", len(lister.Asked))
+	}
+	if view := m.View().Content; !strings.Contains(view, "go.mod") || strings.Contains(view, "listing files") {
+		t.Errorf("tree after diff-then-tree shows no rows:\n%s", view)
+	}
+}
+
+// The optimisation #131 narrows must not widen into a listing per toggle.
+func TestModel_TogglingBackToTheTreeDoesNotRelist_issue131(t *testing.T) {
+	m, _, lister, _ := modelWithTree(t)
+	leader(m, key('f'))
+	leader(m, key('d'))
+	leader(m, key('f'))
+
+	if len(lister.Asked) != 1 {
+		t.Errorf("files listed %d times across f, d, f; want 1", len(lister.Asked))
+	}
+}

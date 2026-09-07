@@ -25,6 +25,18 @@ func (m *Model) loadFiles(id string) tea.Cmd {
 	}
 }
 
+// loadFilesIfMissing lists for a column that switched into the tree without
+// ever having listed: the diff-first path, where loadFiles declined because
+// the diff was showing and nothing asked again (#131). A listing already in
+// memory, or one that failed and is waiting for r, is left alone - the
+// optimisation toggleView describes is about not re-forking git for that.
+func (m *Model) loadFilesIfMissing(id string) tea.Cmd {
+	if m.review.Tree != nil || m.review.TreeErr != "" {
+		return nil
+	}
+	return m.loadFiles(id)
+}
+
 // onFilesLoaded builds the tree, unless the column closed or moved to another
 // session while git was running.
 func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
