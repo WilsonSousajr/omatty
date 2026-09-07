@@ -263,3 +263,56 @@ func TestSidebar_WindowWithNoSessionsIsSafe_issue129(t *testing.T) {
 		t.Errorf("Window(5) on nothing = %d rows offset %d", len(got), s.Offset())
 	}
 }
+
+func threeProjectState() registry.State {
+	return registry.State{
+		Projects: []registry.Project{{Name: "a"}, {Name: "b"}, {Name: "none"}, {Name: "c"}},
+		Sessions: []registry.Session{
+			{ID: "a1", Project: "a", Title: "t"}, {ID: "a2", Project: "a", Title: "t"},
+			{ID: "b1", Project: "b", Title: "t"}, {ID: "b2", Project: "b", Title: "t"}, {ID: "b3", Project: "b", Title: "t"},
+			{ID: "c1", Project: "c", Title: "t"},
+		},
+	}
+}
+
+// The "none" project has no sessions and sits between b and c: both
+// directions must skip it (#130).
+func TestSidebar_NextProjectLandsOnTheNextProjectsFirstSession_issue130(t *testing.T) {
+	s := ui.NewSidebar(ui.SidebarRows(threeProjectState(), nil))
+	for _, tt := range []struct{ from, want string }{
+		{"a1", "b1"}, {"b2", "c1"}, {"c1", "a1"},
+	} {
+		s.SelectByID(tt.from)
+		s.NextProject()
+		if got, _ := s.Selected(); got.Session.ID != tt.want {
+			t.Errorf("NextProject from %s = %s, want %s", tt.from, got.Session.ID, tt.want)
+		}
+	}
+}
+
+func TestSidebar_PrevProjectLandsOnTheFirstSessionNotTheLast_issue130(t *testing.T) {
+	s := ui.NewSidebar(ui.SidebarRows(threeProjectState(), nil))
+	for _, tt := range []struct{ from, want string }{
+		{"b2", "a1"}, {"a1", "c1"}, {"c1", "b1"},
+	} {
+		s.SelectByID(tt.from)
+		s.PrevProject()
+		if got, _ := s.Selected(); got.Session.ID != tt.want {
+			t.Errorf("PrevProject from %s = %s, want %s", tt.from, got.Session.ID, tt.want)
+		}
+	}
+}
+
+func TestSidebar_ProjectJumpStaysPutWithOneProject_issue130(t *testing.T) {
+	st := registry.State{
+		Projects: []registry.Project{{Name: "only"}, {Name: "empty"}},
+		Sessions: []registry.Session{{ID: "o1", Project: "only", Title: "t"}, {ID: "o2", Project: "only", Title: "t"}},
+	}
+	s := ui.NewSidebar(ui.SidebarRows(st, nil))
+	s.SelectByID("o2")
+	s.NextProject()
+	s.PrevProject()
+	if got, _ := s.Selected(); got.Session.ID != "o2" {
+		t.Errorf("Selected() = %s, want o2 unchanged", got.Session.ID)
+	}
+}

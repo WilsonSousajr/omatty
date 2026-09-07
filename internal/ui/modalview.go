@@ -41,7 +41,8 @@ type keyHelp struct {
 // working subset, because it is truncated to the window (#30, #103).
 var leaderKeys = []keyHelp{
 	{"j / k", "next / previous session, wrapping"},
-	{"/", "jump to a session by name"},
+	{"] / [", "next / previous project"},
+	{"/", "jump to a session by name or project"},
 	{"n", "new session on the main checkout"},
 	{"N", "new session on a fresh worktree"},
 	{"a", "register a project claude already knows"},

@@ -241,3 +241,33 @@ func TestModel_leaderJOnTheLastSessionFocusesTheFirst_issue126(t *testing.T) {
 		t.Errorf("s1 is %dx%d after the wrapped move, want %dx%d", f.Width, f.Height, w, h)
 	}
 }
+
+// ] and [ are unshifted, so they arrive as one spelling; the test still goes
+// through the router rather than calling the sidebar, because #87 and #122
+// were both keys that worked in a unit test and not in a terminal (#130).
+func TestModel_leaderBracketsJumpBetweenProjects_issue130(t *testing.T) {
+	m, _ := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	leader(m, key(']'))
+	if m.Selected() != "s3" {
+		t.Fatalf("ctrl+o ] selected %q, want s3 (api-svc's first session)", m.Selected())
+	}
+	leader(m, key('['))
+	if m.Selected() != "s1" {
+		t.Errorf("ctrl+o [ selected %q, want s1", m.Selected())
+	}
+}
+
+func TestModel_helpNamesTheProjectAxisAndTheSwitcherSearchesProjects_issue130(t *testing.T) {
+	keys := strings.Join(ui.LeaderKeys(), " ")
+	if !strings.Contains(keys, "]") || !strings.Contains(keys, "[") {
+		t.Errorf("leader keys %q do not name ] and [", keys)
+	}
+	m, _ := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	leader(m, key('?'))
+	if view := m.View().Content; !strings.Contains(view, "name or project") {
+		t.Error("the help does not say / searches the project name")
+	}
+}

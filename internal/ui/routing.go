@@ -116,11 +116,10 @@ func (m *Model) openModal(md modal) {
 
 // navigate runs a command key while no prompt is open.
 func (m *Model) navigate(key string) tea.Cmd {
+	if move, ok := m.cursorMove(key); ok {
+		return m.moveCursor(move)
+	}
 	switch key {
-	case "j":
-		return m.moveCursor(m.sidebar.MoveDown)
-	case "k":
-		return m.moveCursor(m.sidebar.MoveUp)
 	case "n":
 		m.openModal(modal{Kind: modalPrompt})
 	// Keystroke() spells a shifted letter with the base key in lower case, so
@@ -133,6 +132,25 @@ func (m *Model) navigate(key string) tea.Cmd {
 		return m.paneCommand(key)
 	}
 	return nil
+}
+
+// cursorMove is the sidebar's two axes: j/k walk sessions, ] and [ walk
+// projects (#130). Split from navigate so each arm stays a one-liner under
+// the statement budget. One spelling each for the brackets: they are
+// unshifted on a US layout, which is why they were chosen over J/K
+// (#87, #122).
+func (m *Model) cursorMove(key string) (func(), bool) {
+	switch key {
+	case "j":
+		return m.sidebar.MoveDown, true
+	case "k":
+		return m.sidebar.MoveUp, true
+	case "]":
+		return m.sidebar.NextProject, true
+	case "[":
+		return m.sidebar.PrevProject, true
+	}
+	return nil, false
 }
 
 // paneCommand runs the leader commands that act on the focused session.

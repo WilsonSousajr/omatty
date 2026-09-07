@@ -10,7 +10,7 @@ import (
 // untouched while the terminal has focus - guessing at them is what broke the
 // earlier LazyVim attempt.
 func TestRouter_claudeKeysReachTheTerminal(t *testing.T) {
-	for _, key := range []string{"esc", "shift+tab", "ctrl+r", "ctrl+c", "ctrl+b", "enter", "a", "/", "?"} {
+	for _, key := range []string{"esc", "shift+tab", "ctrl+r", "ctrl+c", "ctrl+b", "enter", "a", "/", "?", "[", "]"} {
 		t.Run(key, func(t *testing.T) {
 			r := keys.NewRouter("ctrl+o")
 			if got := r.Next(key, true); got != keys.ToTerminal {
