@@ -15,14 +15,19 @@ const footerRows = 1
 const (
 	borderRows = 1
 	borderCols = 1
-	titleRows  = 1
+	// titleRows is 0: the pane's title is drawn in its top border rule rather
+	// than on a row of its own (#128). The constant stays because PaneOrigin
+	// and PTYSize derive from it and #106 and #107 both measure through it - a
+	// title row, if one returns, moves the caret, the wheel target and the
+	// emulator's height together.
+	titleRows = 0
 )
 
 // sidebarHeaderRows is the pinned "projects" line renderSidebar draws above
 // the scrolling rows (#129). Named here so the renderer that applies it and
 // the click hit-test that undoes it (#45) cannot drift, and so moving the
 // header into the box's top rule (#128) is one constant.
-const sidebarHeaderRows = 1
+const sidebarHeaderRows = 0 // the "projects" line moved into the rule (#128)
 
 // sidebarTop is the window row the first scrollable sidebar row is drawn
 // at: the exact inverse of what renderSidebar prepends (#45).

@@ -23,3 +23,11 @@ func TestStatusGlyphs_AreOneCellWide_issue128(t *testing.T) {
 		t.Error("the M2 glyph set is not restored")
 	}
 }
+
+func TestLaneCells_AreOneCellWide_issue128(t *testing.T) {
+	for _, c := range ui.LaneBlocks() {
+		if lipgloss.Width(c) != 1 || runewidth.StringWidth(c) != 1 {
+			t.Errorf("lane cell %q is %d/%d cells wide, want 1", c, lipgloss.Width(c), runewidth.StringWidth(c))
+		}
+	}
+}

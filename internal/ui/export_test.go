@@ -1,5 +1,7 @@
 package ui
 
+import "github.com/WilsonSousajr/omatty/internal/watcher"
+
 // Test-only accessors, so the external ui_test package can assert against the
 // real tables and constants rather than hand-copied duplicates of them.
 //
@@ -45,6 +47,24 @@ func StatusGlyphs() []string {
 	}
 	return out
 }
+
+// LaneBlocks is the status-to-cell table and LaneCells the lane's width.
+func LaneBlocks() map[watcher.Status]string { return laneBlock }
+func LaneCells() int                        { return laneCells }
+
+// LaneOf is a session's rendered lane; RowOf its whole sidebar row.
+func (m *Model) LaneOf(id string) string { return m.renderLane(id) }
+func (m *Model) RowOf(id string) string {
+	for _, row := range m.sidebar.Rows() {
+		if row.Session != nil && row.Session.ID == id {
+			return m.renderRow(row, SidebarWidth-2)
+		}
+	}
+	return ""
+}
+
+// TopRule is the box's title rule, for the width assertion (#128).
+func TopRule(focused bool, title string, w int) string { return topRule(focused, title, w) }
 
 // PanStep is how far one h, one l or one sideways wheel notch moves the review
 // column, so a test spins a real gesture rather than hard-coding 8 (#125).

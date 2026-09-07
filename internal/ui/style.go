@@ -28,11 +28,21 @@ var statusColors = map[watcher.Status]color.Color{
 
 // paneBox draws a rounded border; focused panes are coloured, others grey.
 func paneBox(focused bool) lipgloss.Style {
-	c := colorBlurred
+	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(borderColor(focused))
+}
+
+// borderColor is the pane border's colour: focused or blurred.
+func borderColor(focused bool) color.Color {
 	if focused {
-		c = colorFocused
+		return colorFocused
 	}
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(c)
+	return colorBlurred
+}
+
+// borderStyle draws the rule a pane box's title sits in, in the border's
+// own colour, so the top of the box matches its other three sides (#128).
+func borderStyle(focused bool) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(borderColor(focused))
 }
 
 // glyphStyle colours a status glyph.

@@ -65,9 +65,9 @@ func (m *Model) moveReviewCursor(delta int) {
 func (m *Model) reviewRows() int {
 	_, h := PaneSize(m.width, m.height, true)
 	if m.review.Note.Active {
-		return h - 2
+		return h - 1
 	}
-	return h - 1
+	return h
 }
 
 // ScrollOffset keeps cursor within the rows-high window that starts at offset,

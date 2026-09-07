@@ -14,8 +14,8 @@ func sidebarRowY(i int) int              { return ui.SidebarTop() + i }
 // its origin: a hit test asserted against the function under test cannot
 // fail (#45).
 func TestSidebarTop_IsTheFirstScrollableRow_issue45(t *testing.T) {
-	if ui.SidebarTop() != 2 {
-		t.Errorf("SidebarTop() = %d, want 2 (border, then the projects line)", ui.SidebarTop())
+	if ui.SidebarTop() != 1 {
+		t.Errorf("SidebarTop() = %d, want 1 (the rule carries the projects title, #128)", ui.SidebarTop())
 	}
 }
 
@@ -95,12 +95,12 @@ func TestUpdate_AClickOnAScrolledSidebarSelectsTheRowUnderThePointer_issue45(t *
 	}
 	m.View() // draw once, so the offset is the drawn one
 
-	// Cursor on row 20 of 21 with 16 rows drawn puts the offset at 5, so the
-	// third drawn row is row 7: p2-s0. Without the offset it would be p0-s1.
-	_, cmd := m.Update(clickAt(4, sidebarRowY(2)))
+	// Cursor on row 20 of 21 with 17 rows drawn puts the offset at 4, so the
+	// fourth drawn row is row 7: p2-s0. Without the offset it would be p1.
+	_, cmd := m.Update(clickAt(4, sidebarRowY(3)))
 	settle(m, cmd)
 
 	if got := m.Selected(); got != "p2-s0" {
-		t.Errorf("click on the third drawn row selected %q, want p2-s0; the offset was ignored", got)
+		t.Errorf("click on the fourth drawn row selected %q, want p2-s0; the offset was ignored", got)
 	}
 }

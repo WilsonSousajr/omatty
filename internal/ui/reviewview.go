@@ -17,20 +17,21 @@ const tabWidth = 4
 // showing - diff rows with their comments and the note editor, the worktree
 // tree, or one file's preview (#21, #24).
 func (m *Model) renderReview(w, h int) string {
-	lines := []string{headerStyle.Render(fitLine(m.reviewTitle(), w))}
+	// The title is in the rule, so every view draws h rows (#128).
+	var lines []string
 	switch m.review.View {
 	case ViewTree:
-		lines = append(lines, m.renderTree(w, h-1)...)
+		lines = m.renderTree(w, h)
 	case ViewPreview:
-		lines = append(lines, m.renderPreview(w, h-1)...)
+		lines = m.renderPreview(w, h)
 	default:
-		lines = append(lines, m.reviewBody(w, h-1)...)
+		lines = m.reviewBody(w, h)
 	}
 	// The modal check, not m.review.Focused alone: a modal takes the keyboard
 	// without clearing that flag, so opening ctrl+o n over a focused review
 	// column drew a focused border on both at once while every advertised key
 	// went to the prompt. The border says where a keystroke lands (#21, #95).
-	return paneBox(m.reviewOwnsKeys()).Render(fitBlock(lines, w, h))
+	return titledBox(m.reviewOwnsKeys(), m.reviewTitle(), w, fitBlock(lines, w, h))
 }
 
 // reviewTitle names what the column is showing, so a glance at the top row

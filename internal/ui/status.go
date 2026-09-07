@@ -42,11 +42,12 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 	if !m.knownSession(e.SessionID) {
 		return m.waitForEvent()
 	}
-	before := m.status[e.SessionID].Status
-	after := watcher.Apply(m.status[e.SessionID], e)
+	before := m.status[e.SessionID]
+	after := watcher.Apply(before, e)
 	m.status[e.SessionID] = after
+	m.trace(e.SessionID, before, after)
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
-	return m.afterStatus(e, before, after.Status)
+	return m.afterStatus(e, before.Status, after.Status)
 }
 
 // afterStatus is everything a status event sets in motion off the Update
