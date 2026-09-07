@@ -83,9 +83,7 @@ type RunDeps struct {
 // Run starts every session's terminal, the status watcher, and the TUI, and
 // runs until the user quits.
 func Run(d RunDeps) error {
-	if d.Leader == "" {
-		d.Leader = DefaultLeader
-	}
+	d.Leader = leaderOr(d.Leader)
 	terms, err := StartTerminals(d.State, d.Launch, d.Factory, d.Width, d.Height, d.Leader)
 	if err != nil {
 		return err
@@ -104,6 +102,14 @@ func Run(d RunDeps) error {
 		TailStart: watch.Add, TailStop: watch.Remove,
 	})
 	return runProgram(model, len(terms))
+}
+
+// leaderOr is the configured leader, or DefaultLeader for an empty one (#44).
+func leaderOr(leader string) string {
+	if leader == "" {
+		return DefaultLeader
+	}
+	return leader
 }
 
 // closeTerminals closes every PTY on the way out (issue #72). The map is the
