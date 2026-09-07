@@ -211,7 +211,7 @@ func sessionArchiver(store *registry.Store) ui.ArchiveFunc {
 // The session is registered but not started: starting it needs a terminal
 // factory inside the running program, which M2 wires up along with status.
 func sessionCreator(home string, store *registry.Store) ui.CreateFunc {
-	c := registry.NewCreator(vcs.NewCLI(), home, uuid.NewString)
+	c := registry.NewCreator(vcs.NewCLI(), registry.CreatorOpts{WorktreeRoot: paths.DefaultWorktreeRoot(home)}, uuid.NewString)
 	return func(project, title, branch string) (registry.Session, error) {
 		if project == "" {
 			return registry.Session{}, fmt.Errorf("no project selected; run `omatty add <dir>` first")

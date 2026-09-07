@@ -70,7 +70,9 @@ func TestOmattyLocations(t *testing.T) {
 		{"hooks", paths.HooksFile("/home/u"), "/home/u/.omatty/hooks.json"},
 		{"socket", paths.HookSocket("/home/u"), "/home/u/.omatty/sock"},
 		{"logs", paths.LogDir("/home/u"), "/home/u/.omatty/logs"},
-		{"worktree", paths.WorktreeDir("/home/u", "omatty", "fix"), "/home/u/.omatty/wt/omatty/fix"},
+		{"config", paths.ConfigFile("/home/u"), "/home/u/.omatty/config.toml"},
+		{"worktree root", paths.DefaultWorktreeRoot("/home/u"), "/home/u/.omatty/wt"},
+		{"worktree", paths.WorktreeDir("/home/u/.omatty/wt", "omatty", "fix"), "/home/u/.omatty/wt/omatty/fix"},
 		{"transcripts", paths.TranscriptsDir("/home/u"), "/home/u/.claude/projects"},
 		{"sessions", paths.SessionDir("/home/u"), "/home/u/.omatty/s"},
 	}

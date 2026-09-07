@@ -36,9 +36,17 @@ func LogDir(home string) string { return filepath.Join(Root(home), "logs") }
 // operator cannot act on, which is why detach.SocketPath checks it (#43).
 func SessionDir(home string) string { return filepath.Join(Root(home), "s") }
 
-// WorktreeDir returns where omatty places a worktree for a project branch.
-func WorktreeDir(home, project, branch string) string {
-	return filepath.Join(Root(home), "wt", project, branch)
+// ConfigFile returns omatty's configuration file (#44).
+func ConfigFile(home string) string { return filepath.Join(Root(home), "config.toml") }
+
+// DefaultWorktreeRoot is where worktrees go with no config file.
+func DefaultWorktreeRoot(home string) string { return filepath.Join(Root(home), "wt") }
+
+// WorktreeDir returns where omatty places a worktree for a project branch
+// under root. root is a parameter rather than derived from home because the
+// operator may keep worktrees on another volume (#44).
+func WorktreeDir(root, project, branch string) string {
+	return filepath.Join(root, project, branch)
 }
 
 // slugPattern matches every character Claude Code replaces when it names a

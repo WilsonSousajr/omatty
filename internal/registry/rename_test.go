@@ -16,7 +16,7 @@ func seedSession(t *testing.T) (*registry.Store, string) {
 	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
-	sess, err := registry.AddSession(store, registry.NewCreator(git, "/home/u", stubID), "omatty", "parser", "")
+	sess, err := registry.AddSession(store, registry.NewCreator(git, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID), "omatty", "parser", "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -215,7 +215,7 @@ func newSession(store *registry.Store, home string, args []string) error {
 	if len(args) > 2 {
 		branch = args[2]
 	}
-	c := registry.NewCreator(vcs.NewCLI(), home, uuid.NewString)
+	c := registry.NewCreator(vcs.NewCLI(), registry.CreatorOpts{WorktreeRoot: paths.DefaultWorktreeRoot(home)}, uuid.NewString)
 	sess, err := registry.AddSession(store, c, args[0], args[1], branch)
 	if err != nil {
 		return err
