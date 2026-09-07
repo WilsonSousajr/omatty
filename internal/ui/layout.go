@@ -24,6 +24,10 @@ const (
 // header into the box's top rule (#128) is one constant.
 const sidebarHeaderRows = 1
 
+// sidebarTop is the window row the first scrollable sidebar row is drawn
+// at: the exact inverse of what renderSidebar prepends (#45).
+func sidebarTop() int { return borderRows + sidebarHeaderRows }
+
 // DefaultWidth and DefaultHeight are the size assumed before the terminal
 // reports its own, and the fallback cmd uses when it cannot query one.
 const (

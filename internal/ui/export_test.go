@@ -32,6 +32,10 @@ func Footers(leader string) map[string]string {
 // the cursor can bound its loop instead of spinning when it never arrives.
 func (m *Model) SidebarRows() int { return len(m.sidebar.Rows()) }
 
+// SidebarTop is the window row of the first scrollable sidebar row, so a
+// click test can aim at a row by index (#45).
+func SidebarTop() int { return sidebarTop() }
+
 // PanStep is how far one h, one l or one sideways wheel notch moves the review
 // column, so a test spins a real gesture rather than hard-coding 8 (#125).
 const PanStep = panStep
