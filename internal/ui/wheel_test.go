@@ -192,13 +192,15 @@ func TestUpdate_MouseEventsNeverReachAnUnfocusedSession_issue107(t *testing.T) {
 	}
 }
 
-// Clicks and drags belong to #45, which needs sidebar hit-testing. Until then
-// they must be dropped rather than broadcast into every PTY.
+// A click over the pane, a click over the sidebar (#45) and a drag must be
+// answered by omatty or dropped - never broadcast into every PTY.
 func TestUpdate_ClicksAreDroppedRatherThanBroadcast_issue107(t *testing.T) {
 	m, fakes := modelWithFakes(t)
 	x, y := overPane()
+	sx, sy := overSidebar()
 
 	m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+	m.Update(tea.MouseClickMsg{X: sx, Y: sy, Button: tea.MouseLeft})
 	m.Update(tea.MouseMotionMsg{X: x, Y: y})
 
 	for id, f := range fakes {

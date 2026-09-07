@@ -36,19 +36,24 @@ func (a *wheelAccumulator) page(direction int) bool {
 	return false
 }
 
-// onMouse answers a pointer event. Only the wheel does anything; clicks and
-// drags are dropped until #45 adds sidebar hit-testing.
+// onMouse answers a pointer event: the wheel scrolls whatever is under it
+// (#107) and a left click on a sidebar row selects it (#45).
 //
-// Dropping them is the point. This runs before the broadcast in
-// onWindowFocus, which would otherwise hand one untranslated event to every
-// emulator at once - each of them reading coordinates measured from the
-// window, not from its own pane.
+// Everything else is dropped, and dropping it is still the point. This runs
+// before the broadcast in onWindowFocus, which would otherwise hand one
+// untranslated event to every emulator at once - each of them reading
+// coordinates measured from the window, not from its own pane. Motion, drag
+// and release are dropped for that reason and for a second one: a release
+// arrives with every click, and answering both would run moveCursor twice
+// per click.
 func (m *Model) onMouse(msg tea.MouseMsg) tea.Cmd {
-	wheel, ok := msg.(tea.MouseWheelMsg)
-	if !ok {
-		return nil
+	switch typed := msg.(type) {
+	case tea.MouseWheelMsg:
+		return m.scrollPane(typed)
+	case tea.MouseClickMsg:
+		return m.clickSidebar(typed)
 	}
-	return m.scrollPane(wheel)
+	return nil
 }
 
 // scrollPane sends a wheel notch to whatever is under the pointer.
@@ -173,6 +178,12 @@ func (m *Model) overReview(winX int) bool {
 	w := ReviewWidth(m.width, m.review.Open)
 	return w > 0 && winX >= m.width-w
 }
+
+// overSidebar reports whether a window column falls inside the sidebar box,
+// borders included: a click on the border selects the row anyway, as btop
+// does, rather than leaving a dead two-column strip. The complement of
+// overReview (#45).
+func (m *Model) overSidebar(winX int) bool { return winX >= 0 && winX < SidebarWidth }
 
 // inPane reports whether a window cell is one the embedded terminal draws. It
 // is the exact inverse of PaneOrigin.
