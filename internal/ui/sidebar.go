@@ -140,6 +140,41 @@ func (s *Sidebar) MoveDown() { s.seek(1) }
 // MoveUp retreats to the previous session row, wrapping to the last (#126).
 func (s *Sidebar) MoveUp() { s.seek(-1) }
 
+// NextProject moves to the first session of the next project that has one,
+// wrapping past the last project (#130).
+func (s *Sidebar) NextProject() { s.jumpProject(1) }
+
+// PrevProject moves to the first session of the previous project that has
+// one - the first, not the last, so ] and [ are not each other's inverse in
+// the naive way (#130).
+func (s *Sidebar) PrevProject() { s.jumpProject(-1) }
+
+// jumpProject walks header rows in step's direction, skipping the current
+// project's own header (going up would otherwise stop at it) and any project
+// with no session beneath it, and lands on the first session after the first
+// header that qualifies. One lap at most, as in seek.
+func (s *Sidebar) jumpProject(step int) {
+	n, current := len(s.rows), s.currentProject()
+	i := s.cursor
+	for lap := 0; lap < n; lap++ {
+		i = ((i+step)%n + n) % n
+		if s.rows[i].Session != nil || s.rows[i].Project == current {
+			continue
+		}
+		if i+1 < n && s.rows[i+1].Session != nil {
+			s.cursor = i + 1
+			return
+		}
+	}
+}
+
+func (s *Sidebar) currentProject() string {
+	if row, ok := s.Selected(); ok {
+		return row.Project
+	}
+	return ""
+}
+
 // seek moves the cursor by step until it lands on a session row, taking the
 // index modulo the row count so the two ends join. At most one lap: a list
 // with no session row (a project registered with nothing under it) leaves

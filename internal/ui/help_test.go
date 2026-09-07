@@ -68,7 +68,7 @@ func boundLeaderKeys(t *testing.T) []string {
 		t.Fatalf("parsing routing.go: %v", err)
 	}
 	var keys []string
-	for _, name := range []string{"navigate", "paneCommand", "modalCommand"} {
+	for _, name := range []string{"navigate", "cursorMove", "paneCommand", "modalCommand"} {
 		keys = append(keys, caseStrings(findFunc(t, file, name))...)
 	}
 	return keys
