@@ -62,6 +62,8 @@ type RunDeps struct {
 	// that titles a session created without one (#127).
 	Rename RenameFunc
 	Name   NameFunc
+	// ModelName is the opt-in headless naming call, nil when off (#127).
+	ModelName ModelNameFunc
 	// Archive drops a session from the registry and RemoveWorktree deletes its
 	// worktree (#40). The tailer is stopped through the Watch this owns.
 	Archive        ArchiveFunc
@@ -95,7 +97,7 @@ func Run(d RunDeps) error {
 	defer watch.Close()
 	model := NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
-		Diff: d.Diff, Files: d.Files, Rename: d.Rename, Name: d.Name,
+		Diff: d.Diff, Files: d.Files, Rename: d.Rename, Name: d.Name, ModelName: d.ModelName,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,

@@ -166,3 +166,84 @@ func TestModel_AToolResultDoesNotInventATitle_issue127(t *testing.T) {
 		t.Errorf("persisted %d titles after %d reads; want none and one", ren.Calls, len(namer.Asked))
 	}
 }
+
+func modelWithModelNamer(t *testing.T, mn *FakeModelNamer) (*ui.Model, *FakeRename) {
+	t.Helper()
+	terms, _ := fakeTerms(t)
+	ren := &FakeRename{}
+	d := baseDeps(placeholderState(), terms)
+	d.Name = (&FakeNamer{Titles: map[string]string{"s1": "fix the wheel"}}).Name
+	d.Rename, d.ModelName = ren.Rename, mn.Name
+	m := ui.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	return m, ren
+}
+
+func TestModel_TheModelNameReplacesThePromptDerivedOne_issue127(t *testing.T) {
+	mn := &FakeModelNamer{Names: map[string]string{"fix the wheel": "fix-wheel-pan"}}
+	m, ren := modelWithModelNamer(t, mn)
+
+	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+
+	if ren.Titles["s1"] != "fix-wheel-pan" || len(mn.Asked) != 1 {
+		t.Errorf("persisted %q asked %v; want fix-wheel-pan after one call", ren.Titles["s1"], mn.Asked)
+	}
+}
+
+// The opt-in-spend rule: with no model namer configured, one rename and no
+// second call.
+func TestModel_NoModelNamerMeansNoSecondCall_issue127(t *testing.T) {
+	m, _, ren := modelWithNamer(t, placeholderState())
+
+	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+
+	if ren.Titles["s1"] != "fix the wheel" || ren.Calls != 1 {
+		t.Errorf("with naming off: title %q after %d renames; want the prompt title once", ren.Titles["s1"], ren.Calls)
+	}
+}
+
+func TestModel_ARenameBeatsTheModelName_issue127(t *testing.T) {
+	mn := &FakeModelNamer{Names: map[string]string{"fix the wheel": "fix-wheel-pan"}}
+	m, ren := modelWithModelNamer(t, mn)
+	_, cmd := m.Update(ui.NamedMsg{SessionID: "s1", From: registry.PlaceholderTitle("s1"), Title: "fix the wheel"})
+	leader(m, shift('r', "R"))
+	for range len("fix the wheel") {
+		press(m, special(tea.KeyBackspace))
+	}
+	for _, r := range "mine" {
+		press(m, key(r))
+	}
+	pressAndSettle(m, special(tea.KeyEnter))
+
+	deliver(m, cmd) // the model's answer lands after the rename
+
+	if ren.Titles["s1"] != "mine" {
+		t.Errorf("persisted %q, want mine", ren.Titles["s1"])
+	}
+}
+
+func TestModel_AFailedOrEmptyModelNameKeepsTheStepOneTitle_issue127(t *testing.T) {
+	for name, mn := range map[string]*FakeModelNamer{
+		"failed": {Err: errors.New("429")},
+		"empty":  {Names: map[string]string{}},
+	} {
+		m, ren := modelWithModelNamer(t, mn)
+		statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+		if ren.Titles["s1"] != "fix the wheel" || strings.Contains(m.View().Content, "error:") {
+			t.Errorf("%s: title %q; want the step-1 title and no footer error", name, ren.Titles["s1"])
+		}
+	}
+}
+
+// The recursion guard: the model name is applied directly, never through
+// the path that asks for a model name.
+func TestModel_TheModelNameDoesNotAskForAThirdName_issue127(t *testing.T) {
+	mn := &FakeModelNamer{Names: map[string]string{"fix the wheel": "a", "a": "b"}}
+	m, ren := modelWithModelNamer(t, mn)
+
+	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+
+	if len(mn.Asked) != 1 || ren.Titles["s1"] != "a" {
+		t.Errorf("model asked %v, title %q; want exactly one call and a", mn.Asked, ren.Titles["s1"])
+	}
+}

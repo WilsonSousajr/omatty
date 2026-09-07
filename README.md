@@ -124,6 +124,14 @@ base_branch = ""           # fork worktrees from this branch; empty means the ch
 model = false              # let a headless claude call improve auto-derived session titles
 ```
 
+A session created with `ctrl+o n` and a blank title is named by the first
+prompt you type into it. With `naming.model = true`, a second, headless
+`claude -p --model haiku` call then turns that prompt into a short slug such
+as `diff-horizontal-scroll-fix`. It is off by default because it spends your
+quota: the call carries the CLI's own system prompt, which cost about $0.60 at
+list price when measured. It never blocks, never touches the footer, and a
+title you set with `ctrl+o R` always wins.
+
 A malformed file, a wrong type or a key omatty does not know is an error at
 startup naming the file and the key, printed before the TUI opens. A blank
 leader is refused: with a session focused `ctrl+c` belongs to Claude, so a

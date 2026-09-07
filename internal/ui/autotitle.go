@@ -88,6 +88,58 @@ func (m *Model) onNamed(msg NamedMsg) tea.Cmd {
 	}
 	if err := m.applyTitle(msg.SessionID, msg.Title); err != nil {
 		slog.Warn("naming session", "session", msg.SessionID, "title", msg.Title, "err", err)
+		return nil
+	}
+	return m.modelName(msg.SessionID, msg.Title)
+}
+
+// ModelNameFunc asks the agent for a better name than the prompt-derived
+// one. Injected because ui may not run a binary (invariant 4), and left nil
+// unless [naming] model is on in the config file - the nil is the switch, so
+// there is no config value consulted inside Update and no call the operator
+// did not ask for (#44, #127).
+type ModelNameFunc func(prompt string) (string, error)
+
+// ModelNamedMsg carries the model's suggestion back into Update. From is the
+// step-1 title it was asked to improve.
+type ModelNamedMsg struct {
+	SessionID string
+	From      string
+	Title     string
+	Err       error
+}
+
+// modelName asks for an improved name once step 1 has set one. It returns
+// nil when the config left the call off, which is the default. It is given
+// the step-1 title rather than a second read of the transcript: that title is
+// the first prompt flattened to sixty cells, which is as much as a person
+// would name it from.
+func (m *Model) modelName(sessionID, title string) tea.Cmd {
+	if m.modelNamer == nil {
+		return nil
+	}
+	ask := m.modelNamer
+	return func() tea.Msg {
+		got, err := ask(title)
+		return ModelNamedMsg{SessionID: sessionID, From: title, Title: got, Err: err}
+	}
+}
+
+// onModelNamed applies the improved name unless the title moved on while the
+// call was in flight. It renames through applyTitle alone and never through
+// onNamed: onNamed is what dispatches modelName, so routing back through it
+// would ask the model to improve its own answer, forever.
+func (m *Model) onModelNamed(msg ModelNamedMsg) tea.Cmd {
+	if msg.Err != nil {
+		slog.Warn("model naming", "session", msg.SessionID, "err", msg.Err)
+		return nil
+	}
+	sess, ok := m.session(msg.SessionID)
+	if !ok || msg.Title == "" || sess.Title != msg.From {
+		return nil
+	}
+	if err := m.applyTitle(msg.SessionID, msg.Title); err != nil {
+		slog.Warn("model naming", "session", msg.SessionID, "title", msg.Title, "err", err)
 	}
 	return nil
 }

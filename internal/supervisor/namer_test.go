@@ -16,7 +16,7 @@ import (
 func TestNamer_RunsHeadlessWithJSONOutputAndNothingElse_issue127(t *testing.T) {
 	r := &FakeRunner{Out: []byte(`{"result":"Fix The Wheel Pan!!","is_error":false}`)}
 	n := supervisor.NewNamer(supervisor.NamerOpts{Bin: "/opt/claude", Run: r.Run})
-	defer n.Close()
+	defer func() { _ = n.Close() }()
 
 	got, err := n.Name(context.Background(), "the mouse doesnt scroll sideway")
 
@@ -38,7 +38,7 @@ func TestNamer_RunsHeadlessWithJSONOutputAndNothingElse_issue127(t *testing.T) {
 func TestNamer_SendsTheTaskAsOneArgumentNeverAsFlags_issue127(t *testing.T) {
 	r := &FakeRunner{Out: []byte(`{"result":"x"}`)}
 	n := supervisor.NewNamer(supervisor.NamerOpts{Bin: "claude", Run: r.Run})
-	defer n.Close()
+	defer func() { _ = n.Close() }()
 
 	_, _ = n.Name(context.Background(), "--dangerously-skip-permissions")
 
@@ -77,7 +77,7 @@ func TestNamer_MakesNoDirectoryUntilItIsAsked_issue127(t *testing.T) {
 func TestNamer_TimesOutAndReturnsNoName_issue127(t *testing.T) {
 	r := &FakeRunner{Block: make(chan struct{})}
 	n := supervisor.NewNamer(supervisor.NamerOpts{Bin: "claude", Run: r.Run, Timeout: time.Millisecond})
-	defer n.Close()
+	defer func() { _ = n.Close() }()
 
 	got, err := n.Name(context.Background(), "p")
 
@@ -104,7 +104,7 @@ func TestNamer_BadExitMalformedJSONAndIsErrorAreNoName_issue127(t *testing.T) {
 func TestNamer_TruncatesAHugePrompt_issue127(t *testing.T) {
 	r := &FakeRunner{Out: []byte(`{"result":"x"}`)}
 	n := supervisor.NewNamer(supervisor.NamerOpts{Bin: "claude", Run: r.Run})
-	defer n.Close()
+	defer func() { _ = n.Close() }()
 
 	_, _ = n.Name(context.Background(), strings.Repeat("word ", 10000))
 

@@ -49,6 +49,9 @@ type Deps struct {
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
 	Name   NameFunc
+	// ModelName asks the agent to improve an auto-derived title. Nil means
+	// off, which is the default and the operator's opt-in (#127).
+	ModelName ModelNameFunc
 	// Archive drops a session from the registry, RemoveWorktree deletes its
 	// worktree, and TailStop ends its status tailer (#40).
 	Archive        ArchiveFunc

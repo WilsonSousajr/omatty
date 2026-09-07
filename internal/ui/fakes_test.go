@@ -35,3 +35,16 @@ func (f *FakeRename) Rename(id, title string) error {
 	f.Titles[id] = title
 	return f.Err
 }
+
+// FakeModelNamer stands in for the headless naming call behind
+// ui.ModelNameFunc, keyed by the prompt-derived title it was asked to improve.
+type FakeModelNamer struct {
+	Names map[string]string
+	Err   error
+	Asked []string
+}
+
+func (f *FakeModelNamer) Name(title string) (string, error) {
+	f.Asked = append(f.Asked, title)
+	return f.Names[title], f.Err
+}

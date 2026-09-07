@@ -57,6 +57,9 @@ type Model struct {
 	preview  PreviewFunc
 	rename   RenameFunc
 	name     NameFunc
+	// modelNamer is nil unless the config opted in to a headless naming call
+	// (#127).
+	modelNamer ModelNameFunc
 	// namePending guards one in-flight name read per session (#127). Not
 	// persisted, and correctly empty after a relaunch: whether a session
 	// still needs a name is derived from its title, not from this map.
@@ -117,6 +120,7 @@ func NewModel(deps Deps) *Model {
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
+	m.modelNamer = d.ModelName
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
 	m.discover, m.registerProjects = d.Discover, d.AddProject
 	m.adoptPropose, m.adoptCommit = d.AdoptPropose, d.AdoptCommit
@@ -232,6 +236,8 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 		return m.onWorktreeRemoved(typed)
 	case NamedMsg:
 		return m.onNamed(typed)
+	case ModelNamedMsg:
+		return m.onModelNamed(typed)
 	}
 	return m.onSessionMsg(msg)
 }
