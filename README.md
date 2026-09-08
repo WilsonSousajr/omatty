@@ -66,6 +66,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | Key | Action |
 |---|---|
 | `ctrl+o j` / `ctrl+o k` | move between sessions |
+| `ctrl+o ]` / `ctrl+o [` | move between projects, including one with no sessions yet |
 | `ctrl+o n` | new session on the main checkout |
 | `ctrl+o N` | new session on a fresh worktree |
 | `ctrl+o d` | open or close the diff pane |
@@ -123,6 +124,11 @@ base_branch = ""           # fork worktrees from this branch; empty means the ch
 [naming]
 model = false              # let a headless claude call improve auto-derived session titles
 ```
+
+A project that has no sessions yet is selectable too: `ctrl+o ]` reaches
+it, the pane says which project is empty, and `ctrl+o n` creates its first
+session there. Archiving a project's last session leaves the cursor on that
+project for the same reason.
 
 A session created with `ctrl+o n` and a blank title is named by the first
 prompt you type into it. With `naming.model = true`, a second, headless
