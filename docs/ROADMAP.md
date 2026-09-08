@@ -397,8 +397,8 @@ deferred with #134.
 ## What is left
 
 Everything M7 opened and did not close, in the order it should be picked up.
-The first item is the only one with an issue; the rest need one before work
-starts (AGENTS.md, "Orient yourself by issues").
+Each has an issue, in Backlog on the board until it is committed to a
+milestone.
 
 - **#134 - promote `develop` to `main`.** Deferred on 2026-09-07. `develop`
   is 205 commits ahead; `main` still holds the initial state and no
@@ -406,13 +406,13 @@ starts (AGENTS.md, "Orient yourself by issues").
   a PR), write the gate it must clear - CI plus the real-PTY smoke test rule 2
   already requires - into this document and AGENTS.md, then promote. Nothing
   ships to a stranger until this is done, and no tag without approval.
-- **#127 step 3 - name the worktree branch.** `ctrl+o N` still demands a name
+- **#151 - name the worktree branch (#127 step 3).** `ctrl+o N` still demands a name
   because `git worktree add -b` bakes it into a directory and into
   `state.json`. Either a placeholder branch (`omatty/<date>-<n>`) renamed only
   while it has no commits, or keep asking for this one string. It must use
   `registry.Slug`, the same filter step 2 applies to model output, never a
   looser one.
-- **A second agent profile.** #46 built the seam with claude as its only
+- **#152 - a second agent profile, Codex first.** #46 built the seam with claude as its only
   entry; the roadmap's original promise was Codex and opencode. Each is one
   file in `internal/agent`: a command template, a transcript location, hook
   events (or none, degrading to transcript-only status), and a
@@ -421,18 +421,18 @@ starts (AGENTS.md, "Orient yourself by issues").
   a different settings schema needs a file per profile; and discovery and
   adoption read claude's store only, so adopting another agent's sessions is
   its own issue.
-- **The rest of #128.** The first slice shipped: glyphs, titles in the rule,
+- **#153 and #154 - the rest of #128.** The first slice shipped: glyphs, titles in the rule,
   one lane. Still open from the issue: the token meter (a proportional bar of
   cache-read against fresh input, from the `Tokens` the tailer already
   counts), and the truecolor question - gradients want it, the 256-colour
   palette is a documented decision, and reversing it needs a detected colour
   profile with a real 256-colour fallback. Both were deferred to be decided
   with something real on screen, which is now there.
-- **The lane's title budget, judged on screen.** A session keeps thirteen
+- **#155 - the lane's title budget, judged on screen.** A session keeps thirteen
   title columns at `SidebarWidth` 28. `laneCells` 8 → 6 gives fifteen,
   `SidebarWidth` 28 → 32 gives seventeen. A one-constant change either way;
   it wants the operator's own font and a real project list, not a unit test.
-- **`docs/ARCHITECTURE.md`.** AGENTS.md's documentation map listed it and it
+- **#156 - `docs/ARCHITECTURE.md`.** AGENTS.md's documentation map listed it and it
   was never written. The package docs of `internal/agent` and `internal/paths`
   carry most of what it would say; a stranger still deserves the one-page
   version: data flow, the package breakdown, and why each invariant exists.
