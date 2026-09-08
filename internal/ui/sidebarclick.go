@@ -8,10 +8,10 @@ import tea "charm.land/bubbletea/v2"
 // cursor directly. The three ways to change the selection must not do three
 // amounts of work.
 
-// clickSidebar selects the session row under a left click. Everything else
-// does nothing: the pane's own pointer belongs to claude, the review column
-// has no row model, and a project header is a label rather than a target
-// (sidebar.go). A modal owns the whole pane surface, so a click behind one is
+// clickSidebar selects the row under a left click: a session, or the header
+// of a project with none (#158). Everything else does nothing: the pane's own
+// pointer belongs to claude, the review column has no row model, and a header
+// with sessions is a label rather than a target (sidebar.go). A modal owns the whole pane surface, so a click behind one is
 // dropped too - the row under the pointer is not on screen.
 func (m *Model) clickSidebar(msg tea.MouseClickMsg) tea.Cmd {
 	if msg.Button != tea.MouseLeft || m.modalOpen() {
@@ -29,12 +29,11 @@ func (m *Model) clickSidebar(msg tea.MouseClickMsg) tea.Cmd {
 
 // sidebarRowAt maps a window row to an index into Sidebar.Rows, undoing what
 // renderSidebar did: the top border, the pinned header, and the scroll offset
-// the frame was drawn with. ok is false for a header row, an empty row, and
-// anything outside the box (#45, #129).
+// the frame was drawn with. ok is false for a header with sessions under it,
+// an empty row, and anything outside the box (#45, #129, #158).
 func (m *Model) sidebarRowAt(winY int) (int, bool) {
 	i := winY - sidebarTop() + m.sidebarOffset()
-	rows := m.sidebar.Rows()
-	if i < 0 || i >= len(rows) || rows[i].Session == nil {
+	if i < 0 || i >= len(m.sidebar.Rows()) || !m.sidebar.landable(i) {
 		return 0, false
 	}
 	return i, true
@@ -52,9 +51,8 @@ func (m *Model) sidebarOffset() int {
 // selected returns nothing, so it cannot re-resize a terminal that did not
 // change.
 func (m *Model) selectRow(i int) tea.Cmd {
-	id := m.sidebar.Rows()[i].Session.ID
-	if m.Selected() == id {
+	if i == m.sidebar.cursor {
 		return nil
 	}
-	return m.moveCursor(func() { m.sidebar.SelectByID(id) })
+	return m.moveCursor(func() { m.sidebar.selectIndex(i) })
 }

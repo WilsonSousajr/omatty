@@ -46,35 +46,73 @@ func sessionRows(st registry.State, project string, status map[string]watcher.St
 	return rows
 }
 
-// Sidebar holds the row list and the cursor. The cursor only ever rests on
-// a session row; project headers are labels, not targets.
+// Sidebar holds the row list and the cursor. The cursor rests on a session
+// row, or on the header of a project with no session beneath it: that header
+// is the only row that can name such a project, and every project-scoped
+// action reads the cursor (#158). A header with sessions is still a label -
+// its first session stands for it.
 type Sidebar struct {
 	rows   []Row
 	cursor int
 	offset int // first row drawn; recomputed by Window each frame (#129)
 }
 
-// NewSidebar returns a Sidebar with the cursor on the first session row.
+// NewSidebar returns a Sidebar with the cursor on the first session row, or
+// on the first project header when no project has one.
 func NewSidebar(rows []Row) *Sidebar {
-	s := &Sidebar{rows: rows, cursor: -1}
-	s.MoveDown()
+	s := &Sidebar{rows: rows}
+	s.reset()
 	return s
+}
+
+// reset puts the cursor on the first session anywhere, and only with no
+// session registered at all on the first landing row. A fresh omatty opens on
+// something to type into when there is one, not on an empty project that
+// happens to be registered first (#158).
+func (s *Sidebar) reset() {
+	s.cursor = -1
+	for i, r := range s.rows {
+		if r.Session != nil {
+			s.cursor = i
+			return
+		}
+	}
+	s.MoveDown()
 }
 
 // Rows returns the rows in display order, for rendering.
 func (s *Sidebar) Rows() []Row { return s.rows }
 
 // SetRows replaces the rows while keeping the cursor on the same session if it
-// is still present, so a live status update does not move the selection.
+// is still present, so a live status update does not move the selection. A
+// session that is gone - archived - keeps the cursor in its project: on the
+// project's next session, or on its header once it holds none, so ctrl+o n
+// recreates there rather than wherever reset lands (#158).
 func (s *Sidebar) SetRows(rows []Row) {
 	var selectedID string
 	if sel, ok := s.Selected(); ok {
 		selectedID = sel.Session.ID
 	}
+	project := s.CursorProject()
 	s.rows = rows
-	s.cursor = -1
-	s.MoveDown()
-	s.SelectByID(selectedID)
+	s.reset()
+	if !s.SelectByID(selectedID) {
+		s.SelectByProject(project)
+	}
+}
+
+// SelectByProject puts the cursor on a project's first session, or on its
+// header when it has none, and reports whether the project is registered.
+//
+//	if sb.SelectByProject("wstech") { /* ctrl+o n now creates in wstech */ }
+func (s *Sidebar) SelectByProject(name string) bool {
+	for i, r := range s.rows {
+		if r.Project == name && s.landable(i) {
+			s.cursor = i
+			return true
+		}
+	}
+	return false
 }
 
 // SelectByID puts the cursor on a session wherever it is, and reports whether
@@ -96,12 +134,64 @@ func (s *Sidebar) SelectByID(sessionID string) bool {
 }
 
 // Selected returns the session row under the cursor. ok is false when the
-// sidebar holds no sessions.
+// sidebar holds no sessions, and when the cursor rests on an empty project's
+// header - so every caller that dereferences row.Session is already guarded
+// against the one row that has none (#158).
 func (s *Sidebar) Selected() (Row, bool) {
-	if s.cursor < 0 || s.cursor >= len(s.rows) {
+	if !s.onRow() || s.rows[s.cursor].Session == nil {
 		return Row{}, false
 	}
 	return s.rows[s.cursor], true
+}
+
+// SelectedHeader is the project whose header the cursor rests on, which only
+// happens for a project with no sessions (#158). ok is false when the cursor
+// is on a session or on nothing.
+//
+//	if p, ok := sb.SelectedHeader(); ok { /* ctrl+o x may forget p */ }
+func (s *Sidebar) SelectedHeader() (string, bool) {
+	if !s.onRow() || s.rows[s.cursor].Session != nil {
+		return "", false
+	}
+	return s.rows[s.cursor].Project, true
+}
+
+// CursorProject is the project the cursor is in, whether it rests on a
+// session or on an empty header; "" with nothing to rest on. This is what
+// ctrl+o n, N and A read (#158).
+//
+//	project := sb.CursorProject()
+func (s *Sidebar) CursorProject() string {
+	if !s.onRow() {
+		return ""
+	}
+	return s.rows[s.cursor].Project
+}
+
+func (s *Sidebar) onRow() bool { return s.cursor >= 0 && s.cursor < len(s.rows) }
+
+// landable reports whether the cursor may rest on row i: a session, or the
+// header of a project with nothing beneath it (#158).
+func (s *Sidebar) landable(i int) bool {
+	return s.rows[i].Session != nil || s.emptyHeader(i)
+}
+
+// emptyHeader reports whether row i is a header with no session under it.
+func (s *Sidebar) emptyHeader(i int) bool {
+	if s.rows[i].Session != nil {
+		return false
+	}
+	return i+1 == len(s.rows) || s.rows[i+1].Session == nil
+}
+
+// selectIndex puts the cursor on row i if the cursor may rest there. The
+// click path's entry (#45, #158).
+func (s *Sidebar) selectIndex(i int) bool {
+	if i < 0 || i >= len(s.rows) || !s.landable(i) {
+		return false
+	}
+	s.cursor = i
+	return true
 }
 
 // Window returns the rows to draw when only rows lines fit, keeping the
@@ -140,52 +230,47 @@ func (s *Sidebar) MoveDown() { s.seek(1) }
 // MoveUp retreats to the previous session row, wrapping to the last (#126).
 func (s *Sidebar) MoveUp() { s.seek(-1) }
 
-// NextProject moves to the first session of the next project that has one,
-// wrapping past the last project (#130).
+// NextProject moves to the next project: its first session, or its header
+// when it has none, wrapping past the last project (#130, #158).
 func (s *Sidebar) NextProject() { s.jumpProject(1) }
 
-// PrevProject moves to the first session of the previous project that has
-// one - the first, not the last, so ] and [ are not each other's inverse in
-// the naive way (#130).
+// PrevProject moves to the previous project - its first session, not its
+// last, so ] and [ are not each other's inverse in the naive way - or to its
+// header when it has none (#130, #158).
 func (s *Sidebar) PrevProject() { s.jumpProject(-1) }
 
 // jumpProject walks header rows in step's direction, skipping the current
-// project's own header (going up would otherwise stop at it) and any project
-// with no session beneath it, and lands on the first session after the first
-// header that qualifies. One lap at most, as in seek.
+// project's own header (going up would otherwise stop at it), and lands on
+// the first session after the first other header - or on that header itself
+// when nothing is beneath it (#130, #158). One lap at most, as in seek.
 func (s *Sidebar) jumpProject(step int) {
-	n, current := len(s.rows), s.currentProject()
+	n, current := len(s.rows), s.CursorProject()
 	i := s.cursor
 	for lap := 0; lap < n; lap++ {
 		i = ((i+step)%n + n) % n
 		if s.rows[i].Session != nil || s.rows[i].Project == current {
 			continue
 		}
-		if i+1 < n && s.rows[i+1].Session != nil {
-			s.cursor = i + 1
+		if s.emptyHeader(i) {
+			s.cursor = i
 			return
 		}
+		s.cursor = i + 1
+		return
 	}
 }
 
-func (s *Sidebar) currentProject() string {
-	if row, ok := s.Selected(); ok {
-		return row.Project
-	}
-	return ""
-}
-
-// seek moves the cursor by step until it lands on a session row, taking the
-// index modulo the row count so the two ends join. At most one lap: a list
-// with no session row (a project registered with nothing under it) leaves
-// the cursor where it was instead of spinning (#126). From the -1 sentinel
-// NewSidebar and SetRows start at, a downward seek scans from row 0.
+// seek moves the cursor by step until it lands on a row the cursor may rest
+// on, taking the index modulo the row count so the two ends join. At most one
+// lap: an empty list leaves the cursor where it was instead of spinning
+// (#126). From the -1 sentinel reset starts at, a downward seek scans from
+// row 0.
 func (s *Sidebar) seek(step int) {
 	n := len(s.rows)
 	i := s.cursor
 	for lap := 0; lap < n; lap++ {
 		i = ((i+step)%n + n) % n
-		if s.rows[i].Session != nil {
+		if s.landable(i) {
 			s.cursor = i
 			return
 		}
