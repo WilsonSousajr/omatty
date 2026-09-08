@@ -173,7 +173,7 @@ func RemoveProject(s *Store, name string) (Project, error) {
 	}
 	if n := sessionsIn(&st, name); n > 0 {
 		return Project{}, fmt.Errorf(
-			"registry: project %q still holds %d sessions; archive them first", name, n)
+			"registry: project %q still holds %d %s; archive them first", name, n, plural(n, "session"))
 	}
 	p := st.Projects[i]
 	st.Projects = append(st.Projects[:i], st.Projects[i+1:]...)
@@ -192,6 +192,14 @@ func indexOfProject(st *State, name string) (int, error) {
 	}
 	return -1, fmt.Errorf(
 		"registry: no project named %q (known projects: %v)", name, projectNames(st))
+}
+
+// plural is noun with an s unless n is one, for a message a person reads.
+func plural(n int, noun string) string {
+	if n == 1 {
+		return noun
+	}
+	return noun + "s"
 }
 
 // sessionsIn counts a project's sessions, which is what decides whether it
