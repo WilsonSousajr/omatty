@@ -1,7 +1,7 @@
 # omatty roadmap
 
-Last revised 2026-09-07, when M4 and M6 landed on `develop` and M7 took in
-what a week of running the real binary found.
+Last revised 2026-09-08, when M7's close-out recorded what it did not close.
+Every milestone is built; what is left is under "What is left".
 
 omatty is a terminal ADE: several projects and several parallel Claude Code
 sessions in one window, each session the real `claude` binary in an embedded
@@ -23,7 +23,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M4 | Lifecycle | **Done.** PRs #98-#104 merged to develop 2026-09-05, review findings in #119. |
 | M5 | File tree | Folded into M3 on 2026-09-03; #24 shipped there. |
 | M6 | Persistence | **Done.** #43 and #122 merged as PRs #121 and #123 on 2026-09-05. |
-| M7 | Reach | **Done** except #134, deferred. Eleven issues merged as PRs #135-#148 on 2026-09-07. |
+| M7 | Reach | **Built** 2026-09-07 as PRs #135-#148. Leftovers still open; see "What is left". |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -396,46 +396,67 @@ deferred with #134.
 
 ## What is left
 
-Everything M7 opened and did not close, in the order it should be picked up.
-Each has an issue, in Backlog on the board until it is committed to a
-milestone.
+Everything M7 opened and did not close, plus what running the merged result
+has found since, in the order it should be picked up.
+Each has an issue, labelled `M7` for the milestone it came out of and parked
+in Backlog until someone is actually on it. The label says where the work
+belongs; the column says whether anyone has picked it up.
 
+- **#158 - a project with no sessions cannot be selected.** So a freshly
+  discovered project is a dead row: visible, and never usable. `jumpProject`
+  requires the landing row to be a session and `seek` skips headers, so
+  `SelectedProject()` can never name a project with no sessions - and every
+  project-scoped action reads that selection, `ctrl+o n` and `ctrl+o N`
+  included. There is no first-session path at all, for exactly the projects
+  discovery (#91) was built to add. #130 specified the skip as correct, which
+  is where it came from.
+- **#159 - a registered project can never be removed.** No `RemoveProject` in
+  the registry, no CLI verb, no leader key: hand-editing `state.json`, which
+  is what #40 stopped being the answer for sessions. `omatty discover`
+  registers in bulk from a proposed list, so one wrong pick is permanent, and
+  it pushes the operator to be conservative with the one feature built to be
+  generous. It compounds #158 - a mistaken project is both unusable and
+  unremovable. Unregistering must not touch the repository: omatty did not
+  create it, the same line #122 drew for adopted sessions.
 - **#134 - promote `develop` to `main`.** Deferred on 2026-09-07. `develop`
-  is 205 commits ahead; `main` still holds the initial state and no
-  protection. Decide the shape (merge commit per milestone, fast-forward, or
-  a PR), write the gate it must clear - CI plus the real-PTY smoke test rule 2
-  already requires - into this document and AGENTS.md, then promote. Nothing
-  ships to a stranger until this is done, and no tag without approval.
-- **#151 - name the worktree branch (#127 step 3).** `ctrl+o N` still demands a name
-  because `git worktree add -b` bakes it into a directory and into
+  carries all seven milestones; `main` still holds `ca3952b`, the bootstrap
+  commit of 2026-09-01, and has no protection. Decide the shape (merge commit
+  per milestone, fast-forward, or a PR), write the gate it must clear - CI
+  plus the real-PTY smoke test rule 2 already requires - into this document
+  and AGENTS.md, then promote. Nothing ships to a stranger until this is done,
+  and no tag without approval.
+- **#151 - name the worktree branch (#127 step 3).** `ctrl+o N` still demands
+  a name because `git worktree add -b` bakes it into a directory and into
   `state.json`. Either a placeholder branch (`omatty/<date>-<n>`) renamed only
   while it has no commits, or keep asking for this one string. It must use
   `registry.Slug`, the same filter step 2 applies to model output, never a
   looser one.
-- **#152 - a second agent profile, Codex first.** #46 built the seam with claude as its only
-  entry; the roadmap's original promise was Codex and opencode. Each is one
-  file in `internal/agent`: a command template, a transcript location, hook
-  events (or none, degrading to transcript-only status), and a
-  `watcher.Adapter` for its transcript shape. Two known costs, written down in
-  #46's PR: `paths.HooksFile` is one file for the whole app, so an agent with
-  a different settings schema needs a file per profile; and discovery and
-  adoption read claude's store only, so adopting another agent's sessions is
-  its own issue.
-- **#153 and #154 - the rest of #128.** The first slice shipped: glyphs, titles in the rule,
-  one lane. Still open from the issue: the token meter (a proportional bar of
-  cache-read against fresh input, from the `Tokens` the tailer already
-  counts), and the truecolor question - gradients want it, the 256-colour
-  palette is a documented decision, and reversing it needs a detected colour
-  profile with a real 256-colour fallback. Both were deferred to be decided
-  with something real on screen, which is now there.
-- **#155 - the lane's title budget, judged on screen.** A session keeps thirteen
-  title columns at `SidebarWidth` 28. `laneCells` 8 → 6 gives fifteen,
-  `SidebarWidth` 28 → 32 gives seventeen. A one-constant change either way;
-  it wants the operator's own font and a real project list, not a unit test.
-- **#156 - `docs/ARCHITECTURE.md`.** AGENTS.md's documentation map listed it and it
-  was never written. The package docs of `internal/agent` and `internal/paths`
-  carry most of what it would say; a stranger still deserves the one-page
-  version: data flow, the package breakdown, and why each invariant exists.
+- **#152 - a second agent profile, Codex first.** #46 built the seam with
+  claude as its only entry; the roadmap's original promise was Codex and
+  opencode. Each is one file in `internal/agent`: a command template, a
+  transcript location, hook events (or none, degrading to transcript-only
+  status), and a `watcher.Adapter` for its transcript shape. Two known costs,
+  written down in #46's PR: `paths.HooksFile` is one file for the whole app,
+  so an agent with a different settings schema needs a file per profile; and
+  discovery and adoption read claude's store only, so adopting another agent's
+  sessions is its own issue.
+- **#153 and #154 - the rest of #128.** The first slice shipped: glyphs,
+  titles in the rule, one lane. Still open from the issue: the token meter (a
+  proportional bar of cache-read against fresh input, from the `Tokens` the
+  tailer already counts), and the truecolor question - gradients want it, the
+  256-colour palette is a documented decision, and reversing it needs a
+  detected colour profile with a real 256-colour fallback. Both were deferred
+  to be decided with something real on screen, which is now there.
+- **#155 - the lane's title budget, judged on screen.** A session keeps
+  thirteen title columns at `SidebarWidth` 28. `laneCells` 8 → 6 gives
+  fifteen, `SidebarWidth` 28 → 32 gives seventeen. A one-constant change
+  either way; it wants the operator's own font and a real project list, not a
+  unit test.
+- **#156 - `docs/ARCHITECTURE.md`.** AGENTS.md's documentation map listed it
+  and it was never written. The package docs of `internal/agent` and
+  `internal/paths` carry most of what it would say; a stranger still deserves
+  the one-page version: data flow, the package breakdown, and why each
+  invariant exists.
 
 ---
 

@@ -243,7 +243,7 @@ message and explain why the behaviour it asserted was never correct.
 
   | Column | Means |
   |---|---|
-  | Backlog | Captured. Not committed to a milestone yet. |
+  | Backlog | Captured. Nobody is on it yet. |
   | Sprint Backlog | Committed to the current milestone; ready to pick up. |
   | In Progress | Being worked on right now. One per person. |
   | Review | PR open, awaiting review or CI. |
@@ -258,7 +258,10 @@ message and explain why the behaviour it asserted was never correct.
     produces `feat(#N):` commits.
   - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7`. Every open issue carries
     one, including a bug found against an already-shipped milestone - it takes
-    the milestone it will be fixed in, not the one that introduced it.
+    the milestone it will be fixed in, not the one that introduced it. Work a
+    milestone deferred keeps that milestone's label and waits in Backlog: the
+    label says where the work belongs, the column says whether anyone is on
+    it, and the two answer different questions.
   - Area: `area:paths` `area:registry` `area:vcs` `area:termwrap`
     `area:supervisor` `area:keys` `area:ui` `area:cmd` `area:hooks`
     `area:watcher` `area:notify` `area:discover`.
