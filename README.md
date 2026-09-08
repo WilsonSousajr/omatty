@@ -196,7 +196,11 @@ spraying the pane.
 ## Session status
 
 Each sidebar row shows what its session is doing and how long it has been in
-that state, and the focused session's header shows its cumulative token usage.
+that state, and the focused session's header shows its cumulative token usage:
+a bar and a percentage for how much of the input claude read back from cache
+(`▰▰▰▰▰▰▱▱ 80% cached`), then the in/out counts. Cache reads are what a
+long session's prompts mostly are, and the meter says at a glance whether that
+is holding.
 
 | Glyph | Meaning |
 |---|---|
