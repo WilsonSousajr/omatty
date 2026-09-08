@@ -69,6 +69,7 @@ type RunDeps struct {
 	// worktree (#40). The tailer is stopped through the Watch this owns.
 	Archive        ArchiveFunc
 	RemoveWorktree RemoveWorktreeFunc
+	RemoveProject  RemoveProjectFunc
 	// Discover proposes repositories to register and AddProject registers one
 	// (#91).
 	Discover   DiscoverFunc
@@ -102,7 +103,7 @@ func Run(d RunDeps) error {
 	model := NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
 		Diff: d.Diff, Files: d.Files, Rename: d.Rename, Name: d.Name, ModelName: d.ModelName,
-		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree,
+		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,
 		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader,

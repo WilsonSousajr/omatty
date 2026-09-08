@@ -70,6 +70,7 @@ type Model struct {
 	// and optionally delete its worktree (#40).
 	archive          ArchiveFunc
 	removeWorktree   RemoveWorktreeFunc
+	removeProject    RemoveProjectFunc // forgets an empty project (#159)
 	tailStop         func(sessionID string)
 	discover         DiscoverFunc
 	registerProjects AddProjectFunc
@@ -124,6 +125,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
 	m.modelNamer = d.ModelName
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
+	m.removeProject = d.RemoveProject
 	m.discover, m.registerProjects = d.Discover, d.AddProject
 	m.adoptPropose, m.adoptCommit = d.AdoptPropose, d.AdoptCommit
 	m.stop, m.notice = d.Stop, d.Notice

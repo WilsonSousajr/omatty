@@ -48,7 +48,7 @@ var leaderKeys = []keyHelp{
 	{"a", "register a project claude already knows"},
 	{"A", "adopt a session claude already knows"},
 	{"R", "rename the selected session"},
-	{"x", "archive the selected session"},
+	{"x", "archive the session, or forget an empty project"},
 	{"r", "restart a crashed session"},
 	{"d", "open or close the diff pane"},
 	{"f", "open or close the file tree"},

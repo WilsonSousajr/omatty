@@ -119,12 +119,21 @@ func withStoreDeps(
 	return withPickerDeps(withLifecycleDeps(deps, store, git), store, home, git)
 }
 
-// withLifecycleDeps adds rename, archive and worktree removal (#40, #41).
+// withLifecycleDeps adds rename, archive, worktree removal and project
+// removal (#40, #41, #159).
 func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui.RunDeps {
 	deps.Rename = sessionRenamer(store)
 	deps.Archive = sessionArchiver(store)
 	deps.RemoveWorktree = git.RemoveWorktree
+	deps.RemoveProject = projectRemover(store)
 	return deps
+}
+
+// projectRemover adapts registry.RemoveProject to ui.RemoveProjectFunc (#159).
+func projectRemover(store *registry.Store) ui.RemoveProjectFunc {
+	return func(name string) (registry.Project, error) {
+		return registry.RemoveProject(store, name)
+	}
 }
 
 // withPickerDeps adds the project picker (#91) and the adoption picker (#122).

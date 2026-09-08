@@ -363,3 +363,18 @@ func TestDispatch_KnowsRm_issue159(t *testing.T) {
 		t.Errorf("the unknown-command error %v does not list rm", err)
 	}
 }
+
+// The remover returns the row the registry dropped, so the TUI can name it.
+func TestProjectRemover_ReturnsTheRemovedProject_issue159(t *testing.T) {
+	store := storeIn(t)
+	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
+	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+		t.Fatalf("AddProject: %v", err)
+	}
+
+	got, err := projectRemover(store)("omatty")
+
+	if err != nil || got.Name != "omatty" {
+		t.Errorf("projectRemover = %+v, %v; want omatty removed", got, err)
+	}
+}
