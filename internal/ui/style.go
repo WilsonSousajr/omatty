@@ -13,6 +13,7 @@ var (
 	colorFocused = lipgloss.Color("39")  // blue
 	colorBlurred = lipgloss.Color("240") // grey
 	colorMuted   = lipgloss.Color("245")
+	colorMeter   = lipgloss.Color("78") // green, as done is: a cache hit is the good outcome (#153)
 	colorFooter  = lipgloss.Color("245")
 )
 
@@ -58,6 +59,7 @@ var (
 	footerStyle = lipgloss.NewStyle().Foreground(colorFooter)
 	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)
+	meterStyle  = lipgloss.NewStyle().Foreground(colorMeter)
 )
 
 // statusGlyphs pairs each status with its one-column marker - the set the

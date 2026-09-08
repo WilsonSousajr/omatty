@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // footer is the keymap, rendered on every frame. It stays visible while a
@@ -138,7 +139,7 @@ func (m *Model) emptyLines() []string {
 }
 
 // terminalTitle is the header line inside the focused session's box: its
-// title, coloured status, age and cumulative tokens.
+// title, coloured status, age, cache meter and cumulative tokens (#153).
 func (m *Model) terminalTitle(now time.Time) string {
 	row, ok := m.sidebar.Selected()
 	if !ok {
@@ -152,8 +153,8 @@ func (m *Model) terminalTitle(now time.Time) string {
 	if age := AgeString(now, st.At); age != "" {
 		parts += " " + age
 	}
-	if st.Tokens.In+st.Tokens.Out > 0 {
-		parts += " · " + mutedStyle.Render(KString(st.Tokens.In)+" in / "+KString(st.Tokens.Out)+" out")
+	if st.Tokens != (watcher.Tokens{}) {
+		parts += " · " + tokensPart(st.Tokens)
 	}
 	return parts
 }
