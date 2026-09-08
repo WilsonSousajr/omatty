@@ -394,6 +394,49 @@ follow-up; the nine reports above are closed with regression tests - done;
 and the branch a stranger clones is the software this repository has built -
 deferred with #134.
 
+## What is left
+
+Everything M7 opened and did not close, in the order it should be picked up.
+The first item is the only one with an issue; the rest need one before work
+starts (AGENTS.md, "Orient yourself by issues").
+
+- **#134 - promote `develop` to `main`.** Deferred on 2026-09-07. `develop`
+  is 205 commits ahead; `main` still holds the initial state and no
+  protection. Decide the shape (merge commit per milestone, fast-forward, or
+  a PR), write the gate it must clear - CI plus the real-PTY smoke test rule 2
+  already requires - into this document and AGENTS.md, then promote. Nothing
+  ships to a stranger until this is done, and no tag without approval.
+- **#127 step 3 - name the worktree branch.** `ctrl+o N` still demands a name
+  because `git worktree add -b` bakes it into a directory and into
+  `state.json`. Either a placeholder branch (`omatty/<date>-<n>`) renamed only
+  while it has no commits, or keep asking for this one string. It must use
+  `registry.Slug`, the same filter step 2 applies to model output, never a
+  looser one.
+- **A second agent profile.** #46 built the seam with claude as its only
+  entry; the roadmap's original promise was Codex and opencode. Each is one
+  file in `internal/agent`: a command template, a transcript location, hook
+  events (or none, degrading to transcript-only status), and a
+  `watcher.Adapter` for its transcript shape. Two known costs, written down in
+  #46's PR: `paths.HooksFile` is one file for the whole app, so an agent with
+  a different settings schema needs a file per profile; and discovery and
+  adoption read claude's store only, so adopting another agent's sessions is
+  its own issue.
+- **The rest of #128.** The first slice shipped: glyphs, titles in the rule,
+  one lane. Still open from the issue: the token meter (a proportional bar of
+  cache-read against fresh input, from the `Tokens` the tailer already
+  counts), and the truecolor question - gradients want it, the 256-colour
+  palette is a documented decision, and reversing it needs a detected colour
+  profile with a real 256-colour fallback. Both were deferred to be decided
+  with something real on screen, which is now there.
+- **The lane's title budget, judged on screen.** A session keeps thirteen
+  title columns at `SidebarWidth` 28. `laneCells` 8 → 6 gives fifteen,
+  `SidebarWidth` 28 → 32 gives seventeen. A one-constant change either way;
+  it wants the operator's own font and a real project list, not a unit test.
+- **`docs/ARCHITECTURE.md`.** AGENTS.md's documentation map listed it and it
+  was never written. The package docs of `internal/agent` and `internal/paths`
+  carry most of what it would say; a stranger still deserves the one-page
+  version: data flow, the package breakdown, and why each invariant exists.
+
 ---
 
 ## Not on the roadmap
