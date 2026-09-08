@@ -20,12 +20,15 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
 
-// dispatch runs a subcommand. `add` registers a repository; `new` creates a
-// session, with a branch argument meaning "in a fresh worktree".
+// dispatch runs a subcommand. `add` registers a repository and `rm` forgets
+// one; `new` creates a session, with a branch argument meaning "in a fresh
+// worktree".
 func dispatch(cmd string, args []string, home string, cfg config.Config, store *registry.Store) error {
 	switch cmd {
 	case "add":
 		return addProject(store, args)
+	case "rm":
+		return removeProject(store, args)
 	case "new":
 		return newSession(store, cfg, args)
 	case "discover":
@@ -33,7 +36,7 @@ func dispatch(cmd string, args []string, home string, cfg config.Config, store *
 	case "adopt":
 		return adoptSessions(store, home, vcs.NewCLI(), args, os.Stdin)
 	default:
-		return fmt.Errorf("unknown command %q (want add, new, discover, adopt, or no argument)", cmd)
+		return fmt.Errorf("unknown command %q (want add, rm, new, discover, adopt, or no argument)", cmd)
 	}
 }
 
@@ -205,6 +208,20 @@ func addProject(store *registry.Store, args []string) error {
 		return err
 	}
 	report("registered " + p.Name + " at " + p.Root)
+	return nil
+}
+
+// removeProject is `omatty rm <project>`: the CLI twin of ctrl+o x on an
+// empty project's header, and the one surface that needs no cursor (#159).
+func removeProject(store *registry.Store, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("rm: want <project>, got %v", args)
+	}
+	p, err := registry.RemoveProject(store, args[0])
+	if err != nil {
+		return err
+	}
+	report("removed " + p.Name + " (the repository at " + p.Root + " is untouched)")
 	return nil
 }
 
