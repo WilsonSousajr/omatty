@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/ui"
@@ -328,5 +329,52 @@ func TestSessionAdopter_ReturnsTheRowTheRegistryWrote_issue122(t *testing.T) {
 	}
 	if got[0].Session.Branch != "fix/parser" {
 		t.Errorf("Branch = %q, want the branch the registry recorded for the worktree", got[0].Session.Branch)
+	}
+}
+
+func TestRemoveProject_ForgetsAnEmptyProject_issue159(t *testing.T) {
+	store := storeIn(t)
+	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
+	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+		t.Fatalf("AddProject: %v", err)
+	}
+
+	if err := removeProject(store, []string{"omatty"}); err != nil {
+		t.Fatalf("removeProject: %v", err)
+	}
+
+	st, _ := store.Load()
+	if len(st.Projects) != 0 {
+		t.Errorf("projects after rm = %+v, want none", st.Projects)
+	}
+}
+
+// `omatty rm` with no argument is usage, not a silent no-op.
+func TestRemoveProject_RequiresAProjectName_issue159(t *testing.T) {
+	err := removeProject(storeIn(t), nil)
+	if err == nil || !strings.Contains(err.Error(), "<project>") {
+		t.Errorf("removeProject with no argument = %v, want a usage error naming <project>", err)
+	}
+}
+
+func TestDispatch_KnowsRm_issue159(t *testing.T) {
+	err := dispatch("bogus", nil, t.TempDir(), config.Config{}, storeIn(t))
+	if err == nil || !strings.Contains(err.Error(), "rm") {
+		t.Errorf("the unknown-command error %v does not list rm", err)
+	}
+}
+
+// The remover returns the row the registry dropped, so the TUI can name it.
+func TestProjectRemover_ReturnsTheRemovedProject_issue159(t *testing.T) {
+	store := storeIn(t)
+	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
+	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+		t.Fatalf("AddProject: %v", err)
+	}
+
+	got, err := projectRemover(store)("omatty")
+
+	if err != nil || got.Name != "omatty" {
+		t.Errorf("projectRemover = %+v, %v; want omatty removed", got, err)
 	}
 }

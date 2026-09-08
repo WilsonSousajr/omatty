@@ -89,8 +89,11 @@ type confirmChoice struct {
 // that archiveChoices exists to keep out (#40).
 type confirmBox struct {
 	SessionID string
-	Title     string
-	Question  string
+	// Project is set instead of SessionID when the box asks about forgetting
+	// an empty project (#159).
+	Project  string
+	Title    string
+	Question string
 	// Note warns about a consequence none of the answers names.
 	Note    string
 	Choices []confirmChoice
@@ -118,8 +121,13 @@ func archiveChoices(worktree bool) []confirmChoice {
 	}
 }
 
-// openConfirm asks before archiving the selected session.
+// openConfirm asks before archiving the selected session, or before forgetting
+// the empty project whose header is selected (#159).
 func (m *Model) openConfirm() {
+	if p, ok := m.sidebar.SelectedHeader(); ok {
+		m.openRemoveProject(p)
+		return
+	}
 	row, ok := m.sidebar.Selected()
 	if !ok {
 		return
@@ -158,9 +166,13 @@ func (m *Model) onConfirmKey(key string) tea.Cmd {
 		return nil
 	}
 	for _, c := range m.modal.Confirm.Choices {
-		if c.Key == key {
-			return m.archiveSession(c.RemoveWorktree)
+		if c.Key != key {
+			continue
 		}
+		if m.modal.Confirm.Project != "" {
+			return m.removeProjectRow()
+		}
+		return m.archiveSession(c.RemoveWorktree)
 	}
 	return nil
 }

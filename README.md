@@ -49,6 +49,7 @@ run last week's code while the tests pass on this week's.
 omatty discover                       # pick from the repos claude already knows
 omatty adopt my-app                   # pick from the claude sessions already in it
 omatty add ~/Projects/my-app          # or register one by hand
+omatty rm my-app                      # forget a project (the repository stays)
 omatty new my-app main                # a session on the main checkout
 omatty new my-app parser-fix parser-fix   # a session on a fresh worktree
 omatty                                # run the TUI
@@ -73,7 +74,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o f` | open or close the file tree |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o R` | rename the selected session |
-| `ctrl+o x` | archive the selected session |
+| `ctrl+o x` | archive the selected session, or forget an empty project |
 | `ctrl+o /` | jump to a session by typing part of its name |
 | `ctrl+o a` | register a project claude already knows you use |
 | `ctrl+o A` | adopt a claude session already in this project |
@@ -82,6 +83,10 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 `ctrl+o R` opens the session's title for editing, pre-filled, so correcting a
 typo is a small edit. `enter` confirms, `esc` cancels. The title is
 display-only, so a rename never disturbs the session itself.
+
+On an empty project's header, `ctrl+o x` forgets the project instead - the
+same thing `omatty rm <project>` does from the shell. The repository is never
+touched; a project still holding sessions is refused until they are archived.
 
 `ctrl+o x` asks before it does anything. Archiving stops the session and drops
 it from the sidebar, but the transcript stays on disk, so nothing is lost that

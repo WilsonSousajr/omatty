@@ -86,9 +86,10 @@ func TestModel_theHeaderShowsTheMarkerAndThePaneNamesTheProject_issue158(t *test
 }
 
 // One row per key, as #95's table does: none of these may panic or open a
-// surface on a header.
+// surface on a header. x is not in the table: #159 gave it a job there, and
+// removeproject_test.go covers it.
 func TestModel_sessionKeysOnAHeaderDoNothing_issue158(t *testing.T) {
-	for _, k := range []rune{'x', 'R', 'r', 'd', 'f'} {
+	for _, k := range []rune{'R', 'r', 'd', 'f'} {
 		m := modelWithEmptyProject(t, &recordCreate{})
 		leader(m, key(']'))
 
@@ -136,5 +137,29 @@ func TestModel_clickingAnEmptyHeaderSelectsIt_issue158(t *testing.T) {
 	if m.SelectedProject() != "wstech" || m.Selected() != "" {
 		t.Errorf("click on omatty's header (which has sessions) moved the cursor to %q/%q",
 			m.SelectedProject(), m.Selected())
+	}
+}
+
+// Archive the only session of a project, then create a new one there. Fails
+// before #158: the cursor left api-svc and it was unreachable.
+func TestModel_archivingTheLastSessionThenCreatingThereWorks_issue158(t *testing.T) {
+	r, c := &recordArchive{State: worktreeState()}, &recordCreate{}
+	terms, _ := fakeTerms(t)
+	d := baseDeps(worktreeState(), terms)
+	d.Archive, d.TailStop, d.RemoveWorktree = r.archive, r.stopTail, r.removeWorktree
+	d.Create = c.fn
+	m := ui.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	openArchive(t, m, "s3") // api-svc's only session
+	pressAndSettle(m, key('y'))
+
+	if got := m.SelectedProject(); got != "api-svc" || m.Selected() != "" {
+		t.Fatalf("after archiving s3 the cursor is on %q in %q; want api-svc's header", m.Selected(), got)
+	}
+	leader(m, key('n'))
+	press(m, special(tea.KeyEnter))
+	if c.Project != "api-svc" {
+		t.Errorf("create() got project %q, want api-svc", c.Project)
 	}
 }

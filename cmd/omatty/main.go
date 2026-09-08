@@ -5,6 +5,7 @@
 //
 //	omatty                            run the TUI
 //	omatty add [dir]                  register the repository containing dir
+//	omatty rm <project>               forget a registered project (the repository stays)
 //	omatty discover                   register from the repositories claude knows
 //	omatty adopt <project>            register claude sessions already in that project
 //	omatty new <project> <title> [branch]  create a session

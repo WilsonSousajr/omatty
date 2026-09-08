@@ -154,6 +154,66 @@ func RemoveSession(s *Store, id string) (Session, error) {
 	return sess, s.Save(st)
 }
 
+// RemoveProject forgets a project: its row leaves state.json and nothing else
+// changes. The repository is untouched - omatty did not create it and does
+// not own it, the line #122 drew for adopted sessions. A project that still
+// holds sessions is refused rather than cascaded: the operator archives them
+// first with a key that already exists, and this command stays free of a
+// destructive path (#159).
+//
+//	p, err := registry.RemoveProject(store, "wstech")
+func RemoveProject(s *Store, name string) (Project, error) {
+	st, err := s.Load()
+	if err != nil {
+		return Project{}, err
+	}
+	i, err := indexOfProject(&st, name)
+	if err != nil {
+		return Project{}, err
+	}
+	if n := sessionsIn(&st, name); n > 0 {
+		return Project{}, fmt.Errorf(
+			"registry: project %q still holds %d %s; archive them first", name, n, plural(n, "session"))
+	}
+	p := st.Projects[i]
+	st.Projects = append(st.Projects[:i], st.Projects[i+1:]...)
+	return p, s.Save(st)
+}
+
+// indexOfProject locates a project by name, for the same reason
+// indexOfSession returns an index: the caller edits the slice it is about to
+// save. The miss is -1, not 0, so a dropped error cannot remove the first
+// project by accident.
+func indexOfProject(st *State, name string) (int, error) {
+	for i := range st.Projects {
+		if st.Projects[i].Name == name {
+			return i, nil
+		}
+	}
+	return -1, fmt.Errorf(
+		"registry: no project named %q (known projects: %v)", name, projectNames(st))
+}
+
+// plural is noun with an s unless n is one, for a message a person reads.
+func plural(n int, noun string) string {
+	if n == 1 {
+		return noun
+	}
+	return noun + "s"
+}
+
+// sessionsIn counts a project's sessions, which is what decides whether it
+// may be removed.
+func sessionsIn(st *State, project string) int {
+	n := 0
+	for _, sess := range st.Sessions {
+		if sess.Project == project {
+			n++
+		}
+	}
+	return n
+}
+
 // indexOfSession locates a session by id. It returns an index rather than a
 // Session because callers mutate the one inside the state they are about to
 // save; a copy would be written back over.

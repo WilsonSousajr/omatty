@@ -57,6 +57,8 @@ type Deps struct {
 	Archive        ArchiveFunc
 	RemoveWorktree RemoveWorktreeFunc
 	TailStop       func(sessionID string)
+	// RemoveProject forgets a registered project that holds no sessions (#159).
+	RemoveProject RemoveProjectFunc
 	// Discover proposes repositories to register and AddProject registers one
 	// (#91).
 	Discover   DiscoverFunc
@@ -124,6 +126,9 @@ func (d Deps) withLifecycleDefaults() Deps {
 	}
 	if d.Archive == nil {
 		d.Archive = noArchive
+	}
+	if d.RemoveProject == nil {
+		d.RemoveProject = noRemoveProject
 	}
 	if d.RemoveWorktree == nil {
 		d.RemoveWorktree = noRemoveWorktree
