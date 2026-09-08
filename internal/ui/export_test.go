@@ -69,3 +69,15 @@ func TopRule(focused bool, title string, w int) string { return topRule(focused,
 // PanStep is how far one h, one l or one sideways wheel notch moves the review
 // column, so a test spins a real gesture rather than hard-coding 8 (#125).
 const PanStep = panStep
+
+// RenderMeter is the rule's meter for t, "" with no input; MeterGlyphs its two
+// cells and MeterCells its width (#153).
+func RenderMeter(t watcher.Tokens) string {
+	share, ok := cacheShare(t)
+	if !ok {
+		return ""
+	}
+	return renderMeter(share)
+}
+func MeterGlyphs() []string { return []string{meterFull, meterEmpty} }
+func MeterCells() int       { return meterCells }
