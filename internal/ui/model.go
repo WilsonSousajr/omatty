@@ -167,18 +167,10 @@ func (m *Model) Selected() string {
 	return row.Session.ID
 }
 
-// SelectedProject returns the project the cursor is in. With no session
-// selected it falls back to the first project header, so creating the very
-// first session still lands somewhere sensible.
-func (m *Model) SelectedProject() string {
-	if row, ok := m.sidebar.Selected(); ok {
-		return row.Project
-	}
-	if rows := m.sidebar.Rows(); len(rows) > 0 {
-		return rows[0].Project
-	}
-	return ""
-}
+// SelectedProject returns the project the cursor is in: the selected
+// session's, or the empty project whose header is selected (#158). With no
+// project registered it is "".
+func (m *Model) SelectedProject() string { return m.sidebar.CursorProject() }
 
 // Init starts every session's terminal reading from its PTY.
 //

@@ -67,11 +67,15 @@ const emptyTreeHint = "no files - the repository is empty; press r to list again
 
 // emptyStateHint names the next useful action. With no projects registered,
 // creating a session can only fail, so it points at `omatty add` instead.
+// emptyStateHint says what to do next. It names the project when the cursor
+// rests on an empty one, because with other projects' sessions on screen
+// "no sessions" alone reads as a lie (#158).
 func (m *Model) emptyStateHint() string {
 	if len(m.sidebar.Rows()) == 0 {
 		return "no projects - run `omatty add <dir>` to register one"
 	}
-	return "no sessions - press " + m.leader + " n to create one"
+	p, _ := m.sidebar.SelectedHeader()
+	return "no sessions in " + p + " - press " + m.leader + " n to create one"
 }
 
 // View lays the sidebar beside the focused session's terminal, with the
@@ -209,7 +213,7 @@ func (m *Model) footerKeys() string {
 // in this expression.
 func (m *Model) renderRow(row Row, width int) string {
 	if row.Session == nil {
-		return mutedStyle.Render(padRight("> "+row.Project, width))
+		return mutedStyle.Render(padRight(m.headerMarker(row.Project)+row.Project, width))
 	}
 	marker := "  "
 	if sel, ok := m.sidebar.Selected(); ok && sel.Session.ID == row.Session.ID {
@@ -218,6 +222,16 @@ func (m *Model) renderRow(row Row, width int) string {
 	glyph := glyphStyle(row.Status).Render(statusGlyph(row.Status))
 	title := fitLine(row.Session.Title, width-rowChrome)
 	return marker + glyph + " " + title + " " + m.renderLane(row.Session.ID)
+}
+
+// headerMarker is "» " on the empty project the cursor rests on, and the
+// plain "> " on every other header, so the two spend the same two cells and
+// the names do not jog when the cursor arrives (#158).
+func (m *Model) headerMarker(project string) string {
+	if p, ok := m.sidebar.SelectedHeader(); ok && p == project {
+		return "» "
+	}
+	return "> "
 }
 
 // rowChrome is what a session row spends on anything but its name: the two

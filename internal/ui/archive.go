@@ -217,9 +217,9 @@ func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd 
 	m.tailStop(sess.ID)
 	m.forgetSession(sess.ID)
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
-	// SetRows falls back to the first session row when the selected id is gone,
-	// not to the neighbour, so the cursor can land anywhere - including in
-	// another project. Size whatever it landed on and drag the review column
+	// SetRows keeps the cursor in the archived session's project - on its next
+	// session, or on its header once it holds none (#158) - so the cursor has
+	// moved either way. Size whatever it landed on and drag the review column
 	// along: the pair moveCursor uses (#73, #95).
 	//
 	// Closing the terminal is no longer enough to end the session's claude:
