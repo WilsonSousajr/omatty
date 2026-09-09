@@ -165,16 +165,16 @@ func (m *Model) resizeIfWidthChanged(wasOpen bool) tea.Cmd {
 }
 
 // reloadIfNeeded fetches the diff for a session the column has not loaded,
-// or one whose cached diff went stale behind a closed column (#124). A
-// column already open on this session keeps what it loaded: re-forking git
-// for a diff already in memory is the stall loadDiff's own comment exists
-// to avoid.
+// or one whose cached diff went stale behind a closed column (#124), and
+// re-lists a stale tree beside it (#195). A column already open on this
+// session keeps what it loaded: re-forking git for a diff already in memory
+// is the stall loadDiff's own comment exists to avoid.
 func (m *Model) reloadIfNeeded(id string, fresh bool) tea.Cmd {
 	if !fresh && !m.review.Stale {
 		return nil
 	}
 	m.review.Stale = false
-	return m.loadDiff(id)
+	return tea.Batch(m.loadDiff(id), m.relistFiles(id))
 }
 
 // closeColumn hides the column and gives the keys back, keeping what it
@@ -295,7 +295,8 @@ func (m *Model) projectRoot(name string) string {
 
 // refreshReview reloads the open diff when its session finishes a turn or
 // stops for a question: that is the moment the operator looks at what changed,
-// and a diff from before the turn would be stale on arrival (#21).
+// and a diff from before the turn would be stale on arrival (#21). The
+// listing goes with it, so a file claude created appears without r (#195).
 func (m *Model) refreshReview(id string, before, after watcher.Status) tea.Cmd {
 	if id != m.review.SessionID || before == after {
 		return nil
@@ -309,7 +310,7 @@ func (m *Model) refreshReview(id string, before, after watcher.Status) tea.Cmd {
 		m.review.Stale = true
 		return nil
 	}
-	return m.loadDiff(id)
+	return tea.Batch(m.loadDiff(id), m.relistFiles(id))
 }
 
 // reviewOwnsKeys reports whether a plain keystroke would reach the review

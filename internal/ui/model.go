@@ -74,6 +74,8 @@ type Model struct {
 	repoStat    map[string]review.Stat
 	statPending map[string]bool
 	statFailed  map[string]bool
+	// filesPending guards one worktree listing in flight per session (#195).
+	filesPending map[string]bool
 	// The archive path's three halves: forget the session, stop its tailer,
 	// and optionally delete its worktree (#40).
 	archive          ArchiveFunc
@@ -161,6 +163,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.repoStat = map[string]review.Stat{}
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
+	m.filesPending = map[string]bool{}
 	return m
 }
 
