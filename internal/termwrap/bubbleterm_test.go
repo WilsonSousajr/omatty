@@ -3,6 +3,7 @@ package termwrap_test
 import (
 	"github.com/taigrr/bubbleterm/emulator"
 	"os/exec"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -133,5 +134,103 @@ func TestCaretShape_MapsEveryEmulatorStyle_issue106(t *testing.T) {
 				t.Errorf("CaretShape(%v) = %v, want %v", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+// firstRow is the first non-blank row of a frame, escapes stripped and
+// trimmed.
+func firstRow(frame string) string {
+	for _, l := range strings.Split(frame, "\n") {
+		if s := strings.TrimSpace(sgr.ReplaceAllString(l, "")); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+var sgr = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// claude sets its window title to "✳️ Claude Code". x/ansi's parser takes
+// the 0x9C inside ✳ (E2 9C B3) for the 8-bit string terminator even in
+// UTF-8, ends the OSC there, and prints the rest of the title onto the grid
+// (#192). The emulator must draw BODY and nothing of the title.
+func TestTerminal_anOSCTitleWithADingbatIsNotDrawn_issue192(t *testing.T) {
+	term, err := termwrap.Start(40, 5, exec.Command("printf", "\033]0;\342\234\263\357\270\217 Claude Code\007BODY"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = term.Close() }()
+
+	frame := pump(t, term, "BODY", 5*time.Second)
+
+	if got := firstRow(frame); got != "BODY" {
+		t.Errorf("first row = %q, want BODY alone: the title leaked onto the grid", got)
+	}
+}
+
+func TestTerminal_aRawSTByteInATitleIsNotDrawn_issue192(t *testing.T) {
+	term, err := termwrap.Start(40, 5, exec.Command("printf", "\033]0;a\234b title\007BODY"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = term.Close() }()
+
+	frame := pump(t, term, "BODY", 5*time.Second)
+
+	if got := firstRow(frame); got != "BODY" {
+		t.Errorf("first row = %q, want BODY alone", got)
+	}
+}
+
+func TestTerminal_aDCSPayloadWithADingbatIsNotDrawn_issue192(t *testing.T) {
+	// x/vt swallows a byte or two after a DCS's ST whatever the guard does
+	// (a plain payload with no 0x9C loses them too, checked against the raw
+	// emulator), which is not the bug here. The assertion is that the payload
+	// never reaches the grid and the text after it still does.
+	term, err := termwrap.Start(40, 5, exec.Command("printf", "\033P1$r\342\234\263 payload\033\\\nBODY"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = term.Close() }()
+
+	frame := pump(t, term, "DY", 5*time.Second)
+
+	if got := firstRow(frame); strings.Contains(frame, "payload") || !strings.HasSuffix(got, "DY") {
+		t.Errorf("first row = %q, want the text after the DCS and no payload text anywhere", got)
+	}
+}
+
+// The child sees xterm-256color whatever the host's TERM is: x/vt does not
+// implement every sequence a fancier terminfo entry would make claude emit.
+// bubbleterm's StartCommand overwrote TERM; termwrap owning the PTY must too
+// (#192).
+func TestStart_SetsTermTo256Color_issue192(t *testing.T) {
+	cmd := exec.Command("sh", "-c", `printf "term=%s" "$TERM"`)
+	cmd.Env = []string{"TERM=xterm-ghostty", "PATH=/usr/bin:/bin"}
+	term, err := termwrap.Start(40, 5, cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = term.Close() }()
+
+	frame := pump(t, term, "term=", 5*time.Second)
+
+	if got := firstRow(frame); got != "term=xterm-256color" {
+		t.Errorf("child saw %q, want term=xterm-256color", got)
+	}
+}
+
+// Close twice is nil twice: closeTerminals logs every error per session on
+// every quit, and a double-closed pty would say so every time (#192).
+func TestTerminal_CloseIsIdempotentAndReturnsNil_issue192(t *testing.T) {
+	term, err := termwrap.Start(40, 5, exec.Command("cat"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := term.Close(); err != nil {
+		t.Errorf("first Close() = %v, want nil", err)
+	}
+	if err := term.Close(); err != nil {
+		t.Errorf("second Close() = %v, want nil", err)
 	}
 }

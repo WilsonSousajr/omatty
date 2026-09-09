@@ -11,6 +11,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 printf '\033[2J\033[H'
+# The real claude sets a window title that starts with a dingbat; the byte
+# 0x9C inside it used to end the title early and print the rest onto the
+# grid (#192). Emitted here so the real-PTY smoke run sees the same bytes.
+printf '\033]0;\342\234\263\357\270\217 fake-claude\007'
 printf '\033[1m* fake-claude\033[0m session=%s\n' "$session_id"
 while IFS= read -r line; do
   printf '> %s\n' "$line"
