@@ -84,6 +84,7 @@ var reviewKeys = []keyHelp{
 	{"M A D R", "a tree row the session modified, added, deleted or renamed"},
 	{"/", "filter the tree as you type; enter keeps it, esc clears it"},
 	{"a", "attach the tree row or previewed file to the prompt as @path"},
+	{"o", "jump between a diff line and the file at that line, both ways"},
 	{"c", "comment on the line under the cursor"},
 	{"S", "submit the queued comments"},
 	{"esc", "leave the column"},

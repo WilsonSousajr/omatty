@@ -43,6 +43,8 @@ func (m *Model) reviewAction(key string) tea.Cmd {
 		m.deleteComment()
 	case "r":
 		return m.loadDiff(m.review.SessionID)
+	case "o":
+		return m.openPreviewAtCursor()
 	// Two spellings, because a terminal reporting the shift modifier gives
 	// "shift+s" while a legacy one gives the bare "S" (issue #87).
 	case "shift+s", "S":
