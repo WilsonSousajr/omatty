@@ -48,7 +48,9 @@ func TestModel_TheFooterAndHelpNameTheConfiguredLeader_issue44(t *testing.T) {
 	}
 	press(m, ctrl('a'))
 	press(m, key('?'))
-	if view := m.View().Content; !strings.Contains(view, "ctrl+a keys") || !strings.Contains(view, "ctrl+a j / k") {
+	// The body's bindings carry the leader; the body has no title of its own
+	// since the header row names the modal (#188).
+	if view := m.View().Content; !strings.Contains(view, "ctrl+a j / k") || strings.Contains(view, "ctrl+o") {
 		t.Errorf("help does not name the configured leader:\n%s", view)
 	}
 }

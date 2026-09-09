@@ -85,9 +85,10 @@ var reviewKeys = []keyHelp{
 	{"esc", "leave the column"},
 }
 
-// helpChrome is what helpLines spends on anything but a keymap row: its title,
-// the blank under it, and the closing hint.
-const helpChrome = 3
+// helpChrome is what helpLines spends on anything but a keymap row: the
+// closing hint. The title and the blank under it went when the header row
+// began naming the open modal (#177, #188); those two rows are keymap now.
+const helpChrome = 1
 
 // helpRows is how many keymap rows the help modal shows at once.
 func (m *Model) helpRows() int {
@@ -102,13 +103,14 @@ func (m *Model) helpRows() int {
 // It scrolls rather than trusting the list to fit. The body is 16 rows and the
 // pane is the window minus three, so on the 20-row window the M4 smoke test
 // uses, the entries at the bottom - including the ones #107 had just added -
-// were cut off with no way to reach them (#103, #107).
+// were cut off with no way to reach them (#103, #107). The body carries no
+// title of its own: the header row names the modal (#177, #188).
 func (m *Model) helpLines() []string {
 	w, _ := PaneSize(m.width, m.height, m.review.Open)
 	body, rows := helpBody(m.leader, w), m.helpRows()
 	start := min(max(m.modal.HelpOffset, 0), max(len(body)-rows, 0))
 	end := min(start+rows, len(body))
-	lines := append([]string{m.leader + " keys", ""}, body[start:end]...)
+	lines := append([]string{}, body[start:end]...)
 	if len(body) > rows {
 		return append(lines, "j/k scroll  esc close  ctrl+c quit")
 	}
