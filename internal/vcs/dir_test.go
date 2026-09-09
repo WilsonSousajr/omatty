@@ -68,6 +68,7 @@ func TestCLI_AllCommandsValidateTheDirectory_issue29(t *testing.T) {
 		"Untracked":      func() error { _, err := g.Untracked(missing); return err }(),
 		"UntrackedDiff":  func() error { _, err := g.UntrackedDiff(missing, "x"); return err }(),
 		"ListFiles":      func() error { _, err := g.ListFiles(missing); return err }(),
+		"Shortstat":      func() error { _, err := g.Shortstat(missing, "HEAD"); return err }(),
 	}
 	for name, err := range checks {
 		if err == nil {
