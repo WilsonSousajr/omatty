@@ -22,6 +22,13 @@ type Preview struct {
 	Binary    bool
 	Truncated bool
 	Deleted   bool
+	// Styled is Lines with syntax colouring, one for one, or nil when the
+	// file was not highlighted; Lines stays plain for measuring width. Set by
+	// the ui after the read, so this package needs no highlighter (#197).
+	Styled []string
+	// Unhighlighted says the file was too large to highlight, which the
+	// preview notes under its last line; an unknown file type is silent.
+	Unhighlighted bool
 }
 
 // ReadPreview loads rel under dir for display. Paths come from git, so they

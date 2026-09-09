@@ -47,6 +47,51 @@ func benchPreview(lines int) *Model {
 	return m
 }
 
+// benchStyledPreview is benchPreview with every line highlighted, the shape
+// #197 added: the pan clamp must still measure the plain lines, and the
+// budget #133 set must survive the styled row's ANSI-aware cut.
+func benchStyledPreview(lines int) *Model {
+	m := benchPreview(lines)
+	m.review.Preview.Styled = make([]string, lines)
+	for i := range m.review.Preview.Styled {
+		m.review.Preview.Styled[i] = "\x1b[38;5;111m" + strings.Repeat("x", 20) + "\x1b[0m" + strings.Repeat("x", 20)
+	}
+	return m
+}
+
+// A highlighted preview clamps to the same ceiling as the plain one: the
+// escapes are not cells, and the plain lines are what is measured (#197).
+func TestPanReview_AStyledPreviewClampsToItsPlainWidth_issue197(t *testing.T) {
+	plain, styled := benchPreview(50), benchStyledPreview(50)
+	for range 60 {
+		plain.panReview(panStep)
+		styled.panReview(panStep)
+	}
+	if plain.review.ColOffset != styled.review.ColOffset {
+		t.Errorf("styled ceiling %d, plain ceiling %d; want the same", styled.review.ColOffset, plain.review.ColOffset)
+	}
+}
+
+// The styled row's cut is on the render path, not the pan path, so the pan
+// budget is unchanged; this benchmark pins the cost of drawing a styled
+// row against the plain one, which is where #197's cost lives.
+func BenchmarkPreviewLine(b *testing.B) {
+	for _, tt := range []struct {
+		name string
+		m    *Model
+	}{
+		{"plain", benchPreview(10)},
+		{"styled", benchStyledPreview(10)},
+	} {
+		b.Run(tt.name, func(b *testing.B) {
+			tt.m.review.ColOffset = 16
+			for b.Loop() {
+				tt.m.previewLine(tt.m.review.Preview, 3, 27)
+			}
+		})
+	}
+}
+
 // The number behind panReview's short-circuit, so the comment there is a
 // measurement rather than a claim: a rightward pan rebuilds and measures every
 // row, and a trackpad flick asks for dozens of them in a burst on the goroutine
