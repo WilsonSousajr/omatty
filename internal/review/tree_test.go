@@ -131,3 +131,38 @@ func TestTree_VisibleOnAnEmptyTreeIsEmptyNotNil_issue131(t *testing.T) {
 		t.Errorf("Visible() = %v, want no rows", got)
 	}
 }
+
+// A turn ends and the worktree is listed again; the directory the operator
+// folded stays folded and a file claude created appears in place (#195).
+func TestTree_RelistKeepsTheCollapseState_issue195(t *testing.T) {
+	tr := review.NewTree([]string{"a/b.go", "e.go"}, map[string]bool{"a/b.go": true})
+	tr.Toggle("a")
+
+	tr.Relist([]string{"a/b.go", "a/new.go", "e.go"}, map[string]bool{"a/new.go": true})
+
+	if got := names(tr.Visible()); got != "a/*|e.go" {
+		t.Errorf("Visible() = %s, want a/*|e.go: still folded, still marked", got)
+	}
+	tr.Toggle("a")
+	if got := names(tr.Visible()); got != "a/*| b.go| new.go*|e.go" {
+		t.Errorf("Visible() = %s, want the new file in place and the old mark gone", got)
+	}
+}
+
+// A folded directory that vanished from the listing must not leave a stale
+// entry that folds a future directory of the same name unexpectedly - but a
+// directory that is still there keeps its state. Both halves in one test.
+func TestTree_RelistForgetsADirectoryThatIsGone_issue195(t *testing.T) {
+	tr := review.NewTree([]string{"a/b.go", "c/d.go"}, nil)
+	tr.Toggle("a")
+	tr.Toggle("c")
+
+	tr.Relist([]string{"c/d.go"}, nil)
+
+	if tr.Collapsed("a") {
+		t.Error("Collapsed(a) = true after a was removed from the listing")
+	}
+	if !tr.Collapsed("c") {
+		t.Error("Collapsed(c) = false after a relist that still had c")
+	}
+}

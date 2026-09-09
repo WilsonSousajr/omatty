@@ -31,14 +31,21 @@ type Tree struct {
 // sorted here rather than trusted, so a caller that concatenates two git
 // listings still gets a directory listing.
 func NewTree(paths []string, touched map[string]bool) *Tree {
+	t := &Tree{collapsed: map[string]bool{}}
+	t.rebuild(paths, touched)
+	return t
+}
+
+// rebuild replaces the rows from a fresh listing. Sorting and emitting are
+// here rather than in NewTree so Relist builds the same shape (#195).
+func (t *Tree) rebuild(paths []string, touched map[string]bool) {
 	sorted := append([]string(nil), paths...)
 	sort.Slice(sorted, func(i, j int) bool { return pathLess(sorted[i], sorted[j]) })
-	t := &Tree{collapsed: map[string]bool{}}
+	t.nodes = t.nodes[:0]
 	seen := map[string]bool{}
 	for _, p := range sorted {
 		t.addPath(p, touched, seen)
 	}
-	return t
 }
 
 // pathLess orders a listing the way a file browser reads it: at each depth a
@@ -133,6 +140,27 @@ func (t *Tree) Visible() []TreeNode {
 func (t *Tree) Retouch(touched map[string]bool) {
 	for i, n := range t.nodes {
 		t.nodes[i].Touched = touchedUnder(n.Path, n.IsDir, touched)
+	}
+}
+
+// Relist replaces the rows with a fresh listing and keeps the collapse
+// state, the way Retouch keeps it for a fresh diff: a turn ending re-lists
+// the worktree so a file claude created appears without r, and a directory
+// the operator folded must not spring open under the cursor because of it
+// (#195). A folded directory that is no longer listed is forgotten, so a
+// later directory of the same name starts open like any other.
+//
+//	tree.Relist(paths, touched)
+func (t *Tree) Relist(paths []string, touched map[string]bool) {
+	t.rebuild(paths, touched)
+	present := map[string]bool{}
+	for _, n := range t.nodes {
+		present[n.Path] = n.IsDir
+	}
+	for dir := range t.collapsed {
+		if !present[dir] {
+			delete(t.collapsed, dir)
+		}
 	}
 }
 
