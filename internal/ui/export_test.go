@@ -133,3 +133,7 @@ func AllStatuses() []watcher.Status {
 	return []watcher.Status{watcher.StatusIdle, watcher.StatusThinking, watcher.StatusTool,
 		watcher.StatusWaiting, watcher.StatusDone, watcher.StatusError, watcher.StatusExited}
 }
+
+// TokensPart is the rule's whole usage segment - meter, share and counts - so
+// a test can assert what "in" counts without rebuilding the rule (#170).
+func TokensPart(t watcher.Tokens) string { return tokensPart(t) }
