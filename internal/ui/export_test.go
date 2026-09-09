@@ -1,6 +1,10 @@
 package ui
 
-import "github.com/WilsonSousajr/omatty/internal/watcher"
+import (
+	"image/color"
+
+	"github.com/WilsonSousajr/omatty/internal/watcher"
+)
 
 // Test-only accessors, so the external ui_test package can assert against the
 // real tables and constants rather than hand-copied duplicates of them.
@@ -81,3 +85,11 @@ func RenderMeter(t watcher.Tokens) string {
 }
 func MeterGlyphs() []string { return []string{meterFull, meterEmpty} }
 func MeterCells() int       { return meterCells }
+
+// Blend, LaneCellColor and MeterCellColor are the ramps; StatusColor and
+// MutedColor their endpoints (#154).
+func Blend(a, b color.Color, t float64) color.Color       { return blend(a, b, t) }
+func LaneCellColor(s watcher.Status, age int) color.Color { return laneCellColor(s, age) }
+func MeterCellColor(i int) color.Color                    { return meterCellColor(i) }
+func StatusColor(s watcher.Status) color.Color            { return statusColors[s] }
+func MutedColor() color.Color                             { return colorMuted }
