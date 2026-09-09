@@ -61,14 +61,31 @@ func (m *Model) LaneOf(id string) string { return m.renderLane(id) }
 func (m *Model) RowOf(id string) string {
 	for _, row := range m.sidebar.Rows() {
 		if row.Session != nil && row.Session.ID == id {
-			return m.renderRow(row, SidebarWidth-2)
+			return m.renderRow(row, sidebarContentCols)
 		}
 	}
 	return ""
 }
 
-// TopRule is the box's title rule, for the width assertion (#128).
-func TopRule(focused bool, title string, w int) string { return topRule(focused, title, w) }
+// HairlineCell is one rendered hairline cell, accent or plain, so a test can
+// find which edge the accent stands on (#174). HeaderRow and RuleRow build
+// the two chrome lines from titles and widths; owner is the index of the
+// segment that owns the keys, -1 for none.
+func HairlineCell(accent bool) string { return hairlineStyle(accent).Render(hairline) }
+func HeaderRow(titles []string, widths []int, owner int) string {
+	segs := make([]segment, len(titles))
+	for i := range titles {
+		segs[i] = segment{title: titles[i], width: widths[i], owns: i == owner}
+	}
+	return headerRow(segs)
+}
+func RuleRow(widths []int) string {
+	segs := make([]segment, len(widths))
+	for i, w := range widths {
+		segs[i] = segment{width: w}
+	}
+	return ruleRow(segs)
+}
 
 // PanStep is how far one h, one l or one sideways wheel notch moves the review
 // column, so a test spins a real gesture rather than hard-coding 8 (#125).

@@ -75,7 +75,7 @@ func BenchmarkPanReview(b *testing.B) {
 // is called, which is what every real mutation site does (#133).
 func TestPanReview_ABurstWalksTheContentOnce_issue133(t *testing.T) {
 	m := benchPreview(50)
-	w := ReviewWidth(m.width, true) - 2
+	w := reviewContentWidth(m.width)
 	ceiling := 46 - w // previewRow of forty x's is "%4d  " plus forty cells
 	m.panReview(panStep)
 	if !m.review.Widest.valid {

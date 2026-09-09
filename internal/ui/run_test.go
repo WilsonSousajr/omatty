@@ -110,10 +110,10 @@ func TestStartTerminals_BirthsThePTYAtThePaneSize_issue51(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// PaneSize(140, 40) is 110x37, and the PTY is the whole pane now that the
-	// title sits in the rule (issue #75, #128).
-	if gotW != 110 || gotH != 37 {
-		t.Errorf("PTY started at %dx%d, want 110x37 (not the 140x40 window)", gotW, gotH)
+	// PaneSize(140, 40) is 112x37, and the PTY is the whole pane now that the
+	// title sits in the header row (issue #75, #128, #174).
+	if gotW != 112 || gotH != 37 {
+		t.Errorf("PTY started at %dx%d, want 112x37 (not the 140x40 window)", gotW, gotH)
 	}
 }
 

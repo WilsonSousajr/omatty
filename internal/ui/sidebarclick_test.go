@@ -14,8 +14,8 @@ func sidebarRowY(i int) int              { return ui.SidebarTop() + i }
 // its origin: a hit test asserted against the function under test cannot
 // fail (#45).
 func TestSidebarTop_IsTheFirstScrollableRow_issue45(t *testing.T) {
-	if ui.SidebarTop() != 1 {
-		t.Errorf("SidebarTop() = %d, want 1 (the rule carries the projects title, #128)", ui.SidebarTop())
+	if ui.SidebarTop() != 2 {
+		t.Errorf("SidebarTop() = %d, want 2 (the header row and the rule, #174)", ui.SidebarTop())
 	}
 }
 

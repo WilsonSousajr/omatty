@@ -86,7 +86,7 @@ func TestRenderRow_TheAgeMovedToTheFocusedPanesRule_issue128(t *testing.T) {
 	if !strings.Contains(lines[0], "4m") {
 		t.Errorf("the rule does not carry the age: %q", lines[0])
 	}
-	if row := m.RowOf("s1"); strings.Contains(row, "4m") || lipgloss.Width(row) != ui.SidebarWidth-2 {
-		t.Errorf("sidebar row %q still carries the age or is not %d cells", row, ui.SidebarWidth-2)
+	if row := m.RowOf("s1"); strings.Contains(row, "4m") || lipgloss.Width(row) != ui.SidebarWidth-1 {
+		t.Errorf("sidebar row %q still carries the age or is not %d cells", row, ui.SidebarWidth-1)
 	}
 }

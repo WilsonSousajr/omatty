@@ -27,11 +27,9 @@ func (m *Model) renderReview(w, h int) string {
 	default:
 		lines = m.reviewBody(w, h)
 	}
-	// The modal check, not m.review.Focused alone: a modal takes the keyboard
-	// without clearing that flag, so opening ctrl+o n over a focused review
-	// column drew a focused border on both at once while every advertised key
-	// went to the prompt. The border says where a keystroke lands (#21, #95).
-	return titledBox(m.reviewOwnsKeys(), m.reviewTitle(), w, fitBlock(lines, w, h))
+	// Which column owns the keys - and so wears the accent hairline - is
+	// decided once, in keyboardEdge (#174); the title is the header row's.
+	return fitBlock(lines, w, h)
 }
 
 // reviewTitle names what the column is showing, so a glance at the top row

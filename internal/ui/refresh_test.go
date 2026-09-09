@@ -144,7 +144,7 @@ func TestModel_SessionCreatedAfterAResizeIsBornAtTheCurrentPTYSize_issue73(t *te
 
 	newSession(m, "late")
 
-	if s.W != 170 || s.H != 57 {
-		t.Errorf("born at %dx%d, want PTYSize(200,60) = 170x57, not the startup size", s.W, s.H)
+	if s.W != 172 || s.H != 57 {
+		t.Errorf("born at %dx%d, want PTYSize(200,60) = 172x57, not the startup size", s.W, s.H)
 	}
 }
