@@ -57,15 +57,28 @@ func renderMeter(share float64) string {
 	return b.String()
 }
 
-// tokensPart is the rule's usage segment: the meter and its percentage when
-// there is input to measure, then the in/out counts the rule carried before
-// (#39, #153).
+// tokensPart is the usage segment whole: the meter and its percentage when
+// there is input to measure, then the in/out counts (#39, #153). The header
+// row takes the two halves separately so it can drop them one at a time
+// (#177); this joins them for a reader that wants the whole.
 func tokensPart(t watcher.Tokens) string {
-	counts := KString(inputTotal(t)) + " in / " + KString(t.Out) + " out"
+	return dots(meterPart(t), countsPart(t))
+}
+
+// meterPart is the bar and its percentage, "" with no input to measure.
+func meterPart(t watcher.Tokens) string {
 	share, ok := cacheShare(t)
 	if !ok {
-		return mutedStyle.Render(counts)
+		return ""
 	}
-	pct := strconv.Itoa(int(math.Round(share*100))) + "% cached"
-	return renderMeter(share) + " " + mutedStyle.Render(pct+" · "+counts)
+	return renderMeter(share) + " " + mutedStyle.Render(strconv.Itoa(int(math.Round(share*100)))+"% cached")
+}
+
+// countsPart is the in/out counts, "in" being everything fed (#170), and ""
+// for a session that has reported no tokens at all.
+func countsPart(t watcher.Tokens) string {
+	if t == (watcher.Tokens{}) {
+		return ""
+	}
+	return mutedStyle.Render(KString(inputTotal(t)) + " in / " + KString(t.Out) + " out")
 }

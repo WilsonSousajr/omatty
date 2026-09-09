@@ -153,3 +153,19 @@ func AllStatuses() []watcher.Status {
 // TokensPart is the rule's whole usage segment - meter, share and counts - so
 // a test can assert what "in" counts without rebuilding the rule (#170).
 func TokensPart(t watcher.Tokens) string { return tokensPart(t) }
+
+// HeaderParts and Collapse are the pane segment's pieces and the collapse
+// order, for the width table (#177). ModalNames is every surface's name.
+type HeaderParts = headerParts
+
+func Collapse(width int, p HeaderParts) string { return collapse(width, p) }
+func ModalNames() []string {
+	out := []string{}
+	for _, md := range []modal{
+		{Kind: modalPrompt}, {Kind: modalPrompt, Editor: lineEditor{Worktree: true}}, {Kind: modalRename},
+		{Kind: modalConfirm}, {Kind: modalList}, {Kind: modalPicker}, {Kind: modalAdopt}, {Kind: modalHelp},
+	} {
+		out = append(out, modalName(md))
+	}
+	return out
+}

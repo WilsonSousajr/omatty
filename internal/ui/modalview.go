@@ -222,6 +222,25 @@ func (m *Model) editorLabel() string {
 	return "new session title (blank: named by its first prompt)"
 }
 
+// modalNames is what the header row calls each surface that opens one way
+// (#177), in sentence case; a kind not listed - none - names nothing.
+var modalNames = map[modalKind]string{
+	modalRename: "rename", modalConfirm: "confirm", modalList: "switch",
+	modalPicker: "register project", modalAdopt: "adopt session", modalHelp: "keys",
+}
+
+// modalName is the open surface's name: one per surface as opened. The
+// prompt is one kind opened two ways, so it is named by how it was opened.
+func modalName(md modal) string {
+	if md.Kind != modalPrompt {
+		return modalNames[md.Kind]
+	}
+	if md.Editor.Worktree {
+		return "new worktree session"
+	}
+	return "new session"
+}
+
 // modalFooter is the keymap while a surface is open, or "" when none is. The
 // base footer is already truncated at 100 columns (issue #30), so a new key
 // earns its place here rather than lengthening that constant.
