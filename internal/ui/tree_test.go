@@ -56,6 +56,13 @@ func modelWithTree(t *testing.T) (*ui.Model, map[string]*termwrap.Fake, *fileLis
 	return m, fakes, lister, reader
 }
 
+// foldToGoMod puts the cursor on go.mod. Since #194 the fixture opens with
+// internal/ on the first row, so enter folds it and j lands on go.mod.
+func foldToGoMod(m *ui.Model) {
+	press(m, special(tea.KeyEnter))
+	press(m, key('j'))
+}
+
 func TestModel_LeaderFOpensTheTreeWithTouchedFilesMarked_issue24(t *testing.T) {
 	m, _, lister, _ := modelWithTree(t)
 
@@ -79,12 +86,11 @@ func TestModel_EnterCollapsesADirectoryAndPreviewsAFile_issue24(t *testing.T) {
 	m, _, _, reader := modelWithTree(t)
 	leader(m, key('f'))
 
-	press(m, key('j')) // internal/
-	press(m, special(tea.KeyEnter))
+	press(m, special(tea.KeyEnter)) // internal/ leads the listing (#194)
 	if strings.Contains(m.View().Content, "model.go") {
 		t.Error("enter on a directory did not collapse it")
 	}
-	press(m, key('k')) // go.mod
+	press(m, key('j')) // go.mod
 	_, cmd := m.Update(special(tea.KeyEnter))
 	deliver(m, cmd)
 
@@ -194,7 +200,8 @@ func TestModel_PreviewScrollsAndStopsAtTheEnds_issue24(t *testing.T) {
 	m, _, _, reader := modelWithTree(t)
 	reader.Files["go.mod"] = strings.Repeat("line\n", 200)
 	leader(m, key('f'))
-	_, cmd := m.Update(special(tea.KeyEnter)) // go.mod is the first row
+	foldToGoMod(m)
+	_, cmd := m.Update(special(tea.KeyEnter))
 	deliver(m, cmd)
 
 	press(m, key('k')) // already at the top
@@ -282,9 +289,10 @@ func TestModel_TogglingBackToTheTreeDoesNotRelist_issue131(t *testing.T) {
 func TestModel_LeaderFClosesAnUnfocusedTreeAndPreview_issue124(t *testing.T) {
 	m, _, _, _ := modelWithTree(t)
 	leader(m, key('f'))
+	foldToGoMod(m)
 	pressAndSettle(m, special(tea.KeyEnter))
 	if m.ReviewView() != ui.ViewPreview {
-		t.Fatalf("view = %v after enter on the first row, want the preview", m.ReviewView())
+		t.Fatalf("view = %v after enter on go.mod, want the preview", m.ReviewView())
 	}
 	press(m, special(tea.KeyEscape))
 	press(m, special(tea.KeyEscape))
@@ -305,6 +313,7 @@ func TestModel_LeaderFClosesAnUnfocusedTreeAndPreview_issue124(t *testing.T) {
 func TestModel_LeaderFOnAPreviewClosesTheColumn_issue124(t *testing.T) {
 	m, _, _, _ := modelWithTree(t)
 	leader(m, key('f'))
+	foldToGoMod(m)
 	pressAndSettle(m, special(tea.KeyEnter))
 	if m.ReviewView() != ui.ViewPreview {
 		t.Fatalf("view = %v, want the preview", m.ReviewView())
