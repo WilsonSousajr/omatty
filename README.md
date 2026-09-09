@@ -162,6 +162,7 @@ The pane takes the keys while it is open.
 | `c` | comment on the line under the cursor |
 | `d` | delete the comment under the cursor |
 | `r` | reload the diff |
+| `o` | open the preview of this file with the line under the cursor on top |
 | `S` | send every comment to Claude as one message |
 | `esc` | give the keys back to Claude, leaving the pane open |
 
@@ -197,6 +198,7 @@ when it already shows that view.
 | `r` | re-list the worktree |
 | `/` | filter the tree as you type; `enter` keeps the filter, `esc` clears it |
 | `a` | attach the row, or the previewed file, to the prompt as `@path` and go back to typing |
+| `o` | from a preview, jump to the diff at that line; from a diff line, `o` opens the preview there |
 | `esc` | from a preview back to the tree; from the tree, lift the filter, then back to Claude |
 
 A preview is syntax-highlighted when the file's type is known, in colours

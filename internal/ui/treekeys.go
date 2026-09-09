@@ -72,6 +72,8 @@ func (m *Model) onPreviewKey(key string) tea.Cmd {
 		m.review.PreviewOffset = max(m.review.PreviewOffset-1, 0)
 	case "a":
 		return m.attachPath(m.review.Preview.Path, false)
+	case "o":
+		return m.openDiffAtPreview()
 	case "esc", "ctrl+c":
 		m.review.View, m.review.ColOffset = ViewTree, 0
 	default:
