@@ -32,13 +32,46 @@ type Tree struct {
 // listings still gets a directory listing.
 func NewTree(paths []string, touched map[string]bool) *Tree {
 	sorted := append([]string(nil), paths...)
-	sort.Strings(sorted)
+	sort.Slice(sorted, func(i, j int) bool { return pathLess(sorted[i], sorted[j]) })
 	t := &Tree{collapsed: map[string]bool{}}
 	seen := map[string]bool{}
 	for _, p := range sorted {
 		t.addPath(p, touched, seen)
 	}
 	return t
+}
+
+// pathLess orders a listing the way a file browser reads it: at each depth a
+// directory before a file, then names without regard to case. Comparing one
+// component at a time is what keeps a directory's subtree one contiguous run,
+// which Visible relies on to fold it; a plain sort.Strings put go.mod above
+// internal/ and Foo.go above bar.go (#194).
+func pathLess(a, b string) bool {
+	as, bs := strings.Split(a, "/"), strings.Split(b, "/")
+	for i := 0; i < len(as) && i < len(bs); i++ {
+		if c := compareComponent(as, bs, i); c != 0 {
+			return c < 0
+		}
+	}
+	return len(as) < len(bs)
+}
+
+// compareComponent orders the i-th components of two split paths: the one
+// with more components after it is a directory and comes first; then the
+// case-folded names; then the bytes, so two names that fold alike still have
+// one order.
+func compareComponent(as, bs []string, i int) int {
+	aDir, bDir := i < len(as)-1, i < len(bs)-1
+	if aDir != bDir {
+		if aDir {
+			return -1
+		}
+		return 1
+	}
+	if c := strings.Compare(strings.ToLower(as[i]), strings.ToLower(bs[i])); c != 0 {
+		return c
+	}
+	return strings.Compare(as[i], bs[i])
 }
 
 // addPath emits every ancestor of p that has not been emitted yet, then p.

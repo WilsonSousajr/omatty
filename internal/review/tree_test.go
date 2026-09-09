@@ -30,7 +30,25 @@ func TestNewTree_PreOrderWithDirectoriesOnFirstSight_issue24(t *testing.T) {
 
 	got := names(tr.Visible())
 
-	want := "go.mod|internal/*| ui/*|  model.go*|  render.go| vcs/|  git.go"
+	// Directories lead their siblings since #194; before that go.mod came
+	// first by byte order.
+	want := "internal/*| ui/*|  model.go*|  render.go| vcs/|  git.go|go.mod"
+	if got != want {
+		t.Errorf("Visible() =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// A file browser lists directories before files at every depth and ignores
+// case, so Foo.go and bar.go read as bar, Foo rather than by byte (#194).
+func TestNewTree_DirectoriesFirstThenCaseInsensitive_issue194(t *testing.T) {
+	tr := review.NewTree([]string{
+		"go.mod", "Foo.go", "bar.go", "cmd/main.go",
+		"internal/ui/Zed.go", "internal/ui/apple.go", "internal-old/x.go",
+	}, nil)
+
+	got := names(tr.Visible())
+
+	want := "cmd/| main.go|internal/| ui/|  apple.go|  Zed.go|internal-old/| x.go|bar.go|Foo.go|go.mod"
 	if got != want {
 		t.Errorf("Visible() =\n%s\nwant\n%s", got, want)
 	}
@@ -48,7 +66,8 @@ func TestTree_ToggleHidesADirectorysChildren_issue24(t *testing.T) {
 		t.Error("Collapsed(a) = false after Toggle")
 	}
 	tr.Toggle("a")
-	if got := names(tr.Visible()); got != "a/| b.go| c/|  d.go|e.go" {
+	// c/ leads b.go since #194: directories before files at every depth.
+	if got := names(tr.Visible()); got != "a/| c/|  d.go| b.go|e.go" {
 		t.Errorf("after expanding a again: %s", got)
 	}
 }
