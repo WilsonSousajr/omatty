@@ -24,13 +24,21 @@ const meterCells = 8
 // warming from amber to green across the bar (#154), the empty ones muted.
 const meterFull, meterEmpty = "▰", "▱"
 
-// cacheShare is CacheRead over In + CacheRead + CacheWrite - everything the
-// prompt was fed. A cache write is fresh input that also primed the cache, so
-// it counts against the share, and output is not in it at all: the meter is
-// about what a turn cost, not what it produced. ok is false with no input
-// yet, so a session that has said nothing draws no meter rather than 0%.
+// inputTotal is everything the prompt was fed: fresh input plus both cache
+// halves. It is not t.In, because claude's transcript reports input_tokens as
+// only the uncached remainder - at a 95% hit rate a whole session's In is a
+// couple hundred tokens, and the rule read "154 in / 62.6k out" on a session
+// that had sent 60k (#170). Output is not in it: this is the size of what went
+// up, and the meter beside it says how much of that was cheap.
+func inputTotal(t watcher.Tokens) int { return t.In + t.CacheRead + t.CacheWrite }
+
+// cacheShare is CacheRead over everything the prompt was fed. A cache write is
+// fresh input that also primed the cache, so it counts against the share, and
+// output is not in it at all: the meter is about what a turn cost, not what it
+// produced. ok is false with no input yet, so a session that has said nothing
+// draws no meter rather than 0%.
 func cacheShare(t watcher.Tokens) (float64, bool) {
-	fed := t.In + t.CacheRead + t.CacheWrite
+	fed := inputTotal(t)
 	if fed == 0 {
 		return 0, false
 	}
@@ -53,7 +61,7 @@ func renderMeter(share float64) string {
 // there is input to measure, then the in/out counts the rule carried before
 // (#39, #153).
 func tokensPart(t watcher.Tokens) string {
-	counts := KString(t.In) + " in / " + KString(t.Out) + " out"
+	counts := KString(inputTotal(t)) + " in / " + KString(t.Out) + " out"
 	share, ok := cacheShare(t)
 	if !ok {
 		return mutedStyle.Render(counts)
