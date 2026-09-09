@@ -42,6 +42,12 @@ func (m *Model) SidebarRows() int { return len(m.sidebar.Rows()) }
 // click test can aim at a row by index (#45).
 func SidebarTop() int { return sidebarTop() }
 
+// RowHeight is the lines a row draws and RowAtLine the row under a drawn
+// line, the two halves of the card geometry the window and the click share
+// (#176).
+func RowHeight(r Row) int                            { return rowHeight(r) }
+func (s *Sidebar) RowAtLine(line int) (int, bool) { return s.rowAtLine(line) }
+
 // StatusGlyphs is every status marker, so a width test measures the real
 // table (#128).
 func StatusGlyphs() []string {
