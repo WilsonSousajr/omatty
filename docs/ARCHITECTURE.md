@@ -87,7 +87,8 @@ package that imports bubbletea.
 | `internal/config` | `~/.omatty/config.toml`. Every key optional; a missing file is every default. The only package that names a TOML library. |
 | `internal/detach` | omatty's only route to `dtach`. Returns a no-op holder when the binary is absent. |
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
-| `internal/fuzzy` | Subsequence ranking for the session switcher and the pickers. Pure, so it is table-tested. |
+| `internal/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
+| `internal/highlight` | omatty's only route to the syntax highlighter (chroma), with omatty's own colour style (#197). |
 | `internal/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
@@ -183,6 +184,7 @@ and the tests substitute a named fake for it.
 | `vcs` | the git CLI | go-git cannot do linked worktrees. A `FakeGit` records the commands the code would run. |
 | `detach` | the dtach CLI | Optional at runtime; a `Plain` holder makes its absence a footer notice rather than a code path. `dtachprobe` exists because its unit tests assert the command line dtach is *given*, and a missing directory shipped green (#43). |
 | `agent` | the coding agent | An agent is a command template plus a status adapter. A second agent is a new file here, not an edit to `supervisor`, `watcher`, `paths` and `cmd` at once (#46). |
+| `highlight` | chroma | Not pre-1.0, but the blast-radius rule is the same: one package owns the lexers and the style, and the style is omatty's because every stock theme spends the accent and the diff hues on keywords (#197). |
 
 **The adapter interface lives in the consumer.** `watcher.Adapter` is declared
 in `watcher`, not in `agent`, and `agent` imports `watcher` to satisfy it -

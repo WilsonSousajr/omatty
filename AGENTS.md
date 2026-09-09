@@ -37,6 +37,8 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 - **Git:** the `git` CLI via `os/exec`, wrapped by `internal/vcs`. Not go-git:
   linked-worktree support is v6-experimental and incomplete.
 - **Diff parsing (M3):** `github.com/bluekeyes/go-gitdiff`.
+- **Syntax highlighting (M5):** `github.com/alecthomas/chroma/v2`, behind
+  `internal/highlight`.
 - **Tests:** stdlib `testing`, `charmbracelet/x/exp/teatest`.
 
 ## Repository layout
@@ -53,6 +55,7 @@ internal/
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
+├── highlight/      [M5] OUR interface over chroma (invariant 4 in spirit).
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
