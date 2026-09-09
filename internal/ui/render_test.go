@@ -39,8 +39,8 @@ func TestModel_SidebarShowsTheSelectedRowPastTheFold_issue129(t *testing.T) {
 
 	view := m.View().Content
 
-	if !strings.Contains(view, "» ") {
-		t.Error("the sidebar shows no cursor marker: the selected row is off screen")
+	if !strings.Contains(stripSGR(view), "▎") {
+		t.Error("the sidebar shows no cursor rail: the selected card is off screen")
 	}
 	if !strings.Contains(view, "projects") {
 		t.Error("the pinned header is missing")
@@ -52,7 +52,7 @@ func TestModel_SidebarShowsTheSelectedRowPastTheFold_issue129(t *testing.T) {
 	for range 13 {
 		leader(m, key('k'))
 	}
-	if m.Selected() != "p0-s0" || !strings.Contains(m.View().Content, "> p0") {
+	if m.Selected() != "p0-s0" || !strings.HasPrefix(stripSGR(frameLines(m)[2]), " p0") {
 		t.Errorf("after 13 k presses Selected() = %q and the top project is not drawn", m.Selected())
 	}
 }
@@ -72,21 +72,5 @@ func TestRenderRow_EveryRowIsExactlySidebarWidth_issue128(t *testing.T) {
 		if w := lipgloss.Width(line); w != 100 {
 			t.Errorf("line %d is %d cells, want 100: %q", i, w, line)
 		}
-	}
-}
-
-// The age left the sidebar for the focused pane's rule.
-func TestRenderRow_TheAgeMovedToTheFocusedPanesRule_issue128(t *testing.T) {
-	m, _ := modelWithFakes(t)
-	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	status(m, "s1", watcher.TurnEnded, time.Now().Add(-4*time.Minute))
-
-	lines := strings.Split(m.View().Content, "\n")
-
-	if !strings.Contains(lines[0], "4m") {
-		t.Errorf("the rule does not carry the age: %q", lines[0])
-	}
-	if row := m.RowOf("s1"); strings.Contains(row, "4m") || lipgloss.Width(row) != ui.SidebarWidth-1 {
-		t.Errorf("sidebar row %q still carries the age or is not %d cells", row, ui.SidebarWidth-1)
 	}
 }

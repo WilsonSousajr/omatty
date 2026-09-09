@@ -55,6 +55,8 @@ var (
 	footerStyle = lipgloss.NewStyle().Foreground(colorMuted)
 	errorStyle  = lipgloss.NewStyle().Foreground(colorRed).Bold(true)
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)
+	textStyle   = lipgloss.NewStyle().Foreground(colorText)
+	accentStyle = lipgloss.NewStyle().Foreground(colorAccent)
 )
 
 // statusGlyphs pairs each status with its one-column marker (#175). The

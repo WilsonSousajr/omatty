@@ -139,10 +139,10 @@ func (m *Model) paneTitle(now time.Time) string {
 // header would spend a second row of chrome in a pane that is already short,
 // and the marker and the pane title name the session either way. now is the
 // cards' ages (#176).
-func (m *Model) renderSidebar(rows int, _ time.Time) string {
+func (m *Model) renderSidebar(rows int, now time.Time) string {
 	lines := make([]string, 0, rows)
 	for _, row := range m.sidebar.Window(rows - sidebarHeaderRows) {
-		lines = append(lines, m.renderRow(row, sidebarContentCols))
+		lines = append(lines, m.renderRow(row, now)...)
 	}
 	return fitBlock(lines, sidebarContentCols, rows)
 }
@@ -228,44 +228,6 @@ func (m *Model) footerKeys() string {
 	}
 	return treeFooterLine(m.leader)
 }
-
-// renderRow draws one sidebar line: a project header, or a session with its
-// focus marker, coloured status glyph, name and activity lane:
-//
-//	» ● parser-fix    ▁▃▇█▅▂▁▁
-//
-// The age left this row for the focused pane's rule, the one place it is
-// worth a look, and its columns became the lane (#128). Every width here is
-// lipgloss.Width: the old len(age) was a byte count, correct only while
-// AgeString returned pure ASCII, and the lane is the first non-ASCII thing
-// in this expression.
-func (m *Model) renderRow(row Row, width int) string {
-	if row.Session == nil {
-		return mutedStyle.Render(padRight(m.headerMarker(row.Project)+row.Project, width))
-	}
-	marker := "  "
-	if sel, ok := m.sidebar.Selected(); ok && sel.Session.ID == row.Session.ID {
-		marker = "» "
-	}
-	glyph := glyphStyle(row.Status).Render(statusGlyph(row.Status))
-	title := fitLine(row.Session.Title, width-rowChrome)
-	return marker + glyph + " " + title + " " + m.renderLane(row.Session.ID)
-}
-
-// headerMarker is "» " on the empty project the cursor rests on, and the
-// plain "> " on every other header, so the two spend the same two cells and
-// the names do not jog when the cursor arrives (#158).
-func (m *Model) headerMarker(project string) string {
-	if p, ok := m.sidebar.SelectedHeader(); ok && p == project {
-		return "» "
-	}
-	return "> "
-}
-
-// rowChrome is what a session row spends on anything but its name: the two
-// marker cells, the glyph and the space after it, the lane and the space
-// before it. Fifteen columns of name at SidebarWidth 28 (#155).
-const rowChrome = 2 + 1 + 1 + 1 + laneCells
 
 // fitBlock forces lines to exactly width x height so a border lands
 // precisely: short lines are padded, long ones cut, missing rows added.

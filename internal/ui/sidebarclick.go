@@ -28,23 +28,25 @@ func (m *Model) clickSidebar(msg tea.MouseClickMsg) tea.Cmd {
 }
 
 // sidebarRowAt maps a window row to an index into Sidebar.Rows, undoing what
-// renderSidebar did: the top border, the pinned header, and the scroll offset
-// the frame was drawn with. ok is false for a header with sessions under it,
-// an empty row, and anything outside the box (#45, #129, #158).
+// View did: the header row and the rule, then the drawn rows by their
+// heights, so either line of a card is the card (#45, #129, #176). ok is
+// false for a header with sessions under it, an empty line, and anything
+// outside the sidebar (#158).
 func (m *Model) sidebarRowAt(winY int) (int, bool) {
-	i := winY - sidebarTop() + m.sidebarOffset()
-	if i < 0 || i >= len(m.sidebar.Rows()) || !m.sidebar.landable(i) {
+	m.syncSidebarWindow()
+	i, ok := m.sidebar.rowAtLine(winY - sidebarTop())
+	if !ok || !m.sidebar.landable(i) {
 		return 0, false
 	}
 	return i, true
 }
 
-// sidebarOffset recomputes the window from the cursor rather than trusting
-// the last frame's, so a click before any View sees what View would draw.
-func (m *Model) sidebarOffset() int {
+// syncSidebarWindow recomputes the window from the cursor rather than
+// trusting the last frame's, so a click before any View sees what View would
+// draw.
+func (m *Model) syncSidebarWindow() {
 	_, h := PaneSize(m.width, m.height, m.review.Open)
 	m.sidebar.Window(h - sidebarHeaderRows)
-	return m.sidebar.Offset()
 }
 
 // selectRow puts the cursor on a row index. A click on the row already

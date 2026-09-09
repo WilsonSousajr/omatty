@@ -24,7 +24,9 @@ import (
 // SidebarWidth 32: that buys four more columns of title by taking four from
 // the session pane at every width, and at 80 columns the pane is already the
 // thing claude's own UI is short of. Six cells still hold the last few turns,
-// which is what the lane is for (#155).
+// which is what the lane is for (#155). #176 moved the lane to the card's
+// second line; the title has eighteen columns on the first, and six cells is
+// still the lane's budget.
 const laneCells = 6
 
 // activityLane is one session's ring of recent statuses, oldest first.
