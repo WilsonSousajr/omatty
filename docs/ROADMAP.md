@@ -400,24 +400,19 @@ Everything M7 opened and did not close, plus what running the merged result
 has found since, in the order it should be picked up.
 Each has an issue, labelled `M7` for the milestone it came out of and parked
 in Backlog until someone is actually on it. The label says where the work
-belongs; the column says whether anyone has picked it up.
+belongs; the column says whether anyone has picked it up. A bullet marked
+done stays here, naming its PR, so the list is still the whole account of
+what M7 left.
 
-- **#158 - a project with no sessions cannot be selected.** So a freshly
-  discovered project is a dead row: visible, and never usable. `jumpProject`
-  requires the landing row to be a session and `seek` skips headers, so
-  `SelectedProject()` can never name a project with no sessions - and every
-  project-scoped action reads that selection, `ctrl+o n` and `ctrl+o N`
-  included. There is no first-session path at all, for exactly the projects
-  discovery (#91) was built to add. #130 specified the skip as correct, which
-  is where it came from.
-- **#159 - a registered project can never be removed.** No `RemoveProject` in
-  the registry, no CLI verb, no leader key: hand-editing `state.json`, which
-  is what #40 stopped being the answer for sessions. `omatty discover`
-  registers in bulk from a proposed list, so one wrong pick is permanent, and
-  it pushes the operator to be conservative with the one feature built to be
-  generous. It compounds #158 - a mistaken project is both unusable and
-  unremovable. Unregistering must not touch the repository: omatty did not
-  create it, the same line #122 drew for adopted sessions.
+- **#158 - a project with no sessions cannot be selected.** Done 2026-09-08,
+  PR #161. The cursor rests on an empty project's header; `Selected()` is
+  `ok=false` there, so `]`, `j`/`k`, a click and `ctrl+o n` all reach a
+  project discovery just added. #130's skip was the bug; its tests were
+  redefined, not weakened.
+- **#159 - a registered project can never be removed.** Done 2026-09-08,
+  PR #164. `registry.RemoveProject` refuses while sessions exist and never
+  touches the repository; `omatty rm <project>`; `ctrl+o x` on an empty
+  project's header.
 - **#134 - promote `develop` to `main`.** Deferred on 2026-09-07. `develop`
   carries all seven milestones; `main` still holds `ca3952b`, the bootstrap
   commit of 2026-09-01, and has no protection. Decide the shape (merge commit
@@ -440,18 +435,18 @@ belongs; the column says whether anyone has picked it up.
   so an agent with a different settings schema needs a file per profile; and
   discovery and adoption read claude's store only, so adopting another agent's
   sessions is its own issue.
-- **#153 and #154 - the rest of #128.** The first slice shipped: glyphs,
-  titles in the rule, one lane. Still open from the issue: the token meter (a
-  proportional bar of cache-read against fresh input, from the `Tokens` the
-  tailer already counts), and the truecolor question - gradients want it, the
-  256-colour palette is a documented decision, and reversing it needs a
-  detected colour profile with a real 256-colour fallback. Both were deferred
-  to be decided with something real on screen, which is now there.
-- **#155 - the lane's title budget, judged on screen.** A session keeps
-  thirteen title columns at `SidebarWidth` 28. `laneCells` 8 → 6 gives
-  fifteen, `SidebarWidth` 28 → 32 gives seventeen. A one-constant change
-  either way; it wants the operator's own font and a real project list, not a
-  unit test.
+- **#153 and #154 - the rest of #128.** Both done 2026-09-08. The token
+  meter (PR #163) is in the focused pane's rule, the operator's call on
+  screen: `▰▰▰▰▰▰▱▱ 80% cached`, cache-read over everything the prompt was
+  fed. Truecolor (PR #166) went the other way from the 256 rule for two ramps
+  only - the lane fades with age, the newest cell kept at full colour, and
+  the meter warms amber to green - because bubbletea detects the profile and
+  quantises; a test asserts each ramp still reads at 256 and 16 colours. The
+  reasoning is in `style.go`.
+- **#155 - the lane's title budget, judged on screen.** Done 2026-09-08,
+  PR #165: `laneCells` 8 → 6, `SidebarWidth` stays 28, fifteen title columns.
+  Width 32 was judged against it and lost: it takes four columns from the
+  session pane at every width. The comparison is in `laneCells`' comment.
 - **#156 - `docs/ARCHITECTURE.md`.** AGENTS.md's documentation map listed it
   and it was never written. The package docs of `internal/agent` and
   `internal/paths` carry most of what it would say; a stranger still deserves
