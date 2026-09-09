@@ -127,7 +127,25 @@ func TestModel_helpLeaksNoKeyIntoTheSession_issue103(t *testing.T) {
 	}
 }
 
-// esc closes the help modal.
+// The header row names the modal now (#177), so the body does not repeat it:
+// its first line is the first binding, and the two rows the title and its
+// blank spent go to the keymap (#188).
+func TestModel_helpBodyDoesNotRepeatTheHeadersName_issue188(t *testing.T) {
+	m, _ := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	leader(m, key('?'))
+
+	lines := frameLines(m)
+
+	if head := stripSGR(lines[0]); !strings.Contains(head, "│ keys") {
+		t.Fatalf("the header row does not name the modal: %q", head)
+	}
+	if body := stripSGR(lines[2]); strings.Contains(body, ui.DefaultLeader+" keys") || !strings.Contains(body, ui.DefaultLeader+" j / k") {
+		t.Errorf("the help body's first line = %q, want the first binding, not the title", body)
+	}
+}
+
+// esc closes the help modal; the header row stops naming it (#177).
 func TestModel_escClosesTheHelpModal_issue103(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	press(m, ctrl('o'))
@@ -135,7 +153,7 @@ func TestModel_escClosesTheHelpModal_issue103(t *testing.T) {
 
 	press(m, special(tea.KeyEscape))
 
-	if got := m.View().Content; strings.Contains(got, ui.DefaultLeader+" keys") {
+	if got := stripSGR(m.View().Content); strings.Contains(got, "│ keys") {
 		t.Errorf("esc did not close the help modal:\n%s", got)
 	}
 }
@@ -155,7 +173,7 @@ func TestModel_theLeaderCompletesACommandFromInsideAModal_issue103(t *testing.T)
 	press(m, key('?'))
 
 	press(m, ctrl('o'))
-	if got := m.View().Content; strings.Contains(got, ui.DefaultLeader+" keys") {
+	if got := stripSGR(m.View().Content); strings.Contains(got, "│ keys") {
 		t.Errorf("the leader did not close the help modal:\n%s", got)
 	}
 	_, cmd := m.Update(key('q'))
