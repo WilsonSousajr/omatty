@@ -161,7 +161,7 @@ not in the gate.
 5. **`stdout` belongs to the TUI.** Every diagnostic goes to the slog file
    handler. A stray `fmt.Println` corrupts the screen. Enforced by `forbidigo`.
 6. **One panicking session must not kill the app.** Each supervisor goroutine
-   recovers and marks its own session `✗`.
+   recovers and marks its own session `✕`.
 7. **Comments anchor on content, not line numbers** — `(file, hunk header, line
    hash)`. Claude edits files while you read them; line-number anchors silently
    attach feedback to the wrong code.
@@ -256,7 +256,7 @@ message and explain why the behaviour it asserted was never correct.
   - Type: `feat` `fix` `docs` `test` `refactor` `perf` `chore` `build` `ci` —
     the same set as the commit-message types, so a `feat`-labelled issue
     produces `feat(#N):` commits.
-  - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7`. Every open issue carries
+  - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7` `M8`. Every open issue carries
     one, including a bug found against an already-shipped milestone - it takes
     the milestone it will be fixed in, not the one that introduced it. Work a
     milestone deferred keeps that milestone's label and waits in Backlog: the
