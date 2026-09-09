@@ -6,20 +6,20 @@ import (
 )
 
 // TreeNode is one row of the file tree: a directory or a file at a depth.
-// Touched means the session changed this file, or a file under this
-// directory, which is how a folded directory still says "something in here
-// moved" (#24).
+// Change says what the session did to this file; a directory holding a
+// changed file reads as modified, which is how a folded directory still says
+// "something in here moved" (#24, #196).
 type TreeNode struct {
-	Path    string
-	Name    string
-	Depth   int
-	IsDir   bool
-	Touched bool
+	Path   string
+	Name   string
+	Depth  int
+	IsDir  bool
+	Change Change
 }
 
 // Tree is a worktree listing with collapsible directories (#24).
 //
-//	t := review.NewTree(paths, touched)
+//	t := review.NewTree(paths, changes)
 //	rows := t.Visible()
 type Tree struct {
 	nodes     []TreeNode // the full listing in display order
@@ -27,25 +27,39 @@ type Tree struct {
 }
 
 // NewTree builds the listing from paths, emitting a directory the first time
-// a path passes through it. touched holds the changed file paths. paths are
-// sorted here rather than trusted, so a caller that concatenates two git
-// listings still gets a directory listing.
-func NewTree(paths []string, touched map[string]bool) *Tree {
+// a path passes through it. changes holds what the session did to each
+// changed file. paths are sorted here rather than trusted, so a caller that
+// concatenates two git listings still gets a directory listing.
+func NewTree(paths []string, changes map[string]Change) *Tree {
 	t := &Tree{collapsed: map[string]bool{}}
-	t.rebuild(paths, touched)
+	t.rebuild(paths, changes)
 	return t
 }
 
 // rebuild replaces the rows from a fresh listing. Sorting and emitting are
 // here rather than in NewTree so Relist builds the same shape (#195).
-func (t *Tree) rebuild(paths []string, touched map[string]bool) {
-	sorted := append([]string(nil), paths...)
+func (t *Tree) rebuild(paths []string, changes map[string]Change) {
+	sorted := withDeleted(paths, changes)
 	sort.Slice(sorted, func(i, j int) bool { return pathLess(sorted[i], sorted[j]) })
 	t.nodes = t.nodes[:0]
 	seen := map[string]bool{}
 	for _, p := range sorted {
-		t.addPath(p, touched, seen)
+		t.addPath(p, changes, seen)
 	}
+}
+
+// withDeleted appends the deleted files to a copy of the listing. A deleted
+// file is in the diff but gone from `git ls-files`, so without this the tree
+// never showed what went away (#196). A path both listed and deleted (a
+// file recreated untracked, say) is not doubled: addPath skips seen paths.
+func withDeleted(paths []string, changes map[string]Change) []string {
+	out := append([]string(nil), paths...)
+	for p, c := range changes {
+		if c == ChangeDeleted {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // pathLess orders a listing the way a file browser reads it: at each depth a
@@ -82,7 +96,7 @@ func compareComponent(as, bs []string, i int) int {
 }
 
 // addPath emits every ancestor of p that has not been emitted yet, then p.
-func (t *Tree) addPath(p string, touched, seen map[string]bool) {
+func (t *Tree) addPath(p string, changes map[string]Change, seen map[string]bool) {
 	parts := strings.Split(p, "/")
 	for i := range parts {
 		path := strings.Join(parts[:i+1], "/")
@@ -92,21 +106,24 @@ func (t *Tree) addPath(p string, touched, seen map[string]bool) {
 		seen[path] = true
 		isDir := i < len(parts)-1
 		t.nodes = append(t.nodes, TreeNode{Path: path, Name: parts[i], Depth: i,
-			IsDir: isDir, Touched: touchedUnder(path, isDir, touched)})
+			IsDir: isDir, Change: changeUnder(path, isDir, changes)})
 	}
 }
 
-// touchedUnder reports whether path, or a file beneath it, was changed.
-func touchedUnder(path string, isDir bool, touched map[string]bool) bool {
+// changeUnder is the change at path: a file's own, or modified for a
+// directory with any change beneath it. A directory is never added or
+// deleted here, even when every file in it was: git tracks files, not
+// directories, and the row is a listing artefact rather than a change.
+func changeUnder(path string, isDir bool, changes map[string]Change) Change {
 	if !isDir {
-		return touched[path]
+		return changes[path]
 	}
-	for f := range touched {
+	for f := range changes {
 		if strings.HasPrefix(f, path+"/") {
-			return true
+			return ChangeModified
 		}
 	}
-	return false
+	return ChangeNone
 }
 
 // Visible returns the rows with collapsed directories' children skipped. The
@@ -131,15 +148,17 @@ func (t *Tree) Visible() []TreeNode {
 	return out
 }
 
-// Retouch reapplies the touched set to an existing listing, keeping both the
+// Retouch reapplies the changes to an existing listing, keeping both the
 // shape and the collapse state. The worktree listing and the diff are loaded
 // independently and `git ls-files` returns first, so whichever arrives second
-// must update the tree rather than rebuild it under the cursor (#24).
+// must update the tree rather than rebuild it under the cursor (#24). A row
+// that only existed because it was deleted stays until the next Relist: the
+// shape is the listing's to change, not the diff's.
 //
-//	tree.Retouch(map[string]bool{"internal/ui/model.go": true})
-func (t *Tree) Retouch(touched map[string]bool) {
+//	tree.Retouch(map[string]review.Change{"internal/ui/model.go": review.ChangeModified})
+func (t *Tree) Retouch(changes map[string]Change) {
 	for i, n := range t.nodes {
-		t.nodes[i].Touched = touchedUnder(n.Path, n.IsDir, touched)
+		t.nodes[i].Change = changeUnder(n.Path, n.IsDir, changes)
 	}
 }
 
@@ -150,9 +169,9 @@ func (t *Tree) Retouch(touched map[string]bool) {
 // (#195). A folded directory that is no longer listed is forgotten, so a
 // later directory of the same name starts open like any other.
 //
-//	tree.Relist(paths, touched)
-func (t *Tree) Relist(paths []string, touched map[string]bool) {
-	t.rebuild(paths, touched)
+//	tree.Relist(paths, changes)
+func (t *Tree) Relist(paths []string, changes map[string]Change) {
+	t.rebuild(paths, changes)
 	present := map[string]bool{}
 	for _, n := range t.nodes {
 		present[n.Path] = n.IsDir

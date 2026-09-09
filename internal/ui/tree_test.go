@@ -75,9 +75,9 @@ func TestModel_LeaderFOpensTheTreeWithTouchedFilesMarked_issue24(t *testing.T) {
 		t.Errorf("files listed for %v, want the session dir (empty in the fixture state)", lister.Asked)
 	}
 	view := m.View().Content
-	lineWith(t, view, "* model.go")
-	if strings.Contains(lineWith(t, view, "render.go"), "*") {
-		t.Error("render.go is marked touched but the diff does not change it")
+	lineWith(t, view, "M model.go")
+	if row := lineWith(t, view, "render.go"); strings.Contains(row, "M render.go") || strings.Contains(row, "A render.go") {
+		t.Error("render.go is marked changed but the diff does not change it")
 	}
 	lineWith(t, view, "▾ internal/")
 }
@@ -193,7 +193,7 @@ func TestModel_ADiffArrivingAfterTheListingStillMarksTheTree_issue24(t *testing.
 	m.Update(ui.FilesLoadedMsg{SessionID: "s1", Paths: []string{"internal/ui/model.go", "new.txt"}})
 	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Diff: sampleDiffParsed(t)})
 
-	lineWith(t, m.View().Content, "* model.go")
+	lineWith(t, m.View().Content, "M model.go")
 }
 
 func TestModel_PreviewScrollsAndStopsAtTheEnds_issue24(t *testing.T) {

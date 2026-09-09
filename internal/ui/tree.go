@@ -74,7 +74,7 @@ func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
 	}
 	m.review.TreeErr = ""
 	if m.review.Tree == nil {
-		m.review.Tree = review.NewTree(msg.Paths, m.touched())
+		m.review.Tree = review.NewTree(msg.Paths, m.changes())
 	} else {
 		m.relistUnderCursor(msg.Paths)
 	}
@@ -94,7 +94,7 @@ func (m *Model) relistUnderCursor(paths []string) {
 	if m.review.TreeCursor < len(rows) {
 		path = rows[m.review.TreeCursor].Path
 	}
-	m.review.Tree.Relist(paths, m.touched())
+	m.review.Tree.Relist(paths, m.changes())
 	for i, n := range m.treeRows() {
 		if n.Path == path {
 			m.review.TreeCursor = i
@@ -103,13 +103,14 @@ func (m *Model) relistUnderCursor(paths []string) {
 	}
 }
 
-// touched is the set of paths the loaded diff changes, which is what puts a
-// mark beside a file in the tree. The diff and the listing arrive
-// independently, so the tree is rebuilt whenever either lands.
-func (m *Model) touched() map[string]bool {
-	out := map[string]bool{}
+// changes is what the loaded diff did to each path, which is the mark and
+// the hue beside a row in the tree (#196). The diff and the listing arrive
+// independently, so the tree is re-marked whenever either lands. A renamed
+// file is keyed on its new name, the one the listing has.
+func (m *Model) changes() map[string]review.Change {
+	out := map[string]review.Change{}
 	for _, f := range m.review.Diff.Files {
-		out[f.Path] = true
+		out[f.Path] = review.ChangeOf(f.Status)
 	}
 	return out
 }
@@ -118,7 +119,7 @@ func (m *Model) touched() map[string]bool {
 // which is the usual order: `git ls-files` returns before `git diff` (#24).
 func (m *Model) retouchTree() {
 	if m.review.Tree != nil {
-		m.review.Tree.Retouch(m.touched())
+		m.review.Tree.Retouch(m.changes())
 		m.contentChanged()
 	}
 }
@@ -150,14 +151,26 @@ func (m *Model) openTreeNode() tea.Cmd {
 		return nil
 	}
 	n := rows[m.review.TreeCursor]
-	if n.IsDir {
+	switch {
+	case n.IsDir:
 		m.review.Tree.Toggle(n.Path)
 		m.contentChanged()
 		m.moveTreeCursor(0)
-		return nil
+	case n.Change == review.ChangeDeleted:
+		m.previewDeleted(n.Path)
+	default:
+		m.previewFile(n.Path)
 	}
-	m.previewFile(n.Path)
 	return nil
+}
+
+// previewDeleted opens the preview on a row the diff deleted: there is no
+// file to read, and a read error would say "no such file" about a row the
+// tree itself put there (#196).
+func (m *Model) previewDeleted(rel string) {
+	m.review.Preview = review.Preview{Path: rel, Deleted: true}
+	m.review.PreviewOffset, m.review.View, m.review.ColOffset = 0, ViewPreview, 0
+	m.contentChanged()
 }
 
 // previewFile reads synchronously rather than as a command: the read is

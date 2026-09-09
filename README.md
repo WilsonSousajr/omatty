@@ -181,8 +181,10 @@ Pending comments live in memory: quitting omatty drops them.
 ## File tree
 
 `ctrl+o f` shows the same column as the session's worktree instead of its diff.
-A `*` marks every file the session changed, and a directory holding one, so you
-can see the shape of a change before reading it. The two views share one column:
+A letter marks every file the session changed - `M` modified, `A` added, `D`
+deleted, `R` renamed - in the colour the diff gives that state, and a directory
+holding one reads as `M`, so you can see the shape of a change before reading
+it. A deleted file keeps its row, in red, until the next listing without it. The two views share one column:
 `ctrl+o d` and `ctrl+o f` switch between them, and either key closes the column
 when it already shows that view.
 
