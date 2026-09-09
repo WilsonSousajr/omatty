@@ -438,7 +438,10 @@ what M7 left.
 - **#153 and #154 - the rest of #128.** Both done 2026-09-08. The token
   meter (PR #163) is in the focused pane's rule, the operator's call on
   screen: `▰▰▰▰▰▰▱▱ 80% cached`, cache-read over everything the prompt was
-  fed. Truecolor (PR #166) went the other way from the 256 rule for two ramps
+  fed. The counts beside it say that same total, not `input_tokens`, since
+  #170: claude reports that field as the uncached remainder alone, so a
+  well-cached session read `154 in / 62.6k out` as though it had sent
+  nothing. Truecolor (PR #166) went the other way from the 256 rule for two ramps
   only - the lane fades with age, the newest cell kept at full colour, and
   the meter warms amber to green - because bubbletea detects the profile and
   quantises; a test asserts each ramp still reads at 256 and 16 colours. The

@@ -67,7 +67,9 @@ func TestModel_TheRuleCarriesTheCacheMeter_issue153(t *testing.T) {
 	if !strings.Contains(rule, "▰▰▰▰▰▰▱▱") || !strings.Contains(rule, "80% cached") {
 		t.Errorf("the rule does not carry the meter and its share: %q", rule)
 	}
-	if !strings.Contains(rule, "2.0k in / 500 out") {
+	// 10.0k, not the 2.0k this asserted when #153 shipped: "in" is everything
+	// fed, so the 8000 served from cache is part of it (#170).
+	if !strings.Contains(rule, "10.0k in / 500 out") {
 		t.Errorf("the rule lost the counts: %q", rule)
 	}
 	if row := m.RowOf("s1"); strings.ContainsAny(row, "▰▱") {
@@ -76,6 +78,27 @@ func TestModel_TheRuleCarriesTheCacheMeter_issue153(t *testing.T) {
 	for i, line := range lines {
 		if w := lipgloss.Width(line); w != 100 {
 			t.Errorf("line %d is %d cells, want 100: %q", i, w, line)
+		}
+	}
+}
+
+// "in" is everything the prompt was fed, not the uncached remainder claude's
+// transcript calls input_tokens. At a 95% hit rate that field collapses to a
+// couple hundred tokens, so the rule read "154 in / 62.6k out" on a session
+// that had sent 60k - the opposite of what happened (#170).
+func TestTokensPart_InIsEverythingFed_issue170(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		tokens watcher.Tokens
+		want   string
+	}{
+		{"cache hides the input", watcher.Tokens{In: 154, CacheRead: 60_000, CacheWrite: 2_400, Out: 62_600}, "62.6k in / 62.6k out"},
+		{"a cold turn is all fresh", watcher.Tokens{In: 2_000, Out: 500}, "2.0k in / 500 out"},
+		{"a write counts as fed", watcher.Tokens{CacheWrite: 1_500, Out: 20}, "1.5k in / 20 out"},
+	} {
+		got := stripSGR(ui.TokensPart(tt.tokens))
+		if !strings.Contains(got, tt.want) {
+			t.Errorf("%s: TokensPart(%+v) = %q, want it to contain %q", tt.name, tt.tokens, got, tt.want)
 		}
 	}
 }
