@@ -447,11 +447,9 @@ what M7 left.
   PR #165: `laneCells` 8 → 6, `SidebarWidth` stays 28, fifteen title columns.
   Width 32 was judged against it and lost: it takes four columns from the
   session pane at every width. The comparison is in `laneCells`' comment.
-- **#156 - `docs/ARCHITECTURE.md`.** AGENTS.md's documentation map listed it
-  and it was never written. The package docs of `internal/agent` and
-  `internal/paths` carry most of what it would say; a stranger still deserves
-  the one-page version: data flow, the package breakdown, and why each
-  invariant exists.
+- **#156 - `docs/ARCHITECTURE.md`.** Done 2026-09-09. Data flow, the
+  package table, the eleven invariants each with the failure behind it, and
+  the four seams; AGENTS.md's documentation map points at it again.
 
 ---
 
