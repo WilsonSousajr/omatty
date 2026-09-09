@@ -237,7 +237,7 @@ func (m *Model) headerMarker(project string) string {
 
 // rowChrome is what a session row spends on anything but its name: the two
 // marker cells, the glyph and the space after it, the lane and the space
-// before it. Thirteen columns of name at SidebarWidth 28.
+// before it. Fifteen columns of name at SidebarWidth 28 (#155).
 const rowChrome = 2 + 1 + 1 + 1 + laneCells
 
 // fitBlock forces lines to exactly width x height so a border lands
