@@ -140,9 +140,10 @@ func TestModel_EveryColumnIsSpentOnARenderedPane_issue34(t *testing.T) {
 
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
-	// sidebar outer (28) + terminal content + its two border columns == window.
-	if got := ui.SidebarWidth + fakes["s1"].Width + 2; got != 100 {
-		t.Errorf("sidebar + terminal + borders = %d, want the full 100; %d columns are "+
+	// sidebar outer (28, its hairline included) + terminal content == window;
+	// the pane spends no border columns of its own (#174).
+	if got := ui.SidebarWidth + fakes["s1"].Width; got != 100 {
+		t.Errorf("sidebar + terminal = %d, want the full 100; %d columns are "+
 			"reserved for something that is not rendered", got, 100-got)
 	}
 }
@@ -156,10 +157,10 @@ func TestModel_terminalHeightLeavesRoomForFooterAndBorders_issue34(t *testing.T)
 
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
-	// The footer row and two border rows come off: 30 - 3 = 27. The title is
-	// in the top rule, not on a row of its own (#128).
+	// The header row, the rule and the footer come off: 30 - 3 = 27. The
+	// title is in the header row, not on a row of its own (#128, #174).
 	if got := fakes["s1"].Height; got != 27 {
-		t.Errorf("terminal height = %d, want 27 (30 minus footer and borders)", got)
+		t.Errorf("terminal height = %d, want 27 (30 minus header, rule and footer)", got)
 	}
 }
 
@@ -173,8 +174,8 @@ func TestModel_EveryColumnIsSpentWithTheReviewOpen_issue21(t *testing.T) {
 	press(m, ctrl('o'))
 	press(m, key('d'))
 
-	if got := ui.SidebarWidth + ui.ReviewWidth(100, true) + fakes["s1"].Width + 2; got != 100 {
-		t.Errorf("sidebar + review + terminal + borders = %d, want the full 100; %d columns are "+
+	if got := ui.SidebarWidth + ui.ReviewWidth(100, true) + fakes["s1"].Width; got != 100 {
+		t.Errorf("sidebar + review + terminal = %d, want the full 100; %d columns are "+
 			"reserved for something that is not rendered", got, 100-got)
 	}
 }

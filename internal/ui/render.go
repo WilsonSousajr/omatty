@@ -79,19 +79,11 @@ func (m *Model) emptyStateHint() string {
 	return "no sessions in " + p + " - press " + m.leader + " n to create one"
 }
 
-// View lays the sidebar beside the focused session's terminal, with the
-// keymap underneath (issue #35). Both boxes are sized exactly before the
-// border is applied, so lipgloss adds precisely one column and row per side
-// and the frame never exceeds the window.
+// View lays the header row and the rule over the body, and the keymap under
+// it (#35, #174). Every column is sized exactly before it is joined, so the
+// frame never exceeds the window.
 func (m *Model) View() tea.View {
-	termW, termH := PaneSize(m.width, m.height, m.review.Open)
-	now := m.clock() // once per frame, so every row ages against the same instant
-	columns := []string{m.renderSidebar(termH), m.renderTerminal(termW, termH, now)}
-	if m.review.Open {
-		columns = append(columns, m.renderReview(ReviewWidth(m.width, true)-2, termH))
-	}
-	panes := lipgloss.JoinHorizontal(lipgloss.Top, columns...)
-	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, panes, m.renderFooter()))
+	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, m.frame(), m.renderFooter()))
 	v.AltScreen = true
 	v.ReportFocus = true // so FocusMsg/BlurMsg drive notifications
 	// Without this the host sends no mouse events at all, and its alternate
@@ -103,36 +95,71 @@ func (m *Model) View() tea.View {
 	return v
 }
 
-// renderSidebar boxes the project/session rows at exactly SidebarWidth. The
-// "projects" line is chrome and stays pinned; the rows beneath it scroll so
-// the cursor is always drawn (#129). A project header scrolled off leaves its
-// sessions unlabelled, deliberately: pinning the current project's header
-// would spend a second row of chrome in a pane that is already short, and the
-// marker and the pane title name the session either way.
-func (m *Model) renderSidebar(rows int) string {
-	inner := SidebarWidth - 2
-	lines := make([]string, 0, rows)
-	for _, row := range m.sidebar.Window(rows - sidebarHeaderRows) {
-		lines = append(lines, m.renderRow(row, inner))
-	}
-	return titledBox(false, "projects", inner, fitBlock(lines, inner, rows))
+// frame is the header row, the rule and the body: the sidebar, the pane and,
+// when open, the review column, a hairline between each pair (#174).
+func (m *Model) frame() string {
+	termW, termH := PaneSize(m.width, m.height, m.review.Open)
+	now := m.clock() // once per frame, so every age is measured against the same instant
+	cols, segs := m.bodyColumns(termW, termH, now)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
+	return lipgloss.JoinVertical(lipgloss.Left, headerRow(segs), ruleRow(segs), body)
 }
 
-// renderTerminal boxes the open modal surface, the focused terminal, or the
+// bodyColumns is every column with the hairline before each one but the
+// first, and one header segment per column. The accent hairline and the ink
+// title go to the same column: the one keyboardEdge names.
+func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segment) {
+	edge := m.keyboardEdge()
+	cols := []string{m.renderSidebar(termH, now), hairlineColumn(edge == edgePane, termH), m.renderTerminal(termW, termH)}
+	segs := []segment{
+		{title: "projects", width: sidebarContentCols},
+		{title: m.paneTitle(now), width: termW, owns: edge == edgePane},
+	}
+	if !m.review.Open {
+		return cols, segs
+	}
+	rw := reviewContentWidth(m.width)
+	cols = append(cols, hairlineColumn(edge == edgeReview, termH), m.renderReview(rw, termH))
+	return cols, append(segs, segment{title: m.reviewTitle(), width: rw, owns: edge == edgeReview})
+}
+
+// paneTitle is the pane's header segment: the focused session's title line,
+// nothing for a modal or an empty pane. Slice #177 makes it the breadcrumb.
+func (m *Model) paneTitle(now time.Time) string {
+	if m.modalOpen() || m.focusedTerminal() == nil {
+		return ""
+	}
+	return m.terminalTitle(now)
+}
+
+// renderSidebar draws the project/session rows in the sidebar's content
+// columns; the "projects" title is the header row's (#128, #174). The rows
+// scroll so the cursor is always drawn (#129). A project header scrolled off
+// leaves its sessions unlabelled, deliberately: pinning the current project's
+// header would spend a second row of chrome in a pane that is already short,
+// and the marker and the pane title name the session either way. now is the
+// cards' ages (#176).
+func (m *Model) renderSidebar(rows int, _ time.Time) string {
+	lines := make([]string, 0, rows)
+	for _, row := range m.sidebar.Window(rows - sidebarHeaderRows) {
+		lines = append(lines, m.renderRow(row, sidebarContentCols))
+	}
+	return fitBlock(lines, sidebarContentCols, rows)
+}
+
+// renderTerminal draws the open modal surface, the focused terminal, or the
 // empty-state guidance. The modal takes the pane's content at the pane's own
-// size, never a size of its own (#95).
-func (m *Model) renderTerminal(w, h int, now time.Time) string {
+// size, never a size of its own (#95). Which column owns the keys is the
+// hairline's to say, decided in keyboardEdge (#174).
+func (m *Model) renderTerminal(w, h int) string {
 	if m.modalOpen() {
-		return titledBox(true, "", w, fitBlock(m.modalLines(), w, h))
+		return fitBlock(m.modalLines(), w, h)
 	}
 	if term := m.focusedTerminal(); term != nil {
-		// h rows, not h-1: the title is in the rule now (#128).
-		body := fitBlock(strings.Split(term.View(), "\n"), w, h)
-		// Dimmed while the review column has the keys, so the border says
-		// where a keystroke will land (#21).
-		return titledBox(!m.review.Focused, m.terminalTitle(now), w, body)
+		// h rows, not h-1: the title is in the header row (#128, #174).
+		return fitBlock(strings.Split(term.View(), "\n"), w, h)
 	}
-	return titledBox(false, "", w, fitBlock(m.emptyLines(), w, h))
+	return fitBlock(m.emptyLines(), w, h)
 }
 
 // emptyLines is the pane with no session to show: what to do next, and the way
@@ -254,9 +281,13 @@ func fitBlock(lines []string, width, height int) string {
 	return strings.Join(out, "\n")
 }
 
+// fitLine makes s exactly width cells: cut when longer, padded when shorter.
+// A cut that lands inside a wide rune drops the whole rune and leaves a cell
+// short, so the cut is padded too - the header row's exact width depends on
+// it, where the box's rule used to measure the title itself (#174).
 func fitLine(s string, width int) string {
 	if lipgloss.Width(s) > width {
-		return lipgloss.NewStyle().MaxWidth(width).Render(s)
+		s = lipgloss.NewStyle().MaxWidth(width).Render(s)
 	}
 	return padRight(s, width)
 }

@@ -96,7 +96,7 @@ func TestModel_RestartBirthsAtTheCurrentPTYSize_issue73(t *testing.T) {
 	press(m, ctrl('o'))
 	pressAndSettle(m, key('r'))
 
-	if s.W != 170 || s.H != 57 {
-		t.Errorf("restarted at %dx%d, want PTYSize(200,60) = 170x57", s.W, s.H)
+	if s.W != 172 || s.H != 57 {
+		t.Errorf("restarted at %dx%d, want PTYSize(200,60) = 172x57", s.W, s.H)
 	}
 }

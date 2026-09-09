@@ -19,10 +19,10 @@ import (
 // stays an index, and there is still one theme: the ramps' endpoints are the
 // palette, so nothing here is a second set of colours.
 var (
-	colorFocused = lipgloss.Color("39")  // blue
-	colorBlurred = lipgloss.Color("240") // grey
-	colorMuted   = lipgloss.Color("245")
-	colorFooter  = lipgloss.Color("245")
+	colorAccent   = lipgloss.Color("39")  // blue: focus, the keyboard owner's hairline (#174)
+	colorHairline = lipgloss.Color("240") // grey: every other divider
+	colorMuted    = lipgloss.Color("245")
+	colorFooter   = lipgloss.Color("245")
 )
 
 // statusColors gives each status a colour; the glyph alone is hard to scan.
@@ -35,32 +35,13 @@ var statusColors = map[watcher.Status]color.Color{
 	watcher.StatusExited:   lipgloss.Color("240"),
 }
 
-// paneBox draws a rounded border; focused panes are coloured, others grey.
-func paneBox(focused bool) lipgloss.Style {
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(borderColor(focused))
-}
-
-// borderColor is the pane border's colour: focused or blurred.
-func borderColor(focused bool) color.Color {
-	if focused {
-		return colorFocused
-	}
-	return colorBlurred
-}
-
-// borderStyle draws the rule a pane box's title sits in, in the border's
-// own colour, so the top of the box matches its other three sides (#128).
-func borderStyle(focused bool) lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(borderColor(focused))
-}
-
 // glyphStyle colours a status glyph.
 func glyphStyle(s watcher.Status) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(glyphColor(s))
 }
 
 var (
-	headerStyle = lipgloss.NewStyle().Foreground(colorFocused).Bold(true)
+	headerStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 	footerStyle = lipgloss.NewStyle().Foreground(colorFooter)
 	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)

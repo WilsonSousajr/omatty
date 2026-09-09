@@ -21,7 +21,7 @@ const fixtureWidth = 100
 // no-argument overReview in wheel_test.go assumes DefaultWidth.
 func overReviewAt(width int) (x, y int) {
 	_, oy := ui.PaneOrigin()
-	return width - ui.ReviewWidth(width, true) + 2, oy + 3
+	return width - ui.ReviewWidth(width, true) + 1, oy + 3
 }
 
 func wheelMod(x, y int, b tea.MouseButton, mod tea.KeyMod) tea.MouseWheelMsg {

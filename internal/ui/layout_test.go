@@ -9,14 +9,26 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
-// Both boxes are content plus one border column each side; the sidebar's
-// outer width is fixed and the terminal takes the rest.
+// The sidebar's outer width is fixed and the terminal takes the rest. No box
+// spends columns any more (#174): the sidebar's hairline is inside its 28.
 func TestPaneSize_SubtractsSidebarAndBorders_issue35(t *testing.T) {
 	w, h := ui.PaneSize(120, 40, false)
 
-	// terminal outer = 120 - 28 = 92; content = 90. Rows: 40 - footer 1 - border 2 = 37.
-	if w != 90 || h != 37 {
-		t.Errorf("PaneSize(120, 40) = (%d, %d), want (90, 37)", w, h)
+	// terminal = 120 - 28 = 92. Rows: 40 - header 1 - rule 1 - footer 1 = 37.
+	if w != 92 || h != 37 {
+		t.Errorf("PaneSize(120, 40) = (%d, %d), want (92, 37)", w, h)
+	}
+}
+
+// The two border rows became the header row and the rule, so the pane keeps
+// its rows; the two border columns are gone, so it gains two (#174).
+func TestPaneSize_TheFrameSpendsTwoRowsAndNoColumns_issue174(t *testing.T) {
+	w, h := ui.PaneSize(80, 24, false)
+	if w != 80-ui.SidebarWidth || h != 24-3 {
+		t.Errorf("PaneSize(80,24) = %dx%d, want %dx21", w, h, 80-ui.SidebarWidth)
+	}
+	if x, y := ui.PaneOrigin(); x != ui.SidebarWidth || y != 2 {
+		t.Errorf("PaneOrigin() = (%d,%d), want (%d,2)", x, y, ui.SidebarWidth)
 	}
 }
 
@@ -60,10 +72,10 @@ func TestModel_ResizePassesPaneSizeToTheSelectedTerminal_issue35(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	f := fakes["s1"]
-	// PaneSize 90x37; the title is in the rule, so the PTY is the whole pane
-	// (issue #75, #128).
-	if f.Width != 90 || f.Height != 37 {
-		t.Errorf("terminal resized to %dx%d, want PTYSize 90x37", f.Width, f.Height)
+	// PaneSize 92x37; the title is in the header row, so the PTY is the whole
+	// pane (issue #75, #128, #174).
+	if f.Width != 92 || f.Height != 37 {
+		t.Errorf("terminal resized to %dx%d, want PTYSize 92x37", f.Width, f.Height)
 	}
 }
 
@@ -145,30 +157,18 @@ func TestPaneSize_ReviewColumnTakesTwoFifthsOfTheRest_issue21(t *testing.T) {
 		t.Errorf("ReviewWidth(closed) = %d, want 0", got)
 	}
 	w, h := ui.PaneSize(100, 30, true)
-	// 100 - sidebar 28 - review 28 - terminal borders 2 = 42; rows unchanged.
-	if w != 42 || h != 27 {
-		t.Errorf("PaneSize(100, 30, open) = (%d, %d), want (42, 27)", w, h)
+	// 100 - sidebar 28 - review 28 = 44 (#174: no border columns); rows unchanged.
+	if w != 44 || h != 27 {
+		t.Errorf("PaneSize(100, 30, open) = (%d, %d), want (44, 27)", w, h)
 	}
-	if w, _ := ui.PaneSize(160, 45, true); w != 78 {
-		t.Errorf("PaneSize(160, 45, open) width = %d, want 78 (review 52)", w)
+	if w, _ := ui.PaneSize(160, 45, true); w != 80 {
+		t.Errorf("PaneSize(160, 45, open) width = %d, want 80 (review 52)", w)
 	}
 }
 
 func TestReviewWidth_FloorsOnANarrowWindow_issue21(t *testing.T) {
 	if got := ui.ReviewWidth(60, true); got != 24 {
 		t.Errorf("ReviewWidth(60) = %d, want the floor 24", got)
-	}
-}
-
-func TestTopRule_IsExactlyTheBoxWidth_issue128(t *testing.T) {
-	for _, tt := range []struct {
-		title string
-		w     int
-	}{{"", 10}, {"parser-fix", 30}, {strings.Repeat("x", 80), 20}, {"日本語のタイトル", 12}, {"t", 3}} {
-		got := ui.TopRule(false, tt.title, tt.w)
-		if lipgloss.Width(got) != tt.w+2 {
-			t.Errorf("TopRule(%q, %d) is %d cells, want %d", tt.title, tt.w, lipgloss.Width(got), tt.w+2)
-		}
 	}
 }
 

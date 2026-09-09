@@ -24,7 +24,7 @@ func overSidebar() (x, y int) {
 
 func overReview() (x, y int) {
 	_, oy := ui.PaneOrigin()
-	return ui.DefaultWidth - ui.ReviewWidth(ui.DefaultWidth, true) + 2, oy + 3
+	return ui.DefaultWidth - ui.ReviewWidth(ui.DefaultWidth, true) + 1, oy + 3
 }
 
 func wheel(x, y int, b tea.MouseButton) tea.MouseWheelMsg {

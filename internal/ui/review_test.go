@@ -112,8 +112,8 @@ func TestModel_LeaderDOpensTheReviewOnTheFocusedSession_issue21(t *testing.T) {
 	if !strings.Contains(m.View().Content, "internal/ui/model.go") {
 		t.Errorf("the loaded diff is not rendered:\n%s", m.View().Content)
 	}
-	if fakes["s1"].Width != 42 {
-		t.Errorf("terminal width = %d after opening, want 42", fakes["s1"].Width)
+	if fakes["s1"].Width != 44 {
+		t.Errorf("terminal width = %d after opening, want 44 (100 - sidebar 28 - review 28, #174)", fakes["s1"].Width)
 	}
 }
 
@@ -126,8 +126,8 @@ func TestModel_LeaderDAgainClosesTheReviewAndRestoresTheTerminal_issue21(t *test
 	if m.ReviewOpen() {
 		t.Fatal("review still open after a second ctrl+o d")
 	}
-	if fakes["s1"].Width != 70 {
-		t.Errorf("terminal width = %d after closing, want 70 (PaneSize 100 closed)", fakes["s1"].Width)
+	if fakes["s1"].Width != 72 {
+		t.Errorf("terminal width = %d after closing, want 72 (PaneSize 100 closed)", fakes["s1"].Width)
 	}
 }
 

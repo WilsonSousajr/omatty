@@ -7,31 +7,36 @@ const SidebarWidth = 28
 // footerRows is the keymap line below both panes.
 const footerRows = 1
 
-// borderRows, borderCols and titleRows are the pane box's border and the title
-// line renderTerminal draws above the embedded terminal. Together they are how
-// far into the window the emulator's first cell lands. Every derivation of the
-// pane's geometry goes through them, so a second title row moves the caret, the
-// wheel target and the emulator's own height together (#106, #107).
+// headerRows is the breadcrumb row across the top of the window and ruleRows
+// the rule beneath it (#174). Together they replaced the pane box's two
+// border rows, so the pane keeps exactly the rows it had; the two border
+// columns went to the pane. Every derivation of the pane's geometry goes
+// through them, so the caret, the wheel target, the click hit-test and the
+// emulator's size move together (#106, #107, #45).
 const (
-	borderRows = 1
-	borderCols = 1
-	// titleRows is 0: the pane's title is drawn in its top border rule rather
-	// than on a row of its own (#128). The constant stays because PaneOrigin
-	// and PTYSize derive from it and #106 and #107 both measure through it - a
-	// title row, if one returns, moves the caret, the wheel target and the
-	// emulator's height together.
+	headerRows = 1
+	ruleRows   = 1
+	// titleRows is 0: the pane's title is drawn in the header row rather
+	// than on a row of its own (#128, #174). The constant stays because
+	// PaneOrigin and PTYSize derive from it and #106 and #107 both measure
+	// through it - a title row, if one returns, moves the caret, the wheel
+	// target and the emulator's height together.
 	titleRows = 0
 )
+
+// sidebarContentCols is what the sidebar draws in: its outer width minus the
+// hairline on its right, which belongs to no column (#174).
+const sidebarContentCols = SidebarWidth - 1
 
 // sidebarHeaderRows is the pinned "projects" line renderSidebar draws above
 // the scrolling rows (#129). Named here so the renderer that applies it and
 // the click hit-test that undoes it (#45) cannot drift, and so moving the
 // header into the box's top rule (#128) is one constant.
-const sidebarHeaderRows = 0 // the "projects" line moved into the rule (#128)
+const sidebarHeaderRows = 0 // the "projects" line moved into the rule (#128), then the header row (#174)
 
-// sidebarTop is the window row the first scrollable sidebar row is drawn
-// at: the exact inverse of what renderSidebar prepends (#45).
-func sidebarTop() int { return borderRows + sidebarHeaderRows }
+// sidebarTop is the window row the first sidebar row is drawn at: under the
+// header row and the rule, the exact inverse of what View prepends (#45).
+func sidebarTop() int { return headerRows + ruleRows + sidebarHeaderRows }
 
 // DefaultWidth and DefaultHeight are the size assumed before the terminal
 // reports its own, and the fallback cmd uses when it cannot query one.
@@ -54,8 +59,8 @@ const (
 	minReviewWidth = 24
 )
 
-// ReviewWidth is the review column's outer width, borders included, for a
-// window; 0 while the column is closed.
+// ReviewWidth is the review column's outer width, its left hairline included,
+// for a window; 0 while the column is closed.
 //
 //	ui.ReviewWidth(100, true) // 28
 func ReviewWidth(width int, open bool) int {
@@ -69,16 +74,20 @@ func ReviewWidth(width int, open bool) int {
 	return w
 }
 
-// PaneSize returns the terminal's content size for a window. Each box spends
-// one column and one row on each side for its border, so the terminal's
-// content is the window minus the sidebar, minus the review column when it is
-// open, minus its own two border columns; its rows are the window minus the
-// footer and two border rows (issues #35, #21).
+// reviewContentWidth is the review column's content: its outer width minus
+// its own left hairline. Named once because the renderer and the pan clamp
+// both need it and a literal in each drifted before (#94, #174).
+func reviewContentWidth(width int) int { return ReviewWidth(width, true) - 1 }
+
+// PaneSize returns the terminal's content size for a window. No box spends
+// columns any more (#174): the window minus the sidebar, minus the review
+// column when it is open, is the pane; its rows are the window minus the
+// header row, the rule and the footer (issues #35, #21).
 //
-//	w, h := ui.PaneSize(120, 40, false) // 90, 37
+//	w, h := ui.PaneSize(120, 40, false) // 92, 37
 func PaneSize(width, height int, reviewOpen bool) (termW, termH int) {
-	termW = width - SidebarWidth - ReviewWidth(width, reviewOpen) - 2*borderCols
-	termH = height - footerRows - 2*borderRows
+	termW = width - SidebarWidth - ReviewWidth(width, reviewOpen)
+	termH = height - headerRows - ruleRows - footerRows
 	if termW < minTermWidth {
 		termW = minTermWidth
 	}
@@ -89,13 +98,13 @@ func PaneSize(width, height int, reviewOpen bool) (termW, termH int) {
 }
 
 // PaneOrigin is the window cell the embedded terminal's top-left cell is
-// drawn at: past the sidebar box and the pane box's left border, and below
-// that box's top border and its title row. Cursor placement (#106) and mouse
+// drawn at: past the sidebar and its hairline, and below the header row, the
+// rule and the title row (#174). Cursor placement (#106) and mouse
 // translation (#107) both need it, so it is derived here once.
 //
-//	x, y := ui.PaneOrigin() // 29, 2
+//	x, y := ui.PaneOrigin() // 28, 2
 func PaneOrigin() (x, y int) {
-	return SidebarWidth + borderCols, borderRows + titleRows
+	return SidebarWidth, headerRows + ruleRows + titleRows
 }
 
 // inPaneGrid reports whether a cell of the embedded terminal's own grid is
@@ -116,7 +125,7 @@ func (m *Model) inPaneGrid(x, y int) bool {
 // dimensions are derived, for birth and for every resize, so the two can
 // never drift (issues #51, #75).
 //
-//	w, h := ui.PTYSize(120, 40, false) // 90, 36
+//	w, h := ui.PTYSize(120, 40, false) // 92, 37
 func PTYSize(width, height int, reviewOpen bool) (w, h int) {
 	w, h = PaneSize(width, height, reviewOpen)
 	return w, h - titleRows
