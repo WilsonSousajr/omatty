@@ -112,9 +112,11 @@ func (m *Model) frame() string {
 func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segment) {
 	edge := m.keyboardEdge()
 	cols := []string{m.renderSidebar(termH, now), hairlineColumn(edge == edgePane, termH), m.renderTerminal(termW, termH)}
+	// termW-2: the leading space headerRow adds and one blank before the
+	// hairline, so the right-aligned usage never touches it (#177).
 	segs := []segment{
-		{title: "projects", width: sidebarContentCols},
-		{title: m.paneTitle(now), width: termW, owns: edge == edgePane},
+		{title: m.sidebarSegment(), width: sidebarContentCols},
+		{title: m.paneSegment(now, termW-2, edge == edgePane), width: termW, owns: edge == edgePane},
 	}
 	if !m.review.Open {
 		return cols, segs
@@ -122,15 +124,6 @@ func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segmen
 	rw := reviewContentWidth(m.width)
 	cols = append(cols, hairlineColumn(edge == edgeReview, termH), m.renderReview(rw, termH))
 	return cols, append(segs, segment{title: m.reviewTitle(), width: rw, owns: edge == edgeReview})
-}
-
-// paneTitle is the pane's header segment: the focused session's title line,
-// nothing for a modal or an empty pane. Slice #177 makes it the breadcrumb.
-func (m *Model) paneTitle(now time.Time) string {
-	if m.modalOpen() || m.focusedTerminal() == nil {
-		return ""
-	}
-	return m.terminalTitle(now)
 }
 
 // renderSidebar draws the project/session rows in the sidebar's content
@@ -168,27 +161,6 @@ func (m *Model) renderTerminal(w, h int) string {
 // it is the reflex an operator reaches for first (issue #28).
 func (m *Model) emptyLines() []string {
 	return []string{"", m.emptyStateHint(), "", "ctrl+c or " + m.leader + " q to quit"}
-}
-
-// terminalTitle is the header line inside the focused session's box: its
-// title, coloured status, age, cache meter and cumulative tokens (#153).
-func (m *Model) terminalTitle(now time.Time) string {
-	row, ok := m.sidebar.Selected()
-	if !ok {
-		return ""
-	}
-	st := m.status[row.Session.ID]
-	parts := row.Session.Title
-	if st.Status != "" {
-		parts += " · " + glyphStyle(st.Status).Render(statusGlyph(st.Status)+" "+string(st.Status))
-	}
-	if age := AgeString(now, st.At); age != "" {
-		parts += " " + age
-	}
-	if st.Tokens != (watcher.Tokens{}) {
-		parts += " · " + tokensPart(st.Tokens)
-	}
-	return parts
 }
 
 // renderFooter shows the keymap, or the last error until the next keypress.
