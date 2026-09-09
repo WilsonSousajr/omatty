@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // This file is the review column's horizontal axis. Every content row is drawn
@@ -134,8 +135,11 @@ func (m *Model) diffMaxWidth() int {
 // left to the renderer: lipgloss measures a tab as one cell and draws it as
 // several, which tears the frame (#21).
 func previewRow(i int, line string) string {
-	return fmt.Sprintf("%4d  %s", i+1, expandTabs(line))
+	return previewGutter(i) + expandTabs(line)
 }
+
+// previewGutter is the line number column: four digits and two spaces.
+func previewGutter(i int) string { return fmt.Sprintf("%4d  ", i+1) }
 
 // fitContent draws one content row: panned to the column offset, then cut to
 // the pane's width. Only content rows go through it — the title, the error and
@@ -144,6 +148,16 @@ func previewRow(i int, line string) string {
 // rather than something to scroll.
 func (m *Model) fitContent(text string, w int) string {
 	return fitLine(panLine(text, m.review.ColOffset), w)
+}
+
+// fitStyled is fitContent for a row carrying SGR: panLine slices bytes by
+// cell and would cut inside an escape, so a styled row is panned and cut with
+// x/ansi, which steps over escapes and keeps the styling that was open at the
+// cut. The width the pan clamps to is still measured on the plain row, which
+// is why Preview.Lines stays beside Preview.Styled (#197).
+func (m *Model) fitStyled(text string, w int) string {
+	panned := ansi.TruncateLeft(text, m.review.ColOffset, "")
+	return padRight(ansi.Truncate(panned, w, ""), w)
 }
 
 // panMarker names how far the column has scrolled, for the title row. A pane

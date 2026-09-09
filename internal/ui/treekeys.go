@@ -27,7 +27,7 @@ func (m *Model) onTreeKey(key string) tea.Cmd {
 // onPreviewKey scrolls the preview; esc returns to the tree, which is where
 // the operator came from, rather than all the way to the terminal.
 func (m *Model) onPreviewKey(key string) tea.Cmd {
-	last := max(len(m.review.Preview.Lines)-m.reviewRows(), 0)
+	last := previewLast(m.review.Preview, m.reviewRows())
 	switch key {
 	case "j", "down":
 		m.review.PreviewOffset = min(m.review.PreviewOffset+1, last)

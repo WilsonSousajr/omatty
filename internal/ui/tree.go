@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/highlight"
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
 
@@ -186,7 +187,55 @@ func (m *Model) previewFile(rel string) {
 		m.lastErr = err.Error()
 		return
 	}
+	stylePreview(&p)
 	m.review.Preview, m.review.PreviewOffset, m.review.View = p, 0, ViewPreview
 	m.contentChanged()
 	m.review.ColOffset = 0 // a new file opens at its left edge, not mid-line (#94)
+}
+
+// highlightBudget is the largest file the preview highlights. previewFile
+// reads synchronously because 256 KiB is faster than a frame; lexing is
+// not: highlight.BenchmarkLines measures chroma's Go lexer at about 40 ms
+// on 64 KiB and 170 ms on the full read bound. 40 ms once, when a file is
+// opened, is under what a person notices; 170 ms on every large file is a
+// stall on the goroutine PTY output queues on (#197).
+const highlightBudget = 64 << 10
+
+// stylePreview highlights once, at open, with tabs already expanded so the
+// styled line and the plain line previewRow draws agree cell for cell. A
+// file with no lexer leaves Styled nil and says nothing; only a file over
+// the budget is noted, because that is the one the operator might expect
+// coloured.
+func stylePreview(p *review.Preview) {
+	if p.Binary || p.Deleted || len(p.Lines) == 0 {
+		return
+	}
+	if previewBytes(p.Lines) > highlightBudget {
+		p.Unhighlighted = true
+		return
+	}
+	plain := make([]string, len(p.Lines))
+	for i, line := range p.Lines {
+		plain[i] = expandTabs(line)
+	}
+	if styled := highlight.Lines(p.Path, plain); !sameLines(styled, plain) {
+		p.Styled = styled
+	}
+}
+
+func previewBytes(lines []string) int {
+	n := 0
+	for _, l := range lines {
+		n += len(l) + 1
+	}
+	return n
+}
+
+func sameLines(a, b []string) bool {
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

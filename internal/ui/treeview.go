@@ -108,14 +108,49 @@ func (m *Model) renderPreview(w, rows int) []string {
 	// last moved. Growing the window used to strand a bottom-scrolled preview
 	// against a taller pane, showing its last few lines above a column of
 	// blanks (#94, #95).
-	start := min(m.review.PreviewOffset, max(len(p.Lines)-rows, 0))
+	start := min(m.review.PreviewOffset, previewLast(p, rows))
 	end := min(start+rows, len(p.Lines))
 	out := make([]string, 0, rows)
 	for i := start; i < end; i++ {
-		out = append(out, m.fitContent(previewRow(i, p.Lines[i]), w))
+		out = append(out, m.previewLine(p, i, w))
 	}
 	if p.Truncated && end == len(p.Lines) {
 		out = append(out, mutedStyle.Render("... truncated at 256 KiB"))
 	}
+	if p.Unhighlighted && end == len(p.Lines) {
+		// Short enough for the narrowest column (23 cells), like the
+		// truncation note above it.
+		out = append(out, mutedStyle.Render("... not highlighted"))
+	}
 	return out
+}
+
+// previewLast is the furthest offset the preview scrolls to: the one that
+// shows the last line and, under it, the notes about what the view is not
+// showing. Without the notes in the count the last offset put them past the
+// pane's bottom, where fitBlock cut them off unseen (#197).
+func previewLast(p review.Preview, rows int) int {
+	return max(len(p.Lines)+previewNotes(p)-rows, 0)
+}
+
+// previewNotes counts the muted lines renderPreview appends after the file.
+func previewNotes(p review.Preview) int {
+	n := 0
+	if p.Truncated {
+		n++
+	}
+	if p.Unhighlighted {
+		n++
+	}
+	return n
+}
+
+// previewLine draws one row: the styled line through the ANSI-aware cut when
+// the file was highlighted, the plain one through the cell cut otherwise. The
+// gutter is prepended after highlighting so a number is never coloured (#197).
+func (m *Model) previewLine(p review.Preview, i, w int) string {
+	if p.Styled == nil {
+		return m.fitContent(previewRow(i, p.Lines[i]), w)
+	}
+	return m.fitStyled(previewGutter(i)+p.Styled[i], w)
 }

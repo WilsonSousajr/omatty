@@ -197,6 +197,11 @@ when it already shows that view.
 | `r` | re-list the worktree |
 | `esc` | from a preview back to the tree; from the tree back to Claude |
 
+A preview is syntax-highlighted when the file's type is known, in colours
+kept apart from the ones the diff uses for added and removed lines, so a
+coloured preview never reads as a diff. Files over 64 KiB draw plain and say
+so under the last line.
+
 The column is narrow, so a long line runs off its right edge. `h` and `l` scroll
 it sideways eight columns at a time and the title shows how far, as `· +24`. The
 same keys work in the diff.
