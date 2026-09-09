@@ -172,7 +172,7 @@ not in the gate.
 10. **`cmd/` stays thin.** Parse flags, construct dependencies, call typed
     library functions. No logic.
 11. **A hook must never block or fail claude.** `omatty hook` reads bounded
-    stdin (64 KiB cap), dials the socket with a short timeout, and exits 0 in
+    stdin (4 MiB cap, #55), dials the socket with a short timeout, and exits 0 in
     every case — socket missing, connection refused, malformed JSON — writing
     nothing to stdout or stderr. Its `hooks.json` timeout is 5 s. A hook that
     hangs or errors would stall every claude session on the machine, whether
@@ -285,9 +285,11 @@ message and explain why the behaviour it asserted was never correct.
   deliberately cut. Read it before proposing a feature.
 - `docs/superpowers/specs/2026-09-01-omatty-design.md` — the design this repo
   implements.
+- `docs/ARCHITECTURE.md` — data flow, package breakdown, why each invariant
+  is a rule, and the seams. The one page to read before the code (#156).
 - `internal/agent` package doc — the agent seam (#46): an agent is a command
   template plus a status adapter, and why the adapter interface lives in
-  `watcher`. (`docs/ARCHITECTURE.md` was listed here but never written.)
+  `watcher`.
 - `README.md` — install and usage.
 
 <!-- ai-memory:start -->
