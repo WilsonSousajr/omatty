@@ -42,6 +42,12 @@ func (m *Model) SidebarRows() int { return len(m.sidebar.Rows()) }
 // click test can aim at a row by index (#45).
 func SidebarTop() int { return sidebarTop() }
 
+// RowHeight is the lines a row draws and RowAtLine the row under a drawn
+// line, the two halves of the card geometry the window and the click share
+// (#176).
+func RowHeight(r Row) int                         { return rowHeight(r) }
+func (s *Sidebar) RowAtLine(line int) (int, bool) { return s.rowAtLine(line) }
+
 // StatusGlyphs is every status marker, so a width test measures the real
 // table (#128).
 func StatusGlyphs() []string {
@@ -56,16 +62,18 @@ func StatusGlyphs() []string {
 func LaneBlocks() map[watcher.Status]string { return laneBlock }
 func LaneCells() int                        { return laneCells }
 
-// LaneOf is a session's rendered lane; RowOf its whole sidebar row.
+// LaneOf is a session's rendered lane; CardOf its whole two-line card (#176);
+// Rail the accent cursor cell a selected card's lines open with.
 func (m *Model) LaneOf(id string) string { return m.renderLane(id) }
-func (m *Model) RowOf(id string) string {
+func (m *Model) CardOf(id string) []string {
 	for _, row := range m.sidebar.Rows() {
 		if row.Session != nil && row.Session.ID == id {
-			return m.renderRow(row, sidebarContentCols)
+			return m.renderRow(row, m.clock())
 		}
 	}
-	return ""
+	return nil
 }
+func Rail() string { return accentStyle.Render(rail) }
 
 // HairlineCell is one rendered hairline cell, accent or plain, so a test can
 // find which edge the accent stands on (#174). HeaderRow and RuleRow build

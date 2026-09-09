@@ -72,8 +72,8 @@ func TestModel_TheRuleCarriesTheCacheMeter_issue153(t *testing.T) {
 	if !strings.Contains(rule, "10.0k in / 500 out") {
 		t.Errorf("the rule lost the counts: %q", rule)
 	}
-	if row := m.RowOf("s1"); strings.ContainsAny(row, "▰▱") {
-		t.Errorf("the sidebar row grew a meter: %q", row)
+	if card := strings.Join(m.CardOf("s1"), ""); strings.ContainsAny(card, "▰▱") {
+		t.Errorf("the sidebar card grew a meter: %q", card)
 	}
 	for i, line := range lines {
 		if w := lipgloss.Width(line); w != 100 {

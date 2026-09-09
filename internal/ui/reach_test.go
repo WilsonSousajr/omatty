@@ -72,8 +72,8 @@ func TestModel_theHeaderShowsTheMarkerAndThePaneNamesTheProject_issue158(t *test
 
 	got := m.View().Content
 
-	if !strings.Contains(got, "» wstech") {
-		t.Errorf("the selected header carries no marker:\n%s", got)
+	if !strings.Contains(stripSGR(got), "▎wstech") {
+		t.Errorf("the selected header carries no rail:\n%s", got)
 	}
 	if !strings.Contains(got, "no sessions in wstech - press ctrl+o n") {
 		t.Errorf("the pane does not say which project is empty:\n%s", got)
@@ -127,13 +127,14 @@ func TestModel_promptCreatesInTheOnlyProjectWhenNoSessionExists_issue158(t *test
 func TestModel_clickingAnEmptyHeaderSelectsIt_issue158(t *testing.T) {
 	m := modelWithEmptyProject(t, &recordCreate{})
 
-	// rows: omatty, s1, wstech - the header is the third row of the list.
-	m.Update(clickAt(3, sidebarRowY(2)))
+	// lines: omatty's header, s1's two-line card, then wstech's header on
+	// line 3 (#176).
+	m.Update(clickAt(3, sidebarLineY(3)))
 	if m.SelectedProject() != "wstech" {
 		t.Errorf("click on the empty header selected %q, want wstech", m.SelectedProject())
 	}
 
-	m.Update(clickAt(3, sidebarRowY(0)))
+	m.Update(clickAt(3, sidebarLineY(0)))
 	if m.SelectedProject() != "wstech" || m.Selected() != "" {
 		t.Errorf("click on omatty's header (which has sessions) moved the cursor to %q/%q",
 			m.SelectedProject(), m.Selected())

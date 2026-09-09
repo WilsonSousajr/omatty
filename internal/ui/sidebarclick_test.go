@@ -8,7 +8,11 @@ import (
 )
 
 func clickAt(x, y int) tea.MouseClickMsg { return tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft} }
-func sidebarRowY(i int) int              { return ui.SidebarTop() + i }
+
+// sidebarLineY is the window row of a drawn sidebar line. Lines, not rows: a
+// card is two of them (#176). In twoProjectState line 0 is omatty's header,
+// 1-2 are s1, 3-4 are s2, 5 is api-svc, 6-7 are s3.
+func sidebarLineY(line int) int { return ui.SidebarTop() + line }
 
 // Pinned as a literal, the way TestPaneOrigin_IsTheEmulatorsTopLeftCell pins
 // its origin: a hit test asserted against the function under test cannot
@@ -19,12 +23,12 @@ func TestSidebarTop_IsTheFirstScrollableRow_issue45(t *testing.T) {
 	}
 }
 
-// Rows in twoProjectState: omatty, s1, s2, api-svc, s3.
+// The click lands on s3's second line: either line of a card is the card.
 func TestUpdate_AClickOnASidebarRowSelectsItAndResizesItsTerminal_issue45(t *testing.T) {
 	m, fakes := modelWithFakes(t)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
-	_, cmd := m.Update(clickAt(4, sidebarRowY(4)))
+	_, cmd := m.Update(clickAt(4, sidebarLineY(7)))
 	settle(m, cmd)
 
 	if m.Selected() != "s3" {
@@ -40,7 +44,7 @@ func TestUpdate_AClickMovesAnOpenReviewColumnWithIt_issue45(t *testing.T) {
 	m, _, rec := modelWithDiff(t)
 	leader(m, key('d'))
 
-	_, cmd := m.Update(clickAt(4, sidebarRowY(2)))
+	_, cmd := m.Update(clickAt(4, sidebarLineY(3)))
 	deliver(m, cmd)
 
 	if len(rec.Asked) != 2 || rec.Asked[1] != "s2" {
@@ -51,7 +55,7 @@ func TestUpdate_AClickMovesAnOpenReviewColumnWithIt_issue45(t *testing.T) {
 func TestUpdate_AClickOnAProjectHeaderOrBelowTheListChangesNothing_issue45(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	for _, y := range []int{sidebarRowY(0), sidebarRowY(3), sidebarRowY(12), 0} {
+	for _, y := range []int{sidebarLineY(0), sidebarLineY(5), sidebarLineY(12), 0} {
 		m.Update(clickAt(4, y))
 		if m.Selected() != "s1" {
 			t.Errorf("click at y=%d selected %q, want s1 unchanged", y, m.Selected())
@@ -64,9 +68,9 @@ func TestUpdate_AClickOverThePaneOrBehindAModalOrWithTheRightButtonSelectsNothin
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	x, y := overPane()
 	m.Update(clickAt(x, y))
-	m.Update(tea.MouseClickMsg{X: 4, Y: sidebarRowY(4), Button: tea.MouseRight})
+	m.Update(tea.MouseClickMsg{X: 4, Y: sidebarLineY(6), Button: tea.MouseRight})
 	leader(m, key('?'))
-	m.Update(clickAt(4, sidebarRowY(4)))
+	m.Update(clickAt(4, sidebarLineY(6)))
 	if m.Selected() != "s1" {
 		t.Errorf("Selected() = %q, want s1", m.Selected())
 	}
@@ -77,7 +81,7 @@ func TestUpdate_AClickOnTheSelectedRowResizesNothing_issue45(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	before := fakes["s1"].Width
 
-	_, cmd := m.Update(clickAt(4, sidebarRowY(1)))
+	_, cmd := m.Update(clickAt(4, sidebarLineY(1)))
 	settle(m, cmd)
 
 	if fakes["s1"].Width != before {
@@ -95,12 +99,13 @@ func TestUpdate_AClickOnAScrolledSidebarSelectsTheRowUnderThePointer_issue45(t *
 	}
 	m.View() // draw once, so the offset is the drawn one
 
-	// Cursor on row 20 of 21 with 17 rows drawn puts the offset at 4, so the
-	// fourth drawn row is row 7: p2-s0. Without the offset it would be p1.
-	_, cmd := m.Update(clickAt(4, sidebarRowY(3)))
+	// Cursor on row 20 of 21 with 17 lines drawn: rows 11..20 are seventeen
+	// lines, so the first drawn row is p3-s1 (two lines), then p4's header,
+	// then p4-s0 on lines 3 and 4. Without the offset line 3 would be s2's.
+	_, cmd := m.Update(clickAt(4, sidebarLineY(3)))
 	settle(m, cmd)
 
-	if got := m.Selected(); got != "p2-s0" {
-		t.Errorf("click on the fourth drawn row selected %q, want p2-s0; the offset was ignored", got)
+	if got := m.Selected(); got != "p4-s0" {
+		t.Errorf("click on the fourth drawn line selected %q, want p4-s0; the offset was ignored", got)
 	}
 }

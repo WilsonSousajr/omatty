@@ -162,7 +162,7 @@ func TestModel_archiveTearsDownEverythingTheSessionOwned_issue40(t *testing.T) {
 	if fakes["s2"].Closed || fakes["s3"].Closed {
 		t.Error("archiving one session closed another")
 	}
-	if got := m.View().Content; strings.Contains(got, "» ") && m.Selected() == "s1" {
+	if got := m.View().Content; strings.Contains(stripSGR(got), "▎") && m.Selected() == "s1" {
 		t.Errorf("the archived session is still selected:\n%s", got)
 	}
 }

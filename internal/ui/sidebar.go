@@ -194,19 +194,78 @@ func (s *Sidebar) selectIndex(i int) bool {
 	return true
 }
 
-// Window returns the rows to draw when only rows lines fit, keeping the
-// cursor inside them. The offset is recomputed from the cursor on every call
-// rather than trusted from the last move, because a resize can shrink the
-// pane after the cursor last moved - the same reason renderTree does it (#129).
+// cardLines is how many lines a session draws: the glyph, title and age, then
+// the branch, diffstat and lane (#176). A header draws one.
+const cardLines = 2
+
+// rowHeight is the lines a row draws. The window math and the click inverse
+// both read it, so the two cannot drift (#45, #129, #176).
+func rowHeight(r Row) int {
+	if r.Session == nil {
+		return 1
+	}
+	return cardLines
+}
+
+// Window returns the rows to draw when only lines fit - in lines, a card
+// being two and a header one (#176) - keeping the cursor's whole card inside
+// them. The offset is recomputed from the cursor on every call rather than
+// trusted from the last move, because a resize can shrink the pane after the
+// cursor last moved - the same reason renderTree does it (#129).
 //
-//	for _, row := range sb.Window(paneRows - 1) { ... }
-func (s *Sidebar) Window(rows int) []Row {
-	s.offset = s.revealHeader(ScrollOffset(max(s.cursor, 0), s.offset, rows))
-	end := min(s.offset+rows, len(s.rows))
+//	for _, row := range sb.Window(paneRows) { ... }
+func (s *Sidebar) Window(lines int) []Row {
+	s.offset = s.revealHeader(s.scrollTo(lines))
+	end := s.offset
+	for budget := lines; end < len(s.rows) && rowHeight(s.rows[end]) <= budget; end++ {
+		budget -= rowHeight(s.rows[end])
+	}
 	if s.offset >= end {
 		return nil
 	}
 	return s.rows[s.offset:end]
+}
+
+// scrollTo is the first row to draw so the cursor's whole card fits in lines,
+// moving the offset as little as possible: back to the cursor when it is
+// above the window, forward one row at a time until the rows from the offset
+// to the cursor fit when it is below. ScrollOffset in lines rather than rows,
+// which is why it is not ScrollOffset.
+func (s *Sidebar) scrollTo(lines int) int {
+	c := max(s.cursor, 0)
+	if c >= len(s.rows) {
+		return 0
+	}
+	off := min(s.offset, c)
+	for off < c && s.linesBetween(off, c+1) > lines {
+		off++
+	}
+	return off
+}
+
+// linesBetween is how many lines rows [from, to) draw.
+func (s *Sidebar) linesBetween(from, to int) int {
+	n := 0
+	for _, r := range s.rows[from:to] {
+		n += rowHeight(r)
+	}
+	return n
+}
+
+// rowAtLine is the row drawn line lines below the first drawn one, walking
+// the heights Window drew with, so a click on either line of a card lands on
+// it (#45, #176). ok is false above the list and past its end.
+func (s *Sidebar) rowAtLine(line int) (int, bool) {
+	if line < 0 {
+		return 0, false
+	}
+	for i := s.offset; i < len(s.rows); i++ {
+		if line < rowHeight(s.rows[i]) {
+			return i, true
+		}
+		line -= rowHeight(s.rows[i])
+	}
+	return 0, false
 }
 
 // revealHeader scrolls one more row when the cursor sits on the top line

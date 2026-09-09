@@ -97,14 +97,20 @@ func TestModel_FocusedSessionRowIsMarked_issue35(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
 
-	got := m.View().Content
-	if !strings.Contains(got, "»") {
-		t.Errorf("no row carries the » focus marker:\n%s", got)
-	}
-	for _, l := range strings.Split(got, "\n") {
-		if strings.Contains(l, "»") && !strings.Contains(l, "main") {
-			t.Errorf("» is on %q, want the focused session's row (s1, titled main)", l)
+	lines := strings.Split(stripSGR(m.View().Content), "\n")
+	first := -1
+	for i, l := range lines {
+		if strings.HasPrefix(l, "▎") {
+			first = i
+			break
 		}
+	}
+	if first < 0 {
+		t.Fatalf("no line carries the ▎ rail:\n%s", strings.Join(lines, "\n"))
+	}
+	// The rail runs down both lines of the selected card (#176).
+	if !strings.Contains(lines[first], "main") || !strings.HasPrefix(lines[first+1], "▎") {
+		t.Errorf("the rail is on %q / %q, want both lines of s1's card (titled main)", lines[first], lines[first+1])
 	}
 }
 

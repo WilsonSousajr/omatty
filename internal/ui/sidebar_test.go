@@ -202,15 +202,17 @@ func sevenProjectState() registry.State {
 	return st
 }
 
-// Twenty-one rows, ten fit: the window must hold the cursor, whatever moved it.
+// Thirty-five lines, ten fit: rows 12..17 are the ten lines that end on the
+// cursor's card (header 1 + 2 + 2 + header 1 + 2 + 2), so the window must
+// hold the cursor whatever moved it (#129, #176).
 func TestSidebar_WindowFollowsTheCursor_issue129(t *testing.T) {
 	s := ui.NewSidebar(ui.SidebarRows(sevenProjectState(), nil))
 	s.SelectByID("p5-s1") // row 17
 
 	win := s.Window(10)
 
-	if len(win) != 10 {
-		t.Fatalf("Window(10) = %d rows, want 10", len(win))
+	if len(win) != 6 || s.Offset() != 12 {
+		t.Fatalf("Window(10) = %d rows from offset %d, want 6 from 12", len(win), s.Offset())
 	}
 	found := false
 	for _, r := range win {
@@ -218,9 +220,6 @@ func TestSidebar_WindowFollowsTheCursor_issue129(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("the selected row is not in the window: %+v", win)
-	}
-	if s.Offset() != 8 {
-		t.Errorf("Offset() = %d, want 8 (cursor 17 on the last of 10 rows)", s.Offset())
 	}
 }
 
@@ -253,8 +252,56 @@ func TestSidebar_WindowShrinkingKeepsTheCursorVisible_issue129(t *testing.T) {
 
 	win := s.Window(5)
 
-	if s.Offset() != 6 || len(win) != 5 {
-		t.Errorf("Window(5) after shrinking: offset %d len %d, want 6 and 5", s.Offset(), len(win))
+	if s.Offset() != 8 || len(win) != 3 {
+		t.Errorf("Window(5) after shrinking: offset %d len %d, want 8 and 3 (rows 8, 9, 10 are five lines)", s.Offset(), len(win))
+	}
+}
+
+func TestRowHeight_ACardIsTwoLinesAndAHeaderOne_issue176(t *testing.T) {
+	rows := ui.SidebarRows(twoProjectState(), nil)
+	if ui.RowHeight(rows[0]) != 1 || ui.RowHeight(rows[1]) != 2 {
+		t.Errorf("heights = %d, %d; want 1 for a header and 2 for a session", ui.RowHeight(rows[0]), ui.RowHeight(rows[1]))
+	}
+}
+
+// Whatever the cursor and the budget, the selected card is drawn whole and
+// the drawn rows never take more lines than fit.
+func TestSidebar_WindowNeverSplitsTheSelectedCard_issue176(t *testing.T) {
+	rows := ui.SidebarRows(sevenProjectState(), nil)
+	for lines := 3; lines <= 12; lines++ {
+		for i := range rows {
+			if rows[i].Session == nil {
+				continue
+			}
+			s := ui.NewSidebar(rows)
+			s.SelectByID(rows[i].Session.ID)
+			win, used, seen := s.Window(lines), 0, false
+			for _, r := range win {
+				used += ui.RowHeight(r)
+				seen = seen || (r.Session != nil && r.Session.ID == rows[i].Session.ID)
+			}
+			if !seen || used > lines {
+				t.Errorf("lines=%d cursor=%d: drawn %d lines, selected drawn=%v", lines, i, used, seen)
+			}
+		}
+	}
+}
+
+// The click inverse walks the same heights the window did: line 0 is the
+// header, lines 1 and 2 are s1's card, 3 and 4 are s2's, 5 is api-svc, 6 and
+// 7 are s3's.
+func TestSidebar_RowAtLineWalksTheDrawnHeights_issue176(t *testing.T) {
+	s := ui.NewSidebar(ui.SidebarRows(twoProjectState(), nil))
+	s.Window(20)
+	for line, want := range map[int]int{0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4} {
+		if got, ok := s.RowAtLine(line); !ok || got != want {
+			t.Errorf("RowAtLine(%d) = %d, %v; want %d", line, got, ok, want)
+		}
+	}
+	for _, line := range []int{-1, 8, 40} {
+		if _, ok := s.RowAtLine(line); ok {
+			t.Errorf("RowAtLine(%d) = ok, want false past the list", line)
+		}
 	}
 }
 
