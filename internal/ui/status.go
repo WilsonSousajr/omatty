@@ -55,7 +55,8 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 // session still carrying its placeholder (#127).
 func (m *Model) afterStatus(e watcher.Event, before, after watcher.Status) tea.Cmd {
 	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after),
-		m.refreshReview(e.SessionID, before, after), m.maybeName(e.SessionID))
+		m.refreshReview(e.SessionID, before, after), m.maybeName(e.SessionID),
+		m.refreshStat(e.SessionID, before, after))
 }
 
 func (m *Model) knownSession(id string) bool {

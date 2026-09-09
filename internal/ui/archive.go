@@ -226,6 +226,7 @@ func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd 
 	// The map is the one ui.Run's deferred closeTerminals holds, so deleting
 	// here is also what stops it being closed twice at exit (#72).
 	delete(m.terms, sess.ID)
+	delete(m.repoStat, sess.ID) // display-only, and the card is gone with the row (#180)
 	m.tailStop(sess.ID)
 	m.forgetSession(sess.ID)
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))

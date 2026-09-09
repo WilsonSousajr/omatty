@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/WilsonSousajr/omatty/internal/review"
 )
 
 // The card's columns at SidebarWidth 28: 27 of content, the last one blank
@@ -61,9 +62,30 @@ func (m *Model) cardTop(row Row, now time.Time) string {
 	return glyph + " " + title + " " + age + " "
 }
 
-// cardMeta is line two's middle. Until #180 wires the branch and the diffstat
-// it is blank; the lane keeps its place at the right.
-func (m *Model) cardMeta(_ string) string { return strings.Repeat(" ", metaCols) }
+// cardMeta is line two's middle: the branch, then the diffstat right-aligned
+// (#180). The diffstat is drawn whole and the branch clipped to what remains
+// less one separating space; a clean tree gives the branch all sixteen, and
+// an unpolled session gives blanks so the lane keeps its place.
+func (m *Model) cardMeta(id string) string {
+	st, ok := m.repoStat[id]
+	if !ok {
+		return strings.Repeat(" ", metaCols)
+	}
+	stat := diffstat(st)
+	if stat == "" {
+		return fitLine(st.Branch, metaCols)
+	}
+	return fitLine(st.Branch, metaCols-lipgloss.Width(stat)-1) + " " + stat
+}
+
+// diffstat is "+12 −3" in the diff colours, "" for a clean tree - never
+// "+0 −0" - with KString keeping a large count inside the budget (#180).
+func diffstat(st review.Stat) string {
+	if st.Added == 0 && st.Removed == 0 {
+		return ""
+	}
+	return addedStyle.Render("+"+KString(st.Added)) + " " + removedStyle.Render("−"+KString(st.Removed))
+}
 
 // rail is the accent bar on the selected card, a blank column on the rest.
 func (m *Model) rail(selected bool) string {

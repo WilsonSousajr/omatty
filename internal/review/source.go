@@ -61,6 +61,36 @@ func (s *Source) baseCommit(sess registry.Session, projectRoot string) (string, 
 	return commit, nil
 }
 
+// Stat is what a session's sidebar card shows about its checkout (#180): the
+// branch, and the lines added and removed against the same base Load diffs
+// against. Tracked changes only - Load also renders untracked files as
+// additions - so a card can read lower than the review column, and the
+// column is the truth when opened.
+type Stat struct {
+	Branch         string
+	Added, Removed int
+}
+
+// Stat reads sess's branch and shortstat through baseCommit, so the base
+// resolution lives once (#180).
+//
+//	st, err := src.Stat(sess, projectRoot)
+func (s *Source) Stat(sess registry.Session, projectRoot string) (Stat, error) {
+	branch, err := s.git.CurrentBranch(sess.Dir)
+	if err != nil {
+		return Stat{}, fmt.Errorf("review: branch of session %s in %q: %w", sess.ID, sess.Dir, err)
+	}
+	ref, err := s.baseCommit(sess, projectRoot)
+	if err != nil {
+		return Stat{}, err
+	}
+	short, err := s.git.Shortstat(sess.Dir, ref)
+	if err != nil {
+		return Stat{}, fmt.Errorf("review: shortstat of session %s against %s: %w", sess.ID, ref, err)
+	}
+	return Stat{Branch: branch, Added: short.Added, Removed: short.Removed}, nil
+}
+
 // untrackedDiffs renders every untracked file as an all-additions diff, so a
 // file claude has written but not committed is reviewable like any other.
 func (s *Source) untrackedDiffs(dir string) (string, error) {

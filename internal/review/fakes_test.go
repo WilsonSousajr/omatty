@@ -3,6 +3,8 @@ package review_test
 import (
 	"fmt"
 	"strings"
+
+	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
 
 // FakeGit answers the diff surface from canned values and records the calls in
@@ -12,6 +14,7 @@ type FakeGit struct {
 	Branch       string            // CurrentBranch of any dir
 	MergeBaseOut string            // MergeBase result
 	DiffOut      string            // Diff result
+	ShortstatOut vcs.Shortstat     // Shortstat result (#180)
 	UntrackedOut []string          // Untracked result
 	FileDiffs    map[string]string // UntrackedDiff result per path
 	Files        []string          // ListFiles result (#24)
@@ -57,6 +60,10 @@ func (f *FakeGit) MergeBase(dir, ref string) (string, error) {
 
 func (f *FakeGit) Diff(dir, commit string) (string, error) {
 	return f.DiffOut, f.record("Diff", dir, commit)
+}
+
+func (f *FakeGit) Shortstat(dir, commit string) (vcs.Shortstat, error) {
+	return f.ShortstatOut, f.record("Shortstat", dir, commit)
 }
 
 func (f *FakeGit) Untracked(dir string) ([]string, error) {

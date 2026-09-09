@@ -87,6 +87,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Leader:  env.Cfg.Leader,
 		Name:    sessionNamer(home),
 		Diff:    review.NewSource(git).Load,
+		Stat:    review.NewSource(git).Stat,
 		Files:   git.ListFiles,
 	}
 	return withStoreDeps(deps, store, home, git)

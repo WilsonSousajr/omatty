@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -28,6 +29,9 @@ type Git interface {
 	// Diff returns the unified diff of dir's working tree against commit, so
 	// committed and uncommitted changes appear as one diff (#21).
 	Diff(dir, commit string) (string, error)
+	// Shortstat summarises the working tree against commit: files changed,
+	// lines added and removed. A clean tree is the zero value (#180).
+	Shortstat(dir, commit string) (Shortstat, error)
 	// Untracked lists files git does not track, honouring .gitignore.
 	Untracked(dir string) ([]string, error)
 	// UntrackedDiff renders one untracked file as an all-additions diff.
@@ -191,6 +195,56 @@ func (c *CLI) MergeBase(dir, ref string) (string, error) {
 //	raw, err := vcs.NewCLI().Diff("/wt/parser-fix", base)
 func (c *CLI) Diff(dir, commit string) (string, error) {
 	return c.capture(dir, 0, diffArgs(commit, "--")...)
+}
+
+// Shortstat is git's one-line summary of a diff.
+type Shortstat struct{ Files, Added, Removed int }
+
+// Shortstat is the numbers a session's sidebar card shows (#180), measured
+// the way Diff measures: the working tree against commit, renames detected.
+// git prints nothing for a clean tree, so the zero value is not an error.
+//
+//	st, err := vcs.NewCLI().Shortstat("/wt/parser-fix", base)
+func (c *CLI) Shortstat(dir, commit string) (Shortstat, error) {
+	out, err := c.run(dir, diffArgs("--shortstat", commit, "--")...)
+	if err != nil {
+		return Shortstat{}, err
+	}
+	return parseShortstat(out)
+}
+
+// parseShortstat reads " 3 files changed, 12 insertions(+), 4 deletions(-)".
+// Every clause is optional - a pure deletion has no insertions clause and a
+// binary change has neither - and each names itself, so the order is not
+// trusted either.
+func parseShortstat(line string) (Shortstat, error) {
+	var st Shortstat
+	for _, clause := range strings.Split(strings.TrimSpace(line), ",") {
+		fields := strings.Fields(clause)
+		if len(fields) < 2 {
+			continue
+		}
+		n, err := strconv.Atoi(fields[0])
+		if err != nil {
+			return Shortstat{}, fmt.Errorf("vcs: shortstat clause %q: want a count first: %w", clause, err)
+		}
+		st = st.with(fields[1], n)
+	}
+	return st, nil
+}
+
+// with sets the counter a shortstat clause names: file(s), insertion(s) or
+// deletion(s).
+func (st Shortstat) with(noun string, n int) Shortstat {
+	switch {
+	case strings.HasPrefix(noun, "file"):
+		st.Files = n
+	case strings.HasPrefix(noun, "insertion"):
+		st.Added = n
+	case strings.HasPrefix(noun, "deletion"):
+		st.Removed = n
+	}
+	return st
 }
 
 // Untracked lists untracked, non-ignored files relative to dir.

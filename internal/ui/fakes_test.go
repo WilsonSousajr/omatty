@@ -1,6 +1,23 @@
 package ui_test
 
-import "github.com/WilsonSousajr/omatty/internal/registry"
+import (
+	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/review"
+)
+
+// FakeStat stands in for the git-backed reader behind ui.RepoStatFunc (#180).
+type FakeStat struct {
+	Stats map[string]review.Stat // by session id
+	Err   error
+	Asked []string
+	Roots []string
+}
+
+func (f *FakeStat) Stat(sess registry.Session, root string) (review.Stat, error) {
+	f.Asked = append(f.Asked, sess.ID)
+	f.Roots = append(f.Roots, root)
+	return f.Stats[sess.ID], f.Err
+}
 
 // FakeNamer stands in for the transcript reader behind ui.NameFunc. A named
 // type, per AGENTS.md, so a failure message says what produced the title.

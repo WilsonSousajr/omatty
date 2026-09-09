@@ -3,6 +3,8 @@ package ui
 import (
 	"image/color"
 
+	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -78,6 +80,20 @@ func Rail() string { return accentStyle.Render(rail) }
 // Amber renders s in the waiting colour, so a footer test can find the
 // waiting count by its colour (#178).
 func Amber(s string) string { return amberStyle.Render(s) }
+
+// Added and Removed render s in the diff colours, so a card test can find
+// the diffstat by colour (#180).
+func Added(s string) string   { return addedStyle.Render(s) }
+func Removed(s string) string { return removedStyle.Render(s) }
+
+// PollAll is one stat tick's worth of polls without the tick that re-arms
+// it, so a test can run them without blocking on tea.Tick (#180). RepoStatOf
+// is what the model holds for a session.
+func (m *Model) PollAll() tea.Cmd { return m.pollAll() }
+func (m *Model) RepoStatOf(id string) (review.Stat, bool) {
+	st, ok := m.repoStat[id]
+	return st, ok
+}
 
 // HairlineCell is one rendered hairline cell, accent or plain, so a test can
 // find which edge the accent stands on (#174). HeaderRow and RuleRow build

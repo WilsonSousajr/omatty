@@ -66,6 +66,14 @@ type Model struct {
 	namePending map[string]bool
 	// lane is each session's recent-status trace for the sidebar (#128).
 	lane map[string]activityLane
+	// stat reads a card's branch and diffstat; repoStat is the last answer per
+	// session, display-only like the lane and never persisted - state.json
+	// must suffice alone (invariant 9). statPending guards one poll in flight
+	// per session; statFailed makes the warning once per outage (#180).
+	stat        RepoStatFunc
+	repoStat    map[string]review.Stat
+	statPending map[string]bool
+	statFailed  map[string]bool
 	// The archive path's three halves: forget the session, stop its tailer,
 	// and optionally delete its worktree (#40).
 	archive          ArchiveFunc
@@ -129,6 +137,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.discover, m.registerProjects = d.Discover, d.AddProject
 	m.adoptPropose, m.adoptCommit = d.AdoptPropose, d.AdoptCommit
 	m.stop, m.notice = d.Stop, d.Notice
+	m.stat = d.Stat
 	return m
 }
 
@@ -149,6 +158,9 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.comments = map[string]*review.Comments{}
 	m.namePending = map[string]bool{}
 	m.lane = map[string]activityLane{}
+	m.repoStat = map[string]review.Stat{}
+	m.statPending = map[string]bool{}
+	m.statFailed = map[string]bool{}
 	return m
 }
 
@@ -188,7 +200,9 @@ func (m *Model) Init() tea.Cmd {
 	if cmd := m.waitForEvent(); cmd != nil {
 		cmds = append(cmds, cmd)
 	}
-	cmds = append(cmds, scheduleTick())
+	// The first stat poll runs at start rather than a tick later, so a card
+	// names its branch before the operator has read the screen (#180).
+	cmds = append(cmds, scheduleTick(), m.onStatTick())
 	return tea.Batch(cmds...)
 }
 
@@ -204,6 +218,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.onMouse(msg)
 	case TickMsg:
 		return m, scheduleTick()
+	case StatTickMsg:
+		return m, m.onStatTick()
 	default:
 		return m, m.onDataMsg(msg)
 	}
@@ -249,6 +265,8 @@ func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
 		return m.onSessionsProposed(typed)
 	case sessionRelaunchMsg:
 		return m.relaunch(typed.Session)
+	case RepoStatMsg:
+		return m.onRepoStat(typed)
 	}
 	return m.onWindowFocus(msg)
 }
