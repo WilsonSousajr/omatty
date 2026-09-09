@@ -93,3 +93,7 @@ func LaneCellColor(s watcher.Status, age int) color.Color { return laneCellColor
 func MeterCellColor(i int) color.Color                    { return meterCellColor(i) }
 func StatusColor(s watcher.Status) color.Color            { return statusColors[s] }
 func MutedColor() color.Color                             { return colorMuted }
+
+// TokensPart is the rule's whole usage segment - meter, share and counts - so
+// a test can assert what "in" counts without rebuilding the rule (#170).
+func TokensPart(t watcher.Tokens) string { return tokensPart(t) }
