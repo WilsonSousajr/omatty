@@ -15,3 +15,13 @@ const (
 func BracketedPaste(body string) string {
 	return pasteStart + body + pasteEnd + "\r"
 }
+
+// BracketedText wraps body the same way and submits nothing: the operator
+// keeps typing after it. Attaching a file reference to the prompt is the
+// case, where a carriage return would send a prompt of one path (#199,
+// invariant 8).
+//
+//	term.SendInput(review.BracketedText("@internal/ui/tree.go "))
+func BracketedText(body string) string {
+	return pasteStart + body + pasteEnd
+}

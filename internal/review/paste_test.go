@@ -19,3 +19,13 @@ func TestBracketedPaste_WrapsTheBodyAndSubmitsOnce_issue23(t *testing.T) {
 		t.Errorf("envelope = %q, want exactly one trailing CR after the paste end", got)
 	}
 }
+
+// Attaching a path must not submit: the operator keeps typing after it, so
+// the body travels between the same delimiters with no CR at all (#199).
+func TestBracketedText_WrapsTheBodyWithoutSubmitting_issue199(t *testing.T) {
+	got := review.BracketedText("@internal/ui/tree.go ")
+
+	if got != "\x1b[200~@internal/ui/tree.go \x1b[201~" {
+		t.Errorf("envelope = %q, want ESC[200~ body ESC[201~ and nothing after", got)
+	}
+}
