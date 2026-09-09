@@ -3,6 +3,8 @@ package review
 import (
 	"sort"
 	"strings"
+
+	"github.com/WilsonSousajr/omatty/internal/fuzzy"
 )
 
 // TreeNode is one row of the file tree: a directory or a file at a depth.
@@ -24,6 +26,7 @@ type TreeNode struct {
 type Tree struct {
 	nodes     []TreeNode // the full listing in display order
 	collapsed map[string]bool
+	filter    string // narrows Visible while non-empty (#198)
 }
 
 // NewTree builds the listing from paths, emitting a directory the first time
@@ -129,8 +132,12 @@ func changeUnder(path string, isDir bool, changes map[string]Change) Change {
 // Visible returns the rows with collapsed directories' children skipped. The
 // listing is pre-order, so a collapsed directory's subtree is the contiguous
 // run of nodes under its path; the trailing slash is what keeps "internal"
-// from swallowing a sibling named "internal-old".
+// from swallowing a sibling named "internal-old". While a filter is set the
+// matches and their ancestors are the rows, folds ignored (#198).
 func (t *Tree) Visible() []TreeNode {
+	if t.filter != "" {
+		return t.matching()
+	}
 	// Non-nil even when empty: the ui tells "not listed yet" from "listed,
 	// nothing there" by this (#131).
 	out := make([]TreeNode, 0, len(t.nodes))
@@ -146,6 +153,48 @@ func (t *Tree) Visible() []TreeNode {
 		}
 	}
 	return out
+}
+
+// SetFilter narrows Visible to the files whose path fuzzy-matches query,
+// with every ancestor of a match kept so the shape around it still reads,
+// and folded directories opened so a match inside one is reachable. An
+// empty query clears it; the collapse state waits underneath untouched, so
+// clearing gives the operator their folds back (#198).
+//
+//	tree.SetFilter("tree") // internal/ui/tree.go and its ancestors
+func (t *Tree) SetFilter(query string) { t.filter = query }
+
+// Filter is the query in force, or "" when the listing is unfiltered.
+func (t *Tree) Filter() string { return t.filter }
+
+// matching is Visible under a filter: a pass to find the kept paths, then the
+// listing in its own order restricted to them, so pre-order survives.
+func (t *Tree) matching() []TreeNode {
+	keep := map[string]bool{}
+	for _, n := range t.nodes {
+		if _, ok := fuzzy.Match(t.filter, n.Path); ok && !n.IsDir {
+			keepWithAncestors(keep, n.Path)
+		}
+	}
+	out := make([]TreeNode, 0, len(keep))
+	for _, n := range t.nodes {
+		if keep[n.Path] {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// keepWithAncestors marks path and every directory above it.
+func keepWithAncestors(keep map[string]bool, path string) {
+	for {
+		keep[path] = true
+		i := strings.LastIndex(path, "/")
+		if i < 0 {
+			return
+		}
+		path = path[:i]
+	}
 }
 
 // Retouch reapplies the changes to an existing listing, keeping both the

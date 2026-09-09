@@ -64,7 +64,7 @@ func reviewFooterLine(leader string) string {
 // (#200) fit: budgeted together they took this line to 94 columns, and the
 // tree re-lists itself at every turn end now (#195), so r is the rare key.
 func treeFooterLine(leader string) string {
-	return "h/l/0 pan  enter open  esc back  " + leader + " ? keys"
+	return "h/l/0 pan  enter open  / filter  esc back  " + leader + " ? keys"
 }
 
 // emptyTreeHint is the tree's empty state: a repository that listed

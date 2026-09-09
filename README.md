@@ -195,7 +195,8 @@ when it already shows that view.
 | `h` / `l` | pan left and right along a line too wide for the column |
 | `0` | jump back to the left edge |
 | `r` | re-list the worktree |
-| `esc` | from a preview back to the tree; from the tree back to Claude |
+| `/` | filter the tree as you type; `enter` keeps the filter, `esc` clears it |
+| `esc` | from a preview back to the tree; from the tree, lift the filter, then back to Claude |
 
 A preview is syntax-highlighted when the file's type is known, in colours
 kept apart from the ones the diff uses for added and removed lines, so a
