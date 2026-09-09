@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -19,8 +20,8 @@ import (
 // per cell is a step a glance can read.
 const meterCells = 8
 
-// meterFull and meterEmpty are the cells. Not gradients (#128's constraint):
-// two glyphs, one colour each, from the 256-colour palette.
+// meterFull and meterEmpty are the cells: two glyphs, the filled ones
+// warming from amber to green across the bar (#154), the empty ones muted.
 const meterFull, meterEmpty = "▰", "▱"
 
 // cacheShare is CacheRead over In + CacheRead + CacheWrite - everything the
@@ -36,11 +37,16 @@ func cacheShare(t watcher.Tokens) (float64, bool) {
 	return float64(t.CacheRead) / float64(fed), true
 }
 
-// renderMeter draws share as meterCells one-cell blocks, filled from the left.
+// renderMeter draws share as meterCells one-cell blocks, filled from the
+// left, each filled cell its own colour on the ramp.
 func renderMeter(share float64) string {
 	filled := int(math.Round(share * meterCells))
-	return meterStyle.Render(strings.Repeat(meterFull, filled)) +
-		mutedStyle.Render(strings.Repeat(meterEmpty, meterCells-filled))
+	var b strings.Builder
+	for i := range filled {
+		b.WriteString(lipgloss.NewStyle().Foreground(meterCellColor(i)).Render(meterFull))
+	}
+	b.WriteString(mutedStyle.Render(strings.Repeat(meterEmpty, meterCells-filled)))
+	return b.String()
 }
 
 // tokensPart is the rule's usage segment: the meter and its percentage when

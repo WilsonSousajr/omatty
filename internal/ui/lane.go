@@ -54,14 +54,16 @@ var laneBlock = map[watcher.Status]string{
 }
 
 // renderLane draws a session's trace, each cell coloured by the status it
-// records through glyphStyle - so "waiting" is lit in the waiting colour and
-// the lane answers "which of these needs me" at a glance.
+// records and faded by its age (#154) - so the newest "waiting" is lit in
+// the full waiting colour and the lane answers "which of these needs me" at
+// a glance, while older cells recede.
 func (m *Model) renderLane(id string) string {
 	l := m.lane[id]
 	var b strings.Builder
 	b.WriteString(strings.Repeat(" ", laneCells-l.filled))
-	for _, s := range l.seen[laneCells-l.filled:] {
-		b.WriteString(glyphStyle(s).Render(laneBlock[s]))
+	for i, s := range l.seen[laneCells-l.filled:] {
+		age := l.filled - 1 - i
+		b.WriteString(laneCellStyle(s, age).Render(laneBlock[s]))
 	}
 	return b.String()
 }

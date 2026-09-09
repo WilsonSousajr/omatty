@@ -9,11 +9,19 @@ import (
 )
 
 // Palette. ANSI 256 indices so it degrades sanely on 16-colour terminals.
+//
+// The one exception, decided on 2026-09-08 (#154): the lane's fade and the
+// meter's warmth are truecolor blends *between* these entries (ramp.go).
+// They were not added as more indices because bubbletea detects the
+// terminal's profile and quantises every colour it draws, so the 256- and
+// 16-colour fallbacks are the renderer's, not ours - and a test asserts each
+// ramp still reads as one after quantising. Everything that is not a ramp
+// stays an index, and there is still one theme: the ramps' endpoints are the
+// palette, so nothing here is a second set of colours.
 var (
 	colorFocused = lipgloss.Color("39")  // blue
 	colorBlurred = lipgloss.Color("240") // grey
 	colorMuted   = lipgloss.Color("245")
-	colorMeter   = lipgloss.Color("78") // green, as done is: a cache hit is the good outcome (#153)
 	colorFooter  = lipgloss.Color("245")
 )
 
@@ -48,10 +56,7 @@ func borderStyle(focused bool) lipgloss.Style {
 
 // glyphStyle colours a status glyph.
 func glyphStyle(s watcher.Status) lipgloss.Style {
-	if c, ok := statusColors[s]; ok {
-		return lipgloss.NewStyle().Foreground(c)
-	}
-	return lipgloss.NewStyle().Foreground(colorMuted)
+	return lipgloss.NewStyle().Foreground(glyphColor(s))
 }
 
 var (
@@ -59,7 +64,6 @@ var (
 	footerStyle = lipgloss.NewStyle().Foreground(colorFooter)
 	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)
-	meterStyle  = lipgloss.NewStyle().Foreground(colorMeter)
 )
 
 // statusGlyphs pairs each status with its one-column marker - the set the
