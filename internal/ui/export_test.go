@@ -75,6 +75,10 @@ func (m *Model) CardOf(id string) []string {
 }
 func Rail() string { return accentStyle.Render(rail) }
 
+// Amber renders s in the waiting colour, so a footer test can find the
+// waiting count by its colour (#178).
+func Amber(s string) string { return amberStyle.Render(s) }
+
 // HairlineCell is one rendered hairline cell, accent or plain, so a test can
 // find which edge the accent stands on (#174). HeaderRow and RuleRow build
 // the two chrome lines from titles and widths; owner is the index of the

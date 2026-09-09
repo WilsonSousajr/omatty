@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -211,7 +212,49 @@ func (m *Model) renderFooter() string {
 		// only place the way out is written down (#28, #30, #43).
 		return footerStyle.Render(fitLine(" "+exitKeyFor(m.leader)+"  "+m.notice, m.width))
 	}
-	return footerStyle.Render(fitLine(" "+m.footerKeys(), m.width))
+	return joinEnds(footerStyle.Render(" "+m.footerKeys()), m.footerFacts(), m.width)
+}
+
+// footerFacts is the footer's right side (#178): how many sessions there
+// are, and how many wait, the waiting count in amber because it is the
+// waiting state and the colour rule allows exactly that (#175).
+func (m *Model) footerFacts() string {
+	facts := mutedStyle.Render(countNoun(len(m.state.Sessions), "session"))
+	if k := m.waitingCount(); k > 0 {
+		facts += mutedStyle.Render(" · ") + amberStyle.Render(strconv.Itoa(k)+" waiting")
+	}
+	return facts
+}
+
+// waitingCount is how many registered sessions are stopped for the operator.
+func (m *Model) waitingCount() int {
+	n := 0
+	for id, st := range m.status {
+		if st.Status == watcher.StatusWaiting && m.knownSession(id) {
+			n++
+		}
+	}
+	return n
+}
+
+// countNoun is "1 session" or "3 sessions".
+func countNoun(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return strconv.Itoa(n) + " " + noun + "s"
+}
+
+// joinEnds lays left and right on one line of width cells with at least two
+// spaces between. When they do not both fit, right is dropped whole and left
+// is cut to the window: the footer's keys outrank its facts, and the header's
+// title outranks its meter (#178, #177). Both sides may carry SGR.
+func joinEnds(left, right string, width int) string {
+	gap := width - lipgloss.Width(left) - lipgloss.Width(right)
+	if right == "" || gap < 2 {
+		return fitLine(left, width)
+	}
+	return left + strings.Repeat(" ", gap) + right
 }
 
 // footerKeys is the keymap for whatever has focus. A modal surface comes

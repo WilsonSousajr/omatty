@@ -57,6 +57,7 @@ var (
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)
 	textStyle   = lipgloss.NewStyle().Foreground(colorText)
 	accentStyle = lipgloss.NewStyle().Foreground(colorAccent)
+	amberStyle  = lipgloss.NewStyle().Foreground(colorAmber)
 )
 
 // statusGlyphs pairs each status with its one-column marker (#175). The
