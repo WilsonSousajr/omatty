@@ -37,13 +37,12 @@ func (m *Model) treeLines(nodes []review.TreeNode, w, rows int) []string {
 	return out
 }
 
-// treeText is "  ▾ dir/" or "  * file", indented by depth; * marks a file the
-// session changed, or a directory holding one.
+// treeText is "M ▾ dir/" or "A file", indented by depth; the letter is the
+// kind of change the session made - M A D R - or a space for none, and a
+// directory holding a changed file reads as M (#196). Before that one *
+// marked every kind.
 func treeText(n review.TreeNode, collapsed bool) string {
-	mark := " "
-	if n.Touched {
-		mark = "*"
-	}
+	mark := changeLetter(n.Change)
 	indent := strings.Repeat("  ", n.Depth)
 	if !n.IsDir {
 		return indent + mark + " " + n.Name
@@ -55,11 +54,36 @@ func treeText(n review.TreeNode, collapsed bool) string {
 	return indent + mark + " " + arrow + " " + n.Name + "/"
 }
 
+// changeLetter is the one-cell mark column: nvim-tree, yazi and lazygit all
+// show the kind of change, not just that there was one.
+func changeLetter(c review.Change) string {
+	switch c {
+	case review.ChangeModified:
+		return "M"
+	case review.ChangeAdded:
+		return "A"
+	case review.ChangeDeleted:
+		return "D"
+	case review.ChangeRenamed:
+		return "R"
+	}
+	return " "
+}
+
+// treeStyle colours a row by its change in the hues the diff already gives
+// those states - green added, red removed - and amber for a modified or
+// renamed file, the operator's-attention hue; that is what keeps style.go's
+// one-hue-one-meaning rule with no new colour (#196). The cursor's reverse
+// wins over all of them so the row is found at a glance.
 func treeStyle(n review.TreeNode, cursor bool) lipgloss.Style {
 	switch {
 	case cursor:
 		return cursorStyle
-	case n.Touched:
+	case n.Change == review.ChangeAdded:
+		return addedStyle
+	case n.Change == review.ChangeDeleted:
+		return removedStyle
+	case n.Change != review.ChangeNone:
 		return commentStyle
 	case n.IsDir:
 		return headerStyle
@@ -73,6 +97,11 @@ func (m *Model) renderPreview(w, rows int) []string {
 	p := m.review.Preview
 	if p.Binary {
 		return []string{mutedStyle.Render(p.Path + " is a binary file")}
+	}
+	// The path is in the title; the body only needs the reason, which then
+	// also fits the narrowest column.
+	if p.Deleted {
+		return []string{mutedStyle.Render(fitLine("deleted in this session", w))}
 	}
 	// The offset is re-clamped here rather than trusted, for the reason
 	// renderEntries and renderTree give: a resize changes rows after the cursor

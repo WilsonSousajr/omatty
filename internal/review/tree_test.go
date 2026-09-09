@@ -8,7 +8,8 @@ import (
 )
 
 // names renders the visible rows as "depth-indented name", with / for a
-// directory and * for touched, so one string shows the whole shape.
+// directory and the change letter (M A D R) for a changed row, so one string
+// shows the whole shape. Before #196 the letter was a single *.
 func names(nodes []review.TreeNode) string {
 	parts := make([]string, len(nodes))
 	for i, n := range nodes {
@@ -16,23 +17,35 @@ func names(nodes []review.TreeNode) string {
 		if n.IsDir {
 			parts[i] += "/"
 		}
-		if n.Touched {
-			parts[i] += "*"
-		}
+		parts[i] += letter(n.Change)
 	}
 	return strings.Join(parts, "|")
+}
+
+func letter(c review.Change) string {
+	return map[review.Change]string{review.ChangeModified: "M", review.ChangeAdded: "A",
+		review.ChangeDeleted: "D", review.ChangeRenamed: "R"}[c]
+}
+
+// modified is the one-file change map most tests need.
+func modified(paths ...string) map[string]review.Change {
+	out := map[string]review.Change{}
+	for _, p := range paths {
+		out[p] = review.ChangeModified
+	}
+	return out
 }
 
 func TestNewTree_PreOrderWithDirectoriesOnFirstSight_issue24(t *testing.T) {
 	tr := review.NewTree(
 		[]string{"internal/ui/model.go", "internal/ui/render.go", "go.mod", "internal/vcs/git.go"},
-		map[string]bool{"internal/ui/model.go": true})
+		modified("internal/ui/model.go"))
 
 	got := names(tr.Visible())
 
 	// Directories lead their siblings since #194; before that go.mod came
 	// first by byte order.
-	want := "internal/*| ui/*|  model.go*|  render.go| vcs/|  git.go|go.mod"
+	want := "internal/M| ui/M|  model.goM|  render.go| vcs/|  git.go|go.mod"
 	if got != want {
 		t.Errorf("Visible() =\n%s\nwant\n%s", got, want)
 	}
@@ -98,13 +111,13 @@ func TestTree_RetouchMarksFilesWithoutLosingTheCollapseState_issue24(t *testing.
 	tr := review.NewTree([]string{"a/b.go", "e.go"}, nil)
 	tr.Toggle("a")
 
-	tr.Retouch(map[string]bool{"a/b.go": true})
+	tr.Retouch(modified("a/b.go"))
 
-	if got := names(tr.Visible()); got != "a/*|e.go" {
-		t.Errorf("Visible() = %s, want a/*|e.go: marked but still folded", got)
+	if got := names(tr.Visible()); got != "a/M|e.go" {
+		t.Errorf("Visible() = %s, want a/M|e.go: marked but still folded", got)
 	}
 	tr.Toggle("a")
-	if got := names(tr.Visible()); got != "a/*| b.go*|e.go" {
+	if got := names(tr.Visible()); got != "a/M| b.goM|e.go" {
 		t.Errorf("Visible() = %s, want the file marked too", got)
 	}
 	tr.Retouch(nil)
@@ -135,16 +148,16 @@ func TestTree_VisibleOnAnEmptyTreeIsEmptyNotNil_issue131(t *testing.T) {
 // A turn ends and the worktree is listed again; the directory the operator
 // folded stays folded and a file claude created appears in place (#195).
 func TestTree_RelistKeepsTheCollapseState_issue195(t *testing.T) {
-	tr := review.NewTree([]string{"a/b.go", "e.go"}, map[string]bool{"a/b.go": true})
+	tr := review.NewTree([]string{"a/b.go", "e.go"}, modified("a/b.go"))
 	tr.Toggle("a")
 
-	tr.Relist([]string{"a/b.go", "a/new.go", "e.go"}, map[string]bool{"a/new.go": true})
+	tr.Relist([]string{"a/b.go", "a/new.go", "e.go"}, modified("a/new.go"))
 
-	if got := names(tr.Visible()); got != "a/*|e.go" {
-		t.Errorf("Visible() = %s, want a/*|e.go: still folded, still marked", got)
+	if got := names(tr.Visible()); got != "a/M|e.go" {
+		t.Errorf("Visible() = %s, want a/M|e.go: still folded, still marked", got)
 	}
 	tr.Toggle("a")
-	if got := names(tr.Visible()); got != "a/*| b.go| new.go*|e.go" {
+	if got := names(tr.Visible()); got != "a/M| b.go| new.goM|e.go" {
 		t.Errorf("Visible() = %s, want the new file in place and the old mark gone", got)
 	}
 }
@@ -164,5 +177,53 @@ func TestTree_RelistForgetsADirectoryThatIsGone_issue195(t *testing.T) {
 	}
 	if !tr.Collapsed("c") {
 		t.Error("Collapsed(c) = false after a relist that still had c")
+	}
+}
+
+// The mark says what kind of change: M A D R, coloured the way the diff
+// colours those states. A deleted file is in the diff but not in the
+// listing, so it becomes a row from the change map; a directory rolls up to
+// modified whatever changed beneath it (#196).
+func TestTree_RowsCarryTheKindOfChange_issue196(t *testing.T) {
+	tr := review.NewTree([]string{"a/m.go", "a/n.go", "r.go"}, map[string]review.Change{
+		"a/m.go": review.ChangeModified, "a/n.go": review.ChangeAdded,
+		"a/d.go": review.ChangeDeleted, "r.go": review.ChangeRenamed,
+	})
+
+	got := names(tr.Visible())
+
+	want := "a/M| d.goD| m.goM| n.goA|r.goR"
+	if got != want {
+		t.Errorf("Visible() =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// A deleted file listed by the change map must not survive a relist that no
+// longer deletes it, and must not duplicate a path that is also listed.
+func TestTree_ADeletedRowFollowsTheChangeMap_issue196(t *testing.T) {
+	tr := review.NewTree([]string{"a.go"}, map[string]review.Change{"a.go": review.ChangeDeleted})
+	if got := names(tr.Visible()); got != "a.goD" {
+		t.Errorf("Visible() = %s, want a.goD: listed and deleted is one row", got)
+	}
+
+	tr.Retouch(nil)
+	if got := names(tr.Visible()); got != "a.go" {
+		t.Errorf("Visible() = %s after Retouch(nil), want a.go", got)
+	}
+	tr.Relist([]string{"b.go"}, map[string]review.Change{"a.go": review.ChangeDeleted})
+	if got := names(tr.Visible()); got != "a.goD|b.go" {
+		t.Errorf("Visible() = %s, want the deleted row back beside b.go", got)
+	}
+}
+
+func TestChangeOf_MapsEveryDiffStatus_issue196(t *testing.T) {
+	cases := map[review.FileStatus]review.Change{
+		review.FileModified: review.ChangeModified, review.FileAdded: review.ChangeAdded,
+		review.FileDeleted: review.ChangeDeleted, review.FileRenamed: review.ChangeRenamed,
+	}
+	for status, want := range cases {
+		if got := review.ChangeOf(status); got != want {
+			t.Errorf("ChangeOf(%v) = %v, want %v", status, got, want)
+		}
 	}
 }

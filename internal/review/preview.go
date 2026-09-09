@@ -13,12 +13,15 @@ import (
 // the frame.
 const previewLimit = 256 << 10
 
-// Preview is a file's text for the preview view (#24).
+// Preview is a file's text for the preview view (#24). Deleted marks a row
+// the diff removed: there is no file to read, so the view explains instead
+// of reporting a read error (#196).
 type Preview struct {
 	Path      string
 	Lines     []string
 	Binary    bool
 	Truncated bool
+	Deleted   bool
 }
 
 // ReadPreview loads rel under dir for display. Paths come from git, so they

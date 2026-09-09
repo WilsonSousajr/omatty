@@ -80,6 +80,7 @@ var reviewKeys = []keyHelp{
 	{"h / l", "pan the diff, tree or preview sideways"},
 	{"wheel sideways", "pan too - shift+wheel where the terminal sends it"},
 	{"0", "jump back to the left edge"},
+	{"M A D R", "a tree row the session modified, added, deleted or renamed"},
 	{"c", "comment on the line under the cursor"},
 	{"S", "submit the queued comments"},
 	{"esc", "leave the column"},
