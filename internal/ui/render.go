@@ -47,20 +47,24 @@ func footerLine(leader string) string {
 // overflowed an 80-column window and cut `h/l pan` off the end entirely - the
 // defect #103 fixed in footer and left standing one constant below it. The
 // keys that came off are in the help modal, which is what the help key reaches
-// (#103).
+// (#103). r left for the same reason on 2026-09-09: the column reloads itself
+// when a turn ends (#21, #195), and o (#200) needed the cells to stay under
+// 80.
 func reviewFooterLine(leader string) string {
-	return "j/k move  c comment  d delete  r reload  S submit  esc back  " + leader + " ? keys"
+	return "j/k move  c comment  d delete  S submit  esc back  " + leader + " ? keys"
 }
 
 // treeFooterLine replaces reviewFooterLine in the tree and preview views,
 // where c and S do nothing and enter does the work (#24).
 //
-// It names h/l because it has the room to: at 64 columns it still fits the
-// 80-column DefaultWidth, while the same eight cells would take reviewFooter
-// to 83 and push a working key off the end. Half of #125 was that the axis
-// existed and nothing on screen said so.
+// It names h/l because it has the room to: the same eight cells would have
+// taken reviewFooter past 80 and pushed a working key off the end. Half of
+// #125 was that the axis existed and nothing on screen said so. j/k and r
+// moved to the help modal on 2026-09-09 so that / (#198), a (#199) and o
+// (#200) fit: budgeted together they took this line to 94 columns, and the
+// tree re-lists itself at every turn end now (#195), so r is the rare key.
 func treeFooterLine(leader string) string {
-	return "j/k move  h/l/0 pan  enter open  r reload  esc back  " + leader + " ? keys"
+	return "h/l/0 pan  enter open  / filter  esc back  " + leader + " ? keys"
 }
 
 // emptyTreeHint is the tree's empty state: a repository that listed

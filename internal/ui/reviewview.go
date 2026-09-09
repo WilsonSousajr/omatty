@@ -41,12 +41,20 @@ func (m *Model) reviewTitle() string {
 func (m *Model) viewTitle() string {
 	switch m.review.View {
 	case ViewTree:
-		return "files · " + m.sessionTitle(m.review.SessionID)
+		return "files · " + m.sessionTitle(m.review.SessionID) + m.filterMarker()
 	case ViewPreview:
 		return m.review.Preview.Path
 	}
 	return fmt.Sprintf("diff · %d files · %d comments",
 		len(m.review.Diff.Files), m.commentsFor(m.review.SessionID).Len())
+}
+
+// filterMarker names the filter in force, so a short listing says why.
+func (m *Model) filterMarker() string {
+	if m.review.Filter.Query == "" {
+		return ""
+	}
+	return " /" + m.review.Filter.Query
 }
 
 // reviewBody is the error, the empty-state line, or the scrolled rows with the

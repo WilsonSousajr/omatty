@@ -7,21 +7,45 @@ import tea "charm.land/bubbletea/v2"
 
 // onTreeKey handles a plain keystroke while the tree is shown.
 func (m *Model) onTreeKey(key string) tea.Cmd {
+	if m.treeCursorKey(key) {
+		return nil
+	}
+	switch key {
+	case "enter":
+		return m.openTreeNode()
+	case "r":
+		return m.loadFiles(m.review.SessionID)
+	case "/":
+		m.review.Filter.Active = true
+	case "esc", "ctrl+c":
+		m.leaveTree()
+	default:
+		m.panKey(key)
+	}
+	return nil
+}
+
+// treeCursorKey moves the cursor for j/k, reporting whether key was one.
+func (m *Model) treeCursorKey(key string) bool {
 	switch key {
 	case "j", "down":
 		m.moveTreeCursor(1)
 	case "k", "up":
 		m.moveTreeCursor(-1)
-	case "enter":
-		return m.openTreeNode()
-	case "r":
-		return m.loadFiles(m.review.SessionID)
-	case "esc", "ctrl+c":
-		m.review.Focused = false
 	default:
-		m.panKey(key)
+		return false
 	}
-	return nil
+	return true
+}
+
+// leaveTree is esc in the list: a kept filter is lifted first, so the
+// operator sees the narrowing go before the column does (#198).
+func (m *Model) leaveTree() {
+	if m.review.Filter.Query != "" {
+		m.setTreeFilter("")
+		return
+	}
+	m.review.Focused = false
 }
 
 // onPreviewKey scrolls the preview; esc returns to the tree, which is where

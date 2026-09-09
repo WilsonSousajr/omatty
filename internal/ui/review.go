@@ -57,6 +57,7 @@ const (
 	focusTerminal focusTarget = iota
 	focusReview
 	focusNote
+	focusFilter // the tree's filter line (#198)
 )
 
 // ReviewPane is the right-hand column's state. The zero value is closed.
@@ -71,6 +72,9 @@ type ReviewPane struct {
 	Offset    int // first visible entry
 	Err       string
 	Note      noteEditor
+	// Filter is the tree's type-to-filter line (#198): Active while it has
+	// the keys, Query the text in force after enter kept it.
+	Filter filterLine
 	// The tree view's state (#24). Tree is nil until the listing arrives,
 	// which is what the "listing files..." placeholder means. TreeErr is
 	// separate from Err so a failed listing never blanks the diff, and a
@@ -94,6 +98,13 @@ type ReviewPane struct {
 	// Widest memoizes the current view's widest row for the horizontal clamp
 	// (#133).
 	Widest widthCache
+}
+
+// filterLine is the tree's live filter: / opens it, typing narrows the
+// listing, enter keeps the query and hands the keys back, esc clears it.
+type filterLine struct {
+	Active bool
+	Query  string
 }
 
 // noteEditor is the one-line comment input opened with c on a diff line. It

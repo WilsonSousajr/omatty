@@ -64,7 +64,7 @@ func (m *Model) moveReviewCursor(delta int) {
 // title, minus the editor line while it is open.
 func (m *Model) reviewRows() int {
 	_, h := PaneSize(m.width, m.height, true)
-	if m.review.Note.Active {
+	if m.review.Note.Active || m.review.Filter.Active {
 		return h - 1
 	}
 	return h

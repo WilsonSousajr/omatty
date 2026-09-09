@@ -227,3 +227,50 @@ func TestChangeOf_MapsEveryDiffStatus_issue196(t *testing.T) {
 		}
 	}
 }
+
+// A filter keeps the files whose path fuzzy-matches the query and every
+// ancestor of a kept file, so the shape around a match is still readable
+// (#198).
+func TestTree_SetFilterKeepsMatchesAndTheirAncestors_issue198(t *testing.T) {
+	tr := review.NewTree([]string{
+		"internal/review/tree.go", "internal/ui/tree.go", "internal/ui/model.go", "go.mod",
+	}, nil)
+
+	tr.SetFilter("tree")
+
+	want := "internal/| review/|  tree.go| ui/|  tree.go"
+	if got := names(tr.Visible()); got != want {
+		t.Errorf("Visible() =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// A match under a folded directory is reachable: directories read as
+// expanded while a filter is on, and the fold comes back when it clears.
+func TestTree_AFilterOpensFoldedDirectoriesAndClearingRestoresThem_issue198(t *testing.T) {
+	tr := review.NewTree([]string{"a/b.go", "a/c.go", "d.go"}, nil)
+	tr.Toggle("a")
+
+	tr.SetFilter("b")
+	if got := names(tr.Visible()); got != "a/| b.go" {
+		t.Errorf("Visible() = %s while filtering, want a/| b.go: the fold must not hide the match", got)
+	}
+
+	tr.SetFilter("")
+	if got := names(tr.Visible()); got != "a/|d.go" {
+		t.Errorf("Visible() = %s after clearing, want a/|d.go: the fold must come back", got)
+	}
+}
+
+// A query nothing matches is an empty, non-nil listing, the way an empty
+// repository is (#131): the ui tells "nothing matched" from "not listed".
+func TestTree_AFilterNothingMatchesIsEmptyNotNil_issue198(t *testing.T) {
+	tr := review.NewTree([]string{"a.go"}, nil)
+	tr.SetFilter("zzz")
+	got := tr.Visible()
+	if got == nil || len(got) != 0 {
+		t.Errorf("Visible() = %v, want a non-nil empty slice", got)
+	}
+	if tr.Filter() != "zzz" {
+		t.Errorf("Filter() = %q, want the query back", tr.Filter())
+	}
+}

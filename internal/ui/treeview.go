@@ -21,9 +21,29 @@ func (m *Model) renderTree(w, rows int) []string {
 	}
 	nodes := m.treeRows()
 	if len(nodes) == 0 {
-		return []string{mutedStyle.Render(fitLine(emptyTreeHint, w))}
+		return m.withFilterLine([]string{mutedStyle.Render(fitLine(m.emptyTreeText(), w))}, w, rows)
 	}
-	return m.treeLines(nodes, w, rows)
+	return m.withFilterLine(m.treeLines(nodes, w, rows), w, rows)
+}
+
+// emptyTreeText tells an empty repository from a filter nothing matched.
+func (m *Model) emptyTreeText() string {
+	if q := m.review.Filter.Query; q != "" {
+		return "no files match /" + q
+	}
+	return emptyTreeHint
+}
+
+// withFilterLine puts the filter line under the rows while it has the keys,
+// the way reviewBody puts the note editor under the diff.
+func (m *Model) withFilterLine(lines []string, w, rows int) []string {
+	if !m.review.Filter.Active {
+		return lines
+	}
+	if len(lines) > rows-1 {
+		lines = lines[:rows-1]
+	}
+	return append(lines, editLine("filter", m.review.Filter.Query, w))
 }
 
 // treeLines draws the window of rows around the cursor.

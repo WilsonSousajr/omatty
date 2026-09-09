@@ -43,6 +43,9 @@ func (m *Model) focus() (focusTarget, bool) {
 	if m.review.Note.Active {
 		return focusNote, true
 	}
+	if m.review.Filter.Active {
+		return focusFilter, true
+	}
 	if m.review.Focused {
 		return focusReview, true
 	}
@@ -54,6 +57,8 @@ func (m *Model) dispatch(target focusTarget, msg tea.KeyPressMsg) tea.Cmd {
 	switch target {
 	case focusNote:
 		return m.onNoteKey(msg)
+	case focusFilter:
+		return m.onFilterKey(msg)
 	case focusReview:
 		return m.onPaneKey(msg.Keystroke())
 	default:
