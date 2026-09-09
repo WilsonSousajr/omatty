@@ -21,7 +21,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M2 | Status | **Done.** Live glyphs, age, tokens, notifications; merged to develop. |
 | M3 | Review | **Done.** #21-#24 merged to develop; diff, comments, submit, file tree. |
 | M4 | Lifecycle | **Done.** PRs #98-#104 merged to develop 2026-09-05, review findings in #119. |
-| M5 | File tree | Folded into M3 on 2026-09-03; #24 shipped there. |
+| M5 | File tree | **Planned** 2026-09-09; #24 shipped in M3, the rest is #194-#200 in Backlog. See the M5 section. |
 | M6 | Persistence | **Done.** #43 and #122 merged as PRs #121 and #123 on 2026-09-05. |
 | M7 | Reach | **Built** 2026-09-07 as PRs #135-#148. Leftovers still open; see "What is left". |
 | M8 | Surface | **Built** 2026-09-09 as PRs #181-#186, stacked; see the M8 section and "What is left". |
@@ -208,14 +208,69 @@ PTY you do not own.
 
 ## M5 - File tree
 
-**Delivers:** nothing of its own any more. #24 - browse each session's
-worktree, see which files that session touched, preview one without leaving
-omatty - was pulled into M3 on 2026-09-02 and built there on 2026-09-03, as
-the second view of the review column rather than a milestone of its own.
+**Delivers:** the tree grows from a listing into a surface. #24 - browse each
+session's worktree, see which files that session touched, preview one without
+leaving omatty - was pulled into M3 on 2026-09-02 and built there on
+2026-09-03 as the second view of the review column, which is what made it
+small enough to bring forward. What shipped is a `git ls-files` listing folded
+into a tree, `*` on a file the diff changed, and a preview that is numbered
+plain text. M5 was empty from then until 2026-09-09, when it was refilled
+with what the tree still lacks. The docs issue is #193; the spec is
+`docs/superpowers/specs/2026-09-09-m5-file-tree-design.md`.
 
-The original reasoning was that one feature should sit behind Lifecycle's
-four. Sharing the review column made it small enough that waiting cost more
-than building it. See M3.
+The list was chosen by looking at what the terminal tools an operator would
+otherwise reach for all do. yazi highlights previews with no external tool
+and rolls git state up to the directory; superfile and the Bubble Tea file
+explorers highlight through chroma; nvim-tree shows a glyph per git state,
+sorts directories first, and binds a live filter to one key; the OpenCode
+TUI highlights with the terminal's own palette and lets `@` reference a file
+into the conversation, which no file manager can and which is the one that
+fits an ADE. Those converge on seven issues, one PR each, in build order:
+
+- **#194 sort.** Directories before files at every depth, then
+  case-insensitive. A comparator over path components replaces
+  `sort.Strings` in `review.NewTree`; the pre-order contiguity `Visible()`
+  folds on must survive it.
+- **#195 re-list on turn end.** `refreshReview` re-lists the worktree beside
+  the diff when the column is open, and the reopen re-lists a stale one, so
+  a file claude creates appears without `r`. `Tree.Relist` keeps the
+  collapse state; the cursor stays on its path.
+- **#196 change markers.** `M A D R` in the mark column instead of `*`,
+  coloured amber, green, red and amber, the hues the diff already gives
+  those states, so the colour rule holds. The kinds come from
+  `review.File.Status`, which the diff already carries: no new git call.
+  Deleted files, in the diff but not in `ls-files`, become rows for the
+  first time.
+- **#197 highlighting.** A new `internal/highlight` package owns chroma the
+  way `termwrap` owns bubbleterm; nothing else imports it. The style is
+  omatty's own, built from `style.go`'s indices, because every stock theme
+  spends the accent and the diff hues on keywords and strings. Lines are
+  highlighted once when the file is opened and stored beside the plain
+  ones, which keep measuring width; panning goes through the ANSI-aware
+  cut in `charmbracelet/x/ansi` so `l` never shows half an escape. Files
+  over the budget draw plain with a note. The diff view is not highlighted
+  by this issue.
+- **#198 filter.** `/` opens a filter line; `fuzzy.Match` against the path
+  narrows the listing live, ancestors kept, folded directories opened while
+  the filter is on; `enter` keeps it, `esc` clears it. The leader router is
+  untouched: `/` is a plain key in an already-focused column.
+- **#199 attach.** `a` on a row writes `@<path> ` to the session inside
+  paste brackets with no carriage return - `review.BracketedText`, the
+  submitting `BracketedPaste`'s sibling - and hands focus back to claude's
+  composer. Labelled `invariant` for 8. Whether claude's `@` picker takes a
+  pasted path is a question for the real-PTY smoke run, and the PR records
+  the answer.
+- **#200 cross-links.** `o` on a hunk line opens the preview at that line's
+  number; `o` in a preview lands the diff cursor on that file's header.
+  The data already lines up: an entry carries its `Position`, a `Line` its
+  `NewNo`.
+
+**Cut**, and written down so it does not return sideways: Nerd Font
+file-type icons and a second theme, both refused in M8; wrapping long lines
+in the preview, when panning already reaches them; a markdown renderer for
+the preview; watching the worktree with fsnotify, when the turn boundary is
+the moment the operator looks. Highlighting the diff view is deferred, not
+cut: it is one more caller of #197's package once that exists.
 
 ## M6 - Persistence
 
