@@ -228,9 +228,10 @@ below it.
   side collapses in steps: the counts first, then the meter and percentage,
   then the branch, and last the left side is clipped. A pane with no
   session has an empty segment. A modal names itself in the segment
-  instead: each modal kind has one name, sentence case, in a table in
-  `modalview.go` (new session, new worktree session, rename, confirm,
-  switch, register project, adopt session, keys).
+  instead: one name per modal surface as opened, sentence case, held
+  where the surface is built in `modalview.go`. The prompt is one kind
+  opened two ways, so it carries its own name: new session, new worktree
+  session, rename, confirm, switch, register project, adopt session, keys.
 - **Review segment:** today's `reviewTitle`, unchanged.
 
 The rule beneath is hairline-coloured, with `┼` under each hairline. A
