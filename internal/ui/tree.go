@@ -75,25 +75,6 @@ func (m *Model) retouchTree() {
 	}
 }
 
-// onTreeKey handles a plain keystroke while the tree is shown.
-func (m *Model) onTreeKey(key string) tea.Cmd {
-	switch key {
-	case "j", "down":
-		m.moveTreeCursor(1)
-	case "k", "up":
-		m.moveTreeCursor(-1)
-	case "enter":
-		return m.openTreeNode()
-	case "r":
-		return m.loadFiles(m.review.SessionID)
-	case "esc", "ctrl+c":
-		m.review.Focused = false
-	default:
-		m.panKey(key)
-	}
-	return nil
-}
-
 // treeRows is the visible listing, empty until it has been loaded.
 func (m *Model) treeRows() []review.TreeNode {
 	if m.review.Tree == nil {
@@ -147,21 +128,4 @@ func (m *Model) previewFile(rel string) {
 	m.review.Preview, m.review.PreviewOffset, m.review.View = p, 0, ViewPreview
 	m.contentChanged()
 	m.review.ColOffset = 0 // a new file opens at its left edge, not mid-line (#94)
-}
-
-// onPreviewKey scrolls the preview; esc returns to the tree, which is where
-// the operator came from, rather than all the way to the terminal.
-func (m *Model) onPreviewKey(key string) tea.Cmd {
-	last := max(len(m.review.Preview.Lines)-m.reviewRows(), 0)
-	switch key {
-	case "j", "down":
-		m.review.PreviewOffset = min(m.review.PreviewOffset+1, last)
-	case "k", "up":
-		m.review.PreviewOffset = max(m.review.PreviewOffset-1, 0)
-	case "esc", "ctrl+c":
-		m.review.View, m.review.ColOffset = ViewTree, 0
-	default:
-		m.panKey(key)
-	}
-	return nil
 }
