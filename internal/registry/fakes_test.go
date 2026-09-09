@@ -1,6 +1,10 @@
 package registry_test
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/WilsonSousajr/omatty/internal/vcs"
+)
 
 // FakeGit records worktree calls and returns canned results. A named type,
 // per AGENTS.md, so a failure message says what stood in for git.
@@ -38,6 +42,8 @@ func (f *FakeGit) RemoveWorktree(_, dir string) error {
 func (f *FakeGit) MergeBase(_, ref string) (string, error) { return ref, nil }
 
 func (f *FakeGit) Diff(string, string) (string, error) { return "", nil }
+
+func (f *FakeGit) Shortstat(string, string) (vcs.Shortstat, error) { return vcs.Shortstat{}, nil }
 
 func (f *FakeGit) Untracked(string) ([]string, error) { return nil, nil }
 

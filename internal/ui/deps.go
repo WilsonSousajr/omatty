@@ -23,6 +23,12 @@ type CreateFunc func(project, title, branch string) (registry.Session, error)
 // the size is a parameter so it is never frozen at startup (issue #73).
 type StartFunc func(sess registry.Session, w, h int) (termwrap.Terminal, error)
 
+// RepoStatFunc reads a session's branch and diffstat for its sidebar card
+// (#180). Injected so ui never touches git (invariant 4). Nil is the switch,
+// as ModelName's is: with nothing wired the card draws its lane alone, which
+// is what every test's Deps gets.
+type RepoStatFunc func(sess registry.Session, projectRoot string) (review.Stat, error)
+
 // Deps is everything a Model needs. Constructor injection, so no field is
 // set after the fact and no method needs a nil guard (issue #76). The zero
 // value of an optional field means: no status stream, the wall clock, a
@@ -45,6 +51,9 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
+	// Stat reads a session's branch and diffstat for its card; nil means no
+	// git to ask (#180).
+	Stat RepoStatFunc
 	// Rename persists a session's new title (#41), and Name reads the first
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
