@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
@@ -101,6 +102,44 @@ func TestModel_AFailedPollKeepsTheLastStatAndWarnsOnce_issue180(t *testing.T) {
 	deliver(m, m.PollAll())
 	if n := strings.Count(log.String(), "reading repo stat"); n != 6 {
 		t.Errorf("logged %d warnings, want 6: the once-flag clears on success", n)
+	}
+}
+
+func TestCard_LineTwoSharesSixteenColumnsBetweenBranchAndDiffstat_issue180(t *testing.T) {
+	m, _ := modelWithStat(t)
+	for _, tt := range []struct {
+		stat review.Stat
+		want string // the 16 columns between the rail's two spaces and the lane
+	}{
+		{review.Stat{Branch: "main", Added: 12, Removed: 3}, "main      +12 −3"},
+		{review.Stat{Branch: "feature/very-long-branch-name", Added: 1, Removed: 0}, "feature/ve +1 −0"},
+		{review.Stat{Branch: "main"}, "main            "},
+		{review.Stat{Branch: "main", Added: 1234, Removed: 5}, "main    +1.2k −5"},
+	} {
+		m.Update(ui.RepoStatMsg{SessionID: "s1", Stat: tt.stat})
+		line := []rune(stripSGR(m.CardOf("s1")[1])) // runes: the rail and the minus sign are multi-byte
+		if got := string(line[3 : 3+16]); got != tt.want {
+			t.Errorf("stat %+v: line two middle = %q, want %q (line %q)", tt.stat, got, tt.want, string(line))
+		}
+		if lipgloss.Width(m.CardOf("s1")[1]) != ui.SidebarWidth-1 {
+			t.Errorf("line two is %d cells, want %d", lipgloss.Width(m.CardOf("s1")[1]), ui.SidebarWidth-1)
+		}
+	}
+}
+
+func TestCard_AnUnknownBranchLeavesLineTwoToTheLane_issue180(t *testing.T) {
+	m, _ := modelWithStat(t)
+	if got := stripSGR(m.CardOf("s2")[1]); strings.TrimSpace(got) != "" {
+		t.Errorf("line two of an unpolled session = %q, want blanks and the empty lane", got)
+	}
+}
+
+func TestCard_TheDiffstatWearsTheDiffColours_issue180(t *testing.T) {
+	m, _ := modelWithStat(t)
+	m.Update(ui.RepoStatMsg{SessionID: "s1", Stat: review.Stat{Branch: "main", Added: 12, Removed: 3}})
+	line := m.CardOf("s1")[1]
+	if !strings.Contains(line, ui.Added("+12")) || !strings.Contains(line, ui.Removed("−3")) {
+		t.Errorf("line two %q does not carry +12 in green and −3 in red", line)
 	}
 }
 

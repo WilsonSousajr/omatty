@@ -81,6 +81,11 @@ func Rail() string { return accentStyle.Render(rail) }
 // waiting count by its colour (#178).
 func Amber(s string) string { return amberStyle.Render(s) }
 
+// Added and Removed render s in the diff colours, so a card test can find
+// the diffstat by colour (#180).
+func Added(s string) string   { return addedStyle.Render(s) }
+func Removed(s string) string { return removedStyle.Render(s) }
+
 // PollAll is one stat tick's worth of polls without the tick that re-arms
 // it, so a test can run them without blocking on tea.Tick (#180). RepoStatOf
 // is what the model holds for a session.
