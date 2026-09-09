@@ -7,7 +7,49 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
+
+// Stat reads through the same base commit as Load and never lists untracked
+// files, so a card can read lower than the review column: the column is the
+// truth when opened (#180).
+func TestSource_StatCountsTrackedChangesAgainstTheSameBaseAsLoad_issue180(t *testing.T) {
+	g := &FakeGit{Branch: "parser-fix", MergeBaseOut: "abc123",
+		ShortstatOut: vcs.Shortstat{Files: 2, Added: 12, Removed: 3}}
+
+	st, err := review.NewSource(g).Stat(worktreeSession, "/p/omatty")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "CurrentBranch(/wt/parser-fix) MergeBase(/wt/parser-fix,develop) Shortstat(/wt/parser-fix,abc123)"
+	if calls(g) != want {
+		t.Errorf("calls = %s\nwant  %s", calls(g), want)
+	}
+	if st != (review.Stat{Branch: "parser-fix", Added: 12, Removed: 3}) {
+		t.Errorf("Stat() = %+v", st)
+	}
+}
+
+func TestSource_StatFailureNamesTheSessionAndRef_issue180(t *testing.T) {
+	g := &FakeGit{Branch: "main", Errs: map[string]error{"Shortstat": errors.New("boom")}}
+
+	_, err := review.NewSource(g).Stat(registry.Session{ID: "s9", Dir: "/p"}, "/p")
+
+	if err == nil || !strings.Contains(err.Error(), "s9") || !strings.Contains(err.Error(), "HEAD") {
+		t.Errorf("error = %v, want one naming session s9 and ref HEAD", err)
+	}
+}
+
+func TestSource_StatBranchFailureNamesTheDirectory_issue180(t *testing.T) {
+	g := &FakeGit{Errs: map[string]error{"CurrentBranch": errors.New("not a repository")}}
+
+	_, err := review.NewSource(g).Stat(registry.Session{ID: "s9", Dir: "/gone"}, "/p")
+
+	if err == nil || !strings.Contains(err.Error(), "/gone") {
+		t.Errorf("error = %v, want one naming /gone", err)
+	}
+}
 
 var worktreeSession = registry.Session{
 	ID: "s2", Dir: "/wt/parser-fix", Branch: "parser-fix", Base: "develop", Worktree: true,
