@@ -8,7 +8,43 @@ import (
 	"github.com/mattn/go-runewidth"
 
 	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
+
+// One hue, one meaning (#175): amber is bound to waiting and to nothing
+// else, and the accent means focus alone, so it appears in no status.
+func TestStatusColors_AmberMeansWaitingAloneAndAccentMeansFocusAlone_issue175(t *testing.T) {
+	for _, s := range ui.AllStatuses() {
+		isAmber := sameRGB(ui.StatusColor(s), ui.AmberColor())
+		if isAmber != (s == watcher.StatusWaiting) {
+			t.Errorf("status %s amber=%v; amber must mean waiting and only waiting", s, isAmber)
+		}
+		if sameRGB(ui.StatusColor(s), ui.AccentColor()) {
+			t.Errorf("status %s is drawn in the accent, which means focus alone", s)
+		}
+	}
+}
+
+// Working states earn no colour: the lane's height already says how busy.
+func TestStatusColors_WorkingStatesAreTextColoured_issue175(t *testing.T) {
+	for _, s := range []watcher.Status{watcher.StatusThinking, watcher.StatusTool} {
+		if !sameRGB(ui.StatusColor(s), ui.TextColor()) {
+			t.Errorf("status %s = %v, want the text colour", s, ui.StatusColor(s))
+		}
+	}
+}
+
+// Every status has a glyph and a colour, so a new status cannot render "-".
+func TestStatusTables_CoverEveryStatus_issue175(t *testing.T) {
+	for _, s := range ui.AllStatuses() {
+		if ui.StatusColor(s) == nil {
+			t.Errorf("status %s has no colour", s)
+		}
+	}
+	if len(ui.StatusGlyphs()) != len(ui.AllStatuses()) {
+		t.Errorf("%d glyphs for %d statuses", len(ui.StatusGlyphs()), len(ui.AllStatuses()))
+	}
+}
 
 // Measured with both libraries omatty draws through: lipgloss.Width is what
 // the renderer pads with, runewidth what discover.truncate cuts with. A glyph
@@ -19,8 +55,8 @@ func TestStatusGlyphs_AreOneCellWide_issue128(t *testing.T) {
 			t.Errorf("glyph %q is %d/%d cells wide, want 1", g, lipgloss.Width(g), runewidth.StringWidth(g))
 		}
 	}
-	if !slices.Contains(ui.StatusGlyphs(), "●") {
-		t.Error("the M2 glyph set is not restored")
+	if !slices.Contains(ui.StatusGlyphs(), "◐") {
+		t.Error("the working glyph ◐ is missing (#175)")
 	}
 }
 

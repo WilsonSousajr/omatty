@@ -18,21 +18,31 @@ import (
 // ramp still reads as one after quantising. Everything that is not a ramp
 // stays an index, and there is still one theme: the ramps' endpoints are the
 // palette, so nothing here is a second set of colours.
+//
+// M8 (#175) made the palette eight indices and the rule one hue, one
+// meaning: working states are text, amber is waiting and nothing else,
+// green is done, red is error, muted is true-but-not-actionable, and the
+// accent means focus alone. 75 replaced 39 as the accent because it is the
+// nearest index to monocode's blue that is not neon.
 var (
-	colorAccent   = lipgloss.Color("39")  // blue: focus, the keyboard owner's hairline (#174)
-	colorHairline = lipgloss.Color("240") // grey: every other divider
-	colorMuted    = lipgloss.Color("245")
-	colorFooter   = lipgloss.Color("245")
+	colorInk      = lipgloss.Color("253") // the focused header segment, the selected title
+	colorText     = lipgloss.Color("250") // titles, branches, working glyphs
+	colorMuted    = lipgloss.Color("245") // headers, ages, counts, keymap
+	colorHairline = lipgloss.Color("238") // every divider that is not focused
+	colorAccent   = lipgloss.Color("75")  // the focused hairline, the rail
+	colorAmber    = lipgloss.Color("214") // waiting, and nothing else
+	colorGreen    = lipgloss.Color("78")  // done, +added
+	colorRed      = lipgloss.Color("203") // error, −removed
 )
 
-// statusColors gives each status a colour; the glyph alone is hard to scan.
+// statusColors is the only place a status becomes a colour. Working states
+// are text: working is the default, and the lane's height already says how
+// busy. Amber goes to waiting alone, so the newest amber cell in any lane
+// still answers "which of these needs me" (#175).
 var statusColors = map[watcher.Status]color.Color{
-	watcher.StatusThinking: lipgloss.Color("214"), // amber
-	watcher.StatusTool:     lipgloss.Color("39"),  // blue
-	watcher.StatusWaiting:  lipgloss.Color("203"), // red - needs you
-	watcher.StatusDone:     lipgloss.Color("78"),  // green
-	watcher.StatusError:    lipgloss.Color("196"),
-	watcher.StatusExited:   lipgloss.Color("240"),
+	watcher.StatusIdle: colorMuted, watcher.StatusThinking: colorText, watcher.StatusTool: colorText,
+	watcher.StatusWaiting: colorAmber, watcher.StatusDone: colorGreen, watcher.StatusError: colorRed,
+	watcher.StatusExited: colorMuted,
 }
 
 // glyphStyle colours a status glyph.
@@ -41,21 +51,23 @@ func glyphStyle(s watcher.Status) lipgloss.Style {
 }
 
 var (
-	headerStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
-	footerStyle = lipgloss.NewStyle().Foreground(colorFooter)
-	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
+	headerStyle = lipgloss.NewStyle().Foreground(colorInk).Bold(true)
+	footerStyle = lipgloss.NewStyle().Foreground(colorMuted)
+	errorStyle  = lipgloss.NewStyle().Foreground(colorRed).Bold(true)
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)
 )
 
-// statusGlyphs pairs each status with its one-column marker - the set the
-// roadmap's M2 approved, restored by #128; a status not listed renders "-".
-// ● is East Asian Ambiguous, like the rounded border and the lane cells: a
-// terminal set to RUNEWIDTH_EASTASIAN=1 doubles all of them or none. ⚙ and
-// ⏸ are pictographic; if a font draws them two cells wide, ⋯ and ▮ are the
-// neutral fallbacks.
+// statusGlyphs pairs each status with its one-column marker (#175). The
+// filled dot is waiting, the loudest glyph for the loudest state; the shapes
+// differ enough to read with colour off. All are Geometric Shapes or
+// Mathematical Operators, so no font draws them two cells wide - the gear and
+// the pause sign #128 warned about are gone. ○ ◐ ◆ ● are East Asian
+// Ambiguous like the lane cells and the rail: RUNEWIDTH_EASTASIAN=1 doubles
+// all of them or none. A status not listed renders "-".
 var statusGlyphs = map[watcher.Status]string{
-	watcher.StatusThinking: "●", watcher.StatusTool: "⚙", watcher.StatusWaiting: "⏸",
-	watcher.StatusDone: "✓", watcher.StatusError: "✗", watcher.StatusExited: "∅",
+	watcher.StatusIdle: "○", watcher.StatusThinking: "◐", watcher.StatusTool: "◆",
+	watcher.StatusWaiting: "●", watcher.StatusDone: "✓", watcher.StatusError: "✕",
+	watcher.StatusExited: "∅",
 }
 
 func statusGlyph(s watcher.Status) string {
@@ -66,11 +78,13 @@ func statusGlyph(s watcher.Status) string {
 }
 
 // Diff colours: added green, removed red, comments amber, the cursor row
-// reversed so it reads at a glance in any palette (#21).
+// reversed so it reads at a glance in any palette (#21). A queued comment is
+// amber because it is the operator's own pending move, the one meaning the
+// rule gives amber (#175).
 var (
-	addedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("78"))
-	removedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
-	commentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	addedStyle   = lipgloss.NewStyle().Foreground(colorGreen)
+	removedStyle = lipgloss.NewStyle().Foreground(colorRed)
+	commentStyle = lipgloss.NewStyle().Foreground(colorAmber)
 	cursorStyle  = lipgloss.NewStyle().Reverse(true)
 )
 

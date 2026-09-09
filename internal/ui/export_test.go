@@ -110,3 +110,14 @@ func LaneCellColor(s watcher.Status, age int) color.Color { return laneCellColor
 func MeterCellColor(i int) color.Color                    { return meterCellColor(i) }
 func StatusColor(s watcher.Status) color.Color            { return statusColors[s] }
 func MutedColor() color.Color                             { return colorMuted }
+
+// AccentColor, AmberColor and TextColor are the palette entries the colour
+// rule binds (#175); AllStatuses is every status the tables must cover.
+func MeterRamp() (warm, cool color.Color) { return rampWarm, rampCool }
+func AccentColor() color.Color            { return colorAccent }
+func AmberColor() color.Color             { return colorAmber }
+func TextColor() color.Color              { return colorText }
+func AllStatuses() []watcher.Status {
+	return []watcher.Status{watcher.StatusIdle, watcher.StatusThinking, watcher.StatusTool,
+		watcher.StatusWaiting, watcher.StatusDone, watcher.StatusError, watcher.StatusExited}
+}
