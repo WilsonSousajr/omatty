@@ -50,11 +50,16 @@ func laneCellStyle(s watcher.Status, age int) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(laneCellColor(s, age))
 }
 
+// rampWarm and rampCool are the meter's two ends. Named rather than looked up
+// through the status map, so changing what a status means cannot recolour the
+// meter (#175).
+var rampWarm, rampCool = colorAmber, colorGreen
+
 // meterCellColor is the colour of the i-th filled meter cell, warming from
-// thinking's amber to done's green across the bar.
+// amber to green across the bar.
 func meterCellColor(i int) color.Color {
 	t := float64(i) / float64(meterCells-1)
-	return blend(statusColors[watcher.StatusThinking], statusColors[watcher.StatusDone], t)
+	return blend(rampWarm, rampCool, t)
 }
 
 // glyphColor is a status's palette colour, the muted grey for one without.
