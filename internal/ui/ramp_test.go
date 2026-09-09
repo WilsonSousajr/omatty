@@ -76,9 +76,13 @@ func TestLaneCellColor_OlderCellsFadeTowardGreyButNotInto_issue154(t *testing.T)
 // The meter warms from amber to green left to right, so a short bar reads
 // amber and a full one ends green.
 func TestMeterCellColor_RampsFromAmberToGreen_issue154(t *testing.T) {
+	warm, cool := ui.MeterRamp()
 	first, last := ui.MeterCellColor(0), ui.MeterCellColor(ui.MeterCells()-1)
-	if !sameRGB(first, ui.StatusColor(watcher.StatusThinking)) || !sameRGB(last, ui.StatusColor(watcher.StatusDone)) {
-		t.Errorf("meter ends = %v / %v, want thinking's amber and done's green", first, last)
+	if !sameRGB(first, warm) || !sameRGB(last, cool) {
+		t.Errorf("meter ends = %v / %v, want the ramp's amber and green", first, last)
+	}
+	if !sameRGB(warm, ui.AmberColor()) {
+		t.Error("the meter no longer starts at amber (#175)")
 	}
 	for i := 1; i < ui.MeterCells(); i++ {
 		if sameRGB(ui.MeterCellColor(i), ui.MeterCellColor(i-1)) {

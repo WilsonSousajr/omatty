@@ -111,6 +111,17 @@ func MeterCellColor(i int) color.Color                    { return meterCellColo
 func StatusColor(s watcher.Status) color.Color            { return statusColors[s] }
 func MutedColor() color.Color                             { return colorMuted }
 
+// AccentColor, AmberColor and TextColor are the palette entries the colour
+// rule binds (#175); AllStatuses is every status the tables must cover.
+func MeterRamp() (warm, cool color.Color) { return rampWarm, rampCool }
+func AccentColor() color.Color            { return colorAccent }
+func AmberColor() color.Color             { return colorAmber }
+func TextColor() color.Color              { return colorText }
+func AllStatuses() []watcher.Status {
+	return []watcher.Status{watcher.StatusIdle, watcher.StatusThinking, watcher.StatusTool,
+		watcher.StatusWaiting, watcher.StatusDone, watcher.StatusError, watcher.StatusExited}
+}
+
 // TokensPart is the rule's whole usage segment - meter, share and counts - so
 // a test can assert what "in" counts without rebuilding the rule (#170).
 func TokensPart(t watcher.Tokens) string { return tokensPart(t) }
