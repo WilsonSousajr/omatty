@@ -20,18 +20,18 @@ func TestModel_AStatusEventPushesOneLaneCellAndAUsageUpdateDoesNot_issue128(t *t
 	lane := m.LaneOf("s1")
 
 	if lipgloss.Width(lane) != ui.LaneCells() || strings.Count(lane, "▄") != 1 {
-		t.Errorf("lane %q after one status event and one usage update; want one thinking cell in eight", lane)
+		t.Errorf("lane %q after one status event and one usage update; want one thinking cell in the lane", lane)
 	}
 }
 
-func TestModel_TheLaneKeepsTheLastEightStatuses_issue128(t *testing.T) {
+func TestModel_TheLaneKeepsTheLastLaneCellsStatuses_issue128(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	for range 12 {
 		status(m, "s1", watcher.ToolStarted, time.Now())
 		status(m, "s1", watcher.ToolFinished, time.Now())
 	}
 	if lane := m.LaneOf("s1"); lipgloss.Width(lane) != ui.LaneCells() || strings.Contains(lane, "  ") {
-		t.Errorf("lane %q, want eight filled cells", lane)
+		t.Errorf("lane %q, want every cell filled", lane)
 	}
 }
 

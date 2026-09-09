@@ -14,17 +14,23 @@ import (
 // rebuilds whatever the tailer's first poll reports and nothing that mattered
 // is lost.
 
-// laneCells is how many statuses a lane shows. Eight, and the title column
+// laneCells is how many statuses a lane shows. Six, and the title column
 // pays for it: SidebarWidth 28, two border columns, marker and glyph four,
-// eight cells and a separator leave a session thirteen columns of name. The
-// dial to turn if thirteen reads too short on screen, with SidebarWidth as
-// the other.
-const laneCells = 8
+// six cells and a separator leave a session fifteen columns of name.
+//
+// Eight shipped first (#128) and left thirteen, which cut "billing-webhook"
+// to "billing-webho" and "review-comments" to "review-commen" on a real
+// project list. Judged on screen on 2026-09-08 against the other dial,
+// SidebarWidth 32: that buys four more columns of title by taking four from
+// the session pane at every width, and at 80 columns the pane is already the
+// thing claude's own UI is short of. Six cells still hold the last few turns,
+// which is what the lane is for (#155).
+const laneCells = 6
 
 // activityLane is one session's ring of recent statuses, oldest first.
 type activityLane struct {
 	seen   [laneCells]watcher.Status
-	filled int // a new session draws a short lane, not eight cells of nothing
+	filled int // a new session draws a short lane, not six cells of nothing
 }
 
 // push records one status, dropping the oldest.

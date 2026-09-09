@@ -15,8 +15,9 @@ import (
 // worth money at a glance that two numbers do not. Display-only, like the
 // lane: derived from the tailer's cumulative Tokens, never persisted.
 
-// meterCells is the bar's width. Eight, like the lane, so the two read as
-// one family; the rule has the room the sidebar does not.
+// meterCells is the bar's width. Eight: the rule has the room the sidebar
+// does not (the lane went to six for its title budget, #155), and an eighth
+// per cell is a step a glance can read.
 const meterCells = 8
 
 // meterFull and meterEmpty are the cells: two glyphs, the filled ones
