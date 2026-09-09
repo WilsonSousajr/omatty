@@ -10,14 +10,36 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
 
-// loadFiles lists the session's worktree off the Update goroutine: git on a
-// large tree takes long enough to stall the frame, exactly as for the diff.
-// The diff view needs no listing, so opening it costs no git call.
+// loadFiles lists the session's worktree for the tree view. The diff view
+// needs no listing, so opening it costs no git call.
 func (m *Model) loadFiles(id string) tea.Cmd {
-	sess, ok := m.session(id)
-	if !ok || m.review.View == ViewDiff {
+	if m.review.View == ViewDiff {
 		return nil
 	}
+	return m.listFiles(id)
+}
+
+// relistFiles lists again for a tree that is already loaded, whichever view
+// is showing: a turn just ended and the tree behind the diff is as stale as
+// the one on screen (#195). A column that never listed has nothing to
+// refresh, and pays on its first switch to the tree as before (#131).
+func (m *Model) relistFiles(id string) tea.Cmd {
+	if m.review.Tree == nil {
+		return nil
+	}
+	return m.listFiles(id)
+}
+
+// listFiles runs git off the Update goroutine: on a large tree it takes long
+// enough to stall the frame, exactly as for the diff. One listing in flight
+// per session, the way pollStat guards its read: two turn ends in quick
+// succession must not fork git twice for the same answer (#195).
+func (m *Model) listFiles(id string) tea.Cmd {
+	sess, ok := m.session(id)
+	if !ok || m.filesPending[id] {
+		return nil
+	}
+	m.filesPending[id] = true
 	list := m.files
 	return func() tea.Msg {
 		paths, err := list(sess.Dir)
@@ -38,8 +60,10 @@ func (m *Model) loadFilesIfMissing(id string) tea.Cmd {
 }
 
 // onFilesLoaded builds the tree, unless the column closed or moved to another
-// session while git was running.
+// session while git was running. The in-flight guard clears first, whatever
+// happened, so a failure never wedges the session's listing.
 func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
+	delete(m.filesPending, msg.SessionID)
 	if !m.review.Open || msg.SessionID != m.review.SessionID {
 		return nil
 	}
@@ -49,10 +73,34 @@ func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
 		return nil
 	}
 	m.review.TreeErr = ""
-	m.review.Tree = review.NewTree(msg.Paths, m.touched())
+	if m.review.Tree == nil {
+		m.review.Tree = review.NewTree(msg.Paths, m.touched())
+	} else {
+		m.relistUnderCursor(msg.Paths)
+	}
 	m.contentChanged()
 	m.moveTreeCursor(0)
 	return nil
+}
+
+// relistUnderCursor replaces the listing and keeps the cursor on the path it
+// was on: a file claude created above it shifts every row down, and the
+// operator reading a file should not find the cursor on its neighbour. A
+// path that is gone leaves the cursor at its index, and the clamp that
+// follows keeps it on a row (#195).
+func (m *Model) relistUnderCursor(paths []string) {
+	rows := m.treeRows()
+	path := ""
+	if m.review.TreeCursor < len(rows) {
+		path = rows[m.review.TreeCursor].Path
+	}
+	m.review.Tree.Relist(paths, m.touched())
+	for i, n := range m.treeRows() {
+		if n.Path == path {
+			m.review.TreeCursor = i
+			return
+		}
+	}
 }
 
 // touched is the set of paths the loaded diff changes, which is what puts a
