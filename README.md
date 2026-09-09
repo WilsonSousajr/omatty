@@ -196,6 +196,7 @@ when it already shows that view.
 | `0` | jump back to the left edge |
 | `r` | re-list the worktree |
 | `/` | filter the tree as you type; `enter` keeps the filter, `esc` clears it |
+| `a` | attach the row, or the previewed file, to the prompt as `@path` and go back to typing |
 | `esc` | from a preview back to the tree; from the tree, lift the filter, then back to Claude |
 
 A preview is syntax-highlighted when the file's type is known, in colours

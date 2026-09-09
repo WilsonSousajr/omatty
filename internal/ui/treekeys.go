@@ -5,24 +5,37 @@ package ui
 
 import tea "charm.land/bubbletea/v2"
 
-// onTreeKey handles a plain keystroke while the tree is shown.
+// onTreeKey handles a plain keystroke while the tree is shown: the cursor
+// keys, the action keys, esc, then the shared pan keys.
 func (m *Model) onTreeKey(key string) tea.Cmd {
 	if m.treeCursorKey(key) {
 		return nil
 	}
+	if cmd, ok := m.treeActionKey(key); ok {
+		return cmd
+	}
+	if key == "esc" || key == "ctrl+c" {
+		m.leaveTree()
+		return nil
+	}
+	m.panKey(key)
+	return nil
+}
+
+// treeActionKey runs enter, r, / and a, reporting whether key was one.
+func (m *Model) treeActionKey(key string) (tea.Cmd, bool) {
 	switch key {
 	case "enter":
-		return m.openTreeNode()
+		return m.openTreeNode(), true
 	case "r":
-		return m.loadFiles(m.review.SessionID)
+		return m.loadFiles(m.review.SessionID), true
 	case "/":
 		m.review.Filter.Active = true
-	case "esc", "ctrl+c":
-		m.leaveTree()
-	default:
-		m.panKey(key)
+		return nil, true
+	case "a":
+		return m.attachSelected(), true
 	}
-	return nil
+	return nil, false
 }
 
 // treeCursorKey moves the cursor for j/k, reporting whether key was one.
@@ -57,6 +70,8 @@ func (m *Model) onPreviewKey(key string) tea.Cmd {
 		m.review.PreviewOffset = min(m.review.PreviewOffset+1, last)
 	case "k", "up":
 		m.review.PreviewOffset = max(m.review.PreviewOffset-1, 0)
+	case "a":
+		return m.attachPath(m.review.Preview.Path, false)
 	case "esc", "ctrl+c":
 		m.review.View, m.review.ColOffset = ViewTree, 0
 	default:
