@@ -180,7 +180,7 @@ and the tests substitute a named fake for it.
 
 | Seam | Over | Why it is a seam |
 |---|---|---|
-| `termwrap` | bubbleterm | Pre-1.0. A breaking release touches one file. Golden-frame tests assert the cell grid, not the library. |
+| `termwrap` | bubbleterm | Pre-1.0. A breaking release touches one file. Golden-frame tests assert the cell grid, not the library. Since #192 it also owns the PTY: the child's bytes pass through a guard that keeps `0x9C` out of OSC and DCS payloads before the emulator parses them, and `Repaint` nudges a re-attached pane's size so claude redraws (#191). |
 | `vcs` | the git CLI | go-git cannot do linked worktrees. A `FakeGit` records the commands the code would run. |
 | `detach` | the dtach CLI | Optional at runtime; a `Plain` holder makes its absence a footer notice rather than a code path. `dtachprobe` exists because its unit tests assert the command line dtach is *given*, and a missing directory shipped green (#43). |
 | `agent` | the coding agent | An agent is a command template plus a status adapter. A second agent is a new file here, not an edit to `supervisor`, `watcher`, `paths` and `cmd` at once (#46). |

@@ -23,7 +23,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M4 | Lifecycle | **Done.** PRs #98-#104 merged to develop 2026-09-05, review findings in #119. |
 | M5 | File tree | **Built** 2026-09-09 as PRs #202-#208, one per issue #194-#200; #199's real-PTY answer is still owed. See the M5 section. |
 | M6 | Persistence | **Done.** #43 and #122 merged as PRs #121 and #123 on 2026-09-05. |
-| M7 | Reach | **Built** 2026-09-07 as PRs #135-#148. Leftovers still open; see "What is left". |
+| M7 | Reach | **Built** 2026-09-07 as PRs #135-#148; the four terminal bugs a day of use found were fixed 2026-09-09 as PRs #210-#214. Leftovers still open; see "What is left". |
 | M8 | Surface | **Built** 2026-09-09 as PRs #181-#186, stacked; see the M8 section and "What is left". |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
@@ -594,6 +594,37 @@ what M7 left.
 - **#156 - `docs/ARCHITECTURE.md`.** Done 2026-09-09. Data flow, the
   package table, the eleven invariants each with the failure behind it, and
   the four seams; AGENTS.md's documentation map points at it again.
+- **#192 - claude's window title drawn into the pane.** Done 2026-09-09,
+  PR #210. `x/ansi` takes the byte `0x9C` for the 8-bit string terminator
+  inside an OSC or DCS payload even in UTF-8, and every Dingbat is `E2 9C xx`,
+  so `✳️ Claude Code` ended at the ✳ and the rest landed on the grid. No
+  upstream release fixes it; `termwrap` now opens the PTY itself and feeds
+  the emulator through a reader that rewrites that byte inside a payload and
+  touches nothing in ground. Owning the PTY cost the window size, the close
+  and TERM, each with a test. SOS/PM/APC are not guarded, and the code says
+  why.
+- **#191 - every pane blank after a restart.** Done 2026-09-09, PR #211.
+  dtach clears the pane on attach and signals at the same size, which claude
+  ignores and the kernel does not even deliver. `Terminal.Repaint` changes
+  the PTY's size to `h-1` and back with a pause before and between (two
+  ioctls close together coalesce into one signal at the original size);
+  `detach.Holder.Held` tells a held session from a fresh one before the
+  terminals start, and only those panes are nudged. `dtachprobe` now stands
+  in a silent child and proves dtach forwards a later size change, which its
+  manual does not say. Scrollback is still gone; persisting the grid would be
+  its own issue.
+- **#190 - paste never reached claude.** Done 2026-09-09, PR #213. A paste
+  is a `PasteMsg`, not keystrokes, and nothing routed it. It now follows the
+  key table: the note and filter lines as text, the focused terminal
+  re-bracketed with no carriage return (invariant 8), the column and a modal
+  drop it. Copy is documented, not built: forwarding OSC 52 needs a callback
+  `x/vt` does not have, and is **#212**, open in Backlog.
+- **#168 - the review column ignored the mouse and looked like claude's
+  diff.** Done 2026-09-09, PR #214. A click on a row moves that view's cursor
+  and takes the keys; a `×` on the column's rule closes it; the rule reads
+  `─ review ─────×` where the pane's stays plain dashes, so omatty's diff and
+  the one claude draws inside its pane are told apart. Clicks in the pane
+  stay claude's (#107).
 
 ---
 
