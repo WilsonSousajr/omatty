@@ -197,9 +197,15 @@ func (m *Model) SelectedProject() string { return m.sidebar.CursorProject() }
 // bubbleterm.Init returns a self-rescheduling blocking poll; without it no
 // terminal ever reads anything and every pane stays blank (issue #33).
 func (m *Model) Init() tea.Cmd {
-	cmds := make([]tea.Cmd, 0, len(m.terms)+2)
-	for _, term := range m.terms {
+	cmds := make([]tea.Cmd, 0, 2*len(m.terms)+2)
+	for id, term := range m.terms {
 		if cmd := term.Init(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		// A pane's copies are waited on from the start, like its output
+		// (#212). Sessions restored from state.json get theirs here; the
+		// two sites that add a session later arm their own.
+		if cmd := m.waitForClipboard(id); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 	}
@@ -274,8 +280,8 @@ func (m *Model) onInput(msg tea.Msg) (tea.Cmd, bool) {
 // has its own case in Update for the same reason: a pointer event carries
 // window coordinates that mean nothing to an individual pane (#40, #107).
 //
-// The split into two is paneCommand's: one table ran past the length limit, and
-// the second is named here so the pair still reads as one list (#122).
+// The split is paneCommand's: one table ran past the length limit, and the
+// ones after it are named here so they still read as one list (#122).
 func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	switch typed := msg.(type) {
 	case StatusMsg:
@@ -291,11 +297,27 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	case ModelNamedMsg:
 		return m.onModelNamed(typed)
 	}
+	return m.onPaneMsg(msg)
+}
+
+// onPaneMsg is onDataMsg's second table: what a running pane produced on its
+// own, as opposed to work omatty went and did. A clipboard write is the first
+// of those - the child copied something, and nothing omatty scheduled asked
+// it to (#212).
+//
+// A table of its own rather than a seventh arm above, because onDataMsg is
+// already at the statement limit that split it from onSessionMsg in the first
+// place (#122), and because the distinction is real: everything above is a
+// result coming back, this is a pane speaking unprompted.
+func (m *Model) onPaneMsg(msg tea.Msg) tea.Cmd {
+	if clip, ok := msg.(ClipboardMsg); ok {
+		return m.onClipboard(clip)
+	}
 	return m.onSessionMsg(msg)
 }
 
-// onSessionMsg is onDataMsg's second table: the messages that change which
-// sessions exist, or which process is behind one.
+// onSessionMsg is the third table: the messages that change which sessions
+// exist, or which process is behind one.
 func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
 	switch typed := msg.(type) {
 	case ProjectsProposedMsg:

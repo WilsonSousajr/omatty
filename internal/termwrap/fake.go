@@ -33,6 +33,10 @@ type Fake struct {
 	// Caret is what Cursor reports, so a test can place the emulated cursor
 	// without driving a real emulator (issue #106).
 	Caret Caret
+	// Clips is the clipboard stream ClipboardWrites hands out. A test puts a
+	// write on it to stand in for a child that ran printf (#212). Left nil,
+	// a Fake reports no clipboard at all, which is the common case.
+	Clips chan ClipboardWrite
 
 	view    string
 	focused bool
@@ -87,6 +91,11 @@ func (f *Fake) Resize(w, h int) tea.Cmd {
 	f.Sizes = append(f.Sizes, [2]int{w, h})
 	return nil
 }
+
+// ClipboardWrites is the stream a test feeds to stand in for an OSC 52 the
+// child wrote (#212). A Fake built without one reports nil, which the caller
+// takes as "never".
+func (f *Fake) ClipboardWrites() <-chan ClipboardWrite { return f.Clips }
 
 // Repaint records the call instead of nudging a PTY.
 func (f *Fake) Repaint() tea.Cmd {

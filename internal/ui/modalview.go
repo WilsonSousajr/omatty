@@ -66,9 +66,15 @@ var leaderKeys = []keyHelp{
 // xterm and Alacritty bypass mouse reporting on shift, while Apple Terminal
 // and iTerm2 use option. Naming only shift sent half the operators dragging
 // out a stream of escape sequences instead of a selection.
+//
+// The drag is still how you take text off the screen yourself. It is listed
+// beside the copy the program makes, which since #212 reaches the host
+// clipboard on its own - the two answer different questions, and listing
+// only one of them was what made copy look broken.
 var claudeKeys = []keyHelp{
 	{"pgup / pgdn", "scroll the transcript"},
-	{"shift/opt+drag", "select text (your terminal picks the modifier)"},
+	{"shift/opt+drag", "select text yourself (your terminal picks the modifier)"},
+	{"claude's copy", "reaches your clipboard on its own"},
 	{"paste", "goes to this pane as pasted text; it does not submit"},
 }
 

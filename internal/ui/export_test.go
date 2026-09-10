@@ -173,3 +173,7 @@ func ModalNames() []string {
 	}
 	return out
 }
+
+// WaitForClipboard is the wait a pane's OSC 52 copies are picked up by, so a
+// test can arm one without draining Init's ticks (#212).
+func (m *Model) WaitForClipboard(id string) tea.Cmd { return m.waitForClipboard(id) }
