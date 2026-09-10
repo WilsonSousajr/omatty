@@ -30,11 +30,14 @@ not yet frozen. `docs/ROADMAP.md` has the reasoning and what was cut;
 ## Install
 
 ```bash
-go install ./cmd/omatty
+go install github.com/WilsonSousajr/omatty/cmd/omatty@latest
 ```
 
+Or `@v0.1.0` for the release rather than the tip of `main`. From a clone,
+`go install ./cmd/omatty` does the same thing.
+
 Requires Go 1.26, `git`, and `claude` on your PATH, with `$(go env GOPATH)/bin`
-on your PATH too.
+on your PATH too. `omatty --version` says which build you ended up with.
 
 Optionally, `dtach`:
 
