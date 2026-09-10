@@ -9,14 +9,23 @@ and shows sessions from *several* repositories side by side.
 
 ## Status
 
-**M6: persistence.** Projects and sessions are registered, worktrees are
-created, and the real `claude` binary runs inside an embedded terminal pane
-(M1). The sidebar shows live per-session status (M2). A diff pane reviews what
-a session changed and sends your comments back as one message, beside a file
-tree of its worktree (M3). Sessions can be renamed, archived, switched between
-by name, and their projects discovered (M4). With `dtach` installed, quitting
-detaches instead of ending them and relaunching reattaches; sessions claude
-already has can be adopted (M6).
+**v0.1.0 — the first release.** Eight milestones, all built:
+
+| Milestone | Delivers |
+|---|---|
+| **M1** Skeleton | Projects and sessions registered, worktrees created on demand, the real `claude` binary running inside an embedded terminal pane, and modal key routing. |
+| **M2** Status | Live per-session glyphs, age and token usage in the sidebar, from Claude Code hooks and each session's transcript — never scraped from the screen. |
+| **M3** Review | A diff pane over everything a session changed, with comments anchored to line *content*, sent back as one message. |
+| **M4** Lifecycle | Rename, archive, jump by name, and discover the projects claude already knows you use. |
+| **M5** File tree | The session's worktree beside its diff, with change markers and syntax-highlighted previews. |
+| **M6** Persistence | With `dtach`, quitting detaches rather than ends; relaunching reattaches. Sessions claude already has can be adopted. |
+| **M7** Reach | A config file, mouse support, the agent seam, and a visual identity. |
+| **M8** Surface | The frame, colour rule, cards, header, footer and diffstat that the panes are drawn in. |
+
+Pre-1.0 deliberately: the embedded terminal library underneath is itself
+pre-1.0, and the key table, `config.toml` keys and `state.json` schema are
+not yet frozen. `docs/ROADMAP.md` has the reasoning and what was cut;
+`CHANGELOG.md` has what each release changed.
 
 ## Install
 
@@ -53,6 +62,7 @@ omatty rm my-app                      # forget a project (the repository stays)
 omatty new my-app main                # a session on the main checkout
 omatty new my-app parser-fix parser-fix   # a session on a fresh worktree
 omatty                                # run the TUI
+omatty --version                      # which build is this
 ```
 
 `omatty discover` reads Claude Code's own transcript store and offers the

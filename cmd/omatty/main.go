@@ -10,6 +10,7 @@
 //	omatty adopt <project>            register claude sessions already in that project
 //	omatty new <project> <title> [branch]  create a session
 //	omatty hook                       forward a claude hook event (internal)
+//	omatty --version                  print the release this binary was built from
 //
 // A branch argument puts the session in a fresh worktree; without one it runs
 // in the project's main checkout.
@@ -39,6 +40,13 @@ func main() {
 	// non-zero exit or a byte of output (issue #54).
 	if len(os.Args) > 1 && os.Args[1] == "hook" {
 		runHook()
+		return
+	}
+	// Ahead of run() because run() loads the config, and a config omatty
+	// refuses to start on is exactly when an operator needs to say which
+	// build they are reporting against (#134).
+	if len(os.Args) > 1 && isVersionFlag(os.Args[1]) {
+		report(versionLine(resolveVersion(version, moduleVersion())))
 		return
 	}
 	if err := run(); err != nil {

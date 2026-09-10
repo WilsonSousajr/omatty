@@ -282,10 +282,44 @@ message and explain why the behaviour it asserted was never correct.
   approval before merging or pushing PR changes.
 - No version bumps or release tags without explicit approval.
 
+### Branches and releases
+
+`main` is the branch a stranger clones. `develop` is where milestones land.
+Nothing is merged straight to `main`; it moves only by promotion (#134).
+
+- **A promotion is a pull request from `develop` to `main`,** merged with a
+  merge commit. Never a fast-forward and never a force-push: the merge commit
+  is the record of what was promoted and when, and `main`'s protection
+  refuses both anyway.
+- **The gate a promotion must clear**, all of it, before the merge:
+
+  | | |
+  |---|---|
+  | The CI gate, green on both runners | `gofmt`, `go vet`, `golangci-lint`, `go test -race`, 90% coverage, `go build` — on `ubuntu-latest` and `macos-latest` |
+  | The real-binary smoke test | Rule 2 in `docs/ROADMAP.md`, run against a scratch `HOME` with `testdata/fake-claude`, **read by a person** |
+
+  The gate is the same one every milestone clears, for the same reason: the
+  coverage gate measures units, and M1's three worst bugs were all failures
+  of the wiring between them. A promotion is the last point at which that is
+  cheap to catch.
+- **Before the merge**, the promoting PR updates `CHANGELOG.md` with the
+  release and its issues, and `README.md`'s Status section, since that is the
+  first thing a stranger reads on `main`.
+- **After the merge**, tag the merge commit `vMAJOR.MINOR.PATCH` and push the
+  tag. Semantic versioning; below 1.0 the `ctrl+o` key table,
+  `~/.omatty/config.toml` keys and the `state.json` schema are explicitly not
+  frozen, so a breaking change to any of them is a minor bump, not a major.
+- **`main` is protected:** a pull request is required, both `gate` checks must
+  pass, and force-pushes and deletion are refused. This applies to the
+  repository owner too — that is the point of it.
+- Still, and this is not softened by any of the above: **no version bump and
+  no release tag without explicit approval.**
+
 ## Documentation map
 
-- `docs/ROADMAP.md` — milestones M1-M7, what is in each and why, and what was
-  deliberately cut. Read it before proposing a feature.
+- `docs/ROADMAP.md` — milestones M1-M8, what is in each and why, what was
+  deliberately cut, and how a release reaches `main`. Read it before
+  proposing a feature.
 - `docs/superpowers/specs/2026-09-01-omatty-design.md` — the design this repo
   implements.
 - `docs/ARCHITECTURE.md` — data flow, package breakdown, why each invariant
@@ -293,6 +327,8 @@ message and explain why the behaviour it asserted was never correct.
 - `internal/agent` package doc — the agent seam (#46): an agent is a command
   template plus a status adapter, and why the adapter interface lives in
   `watcher`.
+- `CHANGELOG.md` — what each release changed, with the issues behind it.
+  Written as part of the promoting PR; see "Branches and releases".
 - `README.md` — install and usage.
 
 <!-- ai-memory:start -->
