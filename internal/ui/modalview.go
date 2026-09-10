@@ -69,6 +69,7 @@ var leaderKeys = []keyHelp{
 var claudeKeys = []keyHelp{
 	{"pgup / pgdn", "scroll the transcript"},
 	{"shift/opt+drag", "select text (your terminal picks the modifier)"},
+	{"paste", "goes to this pane as pasted text; it does not submit"},
 }
 
 // reviewKeys are the review column's own bindings. They live here because the
