@@ -36,7 +36,7 @@ func dispatch(cmd string, args []string, home string, cfg config.Config, store *
 	case "adopt":
 		return adoptSessions(store, home, vcs.NewCLI(), args, os.Stdin)
 	default:
-		return fmt.Errorf("unknown command %q (want add, rm, new, discover, adopt, or no argument)", cmd)
+		return fmt.Errorf("unknown command %q (want add, rm, new, discover, adopt, --version, or no argument)", cmd)
 	}
 }
 

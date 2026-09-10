@@ -1,7 +1,8 @@
 # omatty roadmap
 
-Last revised 2026-09-08, when M7's close-out recorded what it did not close.
-Every milestone is built; what is left is under "What is left".
+Last revised 2026-09-10, when v0.1.0 promoted `develop` to `main` (#134).
+Every milestone is built; what is left is under "What is left", and how a
+release reaches `main` is under "Releases".
 
 omatty is a terminal ADE: several projects and several parallel Claude Code
 sessions in one window, each session the real `claude` binary in an embedded
@@ -25,6 +26,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M6 | Persistence | **Done.** #43 and #122 merged as PRs #121 and #123 on 2026-09-05. |
 | M7 | Reach | **Built** 2026-09-07 as PRs #135-#148; the four terminal bugs a day of use found were fixed 2026-09-09 as PRs #210-#214. Leftovers still open; see "What is left". |
 | M8 | Surface | **Built** 2026-09-09 as PRs #181-#186, stacked; see the M8 section and "What is left". |
+| — | **Released** | **v0.1.0**, 2026-09-10. All eight promoted to `main` (#134). See "Releases". |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -411,12 +413,13 @@ and the bugs live in those same files.
 
 ### Release
 
-- **#134 - `develop` has never been promoted to `main`.** Six milestones and
-  164 commits sit on `develop`; `main` is the branch a stranger clones and it
-  shows none of them. The door M7 opens leads to that branch, so the promotion
-  rule - what it is and what gate it clears - has to exist before this
-  milestone can claim to be done. No tag without approval; the decision comes
-  first.
+- **#134 - `develop` has never been promoted to `main`.** Done 2026-09-10 as
+  v0.1.0. Six milestones and 164 commits sat on `develop` when this was
+  written and 307 by the time it was done; `main` still held `ca3952b`, the
+  bootstrap commit. The promotion rule the issue asked for is under
+  "Releases" below and in AGENTS.md's Git workflow section, and `main` is now
+  protected. The decision came first, as the issue demanded, and the tag came
+  with approval.
 
 Nothing in M1-M6 is allowed to bake in a personal path or assumption that
 M7 would have to undo. That is the cost of "open source later" and it is
@@ -455,7 +458,7 @@ rather than from its own source - done; a click selects a session - done; a
 second agent runs in a pane - the seam is built, the second agent is a
 follow-up; the nine reports above are closed with regression tests - done;
 and the branch a stranger clones is the software this repository has built -
-deferred with #134.
+done 2026-09-10, when #134 promoted all eight milestones to `main` as v0.1.0.
 
 ## M8 - Surface
 
@@ -554,13 +557,15 @@ what M7 left.
   PR #164. `registry.RemoveProject` refuses while sessions exist and never
   touches the repository; `omatty rm <project>`; `ctrl+o x` on an empty
   project's header.
-- **#134 - promote `develop` to `main`.** Deferred on 2026-09-07. `develop`
-  carries all seven milestones; `main` still holds `ca3952b`, the bootstrap
-  commit of 2026-09-01, and has no protection. Decide the shape (merge commit
-  per milestone, fast-forward, or a PR), write the gate it must clear - CI
-  plus the real-PTY smoke test rule 2 already requires - into this document
-  and AGENTS.md, then promote. Nothing ships to a stranger until this is done,
-  and no tag without approval.
+- **#134 - promote `develop` to `main`.** Done 2026-09-10, released as
+  v0.1.0. Deferred on 2026-09-07, when it was the one thing standing between
+  eight built milestones and the branch a stranger clones. The shape decided:
+  a pull request from `develop` to `main`, merged with a merge commit, never
+  a fast-forward. The gate: the full CI gate on both runners plus the
+  real-PTY smoke test rule 2 already required, read by a person. Written into
+  "Releases" below and AGENTS.md; `main` is protected; the merge commit is
+  tagged. `omatty --version` came with it, so the tag names something the
+  binary can report.
 - **#151 - name the worktree branch (#127 step 3).** `ctrl+o N` still demands
   a name because `git worktree add -b` bakes it into a directory and into
   `state.json`. Either a placeholder branch (`omatty/<date>-<n>`) renamed only
@@ -628,6 +633,40 @@ what M7 left.
 
 ---
 
+## Releases
+
+`main` is the branch a stranger clones; `develop` is where milestones land.
+For the first nine days of this repository those were different pieces of
+software - eight milestones on `develop`, the bootstrap commit on `main` -
+because no milestone ever said what happens after "merged to develop". #134
+was that gap, and this section is the answer to it.
+
+**A release is a promotion, and a promotion is a pull request** from
+`develop` to `main`, merged with a merge commit. Not a fast-forward: the
+merge commit is the record of what was promoted and when, and it is what the
+tag points at. Never a force-push.
+
+**The gate is the milestone gate, once more.** The full CI gate green on both
+runners, plus the real-binary smoke test rule 2 requires - a scratch `HOME`,
+`testdata/fake-claude` on PATH, read by a person. Nothing new is asked of a
+release, deliberately: the promotion is the last cheap point to catch a
+wiring failure the coverage gate cannot see, which is the whole argument of
+rule 2, and inventing a separate release checklist would only be a second
+thing to let rot.
+
+**Before the merge** the PR updates `CHANGELOG.md` and README's Status
+section. **After it** the merge commit is tagged `vMAJOR.MINOR.PATCH`.
+
+Below 1.0 the `ctrl+o` key table, `~/.omatty/config.toml` keys and the
+`state.json` schema are explicitly not frozen; the embedded terminal library
+underneath is itself pre-1.0 (invariant 4). A break in any of them is a minor
+bump. v1.0.0 is the claim that those three have settled, and nothing here is
+in a hurry to make it.
+
+| Release | Date | Contents |
+|---|---|---|
+| v0.1.0 | 2026-09-10 | M1-M8, all eight milestones. 307 commits. (#134) |
+
 ## Not on the roadmap
 
 Considered and cut, so they do not creep back in through the side door:
@@ -658,3 +697,6 @@ Considered and cut, so they do not creep back in through the side door:
 3. **A milestone is not done while a blocker is open.** M1 is the example.
 4. **Invariants are argued, never assumed.** Anything touching the ten in
    AGENTS.md says so in its commit message.
+5. **A milestone ends on `develop`; a release ends on `main`.** The promotion
+   is a PR clearing rule 2's gate, and it is tagged. See "Releases". #134 is
+   what nine days without this rule cost.
