@@ -36,6 +36,27 @@ func StartTerminals(
 	return terms, nil
 }
 
+// HeldSessions is the set of sessions whose claude is already running from
+// an earlier omatty, so the boot can tell a pane that will come back blank
+// from one that will paint itself (#191). A failed liveness check is logged
+// and reads as fresh: the pane then behaves as it did before this existed.
+//
+//	held := ui.HeldSessions(launcher, state)
+func HeldSessions(l *supervisor.Launcher, st registry.State) map[string]bool {
+	held := map[string]bool{}
+	for _, sess := range st.Sessions {
+		ok, err := l.Reattaching(sess.ID)
+		if err != nil {
+			slog.Warn("checking whether a session is held", "session", sess.ID, "err", err)
+			continue
+		}
+		if ok {
+			held[sess.ID] = true
+		}
+	}
+	return held
+}
+
 // RunDeps is everything Run needs: the runtime plumbing, plus the functions
 // injected so ui never reaches git or the registry store itself (invariant 4).
 //
@@ -95,6 +116,9 @@ type RunDeps struct {
 // runs until the user quits.
 func Run(d RunDeps) error {
 	d.Leader = leaderOr(d.Leader)
+	// Asked before the terminals start: once a client is attached the socket
+	// exists whether or not a claude was already behind it (#191).
+	held := HeldSessions(d.Launch, d.State)
 	terms, err := StartTerminals(d.State, d.Launch, d.Factory, d.Width, d.Height, d.Leader)
 	if err != nil {
 		return err
@@ -108,7 +132,7 @@ func Run(d RunDeps) error {
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,
-		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader,
+		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader, Reattached: held,
 		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
 	})

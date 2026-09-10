@@ -29,6 +29,11 @@ type Terminal interface {
 	// does not paint it - the emulator renders cell contents only - so the
 	// caller draws it (issue #106).
 	Cursor() Caret
+	// Repaint makes the running application redraw by changing the window
+	// size to one row less and back. A dtach re-attach clears the pane and
+	// sends SIGWINCH at the same size, which claude answers with nothing;
+	// two real changes get a full frame (#191).
+	Repaint() tea.Cmd
 	Close() error
 }
 

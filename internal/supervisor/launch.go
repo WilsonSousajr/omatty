@@ -82,3 +82,13 @@ func (l *Launcher) Start(
 	}
 	return term, nil
 }
+
+// Reattaching reports whether the session's process is already running from
+// an earlier omatty, so that Start will attach rather than launch. The boot
+// path asks before starting, because such a pane comes back blank and needs
+// a repaint nudge that a fresh claude does not (#191).
+//
+//	held, err := l.Reattaching(sess.ID)
+func (l *Launcher) Reattaching(sessionID string) (bool, error) {
+	return l.holder.Held(sessionID)
+}

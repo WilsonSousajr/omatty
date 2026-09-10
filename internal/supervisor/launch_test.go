@@ -296,3 +296,19 @@ func TestLauncher_ResumesWhenTheProfilesTranscriptExists_issue46(t *testing.T) {
 		t.Errorf("args = %q, want the profile's resume form once its transcript exists", got)
 	}
 }
+
+// Reattaching is the holder's answer, surfaced so the boot path can tell a
+// pane that needs a repaint nudge from one that will paint itself (#191).
+func TestLauncher_ReattachingAsksTheHolder_issue191(t *testing.T) {
+	h := &fakeHolder{HeldIDs: map[string]bool{"abc-123": true}}
+	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), h)
+
+	held, err := l.Reattaching("abc-123")
+	if err != nil || !held {
+		t.Errorf("Reattaching(abc-123) = %v, %v; want true, nil", held, err)
+	}
+	held, err = l.Reattaching("other")
+	if err != nil || held {
+		t.Errorf("Reattaching(other) = %v, %v; want false, nil", held, err)
+	}
+}

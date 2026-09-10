@@ -86,6 +86,10 @@ type Deps struct {
 	Notice string
 	// Leader is the key omatty intercepts. Empty means DefaultLeader (#44).
 	Leader string
+	// Reattached names the sessions whose claude was already running when
+	// omatty started: their panes come back blank and are asked to repaint
+	// once at boot (#191). Nil means none.
+	Reattached map[string]bool
 }
 
 // withDefaults fills the optional fields: the wall clock and a silent

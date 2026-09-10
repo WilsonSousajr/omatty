@@ -18,8 +18,13 @@ type Fake struct {
 	// a terminal this way, because bubbleterm does its own key-to-escape
 	// translation.
 	Msgs []tea.Msg
-	// Width and Height record the last Resize.
+	// Width and Height record the last Resize; Sizes records every one, in
+	// order, so a nudge to h-1 and back is visible rather than read as h
+	// (#191).
 	Width, Height int
+	Sizes         [][2]int
+	// Repaints counts the Repaint calls.
+	Repaints int
 	// Closed reports whether Close has been called.
 	Closed bool
 	// Inited reports whether Init has been called. A terminal that is never
@@ -79,5 +84,12 @@ func (f *Fake) SendInput(s string) tea.Cmd {
 // Resize records the requested dimensions.
 func (f *Fake) Resize(w, h int) tea.Cmd {
 	f.Width, f.Height = w, h
+	f.Sizes = append(f.Sizes, [2]int{w, h})
+	return nil
+}
+
+// Repaint records the call instead of nudging a PTY.
+func (f *Fake) Repaint() tea.Cmd {
+	f.Repaints++
 	return nil
 }

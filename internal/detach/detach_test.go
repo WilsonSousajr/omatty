@@ -315,3 +315,38 @@ func TestDtach_NoticeIsSilentWhenSessionsPersist_issue43(t *testing.T) {
 		t.Errorf("notice = %q, want empty when sessions already survive quit", got)
 	}
 }
+
+// Held says whether a session's master is still running, which is what tells
+// a boot-time re-attach from a fresh start: the former needs a repaint nudge,
+// the latter paints on its own (#191). The socket is the liveness test, the
+// same one Stop uses.
+func TestDtach_HeldReportsALiveSocket_issue191(t *testing.T) {
+	home := t.TempDir()
+	d := detach.NewDtachCapped(home, "dtach", 4096) // t.TempDir is past the real socket cap
+
+	held, err := d.Held("abc-123")
+	if err != nil || held {
+		t.Fatalf("Held() = %v, %v with no socket; want false, nil", held, err)
+	}
+
+	sock := sockPath(home, "abc-123") // stop_test's builder: not about the limit
+	if err := os.MkdirAll(filepath.Dir(sock), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sock, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	held, err = d.Held("abc-123")
+	if err != nil || !held {
+		t.Errorf("Held() = %v, %v with the socket present; want true, nil", held, err)
+	}
+}
+
+// The Plain holder keeps nothing alive across a quit, so nothing is ever
+// re-attached.
+func TestPlain_HeldIsNeverTrue_issue191(t *testing.T) {
+	held, err := (&detach.Plain{}).Held("abc-123")
+	if err != nil || held {
+		t.Errorf("Plain.Held() = %v, %v; want false, nil", held, err)
+	}
+}

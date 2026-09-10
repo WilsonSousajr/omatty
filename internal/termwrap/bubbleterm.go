@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/creack/pty"
@@ -28,9 +29,22 @@ import (
 type bubble struct {
 	m         *bubbleterm.Model
 	ptmx, tty *os.File
-	closeOnce sync.Once
-	closeErr  error
+	w, h      int // the last size given, for Repaint; bubbleterm's are unexported
+	// repaintDelay is the pause before and between Repaint's two size
+	// changes. A field so a test can set it to zero.
+	repaintDelay time.Duration
+	closeOnce    sync.Once
+	closeErr     error
 }
+
+// repaintDelay is how long Repaint waits before the first size change and
+// again between the two. Before: dtach's own clear and SIGWINCH land after
+// the client attaches, and the nudge must follow them, not precede them.
+// Between: two ioctls close together coalesce into one SIGWINCH whose
+// observed size is the original, the very no-op being fixed. Measured
+// against a shell that echoes per signal: 100 and 300 ms delivered one, 600
+// delivered two, so the pause is well over that (#191).
+const repaintDelay = 800 * time.Millisecond
 
 // Start launches cmd inside a w by h embedded terminal.
 //
@@ -49,7 +63,7 @@ func Start(w, h int, cmd *exec.Cmd) (Terminal, error) {
 		closeBoth(ptmx, tty)
 		return nil, fmt.Errorf("termwrap: wrapping %q in a %dx%d emulator: %w", cmd.Path, w, h, err)
 	}
-	return &bubble{m: m, ptmx: ptmx, tty: tty}, nil
+	return &bubble{m: m, ptmx: ptmx, tty: tty, w: w, h: h, repaintDelay: repaintDelay}, nil
 }
 
 // openPTY opens a pair sized w by h, pixels included as bubbleterm set them,
@@ -128,10 +142,32 @@ func (b *bubble) Focused() bool              { return b.m.Focused() }
 // ioctl is logged; the grid still reflows, and the child hears about it on
 // the next size change.
 func (b *bubble) Resize(w, h int) tea.Cmd {
+	b.w, b.h = w, h
+	b.setsize(w, h)
+	return b.m.Resize(w, h)
+}
+
+func (b *bubble) setsize(w, h int) {
 	if err := pty.Setsize(b.ptmx, winsize(w, h)); err != nil {
 		slog.Warn("resizing a pty", "cols", w, "rows", h, "err", err)
 	}
-	return b.m.Resize(w, h)
+}
+
+// Repaint changes the PTY's size to one row less and back, off the Update
+// goroutine, with the delays repaintDelay explains. Only the PTY is
+// touched: the grid keeps its size, so nothing reflows on omatty's side and
+// the child's own repaint lands on a grid of the size it believes in. A
+// failed ioctl is logged by setsize; the pane then stays as it was, which
+// is the status quo this exists to improve on (#191).
+func (b *bubble) Repaint() tea.Cmd {
+	w, h, delay := b.w, b.h, b.repaintDelay
+	return func() tea.Msg {
+		time.Sleep(delay)
+		b.setsize(w, h-1)
+		time.Sleep(delay)
+		b.setsize(w, h)
+		return nil
+	}
 }
 
 // Close stops the emulator and closes both ends of the PTY, once. Closing

@@ -43,6 +43,12 @@ type Holder interface {
 	// Persists reports whether a session survives quitting omatty, which is
 	// what the UI warns about when it does not.
 	Persists() bool
+	// Held reports whether a session's process is alive from an earlier
+	// omatty run, so the pane it comes back in can be told to repaint:
+	// dtach clears it on attach and a same-size SIGWINCH gets nothing back
+	// (#191). An error is a failed liveness check, not a "no"; the caller
+	// logs it and starts the session as if fresh.
+	Held(sessionID string) (bool, error)
 	// Notice is what the footer says at startup about this holder, and nothing
 	// at all when there is nothing to say.
 	//
@@ -87,6 +93,9 @@ func (p *Plain) Stop(_ string) error { return nil }
 
 // Persists is false: without dtach, quitting omatty still kills every session.
 func (p *Plain) Persists() bool { return false }
+
+// Held is never true: nothing outlives a quit under Plain (#191).
+func (p *Plain) Held(_ string) (bool, error) { return false, nil }
 
 // Notice warns that sessions die on quit and names the command that fixes it,
 // because the alternative is a warning an operator cannot act on: dtach is an
@@ -152,6 +161,9 @@ func (d *Dtach) Persists() bool { return true }
 // Notice is empty: sessions survive, so there is nothing to warn about and the
 // footer keeps its keymap.
 func (d *Dtach) Notice() string { return "" }
+
+// Held is the socket's presence, the same liveness test Stop uses (#191).
+func (d *Dtach) Held(sessionID string) (bool, error) { return d.stillHeld(sessionID) }
 
 // Wrap rebuilds cmd as a dtach client for the session, keeping its directory
 // and environment.
