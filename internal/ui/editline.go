@@ -8,6 +8,8 @@
 package ui
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -43,6 +45,13 @@ func editKey(buffer string, msg tea.KeyPressMsg) (string, editAction) {
 	default:
 		return buffer + msg.Text, editContinue
 	}
+}
+
+// editPaste folds a paste into a one-line buffer. The editors are one line,
+// so a newline in the paste becomes a space rather than a submit or a
+// second row (#190).
+func editPaste(buffer, content string) string {
+	return buffer + strings.ReplaceAll(strings.ReplaceAll(content, "\r\n", " "), "\n", " ")
 }
 
 // editLine renders a labelled one-line input, scrolled so the cursor stays

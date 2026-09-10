@@ -84,6 +84,21 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 typo is a small edit. `enter` confirms, `esc` cancels. The title is
 display-only, so a rename never disturbs the session itself.
 
+### Paste and copy
+
+A paste goes to the pane that has the keys: Claude's prompt, or the note and
+filter lines when one of those is open. It arrives as pasted text, so a
+multi-line paste does not submit on every line and nothing is sent until you
+press `enter`.
+
+Copying out of a pane is your terminal's job, and because omatty asks it for
+the mouse (for the wheel and for clicks), a plain drag is a scroll rather than
+a selection. Hold the modifier your terminal bypasses reporting with -
+`shift` on Ghostty, kitty, xterm and Alacritty, `option` on Apple Terminal
+and iTerm2 - and drag. The selection is the composed screen, so keep it
+inside one pane. Text that has scrolled out of the pane is in Claude's
+transcript, not on screen; `pgup` reaches it.
+
 On an empty project's header, `ctrl+o x` forgets the project instead - the
 same thing `omatty rm <project>` does from the shell. The repository is never
 touched; a project still holding sessions is refused until they are archived.

@@ -231,13 +231,12 @@ func (m *Model) repaintHeld() []tea.Cmd {
 // Update routes messages to one handler per type, so it stays a router and
 // stays inside the 20-line function limit.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if cmd, ok := m.onInput(msg); ok {
+		return m, cmd
+	}
 	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		return m, m.onKey(msg)
 	case tea.WindowSizeMsg:
 		return m, m.onResize(msg)
-	case tea.MouseMsg:
-		return m, m.onMouse(msg)
 	case TickMsg:
 		return m, scheduleTick()
 	case StatTickMsg:
@@ -245,6 +244,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		return m, m.onDataMsg(msg)
 	}
+}
+
+// onInput routes what the operator did - a key, the mouse, a paste - and
+// reports whether msg was one. Everything else Update sees is what the
+// program did. The host's paste brackets arrive as messages of their own and
+// are not text: onPaste re-brackets the content itself (#190, invariant 8).
+func (m *Model) onInput(msg tea.Msg) (tea.Cmd, bool) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		return m.onKey(msg), true
+	case tea.MouseMsg:
+		return m.onMouse(msg), true
+	case tea.PasteMsg:
+		return m.onPaste(msg), true
+	case tea.PasteStartMsg, tea.PasteEndMsg:
+		return nil, true
+	}
+	return nil, false
 }
 
 // onDataMsg handles the results of work that ran off the Update goroutine, then
