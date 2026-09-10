@@ -37,7 +37,8 @@ func (a *wheelAccumulator) page(direction int) bool {
 }
 
 // onMouse answers a pointer event: the wheel scrolls whatever is under it
-// (#107) and a left click on a sidebar row selects it (#45).
+// (#107), a left click on a sidebar row selects it (#45), and one on the
+// review column moves its cursor or closes it (#168).
 //
 // Everything else is dropped, and dropping it is still the point. This runs
 // before the broadcast in onWindowFocus, which would otherwise hand one
@@ -51,7 +52,7 @@ func (m *Model) onMouse(msg tea.MouseMsg) tea.Cmd {
 	case tea.MouseWheelMsg:
 		return m.scrollPane(typed)
 	case tea.MouseClickMsg:
-		return m.clickSidebar(typed)
+		return m.click(typed)
 	}
 	return nil
 }

@@ -107,10 +107,14 @@ func HeaderRow(titles []string, widths []int, owner int) string {
 	}
 	return headerRow(segs)
 }
-func RuleRow(widths []int) string {
+func RuleRow(widths []int) string { return RuleRowClosable(widths, -1) }
+
+// RuleRowClosable is RuleRow with the segment at closable carrying the
+// review column's label and close glyph; -1 for none (#168).
+func RuleRowClosable(widths []int, closable int) string {
 	segs := make([]segment, len(widths))
 	for i, w := range widths {
-		segs[i] = segment{width: w}
+		segs[i] = segment{width: w, closable: i == closable}
 	}
 	return ruleRow(segs)
 }

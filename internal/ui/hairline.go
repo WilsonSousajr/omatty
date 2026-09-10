@@ -63,12 +63,21 @@ func hairlineColumn(accent bool, h int) string {
 	return strings.TrimSuffix(strings.Repeat(cell+"\n", h), "\n")
 }
 
-// segment is one column's share of the header row.
+// segment is one column's share of the header row and the rule.
 type segment struct {
-	title string
-	width int
-	owns  bool // the column owns the keyboard: its title is ink, not muted
+	title    string
+	width    int
+	owns     bool // the column owns the keyboard: its title is ink, not muted
+	closable bool // the column can be closed: its rule carries a label and × (#168)
 }
+
+// closeGlyph is the one-cell close affordance on a closable column's rule,
+// and reviewRuleLabel names the column there. Two diffs can be on screen at
+// once - claude's own inside its pane, omatty's review column beside it -
+// and nothing said which was which; the pane's rule is plain dashes, the
+// column's reads "─ review ─────×", so they are told apart at a glance and
+// the one that closes is the one that says so (#168).
+const closeGlyph, reviewRuleLabel = "×", "review"
 
 // headerRow lays the segments across the window with a hairline cell between
 // each pair. A title is padded and cut to its column, so the row is exactly
@@ -92,11 +101,33 @@ func segmentStyle(owns bool) lipgloss.Style {
 }
 
 // ruleRow is the line under the header row: dashes across every column and a
-// joint under each hairline.
+// joint under each hairline. Each segment is rendered on its own, so a
+// closable one can end in a differently coloured × (#168).
 func ruleRow(segs []segment) string {
 	parts := make([]string, 0, len(segs))
 	for _, s := range segs {
-		parts = append(parts, strings.Repeat(ruleDash, s.width))
+		parts = append(parts, ruleSegment(s))
 	}
-	return hairlineStyle(false).Render(strings.Join(parts, ruleJoint))
+	return strings.Join(parts, hairlineStyle(false).Render(ruleJoint))
+}
+
+// ruleSegment is one column's share of the rule: dashes, or for a closable
+// column the label and the × in its last cell. The × is accent when the
+// column owns the keys, the rule's grey otherwise: the hue that means focus
+// and nothing else (#175).
+func ruleSegment(s segment) string {
+	if !s.closable || s.width < 1 {
+		return hairlineStyle(false).Render(strings.Repeat(ruleDash, s.width))
+	}
+	return hairlineStyle(false).Render(ruleLabel(s.width-1)) + hairlineStyle(s.owns).Render(closeGlyph)
+}
+
+// ruleLabel is width cells of dashes with " review " set into them after one
+// dash, or plain dashes when the column is too narrow to carry the name.
+func ruleLabel(width int) string {
+	label := " " + reviewRuleLabel + " "
+	if width < len(label)+2 {
+		return strings.Repeat(ruleDash, width)
+	}
+	return ruleDash + label + strings.Repeat(ruleDash, width-1-len(label))
 }

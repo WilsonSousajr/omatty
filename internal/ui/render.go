@@ -127,7 +127,7 @@ func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segmen
 	}
 	rw := reviewContentWidth(m.width)
 	cols = append(cols, hairlineColumn(edge == edgeReview, termH), m.renderReview(rw, termH))
-	return cols, append(segs, segment{title: m.reviewTitle(), width: rw, owns: edge == edgeReview})
+	return cols, append(segs, segment{title: m.reviewTitle(), width: rw, owns: edge == edgeReview, closable: true})
 }
 
 // renderSidebar draws the project/session rows in the sidebar's content
