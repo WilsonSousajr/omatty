@@ -29,3 +29,14 @@ func SetRepaintDelay(t Terminal, d time.Duration) {
 // RepaintDelay is the production pause, so the test proves the real number
 // delivers two signals rather than a shorter one that would not (#191).
 const RepaintDelay = repaintDelay
+
+// LiftClipboard exposes the reader that pulls OSC 52 writes out of a child's
+// output, so it can be fed chunked input without a process behind it (#212).
+func LiftClipboard(r io.Reader) (io.Reader, <-chan ClipboardWrite) {
+	c := newClipLift(r)
+	return c, c.Writes()
+}
+
+// MaxClipPayload is the cap on one OSC 52 payload, so its test states the
+// production number rather than a copy of it (#212).
+const MaxClipPayload = maxClipPayload

@@ -50,7 +50,9 @@ func (m *Model) relaunch(sess registry.Session) tea.Cmd {
 	}
 	m.terms[sess.ID] = term
 	// Born at the live size, so no Resize races claude's startup (issue #73).
-	return term.Init()
+	// The replacement process gets its own clipboard wait: the old one ended
+	// with the terminal it was reading (#212).
+	return tea.Batch(term.Init(), m.waitForClipboard(sess.ID))
 }
 
 // submitPrompt creates the session. A worktree prompt uses the buffer as both
@@ -117,7 +119,7 @@ func (m *Model) foldInSession(sess registry.Session) (tea.Cmd, error) {
 	// along. Without it the column kept showing the previous session's diff,
 	// title and comments beside the new session's terminal, and r/S/c acted on
 	// the wrong session (#21, #95).
-	return tea.Batch(term.Init(), m.followSession()), nil
+	return tea.Batch(term.Init(), m.waitForClipboard(sess.ID), m.followSession()), nil
 }
 
 // selectSession moves the cursor onto id, so a freshly created session is the

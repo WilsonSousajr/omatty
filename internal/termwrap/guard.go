@@ -101,6 +101,15 @@ func (g *Guard) Resize(w, h int) (cmd tea.Cmd) {
 	return cmd
 }
 
+// ClipboardWrites is the wrapped terminal's stream of OSC 52 copies. A
+// crashed terminal reports nil rather than a live channel: it reads no PTY,
+// so no write could arrive, and nil tells the caller to stop waiting on it
+// instead of parking a goroutine on a channel nothing will ever fill (#212).
+func (g *Guard) ClipboardWrites() (ch <-chan ClipboardWrite) {
+	g.guarded("while reading its clipboard writes", func() { ch = g.Terminal.ClipboardWrites() })
+	return ch
+}
+
 // Repaint asks the wrapped terminal for a redraw (#191).
 func (g *Guard) Repaint() (cmd tea.Cmd) {
 	g.guarded("while repainting", func() { cmd = g.Terminal.Repaint() })

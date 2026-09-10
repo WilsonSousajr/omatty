@@ -33,8 +33,11 @@ type bubble struct {
 	// repaintDelay is the pause before and between Repaint's two size
 	// changes. A field so a test can set it to zero.
 	repaintDelay time.Duration
-	closeOnce    sync.Once
-	closeErr     error
+	// clips lifts OSC 52 out of the child's output on its way to the
+	// emulator, which has no clipboard hook to wire (#212).
+	clips     *clipLift
+	closeOnce sync.Once
+	closeErr  error
 }
 
 // repaintDelay is how long Repaint waits before the first size change and
@@ -58,12 +61,13 @@ func Start(w, h int, cmd *exec.Cmd) (Terminal, error) {
 		closeBoth(ptmx, tty)
 		return nil, fmt.Errorf("termwrap: starting %q in a %dx%d terminal: %w", cmd.Path, w, h, err)
 	}
-	m, err := bubbleterm.NewWithPipes(w, h, &c1Guard{src: ptmx}, nopCloser{ptmx})
+	clips := newClipLift(ptmx)
+	m, err := bubbleterm.NewWithPipes(w, h, &c1Guard{src: clips}, nopCloser{ptmx})
 	if err != nil {
 		closeBoth(ptmx, tty)
 		return nil, fmt.Errorf("termwrap: wrapping %q in a %dx%d emulator: %w", cmd.Path, w, h, err)
 	}
-	return &bubble{m: m, ptmx: ptmx, tty: tty, w: w, h: h, repaintDelay: repaintDelay}, nil
+	return &bubble{m: m, ptmx: ptmx, tty: tty, w: w, h: h, repaintDelay: repaintDelay, clips: clips}, nil
 }
 
 // openPTY opens a pair sized w by h, pixels included as bubbleterm set them,
@@ -180,6 +184,11 @@ func (b *bubble) Close() error {
 	})
 	return b.closeErr
 }
+
+// ClipboardWrites is the stream of copies the child made with OSC 52. The
+// reader feeding it runs on bubbleterm's own read goroutine, so a consumer
+// must not do slow work per write - it costs the pane's throughput (#212).
+func (b *bubble) ClipboardWrites() <-chan ClipboardWrite { return b.clips.Writes() }
 
 // Cursor reads the cursor straight off the emulator. bubbleterm's own view
 // carries none, and the rendered grid does not paint the cell, so this is the

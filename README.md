@@ -101,13 +101,21 @@ filter lines when one of those is open. It arrives as pasted text, so a
 multi-line paste does not submit on every line and nothing is sent until you
 press `enter`.
 
-Copying out of a pane is your terminal's job, and because omatty asks it for
-the mouse (for the wheel and for clicks), a plain drag is a scroll rather than
-a selection. Hold the modifier your terminal bypasses reporting with -
-`shift` on Ghostty, kitty, xterm and Alacritty, `option` on Apple Terminal
-and iTerm2 - and drag. The selection is the composed screen, so keep it
-inside one pane. Text that has scrolled out of the pane is in Claude's
-transcript, not on screen; `pgup` reaches it.
+When the program in the pane copies something itself - Claude's own copy
+affordances, `tmux`'s `set-clipboard`, neovim's clipboard provider - it lands
+on your clipboard. omatty lifts the `OSC 52` the program writes out of the
+pane's output and hands it to your terminal, which the embedded emulator
+would otherwise have dropped. Nothing is asked first, exactly as in any other
+terminal. The read direction is not bridged: a program in a pane cannot ask
+for your clipboard's contents.
+
+Taking text off the screen *yourself* is still your terminal's job, and
+because omatty asks it for the mouse (for the wheel and for clicks), a plain
+drag is a scroll rather than a selection. Hold the modifier your terminal
+bypasses reporting with - `shift` on Ghostty, kitty, xterm and Alacritty,
+`option` on Apple Terminal and iTerm2 - and drag. The selection is the
+composed screen, so keep it inside one pane. Text that has scrolled out of
+the pane is in Claude's transcript, not on screen; `pgup` reaches it.
 
 On an empty project's header, `ctrl+o x` forgets the project instead - the
 same thing `omatty rm <project>` does from the shell. The repository is never

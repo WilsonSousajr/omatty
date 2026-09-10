@@ -34,6 +34,12 @@ type Terminal interface {
 	// sends SIGWINCH at the same size, which claude answers with nothing;
 	// two real changes get a full frame (#191).
 	Repaint() tea.Cmd
+	// ClipboardWrites carries the OSC 52 copies the running application
+	// made, lifted out of its output before the emulator could drop them.
+	// The caller forwards them to the host terminal; nothing else reads it.
+	// A terminal that cannot produce them returns nil, which the caller
+	// takes as "never" rather than blocking on it (#212).
+	ClipboardWrites() <-chan ClipboardWrite
 	Close() error
 }
 
