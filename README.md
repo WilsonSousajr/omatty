@@ -84,6 +84,16 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 typo is a small edit. `enter` confirms, `esc` cancels. The title is
 display-only, so a rename never disturbs the session itself.
 
+### Mouse
+
+The wheel scrolls whatever is under it: Claude's transcript in the pane, the
+diff, tree or preview in the review column. A click on a sidebar row selects
+that session. A click on a row of the review column puts the cursor there and
+gives the column the keys, and a click on the `×` at the right end of the
+column's rule closes it. The column's rule reads `─ review ─────×` so it is
+told apart from a diff Claude draws inside its own pane, which is Claude's to
+open and close. Clicks inside the pane go to Claude.
+
 ### Paste and copy
 
 A paste goes to the pane that has the keys: Claude's prompt, or the note and
