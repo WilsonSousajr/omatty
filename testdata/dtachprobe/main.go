@@ -28,9 +28,12 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/detach"
 )
 
-// counter stands in for a claude that is mid-turn: it produces numbered output
-// forever, so the numbers say whether this is the same process as before.
-const counter = "i=0; while :; do i=$((i+1)); echo tick $i; sleep 1; done"
+// silent stands in for a claude that painted once and is waiting: it writes
+// nothing on its own, and one line per SIGWINCH. The chatty stand-in this
+// replaced wrote every second, so the second attach always showed output
+// whether or not any redraw happened, and a blank reattach was invisible to
+// this probe (#191). The pid in the line says whether it is the same process.
+const silent = "trap 'echo WINCH-REPAINT' WINCH; echo FIRST-PAINT pid=$$; while :; do sleep 1; done"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -40,7 +43,7 @@ func main() {
 	holder := detach.NewFor(home, "dtach")
 	fmt.Println("persists:", holder.Persists())
 
-	cmd, err := holder.Wrap("probe-session", exec.Command("sh", "-c", counter))
+	cmd, err := holder.Wrap("probe-session", exec.Command("sh", "-c", silent))
 	if err != nil {
 		exit("wrap: " + err.Error())
 	}
@@ -52,8 +55,8 @@ func main() {
 	fmt.Println("\n--- client gone; waiting, as if omatty were closed ---")
 	time.Sleep(3 * time.Second)
 
-	fmt.Println("\n--- second attach (must find the same process) ---")
-	fmt.Println(attachFor(cmd, 4*time.Second))
+	fmt.Println("\n--- second attach (must find the same process; then two size nudges) ---")
+	fmt.Println(attachAndNudge(cmd, 4*time.Second))
 
 	pid, _ := os.ReadFile(detach.PidPath(home, "probe-session"))
 	fmt.Printf("\npidfile: %q\n", strings.TrimSpace(string(pid)))
@@ -75,6 +78,30 @@ func attachFor(cmd *exec.Cmd, d time.Duration) string {
 	}
 	out := drain(f)
 	time.Sleep(d)
+	_ = client.Process.Kill()
+	_, _ = client.Process.Wait()
+	_ = f.Close()
+	return out()
+}
+
+// attachAndNudge is attachFor with a window-size change part way through:
+// 80x19, then back to 80x20. dtach's -r winch sends SIGWINCH on attach; what
+// #191 needs is that a *later* change on the client's tty is forwarded to
+// the master too, which its manual does not say. Two WINCH-REPAINT lines
+// after the attach's own say it is.
+func attachAndNudge(cmd *exec.Cmd, d time.Duration) string {
+	client := exec.Command(cmd.Path, cmd.Args[1:]...)
+	client.Dir, client.Env = cmd.Dir, cmd.Env
+	f, err := pty.StartWithSize(client, &pty.Winsize{Rows: 20, Cols: 80})
+	if err != nil {
+		return "start: " + err.Error()
+	}
+	out := drain(f)
+	time.Sleep(d / 2)
+	_ = pty.Setsize(f, &pty.Winsize{Rows: 19, Cols: 80})
+	time.Sleep(300 * time.Millisecond)
+	_ = pty.Setsize(f, &pty.Winsize{Rows: 20, Cols: 80})
+	time.Sleep(d / 2)
 	_ = client.Process.Kill()
 	_, _ = client.Process.Wait()
 	_ = f.Close()

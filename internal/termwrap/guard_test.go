@@ -27,6 +27,7 @@ func (p *PanicTerminal) Focus()                   { panic("emulator exploded") }
 func (p *PanicTerminal) Blur()                    { panic("emulator exploded") }
 func (p *PanicTerminal) Focused() bool            { panic("emulator exploded") }
 func (p *PanicTerminal) Close() error             { panic("emulator exploded") }
+func (p *PanicTerminal) Repaint() tea.Cmd         { panic("emulator exploded") }
 
 func TestGuard_ViewPanicBecomesAnErrorFrame(t *testing.T) {
 	g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")}, "ctrl+o r")
@@ -104,6 +105,7 @@ func TestGuard_ContainsAPanicFromEveryMethod_issue112(t *testing.T) {
 		"Blur":      func(g *termwrap.Guard) { g.Blur() },
 		"Focused":   func(g *termwrap.Guard) { g.Focused() },
 		"Close":     func(g *termwrap.Guard) { _ = g.Close() },
+		"Repaint":   func(g *termwrap.Guard) { g.Repaint() },
 	} {
 		t.Run(name, func(t *testing.T) {
 			g := termwrap.NewGuard(&PanicTerminal{Fake: termwrap.NewFake("")}, "ctrl+o r")

@@ -125,3 +125,34 @@ func oneSessionState() registry.State {
 		Sessions: []registry.Session{{ID: "s1", Project: "p", Title: "one"}},
 	}
 }
+
+// heldHolder is a detach.Holder whose Held answers from a set, and whose
+// Wrap returns the command unchanged.
+type heldHolder struct {
+	detach.Plain
+	IDs map[string]bool
+	Err error
+}
+
+func (h *heldHolder) Held(id string) (bool, error) { return h.IDs[id], h.Err }
+
+// The boot asks the holder which sessions are already running, so their
+// panes can be nudged to repaint; a failed check reads as fresh (#191).
+func TestHeldSessions_AsksTheHolderPerSession_issue191(t *testing.T) {
+	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &heldHolder{IDs: map[string]bool{"s2": true}})
+
+	held := ui.HeldSessions(l, twoProjectState())
+
+	if len(held) != 1 || !held["s2"] {
+		t.Errorf("HeldSessions() = %v, want only s2", held)
+	}
+}
+
+func TestHeldSessions_AFailedCheckReadsAsFresh_issue191(t *testing.T) {
+	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(),
+		&heldHolder{IDs: map[string]bool{"s1": true}, Err: errors.New("stat exploded")})
+
+	if held := ui.HeldSessions(l, twoProjectState()); len(held) != 0 {
+		t.Errorf("HeldSessions() = %v with a failing holder, want none", held)
+	}
+}

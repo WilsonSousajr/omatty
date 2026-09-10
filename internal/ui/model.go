@@ -76,6 +76,8 @@ type Model struct {
 	statFailed  map[string]bool
 	// filesPending guards one worktree listing in flight per session (#195).
 	filesPending map[string]bool
+	// reattached is Deps.Reattached: the panes to nudge once at boot (#191).
+	reattached map[string]bool
 	// The archive path's three halves: forget the session, stop its tailer,
 	// and optionally delete its worktree (#40).
 	archive          ArchiveFunc
@@ -111,19 +113,20 @@ type Model struct {
 func NewModel(deps Deps) *Model {
 	d := deps.withDefaults()
 	m := &Model{
-		state:     d.State,
-		sidebar:   NewSidebar(SidebarRows(d.State, nil)),
-		terms:     d.Terms,
-		router:    keys.NewRouter(d.Leader),
-		leader:    d.Leader,
-		create:    d.Create,
-		start:     d.Start,
-		events:    d.Events,
-		clock:     d.Clock,
-		tailStart: d.TailStart,
-		notifier:  d.Notifier,
-		startedAt: d.Clock(),
-		hasFocus:  true,
+		state:      d.State,
+		sidebar:    NewSidebar(SidebarRows(d.State, nil)),
+		terms:      d.Terms,
+		router:     keys.NewRouter(d.Leader),
+		leader:     d.Leader,
+		create:     d.Create,
+		start:      d.Start,
+		events:     d.Events,
+		clock:      d.Clock,
+		tailStart:  d.TailStart,
+		notifier:   d.Notifier,
+		startedAt:  d.Clock(),
+		hasFocus:   true,
+		reattached: d.Reattached,
 	}
 	return m.withSources(d).withWindow().withRuntimeMaps()
 }
@@ -200,6 +203,7 @@ func (m *Model) Init() tea.Cmd {
 			cmds = append(cmds, cmd)
 		}
 	}
+	cmds = append(cmds, m.repaintHeld()...)
 	if cmd := m.waitForEvent(); cmd != nil {
 		cmds = append(cmds, cmd)
 	}
@@ -207,6 +211,21 @@ func (m *Model) Init() tea.Cmd {
 	// names its branch before the operator has read the screen (#180).
 	cmds = append(cmds, scheduleTick(), m.onStatTick())
 	return tea.Batch(cmds...)
+}
+
+// repaintHeld nudges every pane that came back from a dtach-held claude: the
+// attach cleared it and a same-size SIGWINCH got nothing back, so the pane
+// stayed blank until the session next wrote something and the operator was
+// pressing ctrl+o r on every session, every restart (#191). A fresh claude
+// paints on its own and is left alone.
+func (m *Model) repaintHeld() []tea.Cmd {
+	var cmds []tea.Cmd
+	for id := range m.reattached {
+		if term := m.terms[id]; term != nil {
+			cmds = append(cmds, term.Repaint())
+		}
+	}
+	return cmds
 }
 
 // Update routes messages to one handler per type, so it stays a router and

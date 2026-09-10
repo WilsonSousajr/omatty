@@ -101,6 +101,12 @@ func (g *Guard) Resize(w, h int) (cmd tea.Cmd) {
 	return cmd
 }
 
+// Repaint asks the wrapped terminal for a redraw (#191).
+func (g *Guard) Repaint() (cmd tea.Cmd) {
+	g.guarded("while repainting", func() { cmd = g.Terminal.Repaint() })
+	return cmd
+}
+
 // Focus gives the wrapped terminal the keyboard.
 func (g *Guard) Focus() { g.guarded("while focusing", func() { g.Terminal.Focus() }) }
 

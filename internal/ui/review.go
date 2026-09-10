@@ -166,8 +166,10 @@ func (m *Model) toggleView(v ReviewView) tea.Cmd {
 }
 
 // resizeIfWidthChanged resizes the terminal only when the column appeared:
-// switching views changes no width, and an identical Resize is a needless
-// SIGWINCH and repaint for claude (#95).
+// switching views changes no width. An identical Resize would send claude
+// nothing at all - the kernel skips SIGWINCH for an unchanged window (#191)
+// - but it would still reflow the emulator's grid and mark it damaged for
+// no reason (#95).
 func (m *Model) resizeIfWidthChanged(wasOpen bool) tea.Cmd {
 	if wasOpen {
 		return nil

@@ -19,7 +19,11 @@ type fakeHolder struct {
 	GotArgs []string
 	// Stopped records every session Stop was asked to end.
 	Stopped []string
+	// HeldIDs are the sessions Held answers true for (#191).
+	HeldIDs map[string]bool
 }
+
+func (f *fakeHolder) Held(sessionID string) (bool, error) { return f.HeldIDs[sessionID], nil }
 
 func (f *fakeHolder) Wrap(sessionID string, cmd *exec.Cmd) (*exec.Cmd, error) {
 	f.GotID, f.GotArgs = sessionID, cmd.Args
