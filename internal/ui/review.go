@@ -1,0 +1,338 @@
+package ui
+
+import (
+	"fmt"
+	"log/slog"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
+)
+
+// DiffFunc loads a session's diff. Injected so ui never touches git
+// (invariant 4); projectRoot is the session's project's main checkout, the
+// fallback base for worktrees that recorded none.
+type DiffFunc func(sess registry.Session, projectRoot string) (review.Diff, error)
+
+// DiffLoadedMsg carries a loaded diff into Update. Exported so tests can send
+// one.
+type DiffLoadedMsg struct {
+	SessionID string
+	Diff      review.Diff
+	Err       error
+}
+
+// ListFilesFunc lists a worktree's files. Injected like DiffFunc so ui never
+// reaches git itself (invariant 4, #24).
+type ListFilesFunc func(dir string) ([]string, error)
+
+// PreviewFunc reads one file for the preview view, so a test never touches
+// the filesystem.
+type PreviewFunc func(dir, rel string) (review.Preview, error)
+
+// FilesLoadedMsg carries a worktree listing into Update. Exported so tests
+// can send one.
+type FilesLoadedMsg struct {
+	SessionID string
+	Paths     []string
+	Err       error
+}
+
+// ReviewView is which face the review column shows.
+type ReviewView int
+
+// The column's views: the diff, the worktree tree, or one file's preview.
+const (
+	ViewDiff ReviewView = iota
+	ViewTree
+	ViewPreview
+)
+
+// focusTarget is which pane receives a key the router sends "to the terminal":
+// the embedded terminal, the review pane, or the note editor.
+type focusTarget int
+
+const (
+	focusTerminal focusTarget = iota
+	focusReview
+	focusNote
+	focusFilter // the tree's filter line (#198)
+)
+
+// ReviewPane is the right-hand column's state. The zero value is closed.
+type ReviewPane struct {
+	Open      bool
+	Focused   bool
+	SessionID string // whose diff is shown
+	View      ReviewView
+	Diff      review.Diff
+	Entries   []review.Entry
+	Cursor    int
+	Offset    int // first visible entry
+	Err       string
+	Note      noteEditor
+	// Filter is the tree's type-to-filter line (#198): Active while it has
+	// the keys, Query the text in force after enter kept it.
+	Filter filterLine
+	// The tree view's state (#24). Tree is nil until the listing arrives,
+	// which is what the "listing files..." placeholder means. TreeErr is
+	// separate from Err so a failed listing never blanks the diff, and a
+	// failed diff never blanks the tree: the two load independently.
+	Tree       *review.Tree
+	TreeErr    string
+	TreeCursor int
+	TreeOffset int
+	// The preview view's state: one file at a time, so a new preview
+	// replaces the last rather than accumulating.
+	Preview       review.Preview
+	PreviewOffset int
+	// ColOffset is the horizontal counterpart of the three vertical offsets
+	// above: how many display cells every content row is scrolled left, so a
+	// line wider than the column can still be read (issue #94). One offset
+	// serves all three views, so h and l behave the same wherever you are.
+	ColOffset int
+	// Stale marks content loaded before a turn that ended while the column
+	// was closed. A hidden pane does not fork git; the reopen does (#124).
+	Stale bool
+	// Widest memoizes the current view's widest row for the horizontal clamp
+	// (#133).
+	Widest widthCache
+}
+
+// filterLine is the tree's live filter: / opens it, typing narrows the
+// listing, enter keeps the query and hands the keys back, esc clears it.
+type filterLine struct {
+	Active bool
+	Query  string
+}
+
+// noteEditor is the one-line comment input opened with c on a diff line. It
+// holds the anchor rather than a position so a reload while typing cannot
+// leave it pointing past the end of a shorter diff.
+type noteEditor struct {
+	Active bool
+	Anchor review.Anchor
+	Quote  string
+	Buffer string
+}
+
+// noDiff is the Deps.Diff default: it names the missing wiring rather than
+// showing an empty diff, which would read as "this session changed nothing".
+func noDiff(sess registry.Session, _ string) (review.Diff, error) {
+	return review.Diff{}, fmt.Errorf("ui: no diff source configured for session %s", sess.ID)
+}
+
+// noFiles is the Deps.Files default, for the same reason as noDiff: an empty
+// tree would read as "this worktree is empty" (#24).
+func noFiles(dir string) ([]string, error) {
+	return nil, fmt.Errorf("ui: no file lister configured for %q", dir)
+}
+
+// ReviewOpen reports whether the review column is shown.
+func (m *Model) ReviewOpen() bool { return m.review.Open }
+
+// ReviewFocused reports whether plain keys go to the review column.
+func (m *Model) ReviewFocused() bool { return m.review.Focused }
+
+// ReviewView reports which face the column shows.
+func (m *Model) ReviewView() ReviewView { return m.review.View }
+
+// toggleView opens the review column on v, switches an open column to v, or
+// closes it when it already shows v - from either focus state, which is what
+// the help text has promised since #103 and what esc-then-leader needs to
+// terminate (#124). Content survives a close: it is keyed by SessionID and
+// only a different session throws it away. Comments survive too: they live
+// on the model, keyed by session (#21). The tree's collapse state does not -
+// it is rebuilt from the listing, which is cheap and always current (#24).
+func (m *Model) toggleView(v ReviewView) tea.Cmd {
+	// The preview is the tree's child (keptView), so f over a preview closes
+	// the column rather than switching it back to the listing (#124).
+	if m.review.Open && keptView(m.review.View) == v {
+		return m.closeColumn()
+	}
+	id := m.Selected()
+	if id == "" {
+		return nil
+	}
+	wasOpen, fresh := m.review.Open, m.review.SessionID != id
+	if fresh {
+		m.review = ReviewPane{SessionID: id}
+	}
+	// Each view is a different shape of text, so a pan that made sense in one
+	// is meaningless in the next: switching starts at the left edge (#94).
+	m.review.Open, m.review.View, m.review.Focused, m.review.ColOffset = true, v, true, 0
+	return tea.Batch(m.resizeIfWidthChanged(wasOpen), m.reloadIfNeeded(id, fresh), m.loadFilesIfMissing(id))
+}
+
+// resizeIfWidthChanged resizes the terminal only when the column appeared:
+// switching views changes no width. An identical Resize would send claude
+// nothing at all - the kernel skips SIGWINCH for an unchanged window (#191)
+// - but it would still reflow the emulator's grid and mark it damaged for
+// no reason (#95).
+func (m *Model) resizeIfWidthChanged(wasOpen bool) tea.Cmd {
+	if wasOpen {
+		return nil
+	}
+	return m.resizeSelected()
+}
+
+// reloadIfNeeded fetches the diff for a session the column has not loaded,
+// or one whose cached diff went stale behind a closed column (#124), and
+// re-lists a stale tree beside it (#195). A column already open on this
+// session keeps what it loaded: re-forking git for a diff already in memory
+// is the stall loadDiff's own comment exists to avoid.
+func (m *Model) reloadIfNeeded(id string, fresh bool) tea.Cmd {
+	if !fresh && !m.review.Stale {
+		return nil
+	}
+	m.review.Stale = false
+	return tea.Batch(m.loadDiff(id), m.relistFiles(id))
+}
+
+// closeColumn hides the column and gives the keys back, keeping what it
+// loaded so reopening on the same session asks git nothing. #90 made the
+// leader refocus instead of close, to spare that reload; the cache answers
+// the reload, and the refocus made esc-then-leader an endless loop (#124).
+func (m *Model) closeColumn() tea.Cmd {
+	m.review.Open, m.review.Focused = false, false
+	return m.resizeSelected()
+}
+
+// loadDiff fetches the diff off the Update goroutine: git on a large tree
+// takes long enough to stall the frame.
+func (m *Model) loadDiff(id string) tea.Cmd {
+	sess, ok := m.session(id)
+	if !ok {
+		return nil
+	}
+	root, load := m.projectRoot(sess.Project), m.diff
+	return func() tea.Msg {
+		d, err := load(sess, root)
+		return DiffLoadedMsg{SessionID: id, Diff: d, Err: err}
+	}
+}
+
+// onDiffLoaded paints a freshly loaded diff, unless the pane closed or moved
+// to another session while git was running.
+func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
+	if !m.review.Open || msg.SessionID != m.review.SessionID {
+		return nil
+	}
+	if msg.Err != nil {
+		slog.Warn("loading diff", "session", msg.SessionID, "err", msg.Err)
+		m.review.Err = msg.Err.Error()
+		return nil
+	}
+	m.review.Err = ""
+	m.review.Diff = msg.Diff
+	m.rebuildEntries()
+	m.retouchTree()
+	return nil
+}
+
+// rebuildEntries re-places the comments against the current diff and keeps the
+// cursor on a valid row.
+func (m *Model) rebuildEntries() {
+	placed := review.Place(m.review.Diff, m.commentsFor(m.review.SessionID).All())
+	m.review.Entries = review.Flatten(m.review.Diff, placed)
+	m.contentChanged()
+	if m.review.Cursor >= len(m.review.Entries) {
+		m.review.Cursor = max(len(m.review.Entries)-1, 0)
+	}
+}
+
+// commentsFor returns the session's queue, creating it on first use.
+func (m *Model) commentsFor(id string) *review.Comments {
+	if m.comments[id] == nil {
+		m.comments[id] = review.NewComments()
+	}
+	return m.comments[id]
+}
+
+// followSession moves an open review column to the newly focused session,
+// keeping the view it was showing: an operator who moves along the sidebar
+// with the tree open wants the next session's tree, not its diff (#24). A
+// preview belongs to the file it read, so it degrades to the tree.
+func (m *Model) followSession() tea.Cmd {
+	id := m.Selected()
+	if !m.review.Open || id == "" || id == m.review.SessionID {
+		return nil
+	}
+	m.review = ReviewPane{
+		Open: true, Focused: m.review.Focused, SessionID: id, View: keptView(m.review.View),
+	}
+	return tea.Batch(m.loadDiff(id), m.loadFiles(id))
+}
+
+// keptView is the view a column carries to another session.
+func keptView(v ReviewView) ReviewView {
+	if v == ViewPreview {
+		return ViewTree
+	}
+	return v
+}
+
+func (m *Model) session(id string) (registry.Session, bool) {
+	i, ok := m.sessionIndex(id)
+	if !ok {
+		return registry.Session{}, false
+	}
+	return m.state.Sessions[i], true
+}
+
+// sessionIndex is where id sits in m.state.Sessions, if it is there at all.
+//
+// One scan for the whole package: this loop had been hand-written five times
+// (session, knownSession, sessionTitle, retitle, forgetSession) and each copy
+// had invented its own answer for a miss - the zero value, false, the id
+// itself, or a silent return. Callers that need to mutate take the index;
+// callers that only read go through session (#40, #41).
+func (m *Model) sessionIndex(id string) (int, bool) {
+	for i := range m.state.Sessions {
+		if m.state.Sessions[i].ID == id {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func (m *Model) projectRoot(name string) string {
+	for _, p := range m.state.Projects {
+		if p.Name == name {
+			return p.Root
+		}
+	}
+	return ""
+}
+
+// refreshReview reloads the open diff when its session finishes a turn or
+// stops for a question: that is the moment the operator looks at what changed,
+// and a diff from before the turn would be stale on arrival (#21). The
+// listing goes with it, so a file claude created appears without r (#195).
+func (m *Model) refreshReview(id string, before, after watcher.Status) tea.Cmd {
+	if id != m.review.SessionID || before == after {
+		return nil
+	}
+	if after != watcher.StatusDone && after != watcher.StatusWaiting {
+		return nil
+	}
+	// A closed column keeps its content for the reopen (#124); forking git
+	// for a pane nobody can see would be waste, so the reopen pays instead.
+	if !m.review.Open {
+		m.review.Stale = true
+		return nil
+	}
+	return tea.Batch(m.loadDiff(id), m.relistFiles(id))
+}
+
+// reviewOwnsKeys reports whether a plain keystroke would reach the review
+// column right now.
+//
+// m.review.Focused alone is not that question: a modal takes the keyboard
+// without clearing the flag, so the footer went on advertising j/k, c, d, r, S
+// and esc while every one of them typed a character into the prompt instead.
+// One flag was answering two questions, which is the confusion #95 came from.
+func (m *Model) reviewOwnsKeys() bool {
+	return m.review.Focused && !m.modalOpen()
+}

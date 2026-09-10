@@ -1,6 +1,7 @@
 package paths_test
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/paths"
@@ -26,6 +27,19 @@ func TestTranscriptSlug(t *testing.T) {
 			name: "dotted segment collapses to a double dash",
 			dir:  "/Users/will/Work/Guia/api-guiaflix/.worktrees/p2-questoes",
 			want: "-Users-will-Work-Guia-api-guiaflix--worktrees-p2-questoes",
+		},
+		{
+			// Regression, issue #60: claude replaces every character outside
+			// [a-zA-Z0-9]; omatty mapped only '/' and '.', so this project's
+			// transcript was never found and its status stayed blank forever.
+			name: "space and underscore become dashes",
+			dir:  "/Users/will/Documents/University/2026.1/LAB SD/my_proj",
+			want: "-Users-will-Documents-University-2026-1-LAB-SD-my-proj",
+		},
+		{
+			name: "unicode and punctuation become dashes",
+			dir:  "/Users/will/Ação (v2)+notes",
+			want: "-Users-will-A--o--v2--notes",
 		},
 	}
 	for _, tt := range tests {
@@ -56,7 +70,11 @@ func TestOmattyLocations(t *testing.T) {
 		{"hooks", paths.HooksFile("/home/u"), "/home/u/.omatty/hooks.json"},
 		{"socket", paths.HookSocket("/home/u"), "/home/u/.omatty/sock"},
 		{"logs", paths.LogDir("/home/u"), "/home/u/.omatty/logs"},
-		{"worktree", paths.WorktreeDir("/home/u", "omatty", "fix"), "/home/u/.omatty/wt/omatty/fix"},
+		{"config", paths.ConfigFile("/home/u"), "/home/u/.omatty/config.toml"},
+		{"worktree root", paths.DefaultWorktreeRoot("/home/u"), "/home/u/.omatty/wt"},
+		{"worktree", paths.WorktreeDir("/home/u/.omatty/wt", "omatty", "fix"), "/home/u/.omatty/wt/omatty/fix"},
+		{"transcripts", paths.TranscriptsDir("/home/u"), "/home/u/.claude/projects"},
+		{"sessions", paths.SessionDir("/home/u"), "/home/u/.omatty/s"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -64,5 +82,19 @@ func TestOmattyLocations(t *testing.T) {
 				t.Errorf("got %q, want %q", tt.got, tt.want)
 			}
 		})
+	}
+}
+
+// The name is one letter for a reason, and the reason is a hard OS limit
+// rather than taste: a unix socket path caps at 104 bytes on macOS, and a
+// session's socket is this directory plus a 36-character uuid plus ".sock".
+// Lengthening the directory spends budget the uuid needs (#43).
+func TestSessionDir_LeavesRoomForAUUIDSocketUnderTheLimit_issue43(t *testing.T) {
+	const uuid = "0a6b870b-1c2d-4e3f-8a9b-0c1d2e3f4a5b"
+
+	sock := filepath.Join(paths.SessionDir("/Users/wilsonsousa"), uuid+".sock")
+
+	if len(sock) > 104 {
+		t.Errorf("socket path %q is %d bytes, over the 104-byte limit", sock, len(sock))
 	}
 }

@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-09-02T12:00:01.000Z","message":{"role":"user","content":"write a novel"}}
+{"type":"assistant","timestamp":"2026-09-02T12:00:05.000Z","message":{"id":"msg_a","role":"assistant","stop_reason":"max_tokens","content":[{"type":"text","text":"Chapter 1"}],"usage":{"input_tokens":50,"output_tokens":4096}}}
