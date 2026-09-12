@@ -4,6 +4,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -64,6 +65,11 @@ type Model struct {
 	// persisted, and correctly empty after a relaunch: whether a session
 	// still needs a name is derived from its title, not from this map.
 	namePending map[string]bool
+	// gates is each session's last gate report, display-only like the lane and
+	// repoStat and never persisted: state.json must suffice alone
+	// (invariant 9). Absent means no gate has run, which the card shows as a
+	// blank line rather than as a pass (#230).
+	gates map[string]gate.Report
 	// lane is each session's recent-status trace for the sidebar (#128).
 	lane map[string]activityLane
 	// stat reads a card's branch and diffstat; repoStat is the last answer per
@@ -163,6 +169,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.comments = map[string]*review.Comments{}
 	m.namePending = map[string]bool{}
 	m.lane = map[string]activityLane{}
+	m.gates = map[string]gate.Report{}
 	m.repoStat = map[string]review.Stat{}
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}

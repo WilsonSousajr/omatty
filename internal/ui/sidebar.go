@@ -195,8 +195,15 @@ func (s *Sidebar) selectIndex(i int) bool {
 }
 
 // cardLines is how many lines a session draws: the glyph, title and age, then
-// the branch, diffstat and lane (#176). A header draws one.
-const cardLines = 2
+// the branch, diffstat and lane (#176), then the gate strip (#230). A header
+// draws one.
+//
+// Three whether or not a gate has run, so it stays a constant. rowHeight feeds
+// both the window math and the click inverse, and a card whose height depended
+// on gate state would move a click's target under it. The cost is a blank line
+// for a project with no gate; that line is where its gate appears the moment
+// one is set.
+const cardLines = 3
 
 // rowHeight is the lines a row draws. The window math and the click inverse
 // both read it, so the two cannot drift (#45, #129, #176).
@@ -215,7 +222,7 @@ func rowHeight(r Row) int {
 //
 //	for _, row := range sb.Window(paneRows) { ... }
 func (s *Sidebar) Window(lines int) []Row {
-	s.offset = s.revealHeader(s.scrollTo(lines))
+	s.offset = s.revealHeader(s.scrollTo(lines), lines)
 	end := s.offset
 	for budget := lines; end < len(s.rows) && rowHeight(s.rows[end]) <= budget; end++ {
 		budget -= rowHeight(s.rows[end])
@@ -272,11 +279,21 @@ func (s *Sidebar) rowAtLine(line int) (int, bool) {
 // and the row above it is its own project's header, so moving up onto a
 // project's first session shows the project's name too rather than an
 // unlabelled row at the top of the pane (#129).
-func (s *Sidebar) revealHeader(offset int) int {
-	if offset > 0 && offset == s.cursor && s.rows[offset-1].Session == nil {
-		return offset - 1
+//
+// It gives that up when the two will not both fit. Courtesy cannot cost the
+// cursor its own card: backing up unconditionally spends a line on the header
+// and then leaves no room for the card under it, so a pane exactly one card
+// and one header tall drew the header alone and the selected session vanished
+// (#244). Latent since #129 - it needed a budget equal to a card plus a
+// header, and the height that made it reachable arrived with #230.
+func (s *Sidebar) revealHeader(offset, lines int) int {
+	if offset == 0 || offset != s.cursor || s.rows[offset-1].Session != nil {
+		return offset
 	}
-	return offset
+	if rowHeight(s.rows[offset-1])+rowHeight(s.rows[offset]) > lines {
+		return offset
+	}
+	return offset - 1
 }
 
 // Offset is the index of the first row Window drew, so a pointer row can be
