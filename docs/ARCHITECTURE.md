@@ -92,6 +92,7 @@ package that imports bubbletea.
 | `internal/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
+| `internal/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
 | `internal/paths` | Every filesystem location omatty reads or writes. Pure; takes `home` explicitly so tests never touch the real one. |
 | `internal/registry` | Projects, sessions, `state.json`, and the commands that edit them (add, remove, rename, adopt, create). |
 | `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |
@@ -149,7 +150,8 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
 8. **Review submission is one bracketed paste, then one `\r`.** Writing a
    multi-line prompt raw sends N premature messages, one per newline.
    `ESC[200~ … ESC[201~` tells Claude the whole block is a single input
-   (`review/paste.go`).
+   (`paste/paste.go`, its own package since #223 so review and gate can both
+   reach it without importing each other).
 
 9. **`state.json` must always suffice to relaunch every session.** Crash
    recovery is `claude --resume <uuid>` (#36), and that only works if
