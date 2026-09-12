@@ -55,6 +55,7 @@ internal/
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
+├── paste/          bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── highlight/      [M5] OUR interface over chroma (invariant 4 in spirit).
 ├── gate/           [M9] a project's own verification commands -> per-step verdicts.
 └── ui/             bubbletea model, panes, rendering.
@@ -181,6 +182,28 @@ not in the gate.
     nothing to stdout or stderr. Its `hooks.json` timeout is 5 s. A hook that
     hangs or errors would stall every claude session on the machine, whether
     or not omatty is running.
+12. **[M9] Gate verdicts come from exit status, never from output text.** A
+    step passes if and only if its process exits 0. No package may grep a
+    step's stdout or stderr to decide pass or fail — that is invariant 2's rule
+    applied to the gate, and for the same reason: the text is a rendering, the
+    exit code is the fact. The single exception is a step declared
+    `kind = "coverage"`, whose *percentage* is parsed for display; its pass or
+    fail still comes from the exit code, and a percentage that will not parse
+    yields zero rather than failing the run.
+
+    The corollary that costs something is `Missing` vs `Fail`. A step runs
+    under `sh -c`, because gate lines carry pipes, arguments and script paths,
+    and that means `cmd.Err` never fires: `sh` exists even when the tool does
+    not. An absent tool arrives as the shell's exit 127 — a convention, not a
+    guarantee, and a legitimate command may return it too. So the gate resolves
+    a step's leading word with `exec.LookPath` *before* running it, and reports
+    `Missing` without running anything. That is a pre-flight, not output
+    parsing, so this invariant holds. It earns its keep because reporting an
+    uninstalled `golangci-lint` as a failing lint step would send a session off
+    to fix code that was never broken.
+
+    The gate runs the project's own commands verbatim, so a step that invokes
+    `git` is the project's business and is not a breach of invariant 4.
 
 ## Testing instructions
 

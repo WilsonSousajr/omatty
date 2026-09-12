@@ -669,7 +669,30 @@ in a hurry to make it.
 
 ## Not on the roadmap
 
-Considered and cut, so they do not creep back in through the side door:
+Considered and cut, so they do not creep back in through the side door.
+
+### omatty is a window, not an orchestrator
+
+This is the first entry because it is the one with the most pull on it. The
+field omatty ships into is full of tools that delegate; each of the following
+would be a reasonable-sounding step toward becoming one, and each is refused
+for a stated reason rather than by omission.
+
+| Refused | Why |
+|---|---|
+| A coordinator agent; agents that spawn agents | Success rates compound. At 90% a step, a ten-step delegated chain lands around 35%, and it removes the human at exactly the point where corrections are still cheap. Published measurements agree: most production agents run fewer than ten steps before someone intervenes. |
+| A spec or plan approval gate before work may start | A spec precise enough to generate correct code is already a program, just written in prose — and the spec-code contract breaks at the first hotfix. Plans stay optional artifacts you may write; never a state the UI makes you pass through. |
+| Unattended task queues, scheduled runs, PR or chat subscriptions | A session runs because a person started it. There is no mode in which omatty works while nobody is reading. |
+| Cloud, accounts, sync | A project's accumulated knowledge is `AGENTS.md` and whatever memory tooling you use — on disk, in the repo, read by the agent *and* by you. Hidden context that only the tool can see is a regression, not a feature. |
+| A planning board inside the TUI | The board is GitHub project 13. A second one inside omatty means two sources of truth and a reconciliation problem nobody asked for. |
+| Agent-to-agent messaging | Same reason as the coordinator. If two sessions need to agree on something, that is a conversation for the person watching both of them. |
+
+What is left after all that is the loop the rest of this roadmap builds: start
+a session, read what it did, say what is wrong, run the gate, send the failures
+back. Tests, review, and short iterations — ordinary engineering, applied to a
+faster pair.
+
+### Also cut
 
 - Claude self-reviewing its own diff
 - Commit / push / PR from inside omatty
@@ -682,8 +705,6 @@ Considered and cut, so they do not creep back in through the side door:
   a quit. Not to be confused with M4's project discovery (#91), which reads
   the transcript store and registers nothing by itself.
 - Themes beyond one, or keybinding customisation beyond the leader
-- Any orchestration, planning board, or agent-to-agent messaging. omatty is a
-  window, not an orchestrator.
 
 ## Rules
 
@@ -695,7 +716,7 @@ Considered and cut, so they do not creep back in through the side door:
    units; these were failures of the wiring between them. `testdata/`
    carries a PTY harness for this; using it is part of "done".
 3. **A milestone is not done while a blocker is open.** M1 is the example.
-4. **Invariants are argued, never assumed.** Anything touching the ten in
+4. **Invariants are argued, never assumed.** Anything touching the twelve in
    AGENTS.md says so in its commit message.
 5. **A milestone ends on `develop`; a release ends on `main`.** The promotion
    is a PR clearing rule 2's gate, and it is tagged. See "Releases". #134 is

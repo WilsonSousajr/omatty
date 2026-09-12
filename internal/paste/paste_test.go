@@ -1,16 +1,16 @@
-package review_test
+package paste_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/paste"
 )
 
 // Invariant 8: a multi-line prompt written raw would submit at each newline,
 // so the body travels between paste delimiters and only one CR follows.
 func TestBracketedPaste_WrapsTheBodyAndSubmitsOnce_issue23(t *testing.T) {
-	got := review.BracketedPaste("line one\nline two")
+	got := paste.BracketedPaste("line one\nline two")
 
 	if !strings.HasPrefix(got, "\x1b[200~line one\nline two\x1b[201~") {
 		t.Errorf("envelope = %q, want ESC[200~ body ESC[201~", got)
@@ -23,7 +23,7 @@ func TestBracketedPaste_WrapsTheBodyAndSubmitsOnce_issue23(t *testing.T) {
 // Attaching a path must not submit: the operator keeps typing after it, so
 // the body travels between the same delimiters with no CR at all (#199).
 func TestBracketedText_WrapsTheBodyWithoutSubmitting_issue199(t *testing.T) {
-	got := review.BracketedText("@internal/ui/tree.go ")
+	got := paste.BracketedText("@internal/ui/tree.go ")
 
 	if got != "\x1b[200~@internal/ui/tree.go \x1b[201~" {
 		t.Errorf("envelope = %q, want ESC[200~ body ESC[201~ and nothing after", got)
