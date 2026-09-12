@@ -180,6 +180,19 @@ not in the gate.
     nothing to stdout or stderr. Its `hooks.json` timeout is 5 s. A hook that
     hangs or errors would stall every claude session on the machine, whether
     or not omatty is running.
+12. **[M9] Gate verdicts come from exit status, never from output text.** A
+    step passes if and only if its process exits 0. No package may grep a
+    step's stdout or stderr to decide pass or fail — that is invariant 2's rule
+    applied to the gate, and for the same reason: the text is a rendering, the
+    exit code is the fact. The single exception is a step declared
+    `kind = "coverage"`, whose *percentage* is parsed for display; its pass or
+    fail still comes from the exit code, and a percentage that will not parse
+    yields zero rather than failing the run. Two corollaries. A command missing
+    from `PATH` is `Missing`, not `Fail` — `exec.Command` records that on
+    `cmd.Err` and it surfaces at `Start`, and "your tool is not installed" is a
+    different answer to the user than "your code is broken". And the gate runs
+    the project's own commands verbatim, so a step that invokes `git` is the
+    project's business and is not a breach of invariant 4.
 
 ## Testing instructions
 
