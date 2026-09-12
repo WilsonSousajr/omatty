@@ -187,12 +187,21 @@ not in the gate.
     exit code is the fact. The single exception is a step declared
     `kind = "coverage"`, whose *percentage* is parsed for display; its pass or
     fail still comes from the exit code, and a percentage that will not parse
-    yields zero rather than failing the run. Two corollaries. A command missing
-    from `PATH` is `Missing`, not `Fail` — `exec.Command` records that on
-    `cmd.Err` and it surfaces at `Start`, and "your tool is not installed" is a
-    different answer to the user than "your code is broken". And the gate runs
-    the project's own commands verbatim, so a step that invokes `git` is the
-    project's business and is not a breach of invariant 4.
+    yields zero rather than failing the run.
+
+    The corollary that costs something is `Missing` vs `Fail`. A step runs
+    under `sh -c`, because gate lines carry pipes, arguments and script paths,
+    and that means `cmd.Err` never fires: `sh` exists even when the tool does
+    not. An absent tool arrives as the shell's exit 127 — a convention, not a
+    guarantee, and a legitimate command may return it too. So the gate resolves
+    a step's leading word with `exec.LookPath` *before* running it, and reports
+    `Missing` without running anything. That is a pre-flight, not output
+    parsing, so this invariant holds. It earns its keep because reporting an
+    uninstalled `golangci-lint` as a failing lint step would send a session off
+    to fix code that was never broken.
+
+    The gate runs the project's own commands verbatim, so a step that invokes
+    `git` is the project's business and is not a breach of invariant 4.
 
 ## Testing instructions
 
