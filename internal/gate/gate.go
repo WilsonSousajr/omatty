@@ -92,5 +92,8 @@ type StepResult struct {
 	Verdict  Verdict
 	ExitCode int
 	Output   string
-	Elapsed  time.Duration
+	// Percent is a coverage step's reading, 0 for every other step and for one
+	// whose output held no percentage. For display only (invariant 12).
+	Percent float64
+	Elapsed time.Duration
 }
