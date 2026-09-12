@@ -91,11 +91,18 @@ smoke test of the real binary in a real, sized PTY**, which a person reads:
 go run ./testdata/ptyrun omatty                              # 100x30, ctrl+o q after 8s
 PTY_COLS=60 PTY_ROWS=20 PTY_KEYS=$'\x0fj\x0fq' go run ./testdata/ptyrun omatty
 go run ./testdata/dtachprobe /tmp/probehome                  # [M6] detach and reattach
+go run ./testdata/gateprobe                                 # [M9] a real gate, bound and supersede
 ```
 
 `dtachprobe` is the same argument for `internal/detach`: its unit tests assert
 the command line dtach is given, which is why a missing `~/.omatty/s` shipped
 green and broke every session start (#43). The probe runs the line.
+
+`gateprobe` is that argument again for `internal/gate` (#229). Its unit tests
+say what a step's verdict is; only the probe shows a real gate failing in the
+middle with the steps after it `pending` rather than `pass`, a tool that is
+absent reported `missing` against this machine's actual `PATH`, the Runner's
+bound holding two sessions apart, and a superseded run staying quiet.
 
 `testdata/` is outside `./...` by Go convention, so the harness is deliberately
 not in the gate.
