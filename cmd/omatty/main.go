@@ -9,6 +9,10 @@
 //	omatty discover                   register from the repositories claude knows
 //	omatty adopt <project>            register claude sessions already in that project
 //	omatty new <project> <title> [branch]  create a session
+//	omatty gate <project>             show the gate that verifies it, or propose one
+//	omatty gate <project> --detect    print the proposal without writing it
+//	omatty gate <project> --set       write the proposal without asking
+//	omatty gate <project> --clear     forget the gate
 //	omatty hook                       forward a claude hook event (internal)
 //	omatty --version                  print the release this binary was built from
 //
