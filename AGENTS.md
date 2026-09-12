@@ -55,6 +55,7 @@ internal/
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
+├── paste/          bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── highlight/      [M5] OUR interface over chroma (invariant 4 in spirit).
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
