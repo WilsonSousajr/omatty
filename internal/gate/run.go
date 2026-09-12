@@ -72,7 +72,11 @@ func runStep(ctx context.Context, dir string, step Step) StepResult {
 	out, err := cmd.CombinedOutput()
 
 	verdict, code := classify(ctx, err)
-	return StepResult{Step: step, Verdict: verdict, ExitCode: code, Output: tail(string(out)), Elapsed: time.Since(started)}
+	result := StepResult{Step: step, Verdict: verdict, ExitCode: code, Output: tail(string(out)), Elapsed: time.Since(started)}
+	if step.Kind == KindCoverage {
+		result.Percent = percentIn(result.Output)
+	}
+	return result
 }
 
 // classify turns the error from a finished command into a verdict. Invariant
