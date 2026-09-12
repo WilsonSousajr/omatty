@@ -57,6 +57,7 @@ internal/
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
 ├── paste/          bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── highlight/      [M5] OUR interface over chroma (invariant 4 in spirit).
+├── gate/           [M9] a project's own verification commands -> per-step verdicts.
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.

@@ -88,6 +88,7 @@ package that imports bubbletea.
 | `internal/detach` | omatty's only route to `dtach`. Returns a no-op holder when the binary is absent. |
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
 | `internal/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
+| `internal/gate` | A project's own verification commands, run in a session's directory. Verdicts come from exit status only (invariant 12). |
 | `internal/highlight` | omatty's only route to the syntax highlighter (chroma), with omatty's own colour style (#197). |
 | `internal/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
