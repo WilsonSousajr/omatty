@@ -202,17 +202,18 @@ func sevenProjectState() registry.State {
 	return st
 }
 
-// Thirty-five lines, ten fit: rows 12..17 are the ten lines that end on the
-// cursor's card (header 1 + 2 + 2 + header 1 + 2 + 2), so the window must
-// hold the cursor whatever moved it (#129, #176).
+// Ten lines fit, and the cursor's card must be among them whatever moved it
+// (#129, #176). With three-line cards (#230) that is rows 14..17: p4-s1 (3) +
+// p5's header (1) + p5-s0 (3) + p5-s1 (3), exactly ten. The offset moves as
+// little as it can, so row 13 would not fit and 14 is where it stops.
 func TestSidebar_WindowFollowsTheCursor_issue129(t *testing.T) {
 	s := ui.NewSidebar(ui.SidebarRows(sevenProjectState(), nil))
 	s.SelectByID("p5-s1") // row 17
 
 	win := s.Window(10)
 
-	if len(win) != 6 || s.Offset() != 12 {
-		t.Fatalf("Window(10) = %d rows from offset %d, want 6 from 12", len(win), s.Offset())
+	if len(win) != 4 || s.Offset() != 14 {
+		t.Fatalf("Window(10) = %d rows from offset %d, want 4 from 14", len(win), s.Offset())
 	}
 	found := false
 	for _, r := range win {
@@ -252,15 +253,22 @@ func TestSidebar_WindowShrinkingKeepsTheCursorVisible_issue129(t *testing.T) {
 
 	win := s.Window(5)
 
-	if s.Offset() != 8 || len(win) != 3 {
-		t.Errorf("Window(5) after shrinking: offset %d len %d, want 8 and 3 (rows 8, 9, 10 are five lines)", s.Offset(), len(win))
+	// Rows 9 and 10 are p3's header (1) and p3-s0 (3): four of the five lines.
+	// Row 11 is another three-line card and does not fit, so the window stops.
+	if s.Offset() != 9 || len(win) != 2 {
+		t.Errorf("Window(5) after shrinking: offset %d len %d, want 9 and 2", s.Offset(), len(win))
 	}
 }
 
-func TestRowHeight_ACardIsTwoLinesAndAHeaderOne_issue176(t *testing.T) {
+// Renamed from _ACardIsTwoLines_ when M9 made it three (#230). The height it
+// asserted was right for M8; what actually matters, and always did, is that a
+// card is cardLines and a header is one - the window math and the click
+// inverse both read that, so the two cannot drift.
+func TestRowHeight_ACardIsCardLinesAndAHeaderOne_issue176(t *testing.T) {
 	rows := ui.SidebarRows(twoProjectState(), nil)
-	if ui.RowHeight(rows[0]) != 1 || ui.RowHeight(rows[1]) != 2 {
-		t.Errorf("heights = %d, %d; want 1 for a header and 2 for a session", ui.RowHeight(rows[0]), ui.RowHeight(rows[1]))
+	if ui.RowHeight(rows[0]) != 1 || ui.RowHeight(rows[1]) != ui.CardLines() {
+		t.Errorf("heights = %d, %d; want 1 for a header and %d for a session",
+			ui.RowHeight(rows[0]), ui.RowHeight(rows[1]), ui.CardLines())
 	}
 }
 
@@ -287,20 +295,31 @@ func TestSidebar_WindowNeverSplitsTheSelectedCard_issue176(t *testing.T) {
 	}
 }
 
-// The click inverse walks the same heights the window did: line 0 is the
-// header, lines 1 and 2 are s1's card, 3 and 4 are s2's, 5 is api-svc, 6 and
-// 7 are s3's.
+// The click inverse walks the same heights the window drew with, so every
+// line of a card maps back to that card.
+//
+// The expectation is derived from RowHeight rather than written out, because
+// the table of magic line numbers this used to carry had to be recomputed by
+// hand the moment cardLines changed (#230) - which is exactly the drift the
+// shared height exists to prevent.
 func TestSidebar_RowAtLineWalksTheDrawnHeights_issue176(t *testing.T) {
-	s := ui.NewSidebar(ui.SidebarRows(twoProjectState(), nil))
-	s.Window(20)
-	for line, want := range map[int]int{0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4} {
-		if got, ok := s.RowAtLine(line); !ok || got != want {
-			t.Errorf("RowAtLine(%d) = %d, %v; want %d", line, got, ok, want)
+	rows := ui.SidebarRows(twoProjectState(), nil)
+	s := ui.NewSidebar(rows)
+	s.Window(40)
+
+	line, total := 0, 0
+	for want, row := range rows {
+		for range ui.RowHeight(row) {
+			if got, ok := s.RowAtLine(line); !ok || got != want {
+				t.Errorf("RowAtLine(%d) = %d, %v; want %d", line, got, ok, want)
+			}
+			line++
 		}
+		total += ui.RowHeight(row)
 	}
-	for _, line := range []int{-1, 8, 40} {
-		if _, ok := s.RowAtLine(line); ok {
-			t.Errorf("RowAtLine(%d) = ok, want false past the list", line)
+	for _, past := range []int{-1, total, total + 32} {
+		if _, ok := s.RowAtLine(past); ok {
+			t.Errorf("RowAtLine(%d) = ok, want false past the list", past)
 		}
 	}
 }
@@ -534,5 +553,44 @@ func TestSidebar_HeadersOnlySelectsTheFirstHeader_issue158(t *testing.T) {
 	s.MoveDown()
 	if p, _ := s.SelectedHeader(); p != "also" {
 		t.Errorf("after MoveDown, SelectedHeader() = %q, want also", p)
+	}
+}
+
+// revealHeader's courtesy must never cost the cursor its own card. A pane
+// exactly one header and one card tall drew the header alone: the offset was
+// pulled back to reveal the project name, and the card under it no longer fit.
+//
+// Latent since #129 - it needs a budget of exactly cardLines+1, and the old
+// two-line card made that 3, which is where the loop in
+// WindowNeverSplitsTheSelectedCard started. #230's three-line card moved the
+// boundary into the range the loop covers, which is how it surfaced.
+func TestSidebar_revealHeaderNeverHidesTheSelectedCard_issue244(t *testing.T) {
+	rows := ui.SidebarRows(twoProjectState(), nil)
+	s := ui.NewSidebar(rows)
+	s.SelectByID("s1") // row 1: the first session under omatty's header
+
+	win := s.Window(ui.CardLines()) // room for the card, and not for the header too
+
+	drawn := false
+	for _, r := range win {
+		drawn = drawn || (r.Session != nil && r.Session.ID == "s1")
+	}
+	if !drawn {
+		t.Errorf("Window(%d) = %+v; the selected card was dropped to make room for its header",
+			ui.CardLines(), win)
+	}
+}
+
+// And it still does the courtesy when both fit, which is the whole point of
+// #129: moving up onto a project's first session should name the project.
+func TestSidebar_revealHeaderStillShowsTheHeaderWhenItFits_issue244(t *testing.T) {
+	rows := ui.SidebarRows(twoProjectState(), nil)
+	s := ui.NewSidebar(rows)
+	s.SelectByID("s1")
+
+	s.Window(ui.CardLines() + 1)
+
+	if s.Offset() != 0 {
+		t.Errorf("Offset() = %d, want 0: the header fits alongside the card and should be shown", s.Offset())
 	}
 }

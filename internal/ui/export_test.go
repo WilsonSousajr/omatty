@@ -4,6 +4,7 @@ import (
 	"image/color"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
@@ -177,3 +178,20 @@ func ModalNames() []string {
 // WaitForClipboard is the wait a pane's OSC 52 copies are picked up by, so a
 // test can arm one without draining Init's ticks (#212).
 func (m *Model) WaitForClipboard(id string) tea.Cmd { return m.waitForClipboard(id) }
+
+// SetGateReport plants a gate result so the card strip can be rendered without
+// running one (#230).
+func (m *Model) SetGateReport(id string, rep gate.Report) { m.gates[id] = rep }
+
+// SetRepoStat plants a diffstat, which READY reads (#230).
+func (m *Model) SetRepoStat(id string, st review.Stat) { m.repoStat[id] = st }
+
+// CardLines is the height of a session card, so a test asserts against the
+// constant the renderer and the click inverse share rather than a literal
+// that has to be chased every time it changes (#230).
+func CardLines() int { return cardLines }
+
+// SidebarOffset is the first row the last View drew, so a click test can
+// resolve a drawn line back to the row under it instead of hard-coding one
+// (#45, #230).
+func (m *Model) SidebarOffset() int { return m.sidebar.Offset() }

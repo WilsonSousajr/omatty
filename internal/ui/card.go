@@ -31,18 +31,21 @@ const (
 // in lane.go covers it too.
 const rail = "▎"
 
-// renderRow draws a row's lines: one for a project header, two for a card.
+// renderRow draws a row's lines: one for a project header, three for a card.
 //
 //	▎● parser-fix           4m
 //	▎  main      +12 −3 ▁▃▇█▅▂
+//	▎  ✓✓✓✗ test       88.4%
 func (m *Model) renderRow(row Row, now time.Time) []string {
 	if row.Session == nil {
 		return []string{m.renderHeaderRow(row.Project)}
 	}
 	r := m.rail(m.isSelected(row.Session.ID))
+	id := row.Session.ID
 	return []string{
 		r + m.cardTop(row, now),
-		r + "  " + m.cardMeta(row.Session.ID) + " " + m.renderLane(row.Session.ID) + " ",
+		r + "  " + m.cardMeta(id) + " " + m.renderLane(id) + " ",
+		r + "  " + m.cardGate(id) + " ",
 	}
 }
 
