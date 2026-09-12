@@ -36,6 +36,12 @@ func Run(ctx context.Context, dir string, steps []Step) ([]StepResult, error) {
 	return results, nil
 }
 
+// cancelGrace is how long Wait will keep reading a cancelled step's output
+// before giving up on it. isolate already kills the process group, so this is
+// the backstop for anything that escaped it - without it, one process holding
+// the pipe open blocks the whole run (#224).
+const cancelGrace = 2 * time.Second
+
 // usableDir rejects a working directory before any step runs, so the failure
 // names the path rather than arriving as N identical shell errors.
 func usableDir(dir string) error {
@@ -61,6 +67,8 @@ func runStep(ctx context.Context, dir string, step Step) StepResult {
 	started := time.Now()
 	cmd := exec.CommandContext(ctx, "sh", "-c", step.Run)
 	cmd.Dir = dir
+	isolate(cmd)
+	cmd.WaitDelay = cancelGrace
 	out, err := cmd.CombinedOutput()
 
 	verdict, code := classify(ctx, err)

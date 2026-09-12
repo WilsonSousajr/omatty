@@ -205,3 +205,35 @@ func TestRun_linesThePreflightCannotRead_areStillRun(t *testing.T) {
 		}
 	}
 }
+
+// Cancelling must kill the step's whole process tree, not just the sh that
+// started it. Found by CI on #224: macOS passed and ubuntu did not, because
+// killing the direct child suffices only where sh exec'd the command into
+// itself. This step deliberately backgrounds a subshell so sh cannot exec it,
+// which is the shape that survived.
+//
+// The orphan matters more than the delay: a cancelled `go test -race` that
+// keeps running is the machine-thrashing #229's parallelism bound exists to
+// prevent.
+func TestRun_cancel_killsTheWholeProcessGroup_issue224(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "survived")
+	ctx, cancel := context.WithCancel(context.Background())
+	steps := []gate.Step{{Name: "forks", Run: "(sleep 1; touch survived) & wait"}}
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+	got, _ := gate.Run(ctx, dir, steps)
+
+	if got[0].Verdict != gate.Cancelled {
+		t.Fatalf("verdict = %v, want Cancelled", got[0].Verdict)
+	}
+	// Outlive the backgrounded sleep: if anything in the group survived the
+	// cancel, it has had its chance to write by now.
+	time.Sleep(1500 * time.Millisecond)
+	if _, err := readFile(marker); err == nil {
+		t.Error("a process in the step's group outlived the cancel and kept working")
+	}
+}
