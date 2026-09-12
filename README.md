@@ -7,6 +7,32 @@ Every other tool in this space is either a desktop app or scoped to a single
 repository. omatty is terminal-native — it works over SSH on a headless box —
 and shows sessions from *several* repositories side by side.
 
+## What omatty is
+
+There are a great many tools for running coding agents in parallel, and they
+almost all optimise the same thing: how much agent-work you can have in flight
+at once. Fleets, coordinators, queues, boards.
+
+omatty optimises the other thing: **how quickly you can tell whether what came
+back is any good.**
+
+So a project here is not a container for delegated tasks. It is a repository
+and the sessions running against it. omatty starts the real `claude` binary —
+it does not reimplement Claude's interface — and shows you what each session
+changed, with your comments anchored to the *content* of the lines rather than
+their numbers, sent back as one message.
+
+M9 is extending a project to carry its **gate** as well: the
+`fmt`/`vet`/`lint`/`test`/coverage line that decides whether the work is sound.
+omatty will run it in the session's own directory, show the result on the
+session's card, and send the failures back into the session that caused them.
+
+It does not delegate, plan, schedule, or decide on your behalf. You are not a
+bottleneck in the loop; you are the part of it that catches things. omatty's job
+is to get you to the point of catching them sooner.
+
+`docs/ROADMAP.md` lists what that rules out, and why.
+
 ## Status
 
 **v0.1.0 — the first release.** Eight milestones, all built:

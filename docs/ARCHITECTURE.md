@@ -102,7 +102,7 @@ package that imports bubbletea.
 | `internal/watcher` | Transcript tailer + hook listener → typed status events, through an `Adapter`. |
 | `testdata/` | `fake-claude`, `ptyrun`, `screen`, `dtachprobe`: the harness for the real-PTY smoke test the gate cannot replace. |
 
-## The eleven invariants, and why
+## The twelve invariants, and why
 
 AGENTS.md lists them as rules. Each one is here with the failure it prevents.
 
@@ -170,6 +170,24 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
     every claude session on the machine. `main` dispatches to it before
     opening the log or reading config, so nothing that can fail sits in its
     path (#54).
+
+12. **[M9] Gate verdicts come from exit status, never from output text.**
+    Invariant 2 applied to the gate, and the same argument: a step's output is
+    a rendering — it moves with tool version, `-v`, locale and colour — while
+    its exit code is the fact the tool is asserting. So no package greps stdout
+    to decide pass or fail. A `kind = "coverage"` step has its percentage
+    parsed for display only, and an unparseable one yields zero rather than
+    failing a run that the command itself said had passed.
+
+    The corollary that matters in practice is `Missing` vs `Fail`. Steps run
+    under `sh -c` — gate lines carry pipes, arguments and script paths — so
+    `cmd.Err` never fires the way it would for a direct exec: `sh` is present
+    even when the tool is not, and an absent tool comes back as the shell's
+    exit 127. That is a convention rather than a guarantee, and a real command
+    may exit 127 for its own reasons, so the gate does not read it as one.
+    Instead it resolves the step's leading word with `exec.LookPath` before
+    running anything. Reporting an uninstalled `golangci-lint` as a failing
+    lint step would send a session off to fix code that was never broken.
 
 ## The seams
 
