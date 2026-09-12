@@ -52,6 +52,29 @@ func main() {
 
 	fmt.Println("\n--- superseding a run in flight ---")
 	supersede(dir)
+
+	fmt.Println("\n--- what omatty would propose for this checkout ---")
+	proposed(".")
+}
+
+// proposed prints the gate Detect offers for a real repository, which is the
+// half of the loop the scratch steps above cannot show: that omatty reads a
+// checkout it did not construct and comes back with the line that checkout
+// actually uses. It prints and does not run - running omatty's own gate takes
+// minutes, and the point here is the proposal.
+func proposed(root string) {
+	steps := gate.Detect(root)
+	if len(steps) == 0 {
+		fmt.Println("  nothing recognised in", root)
+		return
+	}
+	for _, s := range steps {
+		kind := ""
+		if s.Kind != "" {
+			kind = "   [" + s.Kind + "]"
+		}
+		fmt.Printf("  %-5s $ %s%s\n", s.Name, s.Run, kind)
+	}
 }
 
 // scratchDir is the directory the probe gates: the argument if given, else a
