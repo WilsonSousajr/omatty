@@ -195,3 +195,7 @@ func CardLines() int { return cardLines }
 // resolve a drawn line back to the row under it instead of hard-coding one
 // (#45, #230).
 func (m *Model) SidebarOffset() int { return m.sidebar.Offset() }
+
+// GateReportCount is how many sessions hold a gate report, so a test can
+// assert that a report for an unregistered session was dropped (#231).
+func (m *Model) GateReportCount() int { return len(m.gates) }

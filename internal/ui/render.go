@@ -67,6 +67,12 @@ func treeFooterLine(leader string) string {
 	return "h/l/0 pan  enter open  / filter  a attach  o diff  esc back  " + leader + " ? keys"
 }
 
+// gateFooterLine replaces both in the gate view, where the keys are the few a
+// list of steps has (#231).
+func gateFooterLine(leader string) string {
+	return "j/k move  enter output  esc back  " + leader + " ? keys"
+}
+
 // emptyTreeHint is the tree's empty state: a repository that listed
 // successfully and holds nothing, which is not a listing still in flight (#131).
 const emptyTreeHint = "no files - the repository is empty; press r to list again"
@@ -242,8 +248,11 @@ func (m *Model) footerKeys() string {
 	if !m.reviewOwnsKeys() {
 		return footerLine(m.leader)
 	}
-	if m.review.View == ViewDiff {
+	switch m.review.View {
+	case ViewDiff:
 		return reviewFooterLine(m.leader)
+	case ViewGate:
+		return gateFooterLine(m.leader)
 	}
 	return treeFooterLine(m.leader)
 }

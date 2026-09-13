@@ -78,17 +78,20 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 	git, holder := vcs.NewCLI(), env.Holder
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
-		Stop:    holder.Stop,
-		Notice:  holder.Notice(),
-		Launch:  supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
-		Agent:   env.Agent,
-		Factory: termwrap.Start,
-		Create:  sessionCreator(env.Cfg, store),
-		Leader:  env.Cfg.Leader,
-		Name:    sessionNamer(home),
-		Diff:    review.NewSource(git).Load,
-		Stat:    review.NewSource(git).Stat,
-		Files:   git.ListFiles,
+		Stop:   holder.Stop,
+		Notice: holder.Notice(),
+		Launch: supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
+		Agent:  env.Agent,
+		// The gate's bound comes from the config; the Runner raises a zero to
+		// one, so an old config file without a [gate] section still works.
+		GateParallel: env.Cfg.Gate.MaxParallel,
+		Factory:      termwrap.Start,
+		Create:       sessionCreator(env.Cfg, store),
+		Leader:       env.Cfg.Leader,
+		Name:         sessionNamer(home),
+		Diff:         review.NewSource(git).Load,
+		Stat:         review.NewSource(git).Stat,
+		Files:        git.ListFiles,
 	}
 	return withStoreDeps(deps, store, home, git)
 }

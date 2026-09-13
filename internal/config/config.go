@@ -32,13 +32,25 @@ type Config struct {
 	WorktreeRoot string `toml:"worktree_root"`
 	BaseBranch   string `toml:"base_branch"`
 	Naming       Naming `toml:"naming"`
+	Gate         Gate   `toml:"gate"`
+}
+
+// Gate is the [gate] section: how omatty runs a project's own checks (#229).
+type Gate struct {
+	// MaxParallel bounds how many gates run at once. Small on purpose - four
+	// concurrent `go test ./... -race` make a laptop unusable, and a laggy TUI
+	// would make the gate worse than running it by hand.
+	MaxParallel int `toml:"max_parallel"`
 }
 
 // Defaults is the configuration of a machine with no config file.
 //
 //	cfg := config.Defaults(home)
 func Defaults(home string) Config {
-	return Config{Leader: "ctrl+o", ClaudeBin: "claude", WorktreeRoot: paths.DefaultWorktreeRoot(home)}
+	return Config{
+		Leader: "ctrl+o", ClaudeBin: "claude", WorktreeRoot: paths.DefaultWorktreeRoot(home),
+		Gate: Gate{MaxParallel: 2},
+	}
 }
 
 // Load reads path, filling every key the file omits from Defaults(home).

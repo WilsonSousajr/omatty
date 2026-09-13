@@ -74,6 +74,8 @@ func (m *Model) onPaneKey(key string) tea.Cmd {
 		return m.onTreeKey(key)
 	case ViewPreview:
 		return m.onPreviewKey(key)
+	case ViewGate:
+		return m.onGateKey(key)
 	default:
 		return m.onReviewKey(key)
 	}
@@ -167,6 +169,8 @@ func (m *Model) paneCommand(key string) tea.Cmd {
 		return m.toggleView(ViewDiff)
 	case "f":
 		return m.toggleView(ViewTree)
+	case "g":
+		return m.toggleView(ViewGate)
 	case "q":
 		return tea.Quit
 	}

@@ -70,6 +70,14 @@ type Model struct {
 	// (invariant 9). Absent means no gate has run, which the card shows as a
 	// blank line rather than as a pass (#230).
 	gates map[string]gate.Report
+	// gateRunning is the sessions with a run in flight, so the pane says so
+	// rather than showing the last verdict as if it were current.
+	gateRunning map[string]bool
+	// gateReports and gateRun are the gate's two halves, shaped like the
+	// watcher's: a channel of results in, a request out. Concrete types stay
+	// out of the model so a test substitutes a recorder for the Runner.
+	gateReports <-chan gate.Report
+	gateRun     GateRunFunc
 	// lane is each session's recent-status trace for the sidebar (#128).
 	lane map[string]activityLane
 	// stat reads a card's branch and diffstat; repoStat is the last answer per
@@ -119,20 +127,22 @@ type Model struct {
 func NewModel(deps Deps) *Model {
 	d := deps.withDefaults()
 	m := &Model{
-		state:      d.State,
-		sidebar:    NewSidebar(SidebarRows(d.State, nil)),
-		terms:      d.Terms,
-		router:     keys.NewRouter(d.Leader),
-		leader:     d.Leader,
-		create:     d.Create,
-		start:      d.Start,
-		events:     d.Events,
-		clock:      d.Clock,
-		tailStart:  d.TailStart,
-		notifier:   d.Notifier,
-		startedAt:  d.Clock(),
-		hasFocus:   true,
-		reattached: d.Reattached,
+		state:       d.State,
+		sidebar:     NewSidebar(SidebarRows(d.State, nil)),
+		terms:       d.Terms,
+		router:      keys.NewRouter(d.Leader),
+		leader:      d.Leader,
+		create:      d.Create,
+		start:       d.Start,
+		events:      d.Events,
+		gateReports: d.GateReports,
+		gateRun:     d.GateRun,
+		clock:       d.Clock,
+		tailStart:   d.TailStart,
+		notifier:    d.Notifier,
+		startedAt:   d.Clock(),
+		hasFocus:    true,
+		reattached:  d.Reattached,
 	}
 	return m.withSources(d).withWindow().withRuntimeMaps()
 }
@@ -170,6 +180,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.namePending = map[string]bool{}
 	m.lane = map[string]activityLane{}
 	m.gates = map[string]gate.Report{}
+	m.gateRunning = map[string]bool{}
 	m.repoStat = map[string]review.Stat{}
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
@@ -218,6 +229,9 @@ func (m *Model) Init() tea.Cmd {
 	}
 	cmds = append(cmds, m.repaintHeld()...)
 	if cmd := m.waitForEvent(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+	if cmd := m.waitForGate(); cmd != nil {
 		cmds = append(cmds, cmd)
 	}
 	// The first stat poll runs at start rather than a tick later, so a card
@@ -290,9 +304,10 @@ func (m *Model) onInput(msg tea.Msg) (tea.Cmd, bool) {
 // The split is paneCommand's: one table ran past the length limit, and the
 // ones after it are named here so they still read as one list (#122).
 func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
+	if cmd, handled := m.onStreamMsg(msg); handled {
+		return cmd
+	}
 	switch typed := msg.(type) {
-	case StatusMsg:
-		return m.onStatus(typed)
 	case DiffLoadedMsg:
 		return m.onDiffLoaded(typed)
 	case FilesLoadedMsg:
@@ -305,6 +320,25 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 		return m.onModelNamed(typed)
 	}
 	return m.onPaneMsg(msg)
+}
+
+// onStreamMsg is the messages fed by a long-lived source over a channel: the
+// watcher's status events and the gate Runner's reports. Each folds itself in
+// and re-arms its own wait, which is what separates them from the one-shot
+// results below - those answer a tea.Cmd omatty issued once and are done.
+//
+// A table of its own because onDataMsg was already at the statement limit that
+// split it from onSessionMsg (#122), and #231's gate reports pushed it over.
+// The second return says whether the message was one of these, so a nil
+// command from a handler is not mistaken for "not mine".
+func (m *Model) onStreamMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case StatusMsg:
+		return m.onStatus(typed), true
+	case GateMsg:
+		return m.onGate(typed), true
+	}
+	return nil, false
 }
 
 // onPaneMsg is onDataMsg's second table: what a running pane produced on its

@@ -31,12 +31,15 @@ func TestLoad_MissingFileIsEveryDefault_issue44(t *testing.T) {
 
 func TestLoad_ReadsEveryKey_issue44(t *testing.T) {
 	home := t.TempDir()
-	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n")
+	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\n")
 	got, err := config.Load(path, home)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := config.Config{Leader: "ctrl+a", ClaudeBin: "/opt/claude", WorktreeRoot: "/vol/wt", BaseBranch: "develop", Naming: config.Naming{Model: true}}
+	want := config.Config{
+		Leader: "ctrl+a", ClaudeBin: "/opt/claude", WorktreeRoot: "/vol/wt", BaseBranch: "develop",
+		Naming: config.Naming{Model: true}, Gate: config.Gate{MaxParallel: 3},
+	}
 	if got != want {
 		t.Errorf("Load() = %+v, want %+v", got, want)
 	}
@@ -107,5 +110,33 @@ func TestLoad_NamingModelDefaultsOff_issue44(t *testing.T) {
 	got, err := config.Load(writeConfig(t, home, "[naming]\n"), home)
 	if err != nil || got.Naming.Model {
 		t.Errorf("Naming.Model = %v err = %v, want false and nil", got.Naming.Model, err)
+	}
+}
+
+// The gate's parallelism is configurable because the right number depends on
+// the machine, and the default is deliberately small: four concurrent
+// `go test ./... -race` make a laptop unusable, which would make the gate
+// worse than running it by hand (#229).
+func TestLoad_gateParallelDefaultsToTwo_issue231(t *testing.T) {
+	home := t.TempDir()
+	got, err := config.Load(filepath.Join(home, "none.toml"), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Gate.MaxParallel != 2 {
+		t.Errorf("Gate.MaxParallel = %d, want 2 by default", got.Gate.MaxParallel)
+	}
+}
+
+func TestLoad_readsGateMaxParallel_issue231(t *testing.T) {
+	home := t.TempDir()
+	path := writeConfig(t, home, "[gate]\nmax_parallel = 4\n")
+
+	got, err := config.Load(path, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Gate.MaxParallel != 4 {
+		t.Errorf("Gate.MaxParallel = %d, want 4", got.Gate.MaxParallel)
 	}
 }
