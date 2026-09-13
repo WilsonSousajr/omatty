@@ -22,7 +22,10 @@ func TestLeadingWord(t *testing.T) {
 		{"no arguments", "true", "true"},
 		{"leading whitespace", "   gofmt -l .", "gofmt"},
 		{"an env assignment", "CGO_ENABLED=0 go build", ""},
-		{"a shell builtin", "cd internal && go test", ""},
+		// leadingWord is purely syntactic since #248: it reads the word, and
+		// absentTool asks the shell whether it resolves. A builtin therefore
+		// comes back named here and is cleared by the probe, not by a list.
+		{"a shell builtin", "cd internal && go test", "cd"},
 		{"a subshell", "(go vet ./...)", ""},
 		{"a variable", "$LINTER run", ""},
 		{"a pipeline that starts with one", "go test | tee out", "go"},
@@ -77,5 +80,26 @@ func TestClassify(t *testing.T) {
 func TestAbsentTool_leavesUnreadableLinesAlone(t *testing.T) {
 	if name, absent := absentTool("CGO_ENABLED=0 omatty-no-such-tool-xyz"); absent {
 		t.Errorf("absentTool() = %q, true; an env assignment must be run, not pre-judged", name)
+	}
+}
+
+// The probe asks the shell, so a builtin with no binary anywhere resolves
+// (#248). exec.LookPath answered a different question and got these wrong.
+func TestAbsentTool_resolvesBuiltinsThatHaveNoBinary(t *testing.T) {
+	for _, builtin := range []string{"exit 1", "return 0", "local x=1", "break", "continue", "readonly x=1"} {
+		if name, absent := absentTool(builtin); absent {
+			t.Errorf("absentTool(%q) = %q, true; a shell builtin is not an absent tool", builtin, name)
+		}
+	}
+}
+
+// And a tool that really is not there is still caught.
+func TestAbsentTool_stillCatchesARealAbsence(t *testing.T) {
+	name, absent := absentTool("omatty-no-such-tool-xyz --check")
+	if !absent {
+		t.Fatal("absentTool() = false for a tool that does not exist")
+	}
+	if name != "omatty-no-such-tool-xyz" {
+		t.Errorf("absentTool() named %q, want the tool itself", name)
 	}
 }

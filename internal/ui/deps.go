@@ -48,9 +48,12 @@ type Deps struct {
 	// what a model built by a test sees.
 	GateReports <-chan gate.Report
 	GateRun     GateRunFunc
-	Clock       func() time.Time
-	Notifier    notify.Notifier
-	TailStart   func(registry.Session)
+	// GateAuto runs a session's gate when its turn ends. Off by default: a
+	// test suite on every idle costs real time, so it is asked for (#233).
+	GateAuto  bool
+	Clock     func() time.Time
+	Notifier  notify.Notifier
+	TailStart func(registry.Session)
 	// Diff loads a session's changes for the review column (#21).
 	Diff DiffFunc
 	// Files lists a session's worktree and Preview reads one of its files,

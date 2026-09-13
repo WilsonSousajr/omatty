@@ -237,3 +237,40 @@ func TestRun_cancel_killsTheWholeProcessGroup_issue224(t *testing.T) {
 		t.Error("a process in the step's group outlived the cancel and kept working")
 	}
 }
+
+// A shell builtin has no binary anywhere on PATH, and reporting it Missing
+// declines to run a step that would have worked - and stops the gate, so
+// every step after it reports Pending too.
+//
+// Found by #233's auto-run smoke test: a step of `exit 1` came back ? rather
+// than ✗. The old pre-flight guessed with a hand-written list of builtins,
+// which cannot be completed - POSIX specials, bash builtins and keywords all
+// differ by shell. It now asks the shell that will run the step (#248).
+func TestRun_shellBuiltinWithNoBinary_isNotMissing_issue248(t *testing.T) {
+	cases := []struct {
+		run  string
+		want gate.Verdict
+	}{
+		{"exit 1", gate.Fail},
+		{"exit 0", gate.Pass},
+		{"return 0 2>/dev/null || true", gate.Pass},
+		{"break 2>/dev/null || true", gate.Pass},
+		{"continue 2>/dev/null || true", gate.Pass},
+		{"readonly x=1", gate.Pass},
+		{"times > /dev/null", gate.Pass},
+	}
+	for _, c := range cases {
+		t.Run(c.run, func(t *testing.T) {
+			got, err := gate.Run(context.Background(), t.TempDir(), []gate.Step{{Name: "b", Run: c.run}})
+			if err != nil {
+				t.Fatalf("Run() error = %v", err)
+			}
+			if got[0].Verdict == gate.Missing {
+				t.Fatalf("verdict = Missing for %q; a builtin is not an absent tool", c.run)
+			}
+			if got[0].Verdict != c.want {
+				t.Errorf("verdict = %v for %q, want %v", got[0].Verdict, c.run, c.want)
+			}
+		})
+	}
+}
