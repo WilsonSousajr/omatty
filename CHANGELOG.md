@@ -9,6 +9,49 @@ schema are not yet frozen.
 Each entry names the issues behind it. `docs/ROADMAP.md` carries the reasoning
 for each milestone and what was deliberately cut.
 
+## [Unreleased]
+
+### Added
+
+- **M9 — The Gate.** A project is now a repository, the gate that says whether
+  work in it is sound, and the sessions running against it. omatty runs the
+  project's own check line in a session's directory, shows the verdict on the
+  session's card, and sends the failures back into the session that caused
+  them. (#222–#234)
+  - `omatty gate <project>` shows, proposes, sets or clears a gate. Detection
+    reads the checkout — Go, Cargo, Node, Python — and only ever *proposes*;
+    nothing runs a gate you have not confirmed. (#226, #228)
+  - `ctrl+o g` opens the gate in the review column and runs it. `enter` folds a
+    step's output open, `S` sends the failures into the session as one
+    bracketed paste. (#231, #232)
+  - A session card's third line carries the gate: one mark per step in order,
+    the failing step named, coverage, and `READY` when the gate is green, there
+    is a diff to show for it and the session is at rest. (#230, #225)
+  - `[gate] auto` runs a session's gate when its turn ends, off by default. A
+    red gate notifies only while omatty is blurred. `[gate] max_parallel`
+    bounds how many run at once, default 2. (#233, #229)
+- **Invariant 12** — gate verdicts come from exit status, never from output
+  text. A `kind = "coverage"` step's percentage is parsed for display only, and
+  a tool that is not installed reports `Missing` rather than a failure. (#222)
+
+### Fixed
+
+- Cancelling a gate step killed only the `sh` it ran under, leaving a
+  grandchild holding the output pipe; a cancelled run took its full duration
+  and left the work running. The whole process group is killed now. (#238)
+- `revealHeader` could push the selected card out of a short sidebar while
+  making room for its project header. Latent since #129, reachable in v0.1.0 by
+  making the terminal short enough. (#244)
+- A shell builtin with no binary — `exit`, `return`, `local` — was reported as
+  a missing tool, which also stopped the gate. omatty now asks the shell
+  (`command -v`) instead of looking for a binary. (#248)
+
+### Changed
+
+- `internal/paste` owns invariant 8; it moved out of `internal/review` so the
+  gate and the review loop can both reach it. (#223)
+- A session card is three lines rather than two. (#230)
+
 ## [v0.1.0] — 2026-09-10
 
 First release. Eight milestones, built on `develop` between 2026-09-01 and

@@ -290,7 +290,7 @@ message and explain why the behaviour it asserted was never correct.
   - Type: `feat` `fix` `docs` `test` `refactor` `perf` `chore` `build` `ci` —
     the same set as the commit-message types, so a `feat`-labelled issue
     produces `feat(#N):` commits.
-  - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7` `M8`. Every open issue carries
+  - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7` `M8` `M9`. Every open issue carries
     one, including a bug found against an already-shipped milestone - it takes
     the milestone it will be fixed in, not the one that introduced it. Work a
     milestone deferred keeps that milestone's label and waits in Backlog: the
@@ -348,7 +348,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
 ## Documentation map
 
-- `docs/ROADMAP.md` — milestones M1-M8, what is in each and why, what was
+- `docs/ROADMAP.md` — milestones M1-M9, what is in each and why, what was
   deliberately cut, and how a release reaches `main`. Read it before
   proposing a feature.
 - `docs/superpowers/specs/2026-09-01-omatty-design.md` — the design this repo
