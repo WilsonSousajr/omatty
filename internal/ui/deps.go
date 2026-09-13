@@ -7,6 +7,7 @@ package ui
 import (
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
@@ -37,14 +38,19 @@ type RepoStatFunc func(sess registry.Session, projectRoot string) (review.Stat, 
 //	m := ui.NewModel(ui.Deps{State: st, Terms: terms, Create: create, Start: start,
 //	        Events: w.Events(), Clock: time.Now, Notifier: notify.New(), TailStart: w.Add})
 type Deps struct {
-	State     registry.State
-	Terms     map[string]termwrap.Terminal
-	Create    CreateFunc
-	Start     StartFunc
-	Events    <-chan watcher.Event
-	Clock     func() time.Time
-	Notifier  notify.Notifier
-	TailStart func(registry.Session)
+	State  registry.State
+	Terms  map[string]termwrap.Terminal
+	Create CreateFunc
+	Start  StartFunc
+	Events <-chan watcher.Event
+	// GateReports and GateRun wire internal/gate's Runner in. Both optional:
+	// without them the gate pane still opens and explains itself, which is
+	// what a model built by a test sees.
+	GateReports <-chan gate.Report
+	GateRun     GateRunFunc
+	Clock       func() time.Time
+	Notifier    notify.Notifier
+	TailStart   func(registry.Session)
 	// Diff loads a session's changes for the review column (#21).
 	Diff DiffFunc
 	// Files lists a session's worktree and Preview reads one of its files,
@@ -183,3 +189,8 @@ func (d Deps) withDiscoveryDefaults() Deps {
 	}
 	return d
 }
+
+// GateRunFunc asks for a gate run. It is gate.Runner.Start, named here so the
+// model takes a function rather than the Runner itself (invariant: the UI
+// holds no concurrency of its own).
+type GateRunFunc func(sessionID, dir string, steps []gate.Step)

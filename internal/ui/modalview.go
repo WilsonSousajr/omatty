@@ -52,6 +52,7 @@ var leaderKeys = []keyHelp{
 	{"r", "restart a crashed session"},
 	{"d", "open or close the diff pane"},
 	{"f", "open or close the file tree"},
+	{"g", "open or close the gate pane"},
 	{"?", "this list"},
 	{"q", "quit"},
 }

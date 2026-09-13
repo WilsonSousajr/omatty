@@ -101,6 +101,8 @@ func (m *Model) walkMaxWidth() int {
 		return m.treeMaxWidth()
 	case ViewPreview:
 		return m.previewMaxWidth()
+	case ViewGate:
+		return m.gateMaxWidth()
 	default:
 		return m.diffMaxWidth()
 	}

@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/agent"
+	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
@@ -110,6 +111,9 @@ type RunDeps struct {
 	// Agent is the profile every session runs: its status adapter and its
 	// transcript location feed the watcher (#46). The zero value is claude.
 	Agent agent.Profile
+	// GateParallel bounds how many gates run at once (#229). Zero is raised
+	// to one by the Runner, so an unset config is a working default.
+	GateParallel int
 }
 
 // Run starts every session's terminal, the status watcher, and the TUI, and
@@ -126,7 +130,22 @@ func Run(d RunDeps) error {
 	defer closeTerminals(terms)
 	watch := watcher.Start(watchDeps(d), d.State.Sessions)
 	defer watch.Close()
-	model := NewModel(Deps{
+	// One Runner for the whole app, bounded: four concurrent `go test -race`
+	// would make the machine unusable, and a laggy TUI is the one thing that
+	// would make the gate worse than running it by hand (#229).
+	gates := gate.NewRunner(d.GateParallel)
+	defer gates.Close()
+	return runProgram(modelFor(d, terms, held, watch, gates), len(terms))
+}
+
+// modelFor assembles the root model's dependencies. Split out of Run because
+// the assembly is one long literal and Run is the lifecycle around it - the
+// terminals, the watcher and the gate Runner, each with its own defer.
+func modelFor(
+	d RunDeps, terms map[string]termwrap.Terminal, held map[string]bool,
+	watch *watcher.Watch, gates *gate.Runner,
+) *Model {
+	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
 		Diff: d.Diff, Files: d.Files, Stat: d.Stat, Rename: d.Rename, Name: d.Name, ModelName: d.ModelName,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject,
@@ -135,8 +154,8 @@ func Run(d RunDeps) error {
 		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader, Reattached: held,
 		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
+		GateReports: gates.Reports(), GateRun: gates.Start,
 	})
-	return runProgram(model, len(terms))
 }
 
 // watchDeps is the watcher's slice of the agent profile: its status adapter

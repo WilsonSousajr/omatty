@@ -24,6 +24,8 @@ func (m *Model) renderReview(w, h int) string {
 		lines = m.renderTree(w, h)
 	case ViewPreview:
 		lines = m.renderPreview(w, h)
+	case ViewGate:
+		lines = m.renderGate(w, h)
 	default:
 		lines = m.reviewBody(w, h)
 	}
@@ -44,6 +46,8 @@ func (m *Model) viewTitle() string {
 		return "files · " + m.sessionTitle(m.review.SessionID) + m.filterMarker()
 	case ViewPreview:
 		return m.review.Preview.Path
+	case ViewGate:
+		return "gate · " + m.sessionTitle(m.review.SessionID)
 	}
 	return fmt.Sprintf("diff · %d files · %d comments",
 		len(m.review.Diff.Files), m.commentsFor(m.review.SessionID).Len())
