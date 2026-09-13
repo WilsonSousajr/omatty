@@ -78,6 +78,7 @@ type Model struct {
 	// out of the model so a test substitutes a recorder for the Runner.
 	gateReports <-chan gate.Report
 	gateRun     GateRunFunc
+	gateAuto    bool
 	// lane is each session's recent-status trace for the sidebar (#128).
 	lane map[string]activityLane
 	// stat reads a card's branch and diffstat; repoStat is the last answer per
@@ -127,24 +128,22 @@ type Model struct {
 func NewModel(deps Deps) *Model {
 	d := deps.withDefaults()
 	m := &Model{
-		state:       d.State,
-		sidebar:     NewSidebar(SidebarRows(d.State, nil)),
-		terms:       d.Terms,
-		router:      keys.NewRouter(d.Leader),
-		leader:      d.Leader,
-		create:      d.Create,
-		start:       d.Start,
-		events:      d.Events,
-		gateReports: d.GateReports,
-		gateRun:     d.GateRun,
-		clock:       d.Clock,
-		tailStart:   d.TailStart,
-		notifier:    d.Notifier,
-		startedAt:   d.Clock(),
-		hasFocus:    true,
-		reattached:  d.Reattached,
+		state:      d.State,
+		sidebar:    NewSidebar(SidebarRows(d.State, nil)),
+		terms:      d.Terms,
+		router:     keys.NewRouter(d.Leader),
+		leader:     d.Leader,
+		create:     d.Create,
+		start:      d.Start,
+		events:     d.Events,
+		clock:      d.Clock,
+		tailStart:  d.TailStart,
+		notifier:   d.Notifier,
+		startedAt:  d.Clock(),
+		hasFocus:   true,
+		reattached: d.Reattached,
 	}
-	return m.withSources(d).withWindow().withRuntimeMaps()
+	return m.withSources(d).withGate(d).withWindow().withRuntimeMaps()
 }
 
 // withSources attaches the injected functions that reach outside ui: the
@@ -167,6 +166,15 @@ func (m *Model) withSources(d Deps) *Model {
 // bubbletea reports zero (issue #74).
 func (m *Model) withWindow() *Model {
 	m.width, m.height = DefaultWidth, DefaultHeight
+	return m
+}
+
+// withGate attaches the gate's two halves and whether it runs itself. Its own
+// builder rather than three more lines in NewModel, which was already at the
+// length limit (#233) - and the three belong together: a Runner with no
+// reports channel, or auto-run with no Runner, would each be a half-wiring.
+func (m *Model) withGate(d Deps) *Model {
+	m.gateReports, m.gateRun, m.gateAuto = d.GateReports, d.GateRun, d.GateAuto
 	return m
 }
 

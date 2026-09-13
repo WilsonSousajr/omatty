@@ -12,6 +12,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // GateMsg carries one finished gate run into the model's Update loop.
@@ -39,7 +40,7 @@ func (m *Model) onGate(msg GateMsg) tea.Cmd {
 	}
 	delete(m.gateRunning, report.ID)
 	m.gates[report.ID] = report
-	return m.waitForGate()
+	return tea.Batch(m.waitForGate(), m.gateNotice(report))
 }
 
 // holds reports whether a session is one of omatty's own.
@@ -96,4 +97,38 @@ func (m *Model) sessionByID(id string) (registry.Session, bool) {
 		}
 	}
 	return registry.Session{}, false
+}
+
+// autoGate runs a session's gate when its turn ends, if the operator asked
+// for that. The thesis in one behaviour: the agent says it is done, and
+// omatty checks.
+//
+// Off by default and off means off. `go test ./... -race` on every idle costs
+// real time and a real fan, so it has to be asked for - and only a gate the
+// operator confirmed is ever in state.json to be run (#226).
+//
+// Guarded on the transition, not the state: the tailer replays, and gating
+// again on a repeated TurnEnded would cancel a run in flight to start the
+// same one over.
+func (m *Model) autoGate(id string, before, after watcher.Status) {
+	if !m.gateAuto || before == after || !atRest(after) {
+		return
+	}
+	m.runGate(id)
+}
+
+// gateNotice is the desktop notification for a gate that came back red while
+// omatty was not being watched - which is exactly when it is worth saying.
+//
+// The same blurred-window rule M2's notifications follow: focused, you can
+// see the card, and a notification would be noise. A green gate is never
+// news.
+func (m *Model) gateNotice(report gate.Report) tea.Cmd {
+	if m.hasFocus || report.Err != nil {
+		return nil
+	}
+	if _, failed := firstNotPassed(report.Results); !failed || len(report.Results) == 0 {
+		return nil
+	}
+	return notifyCmd(m.notifier, "gate failed · "+m.sessionTitle(report.ID))
 }

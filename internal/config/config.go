@@ -41,6 +41,10 @@ type Gate struct {
 	// concurrent `go test ./... -race` make a laptop unusable, and a laggy TUI
 	// would make the gate worse than running it by hand.
 	MaxParallel int `toml:"max_parallel"`
+	// Auto runs a session's gate when its turn ends. False by default: a test
+	// suite on every idle costs real time and a real fan, so it is opted into
+	// rather than out of (#233).
+	Auto bool `toml:"auto"`
 }
 
 // Defaults is the configuration of a machine with no config file.
