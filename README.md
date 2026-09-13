@@ -22,10 +22,11 @@ it does not reimplement Claude's interface — and shows you what each session
 changed, with your comments anchored to the *content* of the lines rather than
 their numbers, sent back as one message.
 
-M9 is extending a project to carry its **gate** as well: the
-`fmt`/`vet`/`lint`/`test`/coverage line that decides whether the work is sound.
-omatty will run it in the session's own directory, show the result on the
-session's card, and send the failures back into the session that caused them.
+A project also carries its **gate**: the `fmt`/`vet`/`lint`/`test`/coverage
+line that decides whether the work is sound. omatty runs it in the session's
+own directory, shows the result on the session's card, and sends the failures
+back into the session that caused them — one keystroke, or on its own when a
+turn ends, if you ask for that.
 
 It does not delegate, plan, schedule, or decide on your behalf. You are not a
 bottleneck in the loop; you are the part of it that catches things. omatty's job
@@ -35,7 +36,9 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.1.0 — the first release.** Eight milestones, all built:
+**v0.1.0 — the first release.** Eight milestones, all built. **M9 — The
+Gate** is built on `develop` and not yet released; `CHANGELOG.md` has it under
+Unreleased.
 
 | Milestone | Delivers |
 |---|---|
@@ -47,6 +50,7 @@ is to get you to the point of catching them sooner.
 | **M6** Persistence | With `dtach`, quitting detaches rather than ends; relaunching reattaches. Sessions claude already has can be adopted. |
 | **M7** Reach | A config file, mouse support, the agent seam, and a visual identity. |
 | **M8** Surface | The frame, colour rule, cards, header, footer and diffstat that the panes are drawn in. |
+| **M9** The Gate *(unreleased)* | A project carries the check line that says whether work in it is sound. omatty runs it per session, shows the verdict on the card, and sends the failures back into the session. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
 pre-1.0, and the key table, `config.toml` keys and `state.json` schema are
@@ -90,6 +94,8 @@ omatty add ~/Projects/my-app          # or register one by hand
 omatty rm my-app                      # forget a project (the repository stays)
 omatty new my-app main                # a session on the main checkout
 omatty new my-app parser-fix parser-fix   # a session on a fresh worktree
+omatty gate my-app                    # show the gate, or propose one and confirm
+omatty gate my-app --detect           # print the proposal, write nothing
 omatty                                # run the TUI
 omatty --version                      # which build is this
 ```
@@ -101,6 +107,12 @@ repository they came from. On a well-used machine that is 34 directories in
 the store collapsing to 6 worth listing. It only ever proposes: nothing is
 registered until you pick it.
 
+`omatty gate` reads the repository and proposes the check line it already
+uses — `gofmt`, `go vet`, `golangci-lint`, `go test -race`, a coverage script;
+`cargo fmt --check`, `cargo clippy`, `cargo test`; `ruff` and `pytest`; or the
+`lint` and `test` scripts a `package.json` defines. Like `discover`, it only
+proposes: nothing is written, and nothing is ever run, until you confirm it.
+
 Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 
 | Key | Action |
@@ -111,6 +123,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o N` | new session on a fresh worktree |
 | `ctrl+o d` | open or close the diff pane |
 | `ctrl+o f` | open or close the file tree |
+| `ctrl+o g` | open or close the gate pane, and run the gate |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
@@ -200,7 +213,16 @@ base_branch = ""           # fork worktrees from this branch; empty means the ch
 
 [naming]
 model = false              # let a headless claude call improve auto-derived session titles
+
+[gate]
+max_parallel = 2           # how many gates may run at once
+auto = false               # run a session's gate when its turn ends
 ```
+
+`gate.auto` is off because a test suite on every idle costs real time. With it
+on, a session that finishes a turn is gated immediately and a red result
+notifies you when omatty is not the window you are looking at. Either way, only
+a gate you confirmed is ever run.
 
 A project that has no sessions yet is selectable too: `ctrl+o ]` reaches
 it, the pane says which project is empty, and `ctrl+o n` creates its first

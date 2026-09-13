@@ -623,13 +623,94 @@ what M7 left.
   key table: the note and filter lines as text, the focused terminal
   re-bracketed with no carriage return (invariant 8), the column and a modal
   drop it. Copy is documented, not built: forwarding OSC 52 needs a callback
-  `x/vt` does not have, and is **#212**, open in Backlog.
+  `x/vt` does not have, and was **#212**, shipped 2026-09-10 in PR #216:
+  bubbletea already had SetClipboard, and the lift runs before the C1 guard.
 - **#168 - the review column ignored the mouse and looked like claude's
   diff.** Done 2026-09-09, PR #214. A click on a row moves that view's cursor
   and takes the keys; a `×` on the column's rule closes it; the rule reads
   `─ review ─────×` where the pane's stays plain dashes, so omatty's diff and
   the one claude draws inside its pane are told apart. Clicks in the pane
   stay claude's (#107).
+
+---
+
+## M9 - The Gate
+
+**Delivers:** a project stops being a path and becomes a repository, the gate
+that says whether work in it is sound, and the sessions running against it.
+omatty runs that gate in a session's own directory, shows the verdict on the
+session's card, and sends the failures back into the session that caused them.
+
+**Why this and not something else.** v0.1.0 shipped into a field of roughly a
+hundred and fifty agent orchestrators, and every one of them optimises the same
+variable: how much agent-work can be in flight at once. omatty bets on the
+other one - how fast a person can tell whether what came back is any good - and
+that bet had already decided M3's review loop and everything the roadmap
+refused. M9 makes it explicit and builds the rest of it. "Not on the roadmap"
+above now carries the refusals with their reasons.
+
+**What it is, in thirteen slices**, one issue and one PR each:
+
+- **#222 thesis (PR #235).** README says what omatty is; "Not on the roadmap"
+  leads with the anti-orchestrator entry and gives each refusal a reason;
+  AGENTS.md and ARCHITECTURE.md gain **invariant 12**.
+- **#223 `internal/paste` (PR #236).** Invariant 8 moves out of `review` into
+  a package of its own, so `review` and `gate` can both reach it without
+  importing each other.
+- **#224 `internal/gate` (PR #237).** Steps, exit-status verdicts, bounded
+  output. A gate stops at the first step that does not pass; the rest report
+  `Pending`, not `Pass`. Output is capped at capture - 200 lines or 16 KiB,
+  keeping the tail, where a test runner puts the summary.
+- **#238 process groups (PR #237).** Found by CI: macOS passed and ubuntu did
+  not, because killing the `sh` a step runs under is enough only when it
+  exec'd the command into itself. Cancelling now kills the group.
+- **#225 coverage (PR #239).** A `kind = "coverage"` step has its percentage
+  read for display. The parser picks a *line* before it picks a number, and
+  its fixtures are recorded from real tools.
+- **#226 detect (PR #241).** omatty proposes a gate by reading the checkout,
+  and only ever proposes. The Node branch reads `package.json` for *whether* a
+  script exists and never what it contains.
+- **#227 `Project.Gate` (PR #240).** `state.json` stays at version 1: a nil
+  gate is "not configured yet", and the empty value is derivable
+  (invariant 9), the argument `Agent` and `Base` already carry.
+- **#228 `omatty gate` (PR #243).** Show, propose, set or clear. The plain
+  form is the confirm-once flow `discover` and `adopt` already use.
+- **#229 the Runner (PR #242).** Bounded parallelism, supersede, panic
+  recovery. `testdata/gateprobe` is its real-binary half.
+- **#230 the card strip (PR #245).** A third card line, always drawn.
+  `READY` is derived from a green gate, a non-empty diff and a resting
+  session - never stored.
+- **#244 revealHeader (PR #245).** Found by an existing test when the card
+  grew: showing a project header could push the selected card out of a short
+  pane. Latent since #129.
+- **#231 the gate pane (PR #246).** The review column's fourth mode, and
+  running the gate from it. A mode rather than a fourth pane.
+- **#232 feedback (PR #247).** `S` sends the failures into the session as one
+  bracketed paste (invariant 8).
+- **#233 auto-run (PR #249).** `[gate] auto`, off by default, gating a session
+  when its turn ends. A red gate notifies only while omatty is blurred.
+- **#248 builtins (PR #249).** Found by #233's own smoke test: `exit` is a
+  shell builtin with no binary, so the `LookPath` pre-flight called a working
+  step `Missing` and stopped the gate. The hand-written list of builtins is
+  deleted in favour of asking the shell - `command -v` - because a list of
+  builtins cannot be completed across shells.
+
+**Deliberately cut, so they do not return sideways:**
+
+- **Coverage overlaid on the diff** - marking added lines no test covers - and
+  **test-file pairing flags**, which flag a diff that touches source and no
+  tests. Both are the natural M10 and both need M9's coverage parsing first.
+- **Reading the gate out of `AGENTS.md`'s fenced block.** One source of truth
+  for human, agent and environment is the right long-term answer, but parsing
+  prose is fragile; M9 uses explicit config and the docs say to keep the two
+  in sync.
+- **A gate that blocks anything.** `READY` is a badge, not a permission.
+  Nothing in omatty refuses an action because a gate is red - the operator
+  decides, and a tool that argued with them about it would be the thing this
+  milestone exists not to build.
+- **Sending anything without being asked.** #233 runs the gate for you;
+  nothing sends a prompt on your behalf. That line is where a verification
+  tool becomes an orchestrator.
 
 ---
 
