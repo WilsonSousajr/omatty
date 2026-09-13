@@ -127,3 +127,80 @@ func modelWithGate(t *testing.T, rec *recordGateRun, steps []gate.Step) *ui.Mode
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	return m
 }
+
+// A model built without a Runner - which is what every test that does not
+// wire one sees, and what a future headless mode would - still opens the pane
+// and lists the steps it would run, rather than claiming a run is in flight
+// that nothing will ever finish.
+func TestModel_gatePaneWithNoRunnerWired_listsTheStepsItWouldRun_issue231(t *testing.T) {
+	st := registry.State{
+		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty", Gate: []gate.Step{
+			{Name: "fmt", Run: "gofmt -l ."},
+			{Name: "test", Run: "go test ./..."},
+		}}},
+		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	}
+	m := ui.NewModel(baseDeps(st, fakeTermsFor(st))) // no GateRun
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	leader(m, key('g'))
+
+	body := m.View().Content
+	if strings.Contains(body, "running") {
+		t.Errorf("the pane claims a run nothing will finish:\n%s", body)
+	}
+	for _, want := range []string{"has not run", "fmt", "gofmt -l ."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the pane does not show %q:\n%s", want, body)
+		}
+	}
+}
+
+// Sending needs a terminal. A session without one must say so rather than
+// drop the message silently.
+func TestModel_sendingGateFeedbackWithNoTerminal_saysSo_issue232(t *testing.T) {
+	st := registry.State{
+		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	}
+	m := ui.NewModel(baseDeps(st, nil)) // no terminals at all
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.SetGateReport("s1", gate.Report{ID: "s1", Results: []gate.StepResult{
+		{Step: gate.Step{Name: "test", Run: "go test"}, Verdict: gate.Fail, ExitCode: 1, Output: "boom\n"},
+	}})
+	leader(m, key('g'))
+
+	press(m, key('S'))
+
+	if !strings.Contains(m.View().Content, "no terminal") {
+		t.Errorf("the operator is not told the message went nowhere:\n%s", m.View().Content)
+	}
+}
+
+// The wait is what turns a Runner's channel into a message the model can
+// fold in. Without this the pane would only ever show reports a test planted.
+func TestModel_theGateWaitDeliversAReport_issue231(t *testing.T) {
+	st := registry.State{
+		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	}
+	reports := make(chan gate.Report, 1)
+	deps := baseDeps(st, fakeTermsFor(st))
+	deps.GateReports = reports
+	m := ui.NewModel(deps)
+
+	reports <- gate.Report{ID: "s1", Results: []gate.StepResult{{Verdict: gate.Pass}}}
+	msg := m.ArmGateWait()()
+
+	report, ok := msg.(ui.GateMsg)
+	if !ok {
+		t.Fatalf("the wait produced %T, want ui.GateMsg", msg)
+	}
+	if report.ID != "s1" {
+		t.Errorf("GateMsg.ID = %q, want s1", report.ID)
+	}
+	m.Update(report)
+	if m.GateReportCount() != 1 {
+		t.Error("the delivered report was not stored")
+	}
+}

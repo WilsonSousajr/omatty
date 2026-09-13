@@ -199,3 +199,7 @@ func (m *Model) SidebarOffset() int { return m.sidebar.Offset() }
 // GateReportCount is how many sessions hold a gate report, so a test can
 // assert that a report for an unregistered session was dropped (#231).
 func (m *Model) GateReportCount() int { return len(m.gates) }
+
+// ArmGateWait is the command Init uses to wait on the next gate report, so a
+// test can prove a report actually crosses the channel (#231).
+func (m *Model) ArmGateWait() tea.Cmd { return m.waitForGate() }

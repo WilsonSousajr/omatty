@@ -70,7 +70,7 @@ func treeFooterLine(leader string) string {
 // gateFooterLine replaces both in the gate view, where the keys are the few a
 // list of steps has (#231).
 func gateFooterLine(leader string) string {
-	return "j/k move  enter output  esc back  " + leader + " ? keys"
+	return "j/k move  enter output  S send  esc back  " + leader + " ? keys"
 }
 
 // emptyTreeHint is the tree's empty state: a repository that listed

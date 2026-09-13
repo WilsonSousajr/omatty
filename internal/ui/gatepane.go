@@ -17,6 +17,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/paste"
 )
 
 // renderGate draws the column's gate view: one row per step, with the output
@@ -151,6 +152,12 @@ func (m *Model) onGateKey(key string) tea.Cmd {
 		m.moveGateCursor(-1)
 	case "enter":
 		m.toggleGateStep()
+	case "S", "shift+s", "shift+S":
+		// Three spellings, all of which occur: a terminal reporting the
+		// modifier sends "shift+s", a legacy one the bare "S", and one that
+		// shifts the base key too "shift+S" - the same set modalCommand
+		// already handles.
+		return m.submitGate()
 	case "esc", "ctrl+c":
 		// The diff and the tree both hand the keys back rather than close the
 		// column; the gate does the same so esc means one thing everywhere.
@@ -203,4 +210,35 @@ func (m *Model) gateMaxWidth() int {
 		widest = max(widest, lipgloss.Width(line))
 	}
 	return widest
+}
+
+// submitGate sends the gate's failures back into the session that caused
+// them, as one bracketed paste (invariant 8).
+//
+// This is the milestone in one keystroke: from "the gate failed" to "claude
+// is fixing it", with the operator still the one who decided it should
+// happen. Deliberately not automatic - #233 will run the gate for you, but
+// nothing sends a prompt on your behalf.
+//
+// The same shape as submitReview, down to handing the keys back: after
+// sending, the next thing anyone wants is to watch the session work.
+func (m *Model) submitGate() tea.Cmd {
+	id := m.review.SessionID
+	report, ran := m.gates[id]
+	if !ran {
+		m.lastErr = "no gate has run for this session yet"
+		return nil
+	}
+	body := gate.Compose(report.Results)
+	if body == "" {
+		m.lastErr = "the gate passed; there is nothing to send"
+		return nil
+	}
+	term := m.terms[id]
+	if term == nil {
+		m.lastErr = "session " + id + " has no terminal to send to"
+		return nil
+	}
+	m.review.Focused = false
+	return term.SendInput(paste.BracketedPaste(body))
 }
