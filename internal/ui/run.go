@@ -114,6 +114,9 @@ type RunDeps struct {
 	// GateParallel bounds how many gates run at once (#229). Zero is raised
 	// to one by the Runner, so an unset config is a working default.
 	GateParallel int
+	// GateAuto runs a session's gate when its turn ends (#233). Off unless
+	// the config asks for it.
+	GateAuto bool
 }
 
 // Run starts every session's terminal, the status watcher, and the TUI, and
@@ -154,7 +157,7 @@ func modelFor(
 		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader, Reattached: held,
 		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
-		GateReports: gates.Reports(), GateRun: gates.Start,
+		GateReports: gates.Reports(), GateRun: gates.Start, GateAuto: d.GateAuto,
 	})
 }
 

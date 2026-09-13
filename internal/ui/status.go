@@ -54,6 +54,9 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 // goroutine: the next wait, a notification, a diff refresh, and a name for a
 // session still carrying its placeholder (#127).
 func (m *Model) afterStatus(e watcher.Event, before, after watcher.Status) tea.Cmd {
+	// Not a tea.Cmd: the run happens on the Runner's own goroutines, and its
+	// answer arrives as a GateMsg like any other (#233).
+	m.autoGate(e.SessionID, before, after)
 	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after),
 		m.refreshReview(e.SessionID, before, after), m.maybeName(e.SessionID),
 		m.refreshStat(e.SessionID, before, after))

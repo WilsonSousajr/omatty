@@ -95,41 +95,47 @@ func classify(ctx context.Context, err error) (Verdict, int) {
 	return Fail, -1
 }
 
-// absentTool reports the step's leading command when PATH cannot resolve it.
+// absentTool reports the step's leading command when the shell cannot resolve
+// it at all.
 //
-// This is the pre-flight invariant 12 describes. It is deliberately
-// conservative: anything it cannot confidently read as a plain command name is
-// simply run, because wrongly reporting Missing would hide a real failure.
+// This is the pre-flight invariant 12 describes, and it asks `sh` rather than
+// guessing. exec.LookPath answers a different question - "is there a binary on
+// PATH" - and a shell builtin has none: `exit`, `return`, `local`, `declare`
+// and `break` all failed it, so a step of `exit 1` was declined as a missing
+// tool and stopped the gate (#248). `command -v` resolves builtins, keywords,
+// functions and PATH entries alike, in the same sh the step itself runs under,
+// which is the only authority that can be right about this.
+//
+// The cost is one tiny process per step, which is nothing beside running a
+// test suite, and it replaces a list of shell builtins that could never be
+// completed - they differ by shell.
 func absentTool(run string) (string, bool) {
 	name := leadingWord(run)
 	if name == "" {
 		return "", false
 	}
-	if _, err := exec.LookPath(name); err != nil {
+	// `command -v --` so a name beginning with a dash is a name, not a flag.
+	probe := exec.Command("sh", "-c", `command -v -- "$1" > /dev/null 2>&1`, "sh", name)
+	if probe.Run() != nil {
 		return name, true
 	}
 	return "", false
 }
 
-// shellWords are names sh resolves itself. A PATH lookup for them proves
-// nothing - some systems ship /usr/bin/cd and most do not, and either way sh
-// runs its own - so a step starting with one is left alone.
-var shellWords = map[string]bool{
-	".": true, ":": true, "[": true, "case": true, "cd": true, "eval": true,
-	"exec": true, "export": true, "for": true, "if": true, "read": true,
-	"set": true, "shift": true, "source": true, "test": true, "trap": true,
-	"umask": true, "unset": true, "wait": true, "while": true,
-}
-
 // leadingWord is the step's command name, or "" when the line does not begin
-// with one: a FOO=1 assignment, a subshell, a redirect, a shell builtin.
+// with one: a FOO=1 assignment, a subshell, a variable, a redirect.
+//
+// Deliberately conservative. Anything it cannot confidently read as a plain
+// command name is simply run, because the two mistakes are not equal: a wrong
+// "" costs a step that executes normally, while a wrong name hides a real
+// failure behind a bogus Missing and stops the gate.
 func leadingWord(run string) string {
 	fields := strings.Fields(run)
 	if len(fields) == 0 {
 		return ""
 	}
 	word := fields[0]
-	if strings.ContainsAny(word, `="'$`+"`"+`(){}|&;<>`) || shellWords[word] {
+	if strings.ContainsAny(word, `="'$`+"`"+`(){}|&;<>`) {
 		return ""
 	}
 	return word

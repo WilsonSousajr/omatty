@@ -31,14 +31,14 @@ func TestLoad_MissingFileIsEveryDefault_issue44(t *testing.T) {
 
 func TestLoad_ReadsEveryKey_issue44(t *testing.T) {
 	home := t.TempDir()
-	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\n")
+	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\nauto = true\n")
 	got, err := config.Load(path, home)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := config.Config{
 		Leader: "ctrl+a", ClaudeBin: "/opt/claude", WorktreeRoot: "/vol/wt", BaseBranch: "develop",
-		Naming: config.Naming{Model: true}, Gate: config.Gate{MaxParallel: 3},
+		Naming: config.Naming{Model: true}, Gate: config.Gate{MaxParallel: 3, Auto: true},
 	}
 	if got != want {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -138,5 +138,18 @@ func TestLoad_readsGateMaxParallel_issue231(t *testing.T) {
 	}
 	if got.Gate.MaxParallel != 4 {
 		t.Errorf("Gate.MaxParallel = %d, want 4", got.Gate.MaxParallel)
+	}
+}
+
+// Auto is off unless asked for, which is the whole reason it is a key: a test
+// suite on every idle costs real time (#233).
+func TestLoad_gateAutoIsOffByDefault_issue233(t *testing.T) {
+	home := t.TempDir()
+	got, err := config.Load(filepath.Join(home, "none.toml"), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Gate.Auto {
+		t.Error("Gate.Auto is on by default, want off")
 	}
 }
