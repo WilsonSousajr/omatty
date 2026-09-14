@@ -218,6 +218,41 @@ bubbletea to `{ui, termwrap}`, chroma to `highlight` and go-gitdiff to
 exception depguard cannot see - git is reached by a string literal, not an
 import - so `TestNoGitOutsideVcs` covers it instead (#260).
 
+### The seams as numbers
+
+Robert Martin's package metrics over `./internal/...`, printed by
+`./scripts/check-deps.sh` (#263). Ca is how many packages import this one, Ce
+how many it imports, and `I = Ce/(Ca+Ce)` — 0 is a stable leaf, 1 is a package
+nothing depends on.
+
+| Package | Ca | Ce | I |
+|---|---|---|---|
+| `internal/ui` | 0 | 12 | 1.00 |
+| `internal/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
+| `internal/supervisor` | 1 | 5 | 0.83 |
+| `internal/review` | 1 | 3 | 0.75 |
+| `internal/agent` | 2 | 3 | 0.60 |
+| `internal/detach`, `watcher` | 1–3 | 1–3 | 0.50 |
+| `internal/registry` | 4 | 3 | 0.43 |
+| `internal/paths` | 6 | 0 | 0.00 |
+| `internal/gate`, `golist`, `hooks`, `termwrap`, `vcs`, `fuzzy` | 1–2 | 0 | 0.00 |
+| `internal/coverage`, `highlight`, `keys`, `notify`, `paste` | 1 | 0 | 0.00 |
+
+The chain reads as a clean monotonic descent —
+`cmd → ui → supervisor → agent → watcher → registry → {gate, paths, vcs}` — so
+the Stable Dependencies Principle holds with **0 violations over 35 edges**, the
+tightest being `watcher → registry` at **+0.071**.
+
+**Distance from the main sequence is deliberately not measured here.** Martin
+pairs instability with abstractness and calls a stable, concrete package the
+"Zone of Pain". By that reading eight of these packages score the maximum
+distance — and they are the ones this architecture is proudest of. The reason is
+that Go declares interfaces at the *consumer*, and usually unexported:
+`watcher.Adapter` lives in `watcher` precisely so `agent` can satisfy it, which
+is the paragraph below. `internal/paths` is Ca=6, Ce=0, pure, and has no
+exported interface because nothing needs one. Gating on distance would demand
+exactly the speculative interfaces AGENTS.md bans. Do not "fix" these numbers.
+
 **The adapter interface lives in the consumer.** `watcher.Adapter` is declared
 in `watcher`, not in `agent`, and `agent` imports `watcher` to satisfy it -
 never the reverse. `watcher` stays the neutral vocabulary (`Kind`, `Event`,

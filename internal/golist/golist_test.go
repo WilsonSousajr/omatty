@@ -110,3 +110,36 @@ func TestModule_outsideAModuleIsAnError(t *testing.T) {
 		t.Errorf("error = %q, want it to name the package doing the work", err)
 	}
 }
+
+// Imports must be direct, not transitive: efferent coupling computed from
+// `go list -deps` would count the whole reachable graph as one package's
+// dependencies and make every metric derived from it meaningless.
+func TestList_reportsDirectImportsOnly(t *testing.T) {
+	pkgs, err := golist.List("..", "./paths")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, imported := range pkgs[0].Imports {
+		if strings.Contains(imported, "/internal/") {
+			t.Errorf("internal/paths imports %s; it is meant to be a pure leaf", imported)
+		}
+	}
+}
+
+// Test imports are a separate question from production structure, and go list
+// keeps them in separate fields precisely so a caller need not untangle them.
+func TestList_keepsTestImportsApartFromProductionImports(t *testing.T) {
+	pkgs, err := golist.List("..", "./golist")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	production := strings.Join(pkgs[0].Imports, " ")
+	if strings.Contains(production, "testing") {
+		t.Errorf("Imports = %v, want no testing package in production imports", pkgs[0].Imports)
+	}
+	if len(pkgs[0].TestImports)+len(pkgs[0].XTestImports) == 0 {
+		t.Error("this package has tests, so some test imports were expected")
+	}
+}
