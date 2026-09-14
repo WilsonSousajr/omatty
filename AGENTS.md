@@ -61,10 +61,16 @@ internal/
 ├── paste/          bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── highlight/      [M5] OUR interface over chroma (invariant 4 in spirit).
 ├── gate/           [M9] a project's own verification commands -> per-step verdicts.
+├── coverage/       [M10] a coverage profile -> per-line verdicts and raw blocks.
+├── golist/         [M11] OUR interface over `go list` (invariant 4 in spirit).
+├── crap/           [M11] per-function complexity x coverage -> a C.R.A.P. score.
 ├── coverage/       [M10] a coverage profile -> per-line verdicts.
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
+tools/              gate tools with a main: crapcheck. Inside ./... so gofmt,
+                    vet, lint and build cover them; outside ./internal/... so an
+                    untestable main does not pull the coverage gate down.
 testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-claude.
 ```
 
@@ -87,6 +93,7 @@ golangci-lint run                             # + depguard: invariant 4, enforce
 govulncheck ./...                             # no reachable known vulnerability
 go test ./... -race
 ./scripts/check-coverage.sh 90
+./scripts/check-crap.sh 15                    # per-function complexity x coverage
 ```
 
 `go mod tidy -diff` and `govulncheck` are the only steps that need the network.
@@ -137,6 +144,15 @@ not in the gate.
 - **Explicit types.** No `any`/`interface{}` and no `map[string]any` crossing a
   package boundary. Parse untyped input into a struct at the edge, once.
 - **No duplication.** Extract shared logic; `dupl` runs in the lint gate.
+- **C.R.A.P. under 15.** `CC² × (1 − coverage)³ + CC`, scored per function by
+  `./scripts/check-crap.sh`. `gocyclo` bounds branches and `gocognit` bounds how
+  hard they are to read; neither notices that the branchiest function in the
+  file is the one no test reaches. A repo-wide coverage total does not notice
+  either - the gate was green at 90% while `watcher.PromptText`, an exported
+  function, had nothing testing it at all (#262). The canonical threshold is 30
+  and is unreachable here: at the `gocyclo` cap of 10 and this repo's 90%
+  coverage floor the worst possible score is 10.1. Raise coverage or split the
+  function; do not raise the limit.
 - **Early returns.** Maximum 2 levels of indentation inside a function. Nesting
   is what `gocognit` charges for (threshold 15), so this rule is checked, not
   merely asked for: a function that nests instead of returning early scores far
@@ -168,8 +184,8 @@ not in the gate.
   CLI, `internal/highlight` owns chroma, `internal/review` owns go-gitdiff. No
   other package may import them. Enforced by `depguard` in `.golangci.yml`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
-  from `detach`, `gate`, `notify`, `supervisor`, `termwrap` and `vcs`, and
-  nowhere else in production code. `termwrap` is on that list because it names
+  from `detach`, `gate`, `golist`, `notify`, `supervisor`, `termwrap` and
+  `vcs`, and nowhere else in production code. `termwrap` is on that list because it names
   `*exec.Cmd` in a signature without ever constructing one - a distinction
   depguard cannot draw. Adding a seventh package is a decision, so
   `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
@@ -363,7 +379,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
   | | |
   |---|---|
-  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, `go test -race`, 90% coverage, `go build` — on `ubuntu-latest` and `macos-latest` |
+  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, `go test -race`, 90% coverage, C.R.A.P. under 15, `go build` — on `ubuntu-latest` and `macos-latest` |
   | The real-binary smoke test | Rule 2 in `docs/ROADMAP.md`, run against a scratch `HOME` with `testdata/fake-claude`, **read by a person** |
 
   The gate is the same one every milestone clears, for the same reason: the

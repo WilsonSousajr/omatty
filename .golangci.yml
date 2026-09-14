@@ -84,13 +84,14 @@ linters:
             - "!$test"
             - "!**/internal/detach/**"
             - "!**/internal/gate/**"
+            - "!**/internal/golist/**"
             - "!**/internal/notify/**"
             - "!**/internal/supervisor/**"
             - "!**/internal/termwrap/**"
             - "!**/internal/vcs/**"
           deny:
             - pkg: os/exec
-              desc: "shelling out belongs to detach, gate, notify, supervisor, termwrap and vcs"
+              desc: "shelling out belongs to detach, gate, golist, notify, supervisor, termwrap and vcs"
     forbidigo:
       forbid:
         # Invariant 5: stdout belongs to the TUI.

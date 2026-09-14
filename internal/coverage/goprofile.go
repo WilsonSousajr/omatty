@@ -1,7 +1,6 @@
 package coverage
 
 import (
-	"bufio"
 	"io"
 	"strconv"
 	"strings"
@@ -24,26 +23,25 @@ import (
 // A malformed record is skipped too. A profile is written by a tool, and one
 // odd line is not worth losing the rest of the file over.
 func ParseGo(r io.Reader, modulePath string) (Profile, error) {
-	p := Profile{Files: map[string]File{}}
-	prefix := strings.TrimSuffix(modulePath, "/") + "/"
-	scan := bufio.NewScanner(r)
-	scan.Buffer(make([]byte, 0, 64*1024), maxLineBytes)
-	for scan.Scan() {
-		path, block, ok := goRecord(scan.Text(), prefix)
-		if ok {
-			markBlock(p, path, block)
-		}
+	blocks, err := ParseGoBlocks(r, modulePath)
+	if err != nil {
+		return Profile{}, err
 	}
-	if err := scan.Err(); err != nil {
-		return Profile{}, wrap("reading a Go coverage profile", err)
+	p := Profile{Files: map[string]File{}}
+	for _, b := range blocks {
+		markBlock(p, b)
 	}
 	return p, nil
 }
 
-// span is one profile record's line range and whether it ran.
+// span is one profile record: where it starts and ends, how many statements it
+// holds, and whether it ran. Columns and numStmt are here for ParseGoBlocks;
+// ParseGo reads only the lines.
 type span struct {
-	first, last int
-	covered     bool
+	first, last       int
+	firstCol, lastCol int
+	numStmt           int
+	covered           bool
 }
 
 // goRecord splits one line into the file it names and the block it describes.
@@ -63,44 +61,55 @@ func goBlock(rest string) (span, bool) {
 	if len(fields) != 3 {
 		return span{}, false
 	}
-	first, last, ok := goRange(fields[0])
+	s, ok := goRange(fields[0])
 	if !ok {
 		return span{}, false
 	}
-	count, err := strconv.Atoi(fields[2])
-	if err != nil {
+	numStmt, stmtErr := strconv.Atoi(fields[1])
+	count, countErr := strconv.Atoi(fields[2])
+	if stmtErr != nil || countErr != nil || numStmt < 0 {
 		return span{}, false
 	}
-	return span{first: first, last: last, covered: count > 0}, true
+	s.numStmt, s.covered = numStmt, count > 0
+	return s, true
 }
 
-// goRange reads "53.35,58.2" as the lines 53 to 58.
-func goRange(r string) (int, int, bool) {
+// goRange reads "53.35,58.2" as line 53 column 35 through line 58 column 2.
+func goRange(r string) (span, bool) {
 	from, to, found := strings.Cut(r, ",")
 	if !found {
-		return 0, 0, false
+		return span{}, false
 	}
-	first, ok := lineOf(from)
+	first, firstCol, ok := positionOf(from)
 	if !ok {
-		return 0, 0, false
+		return span{}, false
 	}
-	last, ok := lineOf(to)
-	return first, last, ok && last >= first
+	last, lastCol, ok := positionOf(to)
+	if !ok || last < first {
+		return span{}, false
+	}
+	return span{first: first, firstCol: firstCol, last: last, lastCol: lastCol}, true
 }
 
-// lineOf reads the line number out of a "line.column" pair.
-func lineOf(pos string) (int, bool) {
-	line, _, found := strings.Cut(pos, ".")
+// positionOf reads a "line.column" pair. A column of zero is accepted: only the
+// line is required to be real, and cmd/cover has emitted column 0 for a
+// synthesised position.
+func positionOf(pos string) (int, int, bool) {
+	line, column, found := strings.Cut(pos, ".")
 	if !found {
-		return 0, false
+		return 0, 0, false
 	}
-	n, err := strconv.Atoi(line)
-	return n, err == nil && n > 0
+	n, lineErr := strconv.Atoi(line)
+	col, colErr := strconv.Atoi(column)
+	if lineErr != nil || colErr != nil || n <= 0 || col < 0 {
+		return 0, 0, false
+	}
+	return n, col, true
 }
 
 // markBlock records a verdict for every line the block spans.
-func markBlock(p Profile, path string, b span) {
-	for line := b.first; line <= b.last; line++ {
-		p.mark(path, line, b.covered)
+func markBlock(p Profile, b Block) {
+	for line := b.StartLine; line <= b.EndLine; line++ {
+		p.mark(b.Path, line, b.Covered)
 	}
 }
