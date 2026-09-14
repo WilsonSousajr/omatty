@@ -103,3 +103,28 @@ func TestGitignore_StillIgnoresTheBuiltBinary(t *testing.T) {
 		t.Error("the built binary at the repo root is not ignored")
 	}
 }
+
+// #27 again, for the gate tools: a bare "crapcheck" in .gitignore matches any
+// path segment, so it would silently exclude the whole tools/crapcheck package
+// while still ignoring the built binary that prompted the rule. The anchored
+// form is the only one that does one without the other.
+func TestGitignore_DoesNotExcludeTheGateTools(t *testing.T) {
+	for _, path := range []string{"tools/crapcheck/main.go", "tools/crapcheck"} {
+		t.Run(path, func(t *testing.T) {
+			cmd := exec.Command("git", "check-ignore", "-q", path)
+			cmd.Dir = repoRoot(t)
+			if err := cmd.Run(); err == nil {
+				t.Errorf("%q is gitignored; the tool package would never be committed", path)
+			}
+		})
+	}
+}
+
+// And the built binary at the repo root is still ignored.
+func TestGitignore_IgnoresTheBuiltGateTool(t *testing.T) {
+	cmd := exec.Command("git", "check-ignore", "-q", "crapcheck")
+	cmd.Dir = repoRoot(t)
+	if err := cmd.Run(); err != nil {
+		t.Error("the built crapcheck binary at the repo root is not ignored")
+	}
+}

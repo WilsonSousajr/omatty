@@ -19,7 +19,7 @@ import (
 // only thing that would say so. internal/termwrap earns its place by naming
 // *exec.Cmd in a signature without ever constructing one - a distinction
 // depguard cannot draw.
-var execAllowed = []string{"detach", "gate", "notify", "supervisor", "termwrap", "vcs"}
+var execAllowed = []string{"detach", "gate", "golist", "notify", "supervisor", "termwrap", "vcs"}
 
 // Regression, issue #260: invariant 4 fences bubbleterm inside internal/termwrap,
 // and AGENTS.md:68 said internal/ui was the only package importing bubbletea.
