@@ -30,7 +30,10 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 
 ## Technology stack
 
-- **Go 1.26**, module `github.com/WilsonSousajr/omatty`.
+- **Go 1.26.8**, module `github.com/WilsonSousajr/omatty`. Pinned exactly in
+  both `go.mod` and `ci.yml`, not floated as `1.26`: setup-go resolves a
+  floating minor to the newest patch, and it had silently drifted a patch
+  ahead of `go.mod` (#261).
 - **TUI:** `charm.land/bubbletea/v2`, `lipgloss/v2`, `bubbles/v2`.
 - **Embedded terminal:** `github.com/taigrr/bubbleterm` (pre-1.0 — invariant 4),
   `github.com/creack/pty`.
@@ -66,7 +69,11 @@ testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-claude.
 ```
 
 One responsibility per package, typed APIs, no circular dependencies.
-`ui` is the only package that imports bubbletea.
+`internal/ui` and `internal/termwrap` are the only packages that import
+bubbletea. termwrap is a real exception, not an oversight: bubbleterm is itself
+a bubbletea component, so `termwrap.Terminal` returns `tea.Cmd` and cannot avoid
+the import. Enforced by `depguard`, not asked for (#260) - this file claimed for
+nine milestones that `ui` was the only one, and nothing noticed otherwise.
 
 ## Build and test commands
 
@@ -75,10 +82,21 @@ Run the full local gate before claiming any change is ready. CI runs the same:
 ```bash
 gofmt -l .                                    # must print nothing
 go vet ./...
-golangci-lint run                             # funlen, dupl, gocyclo, gocognit, revive
+go mod tidy -diff                             # go.mod and go.sum are tidy
+golangci-lint run                             # + depguard: invariant 4, enforced
+govulncheck ./...                             # no reachable known vulnerability
 go test ./... -race
 ./scripts/check-coverage.sh 90
 ```
+
+`go mod tidy -diff` and `govulncheck` are the only steps that need the network.
+Install the scanner with the version `ci.yml` pins:
+`go install golang.org/x/vuln/cmd/govulncheck@v1.8.0`.
+
+`govulncheck` reports against the *toolchain doing the analysis*, not against
+`go.mod`, which is why the Go version is pinned exactly. On go1.26.5 it found
+GO-2026-6088 reachable through `internal/highlight`; on go1.26.8 it finds
+nothing. The same gate passed on CI and failed locally, and nothing said why.
 
 Tests never invoke the real `claude` binary or the network. `testdata/fake-claude`
 emits scripted ANSI and JSONL and stands in for it everywhere.
@@ -146,8 +164,16 @@ not in the gate.
 - **Inject through constructor or parameter.** No package-level mutable state,
   no global singletons, no `init()` side effects.
 - **Wrap third-party libraries behind a thin interface this project owns.**
-  `internal/termwrap` owns bubbleterm; `internal/vcs` owns the git CLI. No other
-  package may import them or shell out to git.
+  `internal/termwrap` owns bubbleterm and the PTY, `internal/vcs` owns the git
+  CLI, `internal/highlight` owns chroma, `internal/review` owns go-gitdiff. No
+  other package may import them. Enforced by `depguard` in `.golangci.yml`.
+- **Shelling out is a capability, not a convenience.** `os/exec` is reachable
+  from `detach`, `gate`, `notify`, `supervisor`, `termwrap` and `vcs`, and
+  nowhere else in production code. `termwrap` is on that list because it names
+  `*exec.Cmd` in a signature without ever constructing one - a distinction
+  depguard cannot draw. Adding a seventh package is a decision, so
+  `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
+  in both `.golangci.yml` and here.
 - Before adding a dependency, check the project does not already have the
   capability.
 
@@ -171,6 +197,16 @@ not in the gate.
 4. **bubbleterm and git are reachable only through `internal/termwrap` and
    `internal/vcs`.** bubbleterm is pre-1.0 and will break; the blast radius must
    stay inside one package we own.
+
+   Enforced by `depguard` in `.golangci.yml` (#260) - but only half of it can
+   be. bubbleterm is an import, so a rule can fence it. git is a *string
+   literal* handed to `exec`, which no import rule can see, so that half is
+   `TestNoGitOutsideVcs` in `scripts/depguard_test.go`.
+
+   depguard can only ever fail in one direction: it catches an import that
+   breaks a rule, never a rule that has quietly stopped describing the code.
+   That is why the allowlists are asserted against `go list` rather than merely
+   written down.
 5. **`stdout` belongs to the TUI.** Every diagnostic goes to the slog file
    handler. A stray `fmt.Println` corrupts the screen. Enforced by `forbidigo`.
 6. **One panicking session must not kill the app.** Each supervisor goroutine
@@ -327,7 +363,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
   | | |
   |---|---|
-  | The CI gate, green on both runners | `gofmt`, `go vet`, `golangci-lint`, `go test -race`, 90% coverage, `go build` — on `ubuntu-latest` and `macos-latest` |
+  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, `go test -race`, 90% coverage, `go build` — on `ubuntu-latest` and `macos-latest` |
   | The real-binary smoke test | Rule 2 in `docs/ROADMAP.md`, run against a scratch `HOME` with `testdata/fake-claude`, **read by a person** |
 
   The gate is the same one every milestone clears, for the same reason: the

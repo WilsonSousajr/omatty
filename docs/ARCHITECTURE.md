@@ -77,8 +77,11 @@ thing that ever owns stdout.
 
 ## Package breakdown
 
-One responsibility per package, typed APIs, no cycles. `ui` is the only
-package that imports bubbletea.
+One responsibility per package, typed APIs, no cycles. `internal/ui` and
+`internal/termwrap` are the only packages that import bubbletea - termwrap
+because bubbleterm is itself a bubbletea component, so `termwrap.Terminal`
+returns `tea.Cmd`. Enforced by `depguard` since #260; before that both this
+page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 
 | Package | Owns |
 |---|---|
@@ -207,6 +210,13 @@ and the tests substitute a named fake for it.
 | `detach` | the dtach CLI | Optional at runtime; a `Plain` holder makes its absence a footer notice rather than a code path. `dtachprobe` exists because its unit tests assert the command line dtach is *given*, and a missing directory shipped green (#43). |
 | `agent` | the coding agent | An agent is a command template plus a status adapter. A second agent is a new file here, not an edit to `supervisor`, `watcher`, `paths` and `cmd` at once (#46). |
 | `highlight` | chroma | Not pre-1.0, but the blast-radius rule is the same: one package owns the lexers and the style, and the style is omatty's because every stock theme spends the accent and the diff hues on keywords (#197). |
+
+Every seam above is now an enforced import rule rather than a convention:
+`depguard` in `.golangci.yml` fences bubbleterm and the PTY to `termwrap`,
+bubbletea to `{ui, termwrap}`, chroma to `highlight` and go-gitdiff to
+`review`, and `os/exec` to the six packages that shell out. The git seam is the
+exception depguard cannot see - git is reached by a string literal, not an
+import - so `TestNoGitOutsideVcs` covers it instead (#260).
 
 **The adapter interface lives in the consumer.** `watcher.Adapter` is declared
 in `watcher`, not in `agent`, and `agent` imports `watcher` to satisfy it -
