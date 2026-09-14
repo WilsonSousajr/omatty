@@ -30,7 +30,10 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 
 ## Technology stack
 
-- **Go 1.26**, module `github.com/WilsonSousajr/omatty`.
+- **Go 1.26.8**, module `github.com/WilsonSousajr/omatty`. Pinned exactly in
+  both `go.mod` and `ci.yml`, not floated as `1.26`: setup-go resolves a
+  floating minor to the newest patch, and it had silently drifted a patch
+  ahead of `go.mod` (#261).
 - **TUI:** `charm.land/bubbletea/v2`, `lipgloss/v2`, `bubbles/v2`.
 - **Embedded terminal:** `github.com/taigrr/bubbleterm` (pre-1.0 — invariant 4),
   `github.com/creack/pty`.
@@ -78,10 +81,21 @@ Run the full local gate before claiming any change is ready. CI runs the same:
 ```bash
 gofmt -l .                                    # must print nothing
 go vet ./...
+go mod tidy -diff                             # go.mod and go.sum are tidy
 golangci-lint run                             # + depguard: invariant 4, enforced
+govulncheck ./...                             # no reachable known vulnerability
 go test ./... -race
 ./scripts/check-coverage.sh 90
 ```
+
+`go mod tidy -diff` and `govulncheck` are the only steps that need the network.
+Install the scanner with the version `ci.yml` pins:
+`go install golang.org/x/vuln/cmd/govulncheck@v1.8.0`.
+
+`govulncheck` reports against the *toolchain doing the analysis*, not against
+`go.mod`, which is why the Go version is pinned exactly. On go1.26.5 it found
+GO-2026-6088 reachable through `internal/highlight`; on go1.26.8 it finds
+nothing. The same gate passed on CI and failed locally, and nothing said why.
 
 Tests never invoke the real `claude` binary or the network. `testdata/fake-claude`
 emits scripted ANSI and JSONL and stands in for it everywhere.
@@ -348,7 +362,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
   | | |
   |---|---|
-  | The CI gate, green on both runners | `gofmt`, `go vet`, `golangci-lint`, `go test -race`, 90% coverage, `go build` — on `ubuntu-latest` and `macos-latest` |
+  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, `go test -race`, 90% coverage, `go build` — on `ubuntu-latest` and `macos-latest` |
   | The real-binary smoke test | Rule 2 in `docs/ROADMAP.md`, run against a scratch `HOME` with `testdata/fake-claude`, **read by a person** |
 
   The gate is the same one every milestone clears, for the same reason: the
