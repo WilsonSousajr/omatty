@@ -65,7 +65,11 @@ testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-claude.
 ```
 
 One responsibility per package, typed APIs, no circular dependencies.
-`ui` is the only package that imports bubbletea.
+`internal/ui` and `internal/termwrap` are the only packages that import
+bubbletea. termwrap is a real exception, not an oversight: bubbleterm is itself
+a bubbletea component, so `termwrap.Terminal` returns `tea.Cmd` and cannot avoid
+the import. Enforced by `depguard`, not asked for (#260) - this file claimed for
+nine milestones that `ui` was the only one, and nothing noticed otherwise.
 
 ## Build and test commands
 
@@ -74,7 +78,7 @@ Run the full local gate before claiming any change is ready. CI runs the same:
 ```bash
 gofmt -l .                                    # must print nothing
 go vet ./...
-golangci-lint run                             # funlen, dupl, gocyclo, gocognit, revive
+golangci-lint run                             # + depguard: invariant 4, enforced
 go test ./... -race
 ./scripts/check-coverage.sh 90
 ```
@@ -145,8 +149,16 @@ not in the gate.
 - **Inject through constructor or parameter.** No package-level mutable state,
   no global singletons, no `init()` side effects.
 - **Wrap third-party libraries behind a thin interface this project owns.**
-  `internal/termwrap` owns bubbleterm; `internal/vcs` owns the git CLI. No other
-  package may import them or shell out to git.
+  `internal/termwrap` owns bubbleterm and the PTY, `internal/vcs` owns the git
+  CLI, `internal/highlight` owns chroma, `internal/review` owns go-gitdiff. No
+  other package may import them. Enforced by `depguard` in `.golangci.yml`.
+- **Shelling out is a capability, not a convenience.** `os/exec` is reachable
+  from `detach`, `gate`, `notify`, `supervisor`, `termwrap` and `vcs`, and
+  nowhere else in production code. `termwrap` is on that list because it names
+  `*exec.Cmd` in a signature without ever constructing one - a distinction
+  depguard cannot draw. Adding a seventh package is a decision, so
+  `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
+  in both `.golangci.yml` and here.
 - Before adding a dependency, check the project does not already have the
   capability.
 
@@ -170,6 +182,16 @@ not in the gate.
 4. **bubbleterm and git are reachable only through `internal/termwrap` and
    `internal/vcs`.** bubbleterm is pre-1.0 and will break; the blast radius must
    stay inside one package we own.
+
+   Enforced by `depguard` in `.golangci.yml` (#260) - but only half of it can
+   be. bubbleterm is an import, so a rule can fence it. git is a *string
+   literal* handed to `exec`, which no import rule can see, so that half is
+   `TestNoGitOutsideVcs` in `scripts/depguard_test.go`.
+
+   depguard can only ever fail in one direction: it catches an import that
+   breaks a rule, never a rule that has quietly stopped describing the code.
+   That is why the allowlists are asserted against `go list` rather than merely
+   written down.
 5. **`stdout` belongs to the TUI.** Every diagnostic goes to the slog file
    handler. A stray `fmt.Println` corrupts the screen. Enforced by `forbidigo`.
 6. **One panicking session must not kill the app.** Each supervisor goroutine
