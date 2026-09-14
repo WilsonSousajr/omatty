@@ -43,6 +43,19 @@ type Package struct {
 	// it did not look at: silence about them is how a metric quietly stops
 	// covering half a package.
 	IgnoredGoFiles []string
+	// Imports are this package's *direct* imports, stdlib and third party
+	// included, so a caller measuring the module's own structure filters by
+	// the module prefix. Direct and not transitive: `go list -deps` would
+	// answer a different question, and efferent coupling computed from it
+	// would count the whole reachable graph as one package's dependencies.
+	Imports []string
+	// TestImports and XTestImports are what the package's own tests and its
+	// _test package import. Kept apart from Imports because production
+	// structure and test structure are different questions - and because the
+	// only import cycle a Go repository can actually have lives here: the
+	// compiler refuses one in Imports, but a_test -> b -> a is legal.
+	TestImports  []string
+	XTestImports []string
 }
 
 // syntheticModule is what `go list -m` answers outside a module: not an error,

@@ -109,7 +109,10 @@ func TestGitignore_StillIgnoresTheBuiltBinary(t *testing.T) {
 // while still ignoring the built binary that prompted the rule. The anchored
 // form is the only one that does one without the other.
 func TestGitignore_DoesNotExcludeTheGateTools(t *testing.T) {
-	for _, path := range []string{"tools/crapcheck/main.go", "tools/crapcheck"} {
+	for _, path := range []string{
+		"tools/crapcheck/main.go", "tools/crapcheck",
+		"tools/depcheck/main.go", "tools/depcheck",
+	} {
 		t.Run(path, func(t *testing.T) {
 			cmd := exec.Command("git", "check-ignore", "-q", path)
 			cmd.Dir = repoRoot(t)
@@ -120,11 +123,17 @@ func TestGitignore_DoesNotExcludeTheGateTools(t *testing.T) {
 	}
 }
 
-// And the built binary at the repo root is still ignored.
-func TestGitignore_IgnoresTheBuiltGateTool(t *testing.T) {
-	cmd := exec.Command("git", "check-ignore", "-q", "crapcheck")
-	cmd.Dir = repoRoot(t)
-	if err := cmd.Run(); err != nil {
-		t.Error("the built crapcheck binary at the repo root is not ignored")
+// And the built binaries at the repo root are still ignored. `go build ./...`
+// drops one per main package into the working directory, so every tool added
+// under tools/ needs its own anchored line.
+func TestGitignore_IgnoresTheBuiltGateTools(t *testing.T) {
+	for _, binary := range []string{"crapcheck", "depcheck"} {
+		t.Run(binary, func(t *testing.T) {
+			cmd := exec.Command("git", "check-ignore", "-q", binary)
+			cmd.Dir = repoRoot(t)
+			if err := cmd.Run(); err != nil {
+				t.Errorf("the built %s binary at the repo root is not ignored", binary)
+			}
+		})
 	}
 }

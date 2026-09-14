@@ -64,11 +64,12 @@ internal/
 ├── coverage/       [M10] a coverage profile -> per-line verdicts and raw blocks.
 ├── golist/         [M11] OUR interface over `go list` (invariant 4 in spirit).
 ├── crap/           [M11] per-function complexity x coverage -> a C.R.A.P. score.
+├── depgraph/       [M11] the internal import graph -> Ca, Ce, instability, SDP.
 ├── coverage/       [M10] a coverage profile -> per-line verdicts.
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
-tools/              gate tools with a main: crapcheck. Inside ./... so gofmt,
+tools/              gate tools with a main: crapcheck, depcheck. Inside ./... so gofmt,
                     vet, lint and build cover them; outside ./internal/... so an
                     untestable main does not pull the coverage gate down.
 testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-claude.
@@ -91,6 +92,7 @@ go vet ./...
 go mod tidy -diff                             # go.mod and go.sum are tidy
 golangci-lint run                             # + depguard: invariant 4, enforced
 govulncheck ./...                             # no reachable known vulnerability
+./scripts/check-deps.sh                       # package coupling; test-graph cycles
 go test ./... -race
 ./scripts/check-coverage.sh 90
 ./scripts/check-crap.sh 15                    # per-function complexity x coverage
@@ -190,6 +192,15 @@ not in the gate.
   depguard cannot draw. Adding a seventh package is a decision, so
   `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
   in both `.golangci.yml` and here.
+- **Depend in the direction of stability.** For every edge A -> B,
+  `I(A) >= I(B)`, where `I = Ce/(Ca+Ce)` over direct, production,
+  module-internal imports. A package many things depend on must not reach up to
+  one built to change, or everything below it is pinned by something that moves.
+  `./scripts/check-deps.sh` prints the table and the tightest margin; `--sdp`
+  makes a violation fail. The repo obeys this today with a margin of +0.071, and
+  the number is printed on every run because instability is a ratio of small
+  integers and moves in jumps. The table is in `docs/ARCHITECTURE.md`, with the
+  paragraph on why distance from the main sequence is deliberately not measured.
 - Before adding a dependency, check the project does not already have the
   capability.
 

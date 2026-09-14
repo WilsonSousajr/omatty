@@ -2,4 +2,5 @@
 # cmd/omatty/, and a bare "crapcheck" would match tools/crapcheck/ (#27).
 /omatty
 /crapcheck
+/depcheck
 cover.out
