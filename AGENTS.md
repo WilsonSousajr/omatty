@@ -198,10 +198,12 @@ not in the gate.
   `I(A) >= I(B)`, where `I = Ce/(Ca+Ce)` over direct, production,
   module-internal imports. A package many things depend on must not reach up to
   one built to change, or everything below it is pinned by something that moves.
-  `./scripts/check-deps.sh` prints the table and the tightest margin; `--sdp`
-  makes a violation fail. The repo obeys this today with a margin of +0.071, and
-  the number is printed on every run because instability is a ratio of small
-  integers and moves in jumps. The table is in `docs/ARCHITECTURE.md`, with the
+  `./scripts/check-deps.sh` prints the table and the tightest margin, and a
+  violation **fails the run** (#269). The repo obeys this with a margin of
+  +0.071 that has not moved across eight merges, and the number is printed on
+  every run because instability is a ratio of small integers and moves in
+  jumps - which is why the rule was measured for a fortnight before it was
+  enforced. The table is in `docs/ARCHITECTURE.md`, with the
   paragraph on why distance from the main sequence is deliberately not measured.
 - Before adding a dependency, check the project does not already have the
   capability.

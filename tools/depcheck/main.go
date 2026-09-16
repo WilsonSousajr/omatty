@@ -1,14 +1,18 @@
 // Command depcheck reports omatty's own package dependency structure and
-// enforces the rules that cannot oscillate.
+// enforces the two rules that hold across it.
 //
-//	go run ./tools/depcheck            # report, and fail on a test-graph cycle
-//	go run ./tools/depcheck -sdp       # also fail on a stable->unstable edge
+//	go run ./tools/depcheck            # report, and fail on either rule
 //
-// Two rules, enforced differently on purpose. An import cycle through the test
-// graph is a yes-or-no fact, so it fails the run today. The Stable Dependencies
-// Principle is a comparison of ratios over small integers, so it lands
-// report-only: the numbers are green now, and one or two ordinary PRs are worth
-// watching before a moving margin can fail a build (#263).
+// An import cycle through the test graph is a yes-or-no fact and has failed the
+// run since #263. The Stable Dependencies Principle is a comparison of ratios
+// over small integers, so it landed report-only behind -sdp, deliberately: a
+// gate that fails on a margin nobody has watched move is a gate people learn to
+// --no-verify past.
+//
+// The margin has now been watched. Across every merge from #263 to #278 - eight
+// pull requests, and one of them adding a package edge that took the graph from
+// 35 to 36 - the tightest edge stayed watcher -> registry at exactly +0.071. So
+// the flag is gone and the rule is enforced like the other one (#269).
 package main
 
 import (
@@ -22,11 +26,10 @@ import (
 )
 
 func main() {
-	sdp := flag.Bool("sdp", false, "fail when an import runs against the direction of stability")
 	pattern := flag.String("pattern", "./internal/...", "packages to measure")
 	flag.Parse()
 
-	failures, err := run(os.Stdout, *sdp, *pattern)
+	failures, err := run(os.Stdout, *pattern)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
@@ -37,7 +40,7 @@ func main() {
 }
 
 // run measures the graph and returns how many enforced rules it broke.
-func run(out *os.File, enforceSDP bool, pattern string) (int, error) {
+func run(out *os.File, pattern string) (int, error) {
 	module, err := golist.Module(".")
 	if err != nil {
 		return 0, err
@@ -50,10 +53,7 @@ func run(out *os.File, enforceSDP bool, pattern string) (int, error) {
 	depgraph.Report(out, graph)
 
 	failures := reportCycles(out, depgraph.TestCycles(module, pkgs))
-	if enforceSDP {
-		failures += len(graph.Violations())
-	}
-	return failures, nil
+	return failures + len(graph.Violations()), nil
 }
 
 // reportCycles names any cycle running through a package's tests. The compiler

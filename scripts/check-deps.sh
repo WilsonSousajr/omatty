@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Measures the package dependency structure of ./internal/... and enforces the
-# rules that cannot oscillate. Usage: check-deps.sh [--sdp]
+# two rules that hold across it. Usage: check-deps.sh
 #
 # Reported: Ca, Ce and instability I = Ce/(Ca+Ce) per package, plus the margin
 # on the tightest edge. The margin is printed on every run, clean or not,
@@ -13,10 +13,15 @@
 # a is legal, compiles, and couples two packages in a direction their production
 # code does not admit to.
 #
-# Not enforced yet: the Stable Dependencies Principle. It measures green today -
-# 0 violations over 32 edges, tightest margin +0.071 - and --sdp turns it into a
-# failure. It lands report-only so a couple of ordinary PRs can show whether the
-# margin holds steady under normal work, which one snapshot cannot (#263).
+# Also enforced, since #269: the Stable Dependencies Principle, for every edge
+# A -> B, I(A) >= I(B). It landed report-only behind --sdp on purpose - a gate
+# that fails on a margin nobody has watched move is a gate people learn to
+# --no-verify past, and one snapshot cannot show whether a ratio of small
+# integers holds steady under ordinary work.
+#
+# It does. Across every merge from #263 to #278 the tightest edge stayed
+# watcher -> registry at exactly +0.071, through a change that took the graph
+# from 35 edges to 36. So the flag is gone and a violation fails the run.
 #
 # Distance from the main sequence is deliberately absent. Go declares interfaces
 # at the consumer and usually unexported, so a stable pure leaf like
