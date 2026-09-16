@@ -28,7 +28,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M8 | Surface | **Built** 2026-09-09 as PRs #181-#186, stacked; see the M8 section and "What is left". |
 | — | **Released** | **v0.1.0**, 2026-09-10. All eight promoted to `main` (#134). See "Releases". |
 | M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. On `develop`, unreleased. |
-| M10 | Coverage on the diff | **In progress.** Slices #251-#258; #251 and #252 merged as PRs #259 and #270. See the M10 section when #258 writes it. |
+| M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. On `develop`, unreleased. |
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268. Two follow-ups deliberately left: #267 and #269. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
@@ -702,7 +702,9 @@ above now carries the refusals with their reasons.
 
 - **Coverage overlaid on the diff** - marking added lines no test covers - and
   **test-file pairing flags**, which flag a diff that touches source and no
-  tests. Both are the natural M10 and both need M9's coverage parsing first.
+  tests. Cut from M9 because both needed its coverage parsing first, and built
+  immediately after as **M10**; the entry stays here because the deferral is
+  the reason M10 exists. See the M10 section for what it did with them.
 - **Reading the gate out of `AGENTS.md`'s fenced block.** One source of truth
   for human, agent and environment is the right long-term answer, but parsing
   prose is fragile; M9 uses explicit config and the docs say to keep the two
@@ -714,6 +716,90 @@ above now carries the refusals with their reasons.
 - **Sending anything without being asked.** #233 runs the gate for you;
   nothing sends a prompt on your behalf. That line is where a verification
   tool becomes an orchestrator.
+
+---
+
+## M10 - Coverage on the diff
+
+**Delivers:** the milestone in one glance - of the lines this session added,
+which are not exercised by anything? omatty reads the profile the project's own
+gate just wrote, marks the added lines no test covers, and says a word when a
+change brought no tests with it at all.
+
+**Why this, and why it needed M9 first.** M9 put a gate beside each session and
+a percentage on its card. A percentage is a number about a repository; it does
+not say which of *these* lines, the ones that came back five minutes ago, are
+untested. That is the question a reviewer actually has, and answering it is the
+whole bet of this tool: not how much agent-work can be in flight, but how fast
+a person can tell whether what came back is any good. Both halves were cut from
+M9 explicitly and for the same reason - they needed a coverage profile parsed
+at line granularity, which is what #251 and #252 built.
+
+**What it is, in seven slices**, one issue and one PR each:
+
+- **#251 `internal/coverage` (PR #259).** A Go profile as per-line verdicts.
+  Three states, and the third earns the package its shape: covered, uncovered,
+  and *no verdict at all* for a line that is not a statement. An absent line is
+  silence, never a claim, because marking braces and declarations would be
+  noise that trains the eye to ignore the marker.
+- **#252 lcov and sniffing (PR #270).** The other format, and picking the
+  parser by looking at the file rather than at its name: `.info`, `.lcov`,
+  `.out` and `.txt` are each in use for *both* formats. A file that is neither
+  is an error, not an empty profile - an empty profile would quietly mean
+  "nothing here is uncovered", which is a lie the operator cannot notice.
+- **#253 `Step.Profile` (PR #273).** A coverage step *declares* the path it
+  writes. `omitempty`, so `state.json` stays at version 1 (invariant 9).
+  `Detect` proposes the ecosystem's convention - `cover.out`, `lcov.info`,
+  `coverage/lcov.info` - which is a fine thing to propose and confirm, and a
+  poor thing to assume at read time, which is exactly what #248 punished.
+- **#254 loading it (PR #274).** When a gate finishes, its profile is read out
+  of the session's own directory - a worktree session reads its own worktree,
+  so two sessions never read each other's numbers. Display-only, never
+  persisted. A profile that will not parse **leaves the previous overlay**
+  rather than blanking it: blanking would quietly claim nothing is uncovered.
+- **#255 the markers (PR #275).** An added line the overlay says never ran
+  draws `!` where its `+` would be, and the file header carries the count -
+  `internal/ui/model.go +2 -1  3 uncovered` - so a long diff says where to look
+  without being scrolled. The marker takes the sign's cell rather than adding a
+  gutter column, because a new column would shift every row of every diff,
+  including files the profile says nothing about.
+- **#256 `review.Pair` (PR #276).** The cheaper half, needing no coverage data:
+  four outcomes, not two. **Rust is the interesting case** - it puts tests in
+  the same file behind `#[cfg(test)]`, so a `.rs` hunk that adds one is paired
+  and one that does not is *Unknown*, never Unpaired. A flag that cried wolf on
+  every Rust change would teach the eye to skip it, and then it would be worth
+  nothing on the languages where it was right.
+- **#257 the flag (PR #277).** `diff · 3 files · 0 comments · ⚠ no tests`, and
+  only for Unpaired. Three quarters of the outcomes are silence, which is what
+  keeps the fourth worth reading.
+
+**Deliberately cut, so they do not return sideways:**
+
+- **A gate on any of it.** Nothing is blocked, nothing turns red, `S` sends no
+  more than it did. This is M9's line held one milestone later: the overlay and
+  the flag are remarks, and a tool that argued with the operator about them
+  would be the thing the roadmap exists not to build. A flag is exactly the
+  kind of thing that grows teeth later, so #257 ships with a test whose only
+  job is that it has none.
+- **Python's Cobertura XML.** `Detect` proposes *no* profile for a Python
+  project, because `internal/coverage` reads Go profiles and lcov and nothing
+  else. "No overlay" is legible; a path that never parses is an overlay that
+  never arrives and never says why.
+- **Typing a profile path at the command line.** `omatty gate --set` writes the
+  proposal; a project whose profile lives somewhere else is a `state.json`
+  edit. The confirm-once flow is about agreeing to what was *proposed*, and a
+  free-text path is a different act.
+- **An overlay that refreshes itself.** It describes the tree as the gate found
+  it and goes stale the moment the session edits again - which is exactly the
+  freshness the diff and the diffstat beside it already have. Watching the file
+  would buy a fresher wrong answer, since the profile is only true just after
+  the run that wrote it.
+- **Marking context and removed lines**, and a total in the title. A context
+  line's coverage is not this change's business, a removed line is not in the
+  tree the profile describes, and a per-file count already says where to look.
+- **Branch coverage.** Both formats carry it and neither carries it the same
+  way; line verdicts are what a diff can draw, and the second number would have
+  to be explained every time it disagreed with the first.
 
 ---
 

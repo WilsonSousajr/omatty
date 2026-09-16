@@ -33,6 +33,26 @@ for each milestone and what was deliberately cut.
 - **Invariant 12** — gate verdicts come from exit status, never from output
   text. A `kind = "coverage"` step's percentage is parsed for display only, and
   a tool that is not installed reports `Missing` rather than a failure. (#222)
+- **M10 — Coverage on the diff.** Of the lines a session just added, which are
+  not exercised by anything? omatty reads the profile the project's own gate
+  wrote and answers it in the review column. (#251–#258)
+  - A coverage step **declares the profile it writes** —
+    `cov $ ./scripts/check-coverage.sh [coverage] -> cover.out`. `omatty gate`
+    proposes the ecosystem's convention and shows it in the listing you confirm;
+    `state.json` stays at version 1, since an absent profile means "no overlay".
+    (#253)
+  - **Added lines no test covers are marked** in the diff, with the count on the
+    file header — `internal/ui/model.go +2 -1  3 uncovered`. A line the profile
+    does not mention is not a statement and gets no marker. (#251, #252, #255)
+  - The profile is read **when the session's gate finishes**, out of that
+    session's own directory, so two sessions never read each other's numbers.
+    One that will not parse leaves the previous overlay rather than blanking it.
+    (#254)
+  - **`⚠ no tests`** on the diff title when a change touched source and no
+    tests. Rust's in-file `#[cfg(test)]` counts as tests, so a Rust change that
+    tested itself does not raise it. A remark, not a gate: nothing is blocked.
+    (#256, #257)
+
 - **M11 — The Harness.** The gate stops trusting prose. Three rules this
   repository had written down and nothing checked are now steps that fail, and
   the package structure underneath them is a number printed on every run.
