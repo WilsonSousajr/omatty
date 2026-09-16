@@ -61,6 +61,10 @@ for each milestone and what was deliberately cut.
     force and a cut marker leaves a filtered tree looking complete. The session
     name shortens — `files · a-l…name /internal` — and past the point where a
     name identifies anything, goes. (#285)
+  - The preview title shortens **from the front**, since a path's filename is
+    what says which file is on screen and its directories are context:
+    `…/lifecycle/restart.go`. The `…/` is part of the answer — `lifecycle/…`
+    alone would read as a complete repo-relative path. (#287)
 
 - **M11 — The Harness.** The gate stops trusting prose. Three rules this
   repository had written down and nothing checked are now steps that fail, and

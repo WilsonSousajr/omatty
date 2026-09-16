@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -130,6 +131,59 @@ func TestModel_anUnfilteredTreeTitleShortensTheName_issue285(t *testing.T) {
 func TestModel_theTreeTitleStillFitsItsColumn_issue285(t *testing.T) {
 	m := modelWithNamedTree(t, "a-long-session-name")
 	filterTo(m, "gate")
+	for _, w := range []int{160, 120, 100, 92, 84, 76} {
+		m.Update(tea.WindowSizeMsg{Width: w, Height: 30})
+
+		for i, l := range strings.Split(m.View().Content, "\n") {
+			if got := lipgloss.Width(l); got != w {
+				t.Fatalf("width %d: row %d is %d cells, want %d:\n%s", w, i, got, w, l)
+			}
+		}
+	}
+}
+
+// modelPreviewing opens the preview of a file the given path names, which is
+// how the title gets a path long enough for the column to do something about.
+func modelPreviewing(t *testing.T, path string) *ui.Model {
+	t.Helper()
+	d, err := review.ParseDiff(strings.NewReader(diffOf(map[string][]string{path: {"x := 1"}})))
+	if err != nil {
+		t.Fatalf("parsing the fixture: %v", err)
+	}
+	terms, _ := fakeTerms(t)
+	deps := baseDeps(twoProjectState(), terms)
+	deps.Diff = (&diffRecorder{Diff: d}).fn
+	deps.Preview = (&previewReader{Files: map[string]string{path: "one line"}}).fn
+	m := ui.NewModel(deps)
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: 30})
+	leader(m, key('d'))
+	down(m, 2) // the file header, the hunk header, then the added line
+	pressAndSettle(m, key('o'))
+	return m
+}
+
+// The table in previewtitle_internal_test.go proves the shortening; this
+// proves it is wired to the column's real width, through the keys an operator
+// actually presses (#287).
+func TestModel_aNarrowPreviewTitleKeepsTheFilename_issue287(t *testing.T) {
+	m := modelPreviewing(t, "internal/supervisor/lifecycle/restart.go")
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	row := stripSGR(lineWith(t, m.View().Content, "restart.go"))
+	title := strings.TrimRight(row[strings.LastIndex(row, "│")+len("│"):], " ")
+
+	if !strings.HasSuffix(title, "restart.go") {
+		t.Errorf("the filename was cut from the title:\n%q", title)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(title), "…/") {
+		t.Errorf("the title does not say the path was shortened:\n%q", title)
+	}
+}
+
+// Shortening must not buy width back here either.
+func TestModel_thePreviewTitleStillFitsItsColumn_issue287(t *testing.T) {
+	m := modelPreviewing(t, "internal/supervisor/lifecycle/restart.go")
+
 	for _, w := range []int{160, 120, 100, 92, 84, 76} {
 		m.Update(tea.WindowSizeMsg{Width: w, Height: 30})
 
