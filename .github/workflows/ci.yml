@@ -57,6 +57,6 @@ jobs:
       # just wrote. Anywhere else and it regenerates the profile, doubling the
       # suite's cost on both runners for no visible reason.
       - name: crap gate
-        run: ./scripts/check-crap.sh 15
+        run: ./scripts/check-crap.sh 12
       - name: build
         run: go build ./...

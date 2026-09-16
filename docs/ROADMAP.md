@@ -842,9 +842,10 @@ argument of the milestone, and each slice is an instance of it.
 - **#262 C.R.A.P. (PR #266).** `CC² × (1 − cov)³ + CC`, scored per *function*,
   because a repo-wide coverage average is exactly the place untested code hides:
   `watcher.PromptText` is exported and at 0% inside a package measuring 92.2%.
-  The threshold is **15, not the canonical 30** - `gocyclo` is capped at 10 here
+  The threshold is **12, not the canonical 30** - `gocyclo` is capped at 10 here
   and a CC=10 function at the 90% floor scores 10.1, so a CRAP-30 gate would be
-  vacuous rather than merely slack. Coverage blocks are attributed to
+  vacuous rather than merely slack. It shipped at 15 and ratcheted to 12 in
+  #267, below. Coverage blocks are attributed to
   `*ast.FuncDecl` extents rather than joined against `go tool cover -func` text,
   which prints methods without receivers (`Close` appears nine times) and
   reports zero-statement functions as 0.0%.
@@ -859,11 +860,16 @@ argument of the milestone, and each slice is an instance of it.
 
 **Deliberately left, each with a reason rather than an omission:**
 
-- **The C.R.A.P. ratchet to 12** (#267). The gate shipped at 15 because that is
-  the lowest value green today, and the two functions holding it there -
-  `PromptText` and `typedText`, both CC=3 at 0%, scoring exactly 12.0 - have to
-  be *tested* before the threshold can move, or the ratchet is just a red CI.
-  The next function down is at 8.2, so 12 will land with nearly four of margin.
+- **The C.R.A.P. ratchet to 12** was left to #267 and **done 2026-09-16**
+  (PR #279). The gate shipped at 15 because that was the lowest value green at
+  the time, and the two functions holding it there - `PromptText` and
+  `typedText`, both CC=3 at 0%, scoring exactly 12.0 - had to be *tested*
+  before the threshold could move, or the ratchet would have been a red CI and
+  nothing else. `PromptText` is the one copy of what "the operator typed this"
+  means, read by both the tailer and discover, and it was exported for that
+  reason and then never tested: precisely the hole #262 built the gate to find.
+  With both covered the worst score in the tree is 8.2, so 12 landed with a
+  margin of nearly four.
 - **SDP as a failure rather than a report** (#269). It measures green today, 0
   violations over 35 edges with a tightest margin of +0.071, but `I` is a ratio
   of small integers and moves in jumps: `internal/config` is Ca=1 Ce=1, and a

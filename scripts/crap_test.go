@@ -69,11 +69,11 @@ func TestCrapGate_DefaultThresholdMatchesCI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !strings.Contains(string(script), `threshold="${1:-15}"`) {
-		t.Error("check-crap.sh does not default to 15")
+	if !strings.Contains(string(script), `threshold="${1:-12}"`) {
+		t.Error("check-crap.sh does not default to 12")
 	}
-	if !strings.Contains(ciWorkflow(t), "./scripts/check-crap.sh 15") {
-		t.Error("ci.yml does not run the crap gate at 15")
+	if !strings.Contains(ciWorkflow(t), "./scripts/check-crap.sh 12") {
+		t.Error("ci.yml does not run the crap gate at 12")
 	}
 }
 
