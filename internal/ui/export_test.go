@@ -200,6 +200,22 @@ func (m *Model) SidebarOffset() int { return m.sidebar.Offset() }
 // assert that a report for an unregistered session was dropped (#231).
 func (m *Model) GateReportCount() int { return len(m.gates) }
 
+// CoverageOf is a session's overlay as line verdicts per file, so a test can
+// assert what a finished gate loaded without reaching into the model (#254).
+// The second return is whether an overlay is held at all, which is distinct
+// from one that holds nothing.
+func (m *Model) CoverageOf(id string) (map[string]map[int]bool, bool) {
+	p, held := m.covers[id]
+	if !held {
+		return nil, false
+	}
+	lines := map[string]map[int]bool{}
+	for path, f := range p.Files {
+		lines[path] = f.Lines
+	}
+	return lines, true
+}
+
 // ArmGateWait is the command Init uses to wait on the next gate report, so a
 // test can prove a report actually crosses the channel (#231).
 func (m *Model) ArmGateWait() tea.Cmd { return m.waitForGate() }

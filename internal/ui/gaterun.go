@@ -40,7 +40,7 @@ func (m *Model) onGate(msg GateMsg) tea.Cmd {
 	}
 	delete(m.gateRunning, report.ID)
 	m.gates[report.ID] = report
-	return tea.Batch(m.waitForGate(), m.gateNotice(report))
+	return tea.Batch(m.waitForGate(), m.gateNotice(report), m.loadCoverage(report.ID))
 }
 
 // holds reports whether a session is one of omatty's own.
