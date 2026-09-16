@@ -354,15 +354,16 @@ message and explain why the behaviour it asserted was never correct.
   - Type: `feat` `fix` `docs` `test` `refactor` `perf` `chore` `build` `ci` —
     the same set as the commit-message types, so a `feat`-labelled issue
     produces `feat(#N):` commits.
-  - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7` `M8` `M9`. Every open issue carries
-    one, including a bug found against an already-shipped milestone - it takes
-    the milestone it will be fixed in, not the one that introduced it. Work a
-    milestone deferred keeps that milestone's label and waits in Backlog: the
-    label says where the work belongs, the column says whether anyone is on
-    it, and the two answer different questions.
+  - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7` `M8` `M9` `M10` `M11`. Every
+    open issue carries one, including a bug found against an already-shipped
+    milestone - it takes the milestone it will be fixed in, not the one that
+    introduced it. Work a milestone deferred keeps that milestone's label and
+    waits in Backlog: the label says where the work belongs, the column says
+    whether anyone is on it, and the two answer different questions.
   - Area: `area:paths` `area:registry` `area:vcs` `area:termwrap`
     `area:supervisor` `area:keys` `area:ui` `area:cmd` `area:hooks`
-    `area:watcher` `area:notify` `area:discover`.
+    `area:watcher` `area:notify` `area:discover` `area:gate` `area:review`
+    `area:coverage`.
   - Flags: `invariant` (changing this touches a cross-cutting invariant —
     argue it explicitly, never assume it is safe), `regression` (needs a test
     that fails before the fix), `blocked`.
@@ -412,7 +413,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
 ## Documentation map
 
-- `docs/ROADMAP.md` — milestones M1-M9, what is in each and why, what was
+- `docs/ROADMAP.md` — milestones M1-M11, what is in each and why, what was
   deliberately cut, and how a release reaches `main`. Read it before
   proposing a feature.
 - `docs/superpowers/specs/2026-09-01-omatty-design.md` — the design this repo

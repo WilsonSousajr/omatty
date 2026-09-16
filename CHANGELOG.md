@@ -33,6 +33,27 @@ for each milestone and what was deliberately cut.
 - **Invariant 12** — gate verdicts come from exit status, never from output
   text. A `kind = "coverage"` step's percentage is parsed for display only, and
   a tool that is not installed reports `Missing` rather than a failure. (#222)
+- **M11 — The Harness.** The gate stops trusting prose. Three rules this
+  repository had written down and nothing checked are now steps that fail, and
+  the package structure underneath them is a number printed on every run.
+  Nothing here changes what omatty does for an operator; it changes what can
+  reach `develop`. (#260–#263)
+  - **depguard** enforces invariant 4's import boundaries — bubbleterm and
+    `creack/pty` to `internal/termwrap`, bubbletea to `ui` and `termwrap`,
+    chroma to `internal/highlight`, go-gitdiff to `internal/review`, `os/exec`
+    to the six packages that run one. Measuring the real importers is what
+    found `AGENTS.md`'s claim that `ui` was the only bubbletea importer to be
+    false. (#260)
+  - **`go mod tidy -diff` and `govulncheck`**, the latter pinned by
+    `GOVULN_VERSION`. The first steps of the gate that need the network. (#261)
+  - **A C.R.A.P. gate at 15**, scored per function rather than per repository,
+    because a repo-wide coverage average is where an exported function at 0%
+    hides. (#262)
+  - **`scripts/check-deps.sh`** reports afferent and efferent coupling,
+    instability, abstractness and distance per package, and fails on an import
+    cycle through the *test* graph — which the compiler permits and nothing
+    else looks at. The Stable Dependencies Principle is measured and printed on
+    every run, behind `--sdp` until the margin has been watched. (#263)
 
 ### Fixed
 

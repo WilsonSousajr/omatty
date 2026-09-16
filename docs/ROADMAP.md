@@ -27,6 +27,9 @@ not only the coverage gate. See "Rules" at the end for why.
 | M7 | Reach | **Built** 2026-09-07 as PRs #135-#148; the four terminal bugs a day of use found were fixed 2026-09-09 as PRs #210-#214. Leftovers still open; see "What is left". |
 | M8 | Surface | **Built** 2026-09-09 as PRs #181-#186, stacked; see the M8 section and "What is left". |
 | — | **Released** | **v0.1.0**, 2026-09-10. All eight promoted to `main` (#134). See "Releases". |
+| M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. On `develop`, unreleased. |
+| M10 | Coverage on the diff | **In progress.** Slices #251-#258; #251 and #252 merged as PRs #259 and #270. See the M10 section when #258 writes it. |
+| M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268. Two follow-ups deliberately left: #267 and #269. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -711,6 +714,88 @@ above now carries the refusals with their reasons.
 - **Sending anything without being asked.** #233 runs the gate for you;
   nothing sends a prompt on your behalf. That line is where a verification
   tool becomes an orchestrator.
+
+---
+
+## M11 - The Harness
+
+**Delivers:** the gate stops trusting prose. Three rules this repository had
+written down and nothing checked - invariant 4's import boundaries, the module's
+own hygiene, and where untested code hides behind a repo-wide coverage average -
+become steps that fail, and the package structure underneath them becomes a
+number that is printed on every run.
+
+**Why this, immediately after M9.** M9 built the machinery for running *a
+project's* gate and showing the verdict beside the session that caused it. M11
+turns the same instrument on omatty itself, and it did so because the
+measurement kept finding the documents wrong. `AGENTS.md` said `ui` was the only
+package importing bubbletea; `internal/termwrap` had imported it in four files
+for weeks. The coverage gate was green at 90% with an *exported* function at 0%.
+A rule nobody measures is a rule that has already drifted - that is the whole
+argument of the milestone, and each slice is an instance of it.
+
+**What it is, in four slices**, one issue and one PR each:
+
+- **#260 depguard (PR #264).** Invariant 4's import half, enforced by a linter
+  that already ships inside the pinned golangci-lint - zero new tooling, zero
+  new CI steps. Four rules: bubbleterm and `creack/pty` to `internal/termwrap`;
+  bubbletea, bubbles and lipgloss to `ui` and `termwrap`; chroma to
+  `internal/highlight` and go-gitdiff to `internal/review`; `os/exec` to the six
+  packages that genuinely run one, with `!$test`. Every importer set was
+  *measured* rather than assumed, which is how the `termwrap` exception was
+  found and `AGENTS.md` corrected. Invariant 4's git half is a string literal,
+  not an import, so depguard structurally cannot see it and it stays a grep test
+  (`TestNoGitOutsideVcs`).
+- **#261 module hygiene (PR #265).** `go mod tidy -diff` after `vet`, and
+  `govulncheck` pinned by `GOVULN_VERSION` the way the linter already is. These
+  are the first steps of the gate that need the network, and the gate block in
+  `AGENTS.md` says so, because somebody will run it on a plane. The pin earns
+  itself immediately: `govulncheck` reports against the toolchain doing the
+  analysis rather than against `go.mod`, so the same tree was red locally and
+  green on CI until the Go version was pinned exactly.
+- **#262 C.R.A.P. (PR #266).** `CC² × (1 − cov)³ + CC`, scored per *function*,
+  because a repo-wide coverage average is exactly the place untested code hides:
+  `watcher.PromptText` is exported and at 0% inside a package measuring 92.2%.
+  The threshold is **15, not the canonical 30** - `gocyclo` is capped at 10 here
+  and a CC=10 function at the 90% floor scores 10.1, so a CRAP-30 gate would be
+  vacuous rather than merely slack. Coverage blocks are attributed to
+  `*ast.FuncDecl` extents rather than joined against `go tool cover -func` text,
+  which prints methods without receivers (`Close` appears nine times) and
+  reports zero-statement functions as 0.0%.
+- **#263 the dependency structure (PR #268).** Ca, Ce, instability
+  `I = Ce/(Ca+Ce)`, abstractness and distance per package, printed on every run.
+  Two things are *enforced*: cycles through the **test** graph - the compiler
+  already refuses production cycles, but `a_test -> b -> a` compiles happily and
+  couples two packages in a direction their production code never admits to -
+  and, behind `--sdp`, the Stable Dependencies Principle. The universe is
+  `./internal/...` only; adding `cmd/omatty` was measured and found *worse*,
+  raising Ca on thirteen packages and putting two edges at exactly zero margin.
+
+**Deliberately left, each with a reason rather than an omission:**
+
+- **The C.R.A.P. ratchet to 12** (#267). The gate shipped at 15 because that is
+  the lowest value green today, and the two functions holding it there -
+  `PromptText` and `typedText`, both CC=3 at 0%, scoring exactly 12.0 - have to
+  be *tested* before the threshold can move, or the ratchet is just a red CI.
+  The next function down is at 8.2, so 12 will land with nearly four of margin.
+- **SDP as a failure rather than a report** (#269). It measures green today, 0
+  violations over 35 edges with a tightest margin of +0.071, but `I` is a ratio
+  of small integers and moves in jumps: `internal/config` is Ca=1 Ce=1, and a
+  single new importer takes it from 0.50 to 0.33. A gate failing on a margin
+  nobody has watched move is a gate people learn to `--no-verify` past, so the
+  margin is printed on every run and the flip waits until the history shows it
+  holding.
+- **Gating on distance from the main sequence.** Eight packages sit at D = 1.00,
+  and that is what Go looks like rather than a defect: interfaces are declared
+  at the consumer and often unexported, so a stable pure leaf like
+  `internal/paths` (Ca=7, Ce=0 - exactly as designed) scores maximum distance.
+  Gating on D would demand precisely the speculative interfaces `AGENTS.md`
+  bans. The table is in `docs/ARCHITECTURE.md` with the paragraph explaining
+  why, so nobody "fixes" it later.
+- **Mutation testing and module size limits.** Named in the same argument that
+  produced this milestone and cut from it: a mutation run costs minutes per
+  package, and nothing yet says what omatty would do with the score. Cut for
+  cost, not for principle.
 
 ---
 
