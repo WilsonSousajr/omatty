@@ -57,7 +57,7 @@ func (m *Model) viewTitle(budget int) string {
 	case ViewTree:
 		return m.treeTitle(budget)
 	case ViewPreview:
-		return m.review.Preview.Path
+		return previewTitle(m.review.Preview.Path, budget)
 	case ViewGate:
 		return "gate · " + m.sessionTitle(m.review.SessionID)
 	}
@@ -89,6 +89,35 @@ func (m *Model) treeTitle(budget int) string {
 		return head + strings.TrimSpace(marker)
 	}
 	return head + elideMiddle(m.sessionTitle(m.review.SessionID), room) + marker
+}
+
+// previewTitle is the file's path, shortened from the *front* (#287).
+//
+// The third rule these titles need, and it is a third because neither of the
+// others fits. A path has no parts to rank the way the diff title's counts are
+// ranked (#283), and shortening it from the middle the way a session name is
+// shortened (#285) would be wrong: both ends of a *name* distinguish it, while
+// the whole left-hand side of a path is the least valuable part of it. The
+// filename is what says which file is on screen - two previews in one package
+// otherwise draw the same title - so the directories above it go first.
+//
+// The "…/" is not decoration. "ui/reviewview.go" alone reads as a complete
+// repo-relative path, which is a lie about where the file is; the marker says
+// there was more above it. Same failure the filter marker guards against.
+//
+// When even the filename will not fit, elideMiddle takes it: a name's start
+// and its extension both carry meaning, and the middle is what can go.
+func previewTitle(path string, budget int) string {
+	if lipgloss.Width(path) <= budget {
+		return path
+	}
+	segments := strings.Split(path, "/")
+	for i := 1; i < len(segments); i++ {
+		if short := "…/" + strings.Join(segments[i:], "/"); lipgloss.Width(short) <= budget {
+			return short
+		}
+	}
+	return elideMiddle(segments[len(segments)-1], budget)
 }
 
 // minNameCells is the room below which a shortened session name is not worth
