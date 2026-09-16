@@ -36,12 +36,12 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.1.0 — the first release.** Eight milestones, all built. **M9 — The
-Gate** is built on `develop` and not yet released, and so is **M11 — The
-Harness**, which adds nothing an operator sees: it turns three rules this
-repository had only written down — invariant 4's import boundaries, the
-module's own hygiene, and per-function coverage — into steps of the gate that
-fail. `CHANGELOG.md` has both under Unreleased.
+**v0.1.0 — the first release.** Eight milestones, all built. Three more are on
+`develop` and not yet released: **M9 — The Gate**, **M10 — Coverage on the
+diff**, and **M11 — The Harness**, which adds nothing an operator sees — it
+turns three rules this repository had only written down (invariant 4's import
+boundaries, the module's own hygiene, and per-function coverage) into steps of
+the gate that fail. `CHANGELOG.md` has all three under Unreleased.
 
 | Milestone | Delivers |
 |---|---|
@@ -54,6 +54,7 @@ fail. `CHANGELOG.md` has both under Unreleased.
 | **M7** Reach | A config file, mouse support, the agent seam, and a visual identity. |
 | **M8** Surface | The frame, colour rule, cards, header, footer and diffstat that the panes are drawn in. |
 | **M9** The Gate *(unreleased)* | A project carries the check line that says whether work in it is sound. omatty runs it per session, shows the verdict on the card, and sends the failures back into the session. |
+| **M10** Coverage on the diff *(unreleased)* | Of the lines a session added, the ones no test covers, marked in the diff with a count per file — and a word on the title when a change brought no tests with it. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
 pre-1.0, and the key table, `config.toml` keys and `state.json` schema are
@@ -115,6 +116,19 @@ uses — `gofmt`, `go vet`, `golangci-lint`, `go test -race`, a coverage script;
 `cargo fmt --check`, `cargo clippy`, `cargo test`; `ruff` and `pytest`; or the
 `lint` and `test` scripts a `package.json` defines. Like `discover`, it only
 proposes: nothing is written, and nothing is ever run, until you confirm it.
+
+A coverage step also declares the **profile** it writes, and the listing you
+confirm says so:
+
+```
+  cov   $ ./scripts/check-coverage.sh   [coverage]  -> cover.out
+```
+
+That path is read out of the session's own directory when its gate finishes,
+and it is what puts the uncovered markers on the diff. Go profiles and lcov are
+both understood, told apart by content rather than by file name. A project that
+writes its profile somewhere else names it in `~/.omatty/state.json`; a project
+that declares none simply gets no overlay.
 
 Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 
