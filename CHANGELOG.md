@@ -52,6 +52,10 @@ for each milestone and what was deliberately cut.
     tests. Rust's in-file `#[cfg(test)]` counts as tests, so a Rust change that
     tested itself does not raise it. A remark, not a gate: nothing is blocked.
     (#256, #257)
+  - A review column too narrow for the whole title now **gives up whole parts**
+    in a stated order — a zero comment count, then the file count — rather than
+    being cut from the right, which took the flag out at the default window
+    size. `diff · 2 files · ⚠ no tests`, then `diff · ⚠ no tests`. (#283)
 
 - **M11 — The Harness.** The gate stops trusting prose. Three rules this
   repository had written down and nothing checked are now steps that fail, and

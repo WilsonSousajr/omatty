@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/WilsonSousajr/omatty/internal/coverage"
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
@@ -37,11 +39,20 @@ func (m *Model) renderReview(w, h int) string {
 
 // reviewTitle names what the column is showing, so a glance at the top row
 // says which of the three views has the keys.
-func (m *Model) reviewTitle() string {
-	return m.viewTitle() + m.panMarker()
+//
+// width is the column's, so the diff title can fit itself rather than be cut
+// (#283). The budget is one cell less because headerRow draws every title
+// behind a space, and the pan marker comes off the top of it: a title that
+// gave up a part and then had the marker appended would be back over budget.
+func (m *Model) reviewTitle(width int) string {
+	marker := m.panMarker()
+	return m.viewTitle(width-1-lipgloss.Width(marker)) + marker
 }
 
-func (m *Model) viewTitle() string {
+// viewTitle names the view. Only the diff's is given a budget: the other three
+// are a path or a session title, which are one part each and have nothing to
+// give up, so they are cut as they always were.
+func (m *Model) viewTitle(budget int) string {
 	switch m.review.View {
 	case ViewTree:
 		return "files · " + m.sessionTitle(m.review.SessionID) + m.filterMarker()
@@ -50,8 +61,94 @@ func (m *Model) viewTitle() string {
 	case ViewGate:
 		return "gate · " + m.sessionTitle(m.review.SessionID)
 	}
-	return fmt.Sprintf("diff · %d files · %d comments%s",
-		len(m.review.Diff.Files), m.commentsFor(m.review.SessionID).Len(), pairingNote(m.review.Diff))
+	return joinTitle(m.diffTitleParts(), budget)
+}
+
+// titlePart is one piece of the diff title and how long it survives a column
+// too narrow to hold everything. Higher survives longer.
+type titlePart struct {
+	text     string
+	priority int
+}
+
+// The priorities, and the whole of the argument for them. `diff` names the
+// view and never goes. The flag is the only remark M10 makes about the diff as
+// a whole, and it went first under a plain right-hand cut, which is what #283
+// is: a flag that disappears exactly when the column is busiest cannot be
+// relied on. Unsent comments are work the operator still owes; a file count is
+// context; a zero comment count is the absence of news, and goes first.
+const (
+	dropFirst = iota // a zero comment count
+	dropFiles
+	dropComments // only when there are some
+	keepFlag
+	keepAlways
+)
+
+// diffTitleParts is the diff title in reading order, each part carrying how
+// readily it is given up.
+func (m *Model) diffTitleParts() []titlePart {
+	comments := m.commentsFor(m.review.SessionID).Len()
+	priority := dropComments
+	if comments == 0 {
+		priority = dropFirst
+	}
+	parts := []titlePart{
+		{text: "diff", priority: keepAlways},
+		{text: fmt.Sprintf("%d files", len(m.review.Diff.Files)), priority: dropFiles},
+		{text: fmt.Sprintf("%d comments", comments), priority: priority},
+	}
+	if note := pairingNote(m.review.Diff); note != "" {
+		parts = append(parts, titlePart{text: note, priority: keepFlag})
+	}
+	return parts
+}
+
+// joinTitle renders the parts that fit, giving up the least valuable one at a
+// time rather than cutting the line from the right. `0 comment` says nothing
+// and reads like a bug; `diff · 2 files` says something.
+//
+// When only the parts that are never given up remain, the title is returned
+// whatever its width and fitLine cuts it as before - there is nothing left to
+// give, and a column that narrow has bigger problems than its label.
+func joinTitle(parts []titlePart, budget int) string {
+	for {
+		title := renderTitle(parts)
+		if lipgloss.Width(title) <= budget || !droppable(parts) {
+			return title
+		}
+		parts = dropWeakest(parts)
+	}
+}
+
+func renderTitle(parts []titlePart) string {
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		out = append(out, p.text)
+	}
+	return strings.Join(out, " · ")
+}
+
+// droppable reports whether any part is still worth giving up.
+func droppable(parts []titlePart) bool {
+	for _, p := range parts {
+		if p.priority < keepFlag {
+			return true
+		}
+	}
+	return false
+}
+
+// dropWeakest removes the lowest-priority part. Ties cannot happen: every
+// priority is held by exactly one part.
+func dropWeakest(parts []titlePart) []titlePart {
+	weakest := 0
+	for i, p := range parts {
+		if p.priority < parts[weakest].priority {
+			weakest = i
+		}
+	}
+	return append(parts[:weakest:weakest], parts[weakest+1:]...)
 }
 
 // pairingNote is the word a diff that changed source and no tests is worth
@@ -70,7 +167,7 @@ func pairingNote(d review.Diff) string {
 	if review.Pair(d) != review.PairingUnpaired {
 		return ""
 	}
-	return " · ⚠ no tests"
+	return "⚠ no tests"
 }
 
 // filterMarker names the filter in force, so a short listing says why.
