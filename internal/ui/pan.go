@@ -128,7 +128,7 @@ func (m *Model) diffMaxWidth() int {
 	comments := m.commentsFor(m.review.SessionID).All()
 	widest := 0
 	for _, e := range m.review.Entries {
-		widest = max(widest, lipgloss.Width(entryText(e, m.review.Diff, comments)))
+		widest = max(widest, lipgloss.Width(m.entryText(e, comments)))
 	}
 	return widest
 }

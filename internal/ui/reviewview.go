@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/WilsonSousajr/omatty/internal/coverage"
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
 
@@ -94,7 +95,7 @@ func (m *Model) renderEntries(w, rows int) []string {
 
 // renderEntry draws one row; the cursor row is reversed.
 func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []review.Comment) string {
-	text := m.fitContent(entryText(e, m.review.Diff, comments), w)
+	text := m.fitContent(m.entryText(e, comments), w)
 	if cursor {
 		return cursorStyle.Render(text)
 	}
@@ -102,10 +103,13 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 }
 
 // entryText is the plain text of a row before styling.
-func entryText(e review.Entry, d review.Diff, comments []review.Comment) string {
+//
+// A method since #255: what a row says now depends on the coverage overlay the
+// session's last gate loaded, and the overlay is the model's.
+func (m *Model) entryText(e review.Entry, comments []review.Comment) string {
 	switch e.Kind {
 	case review.EntryFile:
-		return fileHeading(d.Files[e.Pos.File])
+		return m.fileHeading(e.Pos.File)
 	case review.EntryHunk:
 		return expandTabs(e.Text)
 	case review.EntryComment:
@@ -113,14 +117,59 @@ func entryText(e review.Entry, d review.Diff, comments []review.Comment) string 
 	case review.EntryOrphan:
 		return "  >> (moved) " + comments[e.Comment].Note
 	}
-	return linePrefix(d.LineAt(e.Pos).Kind) + expandTabs(e.Text)
+	return m.linePrefix(e) + expandTabs(e.Text)
+}
+
+// linePrefix is the row's first cell: its sign, or the uncovered marker where
+// the overlay says an added line never ran (#255).
+//
+// The marker takes the sign's cell rather than adding a gutter column of its
+// own, deliberately. A new column would shift every row of every diff,
+// including the files a profile says nothing about, and an overlay is a remark
+// on the diff rather than a redesign of it. The line keeps its added colour, so
+// the row still reads as an addition - one nothing exercised.
+func (m *Model) linePrefix(e review.Entry) string {
+	if m.uncovered(e) {
+		return uncoveredMark
+	}
+	return signPrefix(m.review.Diff.LineAt(e.Pos).Kind)
+}
+
+// uncoveredMark is what an added line no test covers draws instead of its +.
+const uncoveredMark = "!"
+
+// uncovered reports whether e is an added line the overlay has a verdict for
+// and that verdict is "never ran".
+//
+// Three states, and the third is the one that earns the check its shape: a
+// line the profile does not mention has no verdict at all - it is a
+// declaration, a brace, a comment - and silence is never a claim. Only added
+// lines are asked about: a context line's coverage is not this change's
+// business, and a removed line is not in the tree the profile describes.
+func (m *Model) uncovered(e review.Entry) bool {
+	if e.Kind != review.EntryLine {
+		return false
+	}
+	line := m.review.Diff.LineAt(e.Pos)
+	if line.Kind != review.LineAdded {
+		return false
+	}
+	covered, known := m.overlay().Files[m.review.Diff.Files[e.Pos.File].Path].Lines[line.NewNo]
+	return known && !covered
+}
+
+// overlay is the coverage the session under review last loaded, or the zero
+// profile - which answers "no verdict" for every line, so no caller needs a
+// nil check.
+func (m *Model) overlay() coverage.Profile {
+	return m.covers[m.review.SessionID]
 }
 
 func expandTabs(s string) string {
 	return strings.ReplaceAll(s, "\t", strings.Repeat(" ", tabWidth))
 }
 
-func linePrefix(k review.LineKind) string {
+func signPrefix(k review.LineKind) string {
 	switch k {
 	case review.LineAdded:
 		return "+"
@@ -130,9 +179,11 @@ func linePrefix(k review.LineKind) string {
 	return " "
 }
 
-// fileHeading is "path +a -b", with both names for a rename and a note for a
-// binary, whose lines nobody can read.
-func fileHeading(f review.File) string {
+// fileHeading is "path +a -b", with both names for a rename, a note for a
+// binary whose lines nobody can read, and the count of added lines no test
+// covers - so a long diff says where to look without being scrolled (#255).
+func (m *Model) fileHeading(fi int) string {
+	f := m.review.Diff.Files[fi]
 	name := f.Path
 	if f.Status == review.FileRenamed {
 		name = f.OldPath + " → " + f.Path
@@ -141,5 +192,35 @@ func fileHeading(f review.File) string {
 		return name + " (binary)"
 	}
 	a, r := f.Counts()
-	return fmt.Sprintf("%s +%d -%d", name, a, r)
+	return fmt.Sprintf("%s +%d -%d%s", name, a, r, m.uncoveredNote(fi))
+}
+
+// uncoveredNote counts what the markers under this header will say, and says
+// nothing at all when there is nothing to report - a note on every file would
+// be decoration rather than a finding.
+func (m *Model) uncoveredNote(fi int) string {
+	lines := m.overlay().Files[m.review.Diff.Files[fi].Path].Lines
+	if len(lines) == 0 {
+		return ""
+	}
+	n := 0
+	for _, h := range m.review.Diff.Files[fi].Hunks {
+		n += uncoveredInHunk(h, lines)
+	}
+	if n == 0 {
+		return ""
+	}
+	return fmt.Sprintf("  %d uncovered", n)
+}
+
+// uncoveredInHunk is how many of a hunk's added lines the overlay says never
+// ran, counted the same way linePrefix marks them.
+func uncoveredInHunk(h review.Hunk, lines map[int]bool) int {
+	n := 0
+	for _, l := range h.Lines {
+		if covered, known := lines[l.NewNo]; l.Kind == review.LineAdded && known && !covered {
+			n++
+		}
+	}
+	return n
 }
