@@ -37,8 +37,11 @@ is to get you to the point of catching them sooner.
 ## Status
 
 **v0.1.0 — the first release.** Eight milestones, all built. **M9 — The
-Gate** is built on `develop` and not yet released; `CHANGELOG.md` has it under
-Unreleased.
+Gate** is built on `develop` and not yet released, and so is **M11 — The
+Harness**, which adds nothing an operator sees: it turns three rules this
+repository had only written down — invariant 4's import boundaries, the
+module's own hygiene, and per-function coverage — into steps of the gate that
+fail. `CHANGELOG.md` has both under Unreleased.
 
 | Milestone | Delivers |
 |---|---|
