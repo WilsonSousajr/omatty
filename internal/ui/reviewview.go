@@ -50,8 +50,27 @@ func (m *Model) viewTitle() string {
 	case ViewGate:
 		return "gate · " + m.sessionTitle(m.review.SessionID)
 	}
-	return fmt.Sprintf("diff · %d files · %d comments",
-		len(m.review.Diff.Files), m.commentsFor(m.review.SessionID).Len())
+	return fmt.Sprintf("diff · %d files · %d comments%s",
+		len(m.review.Diff.Files), m.commentsFor(m.review.SessionID).Len(), pairingNote(m.review.Diff))
+}
+
+// pairingNote is the word a diff that changed source and no tests is worth
+// (#257), and nothing at all for the other three outcomes: a remark that
+// appeared on most diffs would be decoration, and the eye would learn to skip
+// it.
+//
+// It is a remark, not a gate. Nothing is blocked, nothing turns red, and S
+// sends no more than it did. M9's line holds - omatty reports, the operator
+// decides - and this is the cheapest possible place to test that line, because
+// a flag is exactly the kind of thing that grows teeth later.
+//
+// Computed per frame rather than cached: Pair reads paths, and only a Rust
+// file's hunks, so it costs less than laying out the rows underneath it.
+func pairingNote(d review.Diff) string {
+	if review.Pair(d) != review.PairingUnpaired {
+		return ""
+	}
+	return " · ⚠ no tests"
 }
 
 // filterMarker names the filter in force, so a short listing says why.
