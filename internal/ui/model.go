@@ -4,6 +4,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/coverage"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/notify"
@@ -73,6 +74,11 @@ type Model struct {
 	// gateRunning is the sessions with a run in flight, so the pane says so
 	// rather than showing the last verdict as if it were current.
 	gateRunning map[string]bool
+	// covers is each session's coverage overlay, read when its gate finishes
+	// (#254). Display-only like gates and never persisted; coverFailed makes
+	// the warning once per session rather than once per run.
+	covers      map[string]coverage.Profile
+	coverFailed map[string]bool
 	// gateReports and gateRun are the gate's two halves, shaped like the
 	// watcher's: a channel of results in, a request out. Concrete types stay
 	// out of the model so a test substitutes a recorder for the Runner.
@@ -189,6 +195,8 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.lane = map[string]activityLane{}
 	m.gates = map[string]gate.Report{}
 	m.gateRunning = map[string]bool{}
+	m.covers = map[string]coverage.Profile{}
+	m.coverFailed = map[string]bool{}
 	m.repoStat = map[string]review.Stat{}
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
@@ -345,6 +353,9 @@ func (m *Model) onStreamMsg(msg tea.Msg) (tea.Cmd, bool) {
 		return m.onStatus(typed), true
 	case GateMsg:
 		return m.onGate(typed), true
+	case coverageMsg:
+		m.onCoverage(typed)
+		return nil, true
 	}
 	return nil, false
 }
