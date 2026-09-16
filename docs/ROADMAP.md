@@ -854,9 +854,10 @@ argument of the milestone, and each slice is an instance of it.
   Two things are *enforced*: cycles through the **test** graph - the compiler
   already refuses production cycles, but `a_test -> b -> a` compiles happily and
   couples two packages in a direction their production code never admits to -
-  and, behind `--sdp`, the Stable Dependencies Principle. The universe is
-  `./internal/...` only; adding `cmd/omatty` was measured and found *worse*,
-  raising Ca on thirteen packages and putting two edges at exactly zero margin.
+  and the Stable Dependencies Principle, which landed behind `--sdp` and was
+  enforced in #269 below. The universe is `./internal/...` only; adding
+  `cmd/omatty` was measured and found *worse*, raising Ca on thirteen packages
+  and putting two edges at exactly zero margin.
 
 **Deliberately left, each with a reason rather than an omission:**
 
@@ -870,13 +871,15 @@ argument of the milestone, and each slice is an instance of it.
   reason and then never tested: precisely the hole #262 built the gate to find.
   With both covered the worst score in the tree is 8.2, so 12 landed with a
   margin of nearly four.
-- **SDP as a failure rather than a report** (#269). It measures green today, 0
-  violations over 35 edges with a tightest margin of +0.071, but `I` is a ratio
-  of small integers and moves in jumps: `internal/config` is Ca=1 Ce=1, and a
-  single new importer takes it from 0.50 to 0.33. A gate failing on a margin
-  nobody has watched move is a gate people learn to `--no-verify` past, so the
-  margin is printed on every run and the flip waits until the history shows it
-  holding.
+- **SDP as a failure rather than a report** was left to #269 and **done
+  2026-09-16** (PR #280). `I` is a ratio of small integers and moves in jumps -
+  `internal/config` is Ca=1 Ce=1, and a single new importer would take it from
+  0.50 to 0.33 - so a gate failing on a margin nobody had watched move would be
+  one people learn to `--no-verify` past. The margin was watched instead: across
+  every merge from #263 to #278 the tightest edge stayed `watcher -> registry`
+  at exactly +0.071, through M10's `ui -> coverage` edge taking the graph from
+  35 to 36. The flag is gone and a violation fails the run. Had the margin
+  oscillated, that would have been a finding rather than a failure - it did not.
 - **Gating on distance from the main sequence.** Eight packages sit at D = 1.00,
   and that is what Go looks like rather than a defect: interfaces are declared
   at the consumer and often unexported, so a stable pure leaf like

@@ -74,8 +74,10 @@ for each milestone and what was deliberately cut.
   - **`scripts/check-deps.sh`** reports afferent and efferent coupling,
     instability, abstractness and distance per package, and fails on an import
     cycle through the *test* graph — which the compiler permits and nothing
-    else looks at. The Stable Dependencies Principle is measured and printed on
-    every run, behind `--sdp` until the margin has been watched. (#263)
+    else looks at — and, since #269, on an import that runs against the
+    direction of stability. The Stable Dependencies Principle landed behind
+    `--sdp` on purpose and was enforced once the margin had been watched across
+    eight merges without moving. (#263, #269)
 
 ### Fixed
 

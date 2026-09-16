@@ -227,7 +227,7 @@ nothing depends on.
 
 | Package | Ca | Ce | I |
 |---|---|---|---|
-| `internal/ui` | 0 | 12 | 1.00 |
+| `internal/ui` | 0 | 13 | 1.00 |
 | `internal/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
 | `internal/supervisor` | 1 | 5 | 0.83 |
 | `internal/review` | 1 | 3 | 0.75 |
@@ -236,12 +236,22 @@ nothing depends on.
 | `internal/registry` | 4 | 3 | 0.43 |
 | `internal/paths` | 6 | 0 | 0.00 |
 | `internal/gate`, `golist`, `hooks`, `termwrap`, `vcs`, `fuzzy` | 1–2 | 0 | 0.00 |
-| `internal/coverage`, `highlight`, `keys`, `notify`, `paste` | 1 | 0 | 0.00 |
+| `internal/coverage` | 2 | 0 | 0.00 |
+| `internal/highlight`, `keys`, `notify`, `paste` | 1 | 0 | 0.00 |
 
 The chain reads as a clean monotonic descent —
 `cmd → ui → supervisor → agent → watcher → registry → {gate, paths, vcs}` — so
-the Stable Dependencies Principle holds with **0 violations over 35 edges**, the
+the Stable Dependencies Principle holds with **0 violations over 36 edges**, the
 tightest being `watcher → registry` at **+0.071**.
+
+**That is a gate, not an observation** (#269). It landed report-only on purpose:
+`I` is a ratio of small integers and moves in jumps — `internal/config` is
+Ca=1 Ce=1, and one new importer would take it from 0.50 to 0.33 — so a gate
+failing on a margin nobody had watched move would be one people learn to
+`--no-verify` past. The margin was watched instead, and across every merge from
+#263 to #278 the tightest edge stayed `watcher → registry` at exactly +0.071,
+through a change that took the graph from 35 edges to 36. A violation now fails
+`./scripts/check-deps.sh`, which CI runs before the test suite.
 
 **Distance from the main sequence is deliberately not measured here.** Martin
 pairs instability with abstractness and calls a stable, concrete package the

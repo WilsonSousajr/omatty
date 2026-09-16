@@ -10,6 +10,10 @@ import (
 // The measurement must actually run and come back clean, so that a local
 // `go test ./...` catches an architectural break without anyone remembering
 // the new script exists.
+//
+// Since #269 "clean" includes the Stable Dependencies Principle: the separate
+// test that ran it behind --sdp was folded in here when the flag went away, because
+// a rule the gate enforces needs no second opinion about whether it holds.
 func TestDepsGate_IsGreen(t *testing.T) {
 	cmd := exec.Command("./scripts/check-deps.sh")
 	cmd.Dir = repoRoot(t)
@@ -22,20 +26,12 @@ func TestDepsGate_IsGreen(t *testing.T) {
 	if !strings.Contains(string(out), "tightest edge") {
 		t.Errorf("output does not report the margin:\n%s", out)
 	}
-}
-
-// The Stable Dependencies Principle is green today, which is the whole premise
-// for landing it report-only. If this starts failing, the follow-up that turns
-// --sdp into the default has a decision to make, and should know before it
-// makes it.
-func TestDepsGate_StableDependenciesPrincipleHoldsToday(t *testing.T) {
-	cmd := exec.Command("./scripts/check-deps.sh", "--sdp")
-	cmd.Dir = repoRoot(t)
-
-	out, err := cmd.CombinedOutput()
-
-	if err != nil {
-		t.Errorf("an import now runs against the direction of stability:\n%s", out)
+	// The margin is printed on every run, clean or not, because instability is
+	// a ratio of small integers: internal/config is Ca=1 Ce=1, and one new
+	// importer takes it from 0.50 to 0.33. A gate that only ever says "clean"
+	// gives no warning before it breaks.
+	if !strings.Contains(string(out), "direction of stability") {
+		t.Errorf("output does not report on the Stable Dependencies Principle:\n%s", out)
 	}
 }
 
