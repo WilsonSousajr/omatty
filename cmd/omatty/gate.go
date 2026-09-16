@@ -79,12 +79,19 @@ func confirmed(in io.Reader) bool {
 
 // reportGate prints a gate the way a person reads it, commands verbatim, so
 // what is about to become runnable is visible before it is confirmed.
+//
+// The profile a coverage step declares is part of that: it is a path omatty
+// will read out of the session's own directory, and a gate is agreed to from
+// this listing rather than from state.json (#253).
 func reportGate(heading string, steps []gate.Step) {
 	report(heading)
 	for _, step := range steps {
 		line := fmt.Sprintf("  %-5s $ %s", step.Name, step.Run)
 		if step.Kind != "" {
 			line += "   [" + step.Kind + "]"
+		}
+		if step.Profile != "" {
+			line += "  -> " + step.Profile
 		}
 		report(line)
 	}

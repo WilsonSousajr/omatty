@@ -39,6 +39,64 @@ func TestSetGate_roundTripsThroughTheStateFile(t *testing.T) {
 	}
 }
 
+// Invariant 9 again, one issue later. A gate written before #253 has no
+// profile key, and must load as "no overlay" rather than as a migration:
+// state.json stays at version 1 because the empty value is derivable.
+func TestLoad_aGateWrittenBeforeProfiles_loadsWithNoProfile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	old := `{"version":1,"projects":[{"name":"omatty","root":"/tmp/omatty","gate":[` +
+		`{"name":"test","run":"go test ./..."},` +
+		`{"name":"cov","run":"./scripts/check-coverage.sh 90","kind":"coverage"}]}]}`
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	st, err := registry.NewStore(path).Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	for _, step := range st.Projects[0].Gate {
+		if step.Profile != "" {
+			t.Errorf("step %q loaded with Profile %q, want the empty value", step.Name, step.Profile)
+		}
+	}
+}
+
+// A step with no profile writes no profile key, so a gate set before the
+// overlay existed and one set after it are the same bytes on disk.
+func TestSetGate_omitsTheProfileKeyWhenThereIsNone(t *testing.T) {
+	store, path := storeWithProject(t, "omatty")
+	if err := registry.SetGate(store, "omatty", gateSteps()); err != nil {
+		t.Fatalf("SetGate() error = %v", err)
+	}
+
+	b, _ := os.ReadFile(path)
+	if strings.Contains(string(b), "profile") {
+		t.Errorf("state file carries a profile key for steps that declared none:\n%s", b)
+	}
+}
+
+// The profile rides through the store as the typed value the overlay reads,
+// beside the kind that says it is worth reading.
+func TestSetGate_persistsTheProfileAStepDeclares(t *testing.T) {
+	store, _ := storeWithProject(t, "omatty")
+	steps := append(gateSteps(), gate.Step{Name: "cov2", Run: "make cov", Kind: "coverage", Profile: "coverage/lcov.info"})
+
+	if err := registry.SetGate(store, "omatty", steps); err != nil {
+		t.Fatalf("SetGate() error = %v", err)
+	}
+
+	st, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	got := st.Projects[0].Gate
+	if last := got[len(got)-1]; last.Profile != "coverage/lcov.info" {
+		t.Errorf("Gate[last] = %+v, want the declared profile", last)
+	}
+}
+
 // Invariant 9: a file written before M9 must load and still relaunch every
 // session. A nil gate is not missing data, it is "not configured yet" - which
 // is exactly what the detector is for - so it needs no migration and no

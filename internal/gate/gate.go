@@ -43,6 +43,17 @@ type Step struct {
 	// is worth reading out of its output for display (#225). It never decides
 	// pass or fail; invariant 12 reserves that to the exit code.
 	Kind string `json:"kind,omitempty"`
+	// Profile is the repo-relative path a coverage step writes its profile to,
+	// declared rather than guessed at read time (#253). Empty means "no
+	// overlay", which is why it is omitempty: an absent profile is derivable,
+	// so state.json stays at version 1 (invariant 9), the argument Kind, Agent
+	// and Base already carry.
+	//
+	// Declared because guessing is the failure #248 punished. Conventional
+	// names collide across ecosystems and disagree within them - .info, .lcov,
+	// .out and .txt all carry both formats - and a rule that is right most of
+	// the time marks the wrong lines the rest, silently.
+	Profile string `json:"profile,omitempty"`
 }
 
 // Verdict is how a step ended.

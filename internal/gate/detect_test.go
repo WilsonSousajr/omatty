@@ -133,6 +133,75 @@ func TestDetect_coverageScript_isProposedAsACoverageStep(t *testing.T) {
 	}
 }
 
+// The profile a coverage step writes is declared, never guessed at read time
+// (#253). Detection proposes the ecosystem's conventional path - a proposal the
+// operator confirms before anything reads it - and proposes nothing at all
+// where omatty could not parse the result anyway.
+func TestDetect_coverageProfile_isTheEcosystemsConvention(t *testing.T) {
+	cases := []struct {
+		name    string
+		marker  string
+		body    string
+		profile string
+	}{
+		{name: "a Go module writes a Go profile", marker: "go.mod", body: "module x\n", profile: "cover.out"},
+		{name: "a Cargo crate writes lcov", marker: "Cargo.toml", body: "[package]\n", profile: "lcov.info"},
+		{name: "a Node package writes lcov under coverage/", marker: "package.json", body: `{"scripts":{"test":"vitest run"}}`, profile: "coverage/lcov.info"},
+		{name: "a Python project declares nothing", marker: "pyproject.toml", body: "[project]\n", profile: ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			root := repoWith(t, map[string]string{
+				c.marker:                    c.body,
+				"scripts/check-coverage.sh": "#!/bin/sh\n",
+			})
+
+			steps := gate.Detect(root)
+
+			last := steps[len(steps)-1]
+			if last.Kind != gate.KindCoverage {
+				t.Fatalf("last step = %+v, want the coverage step", last)
+			}
+			if last.Profile != c.profile {
+				t.Errorf("Profile = %q, want %q", last.Profile, c.profile)
+			}
+		})
+	}
+}
+
+// Python's conventional report is Cobertura XML, which internal/coverage cannot
+// read. Proposing a path omatty would fail to parse is worse than proposing
+// none: an empty profile means "no overlay", which is true, while a wrong one
+// means "an overlay that never arrives" and says nothing about why.
+func TestDetect_pythonProposesNoProfileRatherThanAnUnreadableOne(t *testing.T) {
+	root := repoWith(t, map[string]string{
+		"pyproject.toml":            "[project]\n",
+		"scripts/check-coverage.sh": "#!/bin/sh\n",
+	})
+
+	for _, s := range gate.Detect(root) {
+		if s.Profile != "" {
+			t.Errorf("step %q declared profile %q, want none", s.Name, s.Profile)
+		}
+	}
+}
+
+// Only the coverage step declares a profile. An ordinary step has no output to
+// overlay, and a profile on one would be read by nothing.
+func TestDetect_onlyTheCoverageStepDeclaresAProfile(t *testing.T) {
+	root := repoWith(t, map[string]string{
+		"go.mod":                    "module x\n",
+		".golangci.yml":             "linters:\n",
+		"scripts/check-coverage.sh": "#!/bin/sh\n",
+	})
+
+	for _, s := range gate.Detect(root) {
+		if s.Kind != gate.KindCoverage && s.Profile != "" {
+			t.Errorf("step %q is %q but declared profile %q", s.Name, s.Kind, s.Profile)
+		}
+	}
+}
+
 // THE security property. package.json is repo-controlled: a cloned repository
 // must never get a command of its choosing proposed, let alone run. omatty
 // proposes `npm run test`, a line it composed itself, and npm resolves the
