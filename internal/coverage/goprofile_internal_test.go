@@ -55,7 +55,7 @@ func (e *errReader) Read(p []byte) (int, error) {
 		return 0, errors.New("disk went away")
 	}
 	e.read = true
-	n := copy(p, "mode: set\n")
+	n := copy(p, "mode: set\nTN:\n")
 	return n, nil
 }
 
@@ -80,5 +80,19 @@ func TestParseGo_toleratesATrailingSlashOnTheModulePath(t *testing.T) {
 	}
 	if _, ok := p.Files["a.go"]; !ok {
 		t.Errorf("files = %v, want a.go", p.Files)
+	}
+}
+
+// The lcov reader has the same failed-read contract as the Go one: a record
+// that will not parse is skipped, but a read that dies is an error, because
+// the rest of the profile was never seen.
+func TestParseLCOV_aFailedReadIsAnError(t *testing.T) {
+	_, err := ParseLCOV(&errReader{}, "/repo")
+
+	if err == nil {
+		t.Fatal("ParseLCOV() error = nil, want the read failure surfaced")
+	}
+	if !strings.Contains(err.Error(), "coverage:") {
+		t.Errorf("error = %q, want it to name the package doing the work", err)
 	}
 }
