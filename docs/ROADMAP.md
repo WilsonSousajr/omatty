@@ -29,7 +29,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | — | **Released** | **v0.1.0**, 2026-09-10. All eight promoted to `main` (#134). See "Releases". |
 | M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. On `develop`, unreleased. |
 | M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. On `develop`, unreleased. |
-| M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268. Two follow-ups deliberately left: #267 and #269. |
+| M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. On `develop`, unreleased. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
