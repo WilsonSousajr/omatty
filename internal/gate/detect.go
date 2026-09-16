@@ -28,12 +28,33 @@ import (
 // does not pass and there is no reason to spend a test suite discovering that
 // the tree is unformatted.
 func Detect(root string) []Step {
-	for _, detector := range []func(string) []Step{detectGo, detectCargo, detectNode, detectPython} {
-		if steps := detector(root); steps != nil {
-			return append(steps, coverageStep(root)...)
+	for _, d := range detectors {
+		if steps := d.detect(root); steps != nil {
+			return append(steps, coverageStep(root, d.profile)...)
 		}
 	}
 	return nil
+}
+
+// detectors pairs each ecosystem with the profile path its coverage tooling
+// conventionally writes, so a proposed coverage step can say what it produces
+// (#253).
+//
+// A convention is a fine thing to *propose* - the operator reads it and
+// confirms it, which is the whole posture of this file - and a poor thing to
+// assume at read time, which is why Step.Profile exists at all.
+var detectors = []struct {
+	detect  func(string) []Step
+	profile string
+}{
+	{detectGo, "cover.out"},
+	{detectCargo, "lcov.info"},
+	{detectNode, "coverage/lcov.info"},
+	// Python's conventional report is Cobertura XML, which internal/coverage
+	// does not read. Proposing a path omatty would fail to parse is worse than
+	// proposing none: "no overlay" is true and legible, while a wrong path is
+	// an overlay that never arrives and never says why.
+	{detectPython, ""},
 }
 
 // detectGo proposes the line a Go project almost always has, adding lint only
@@ -129,12 +150,12 @@ func nodeRunner(root string) string {
 // its percentage reaches the card (#225). Last, because it is the most
 // expensive thing in the gate and the least likely to be the reason a change
 // is wrong.
-func coverageStep(root string) []Step {
+func coverageStep(root, profile string) []Step {
 	const script = "scripts/check-coverage.sh"
 	if !exists(root, script) {
 		return nil
 	}
-	return []Step{{Name: "cov", Run: "./" + script, Kind: KindCoverage}}
+	return []Step{{Name: "cov", Run: "./" + script, Kind: KindCoverage, Profile: profile}}
 }
 
 // exists reports whether root holds name.

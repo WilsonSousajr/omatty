@@ -132,6 +132,47 @@ func TestGateCommand_aConfiguredProjectIsShownItsGate(t *testing.T) {
 	}
 }
 
+// What a gate writes is part of what the operator is confirming, so the
+// listing says it beside the step that writes it (#253). A gate is read before
+// it is agreed to, and a path that appears only in state.json would be agreed
+// to unread.
+func TestGateCommand_theListingNamesTheProfileACoverageStepWrites(t *testing.T) {
+	store, _ := gateFixture(t)
+	steps := []gate.Step{
+		{Name: "test", Run: "go test ./..."},
+		{Name: "cov", Run: "./scripts/check-coverage.sh", Kind: gate.KindCoverage, Profile: "cover.out"},
+	}
+	if err := registry.SetGate(store, "omatty", steps); err != nil {
+		t.Fatal(err)
+	}
+
+	out := captureReport(t, func() {
+		if err := gateCommand(store, []string{"omatty"}, strings.NewReader("")); err != nil {
+			t.Fatalf("gateCommand() error = %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "cover.out") {
+		t.Errorf("listing does not name the profile:\n%s", out)
+	}
+	if lines := strings.Split(out, "\n"); !strings.Contains(lineWithText(t, lines, "check-coverage.sh"), "cover.out") {
+		t.Errorf("the profile is not on the coverage step's own line:\n%s", out)
+	}
+}
+
+// lineWithText returns the one line holding want, so an assertion about where
+// something is drawn fails on position rather than on mere presence.
+func lineWithText(t *testing.T, lines []string, want string) string {
+	t.Helper()
+	for _, l := range lines {
+		if strings.Contains(l, want) {
+			return l
+		}
+	}
+	t.Fatalf("no line holds %q", want)
+	return ""
+}
+
 func TestGateCommand_unknownProject_isAnErrorNamingIt(t *testing.T) {
 	store, _ := gateFixture(t)
 
