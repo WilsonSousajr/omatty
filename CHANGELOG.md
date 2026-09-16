@@ -66,9 +66,11 @@ for each milestone and what was deliberately cut.
     false. (#260)
   - **`go mod tidy -diff` and `govulncheck`**, the latter pinned by
     `GOVULN_VERSION`. The first steps of the gate that need the network. (#261)
-  - **A C.R.A.P. gate at 15**, scored per function rather than per repository,
-    because a repo-wide coverage average is where an exported function at 0%
-    hides. (#262)
+  - **A C.R.A.P. gate**, scored per function rather than per repository, because
+    a repo-wide coverage average is where an exported function at 0% hides. It
+    shipped at 15 — the lowest value green at the time, held there by the two
+    untested functions the gate had just found — and ratcheted to **12** once
+    they were tested, with the worst score in the tree then 8.2. (#262, #267)
   - **`scripts/check-deps.sh`** reports afferent and efferent coupling,
     instability, abstractness and distance per package, and fails on an import
     cycle through the *test* graph — which the compiler permits and nothing

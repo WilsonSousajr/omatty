@@ -95,7 +95,7 @@ govulncheck ./...                             # no reachable known vulnerability
 ./scripts/check-deps.sh                       # package coupling; test-graph cycles
 go test ./... -race
 ./scripts/check-coverage.sh 90
-./scripts/check-crap.sh 15                    # per-function complexity x coverage
+./scripts/check-crap.sh 12                    # per-function complexity x coverage
 ```
 
 `go mod tidy -diff` and `govulncheck` are the only steps that need the network.
@@ -146,15 +146,17 @@ not in the gate.
 - **Explicit types.** No `any`/`interface{}` and no `map[string]any` crossing a
   package boundary. Parse untyped input into a struct at the edge, once.
 - **No duplication.** Extract shared logic; `dupl` runs in the lint gate.
-- **C.R.A.P. under 15.** `CC² × (1 − coverage)³ + CC`, scored per function by
+- **C.R.A.P. under 12.** `CC² × (1 − coverage)³ + CC`, scored per function by
   `./scripts/check-crap.sh`. `gocyclo` bounds branches and `gocognit` bounds how
   hard they are to read; neither notices that the branchiest function in the
   file is the one no test reaches. A repo-wide coverage total does not notice
   either - the gate was green at 90% while `watcher.PromptText`, an exported
   function, had nothing testing it at all (#262). The canonical threshold is 30
   and is unreachable here: at the `gocyclo` cap of 10 and this repo's 90%
-  coverage floor the worst possible score is 10.1. Raise coverage or split the
-  function; do not raise the limit.
+  coverage floor the worst possible score is 10.1. It shipped at 15, the lowest
+  value green at the time, and moved to 12 once those two functions were tested
+  (#267) - a ratchet, and the direction it moves in is the only one. Raise
+  coverage or split the function; do not raise the limit.
 - **Early returns.** Maximum 2 levels of indentation inside a function. Nesting
   is what `gocognit` charges for (threshold 15), so this rule is checked, not
   merely asked for: a function that nests instead of returning early scores far
@@ -391,7 +393,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
   | | |
   |---|---|
-  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, `go test -race`, 90% coverage, C.R.A.P. under 15, `go build` — on `ubuntu-latest` and `macos-latest` |
+  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, `go test -race`, 90% coverage, C.R.A.P. under 12, `go build` — on `ubuntu-latest` and `macos-latest` |
   | The real-binary smoke test | Rule 2 in `docs/ROADMAP.md`, run against a scratch `HOME` with `testdata/fake-claude`, **read by a person** |
 
   The gate is the same one every milestone clears, for the same reason: the
