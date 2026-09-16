@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/ui"
@@ -103,5 +104,108 @@ func TestModel_theFlagBlocksNothing_issue257(t *testing.T) {
 	}
 	if strings.Contains(body, "blocked") || strings.Contains(body, "refus") {
 		t.Errorf("the flag reads as a verdict rather than a remark:\n%s", body)
+	}
+}
+
+// The flag carries the only remark M10 makes about a whole diff, and a
+// straight cut from the right took it out at the *default* window size: the
+// review column is 27 cells there, and `diff · 2 files · 0 comments · ⚠ no
+// tests` was drawn as `⚠ no` (#283). So the title gives up whole parts, in a
+// stated order, instead of being cut mid-word.
+//
+// The widths are measured, not guessed: a 100-cell window gives the column 27
+// cells and a 120-cell window gives it 35, less one for the space the header
+// row puts in front of every title.
+func TestModel_theTitleGivesUpPartsInOrder_issue283(t *testing.T) {
+	cases := []struct {
+		name   string
+		window int
+		want   string
+	}{
+		{
+			name:   "room for everything",
+			window: 160,
+			want:   "diff · 1 files · 0 comments · ⚠ no tests",
+		},
+		{
+			name:   "the absence of news goes first",
+			window: 120,
+			want:   "diff · 1 files · ⚠ no tests",
+		},
+		{
+			name:   "then the file count, at the default window",
+			window: 100,
+			want:   "diff · ⚠ no tests",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			m := modelShowingDiff(t, diffOf(map[string][]string{"internal/gate/run.go": {"x := 1"}}))
+			m.Update(tea.WindowSizeMsg{Width: c.window, Height: 30})
+
+			title := lineWith(t, m.View().Content, "diff ·")
+
+			if !strings.Contains(title, c.want) {
+				t.Errorf("at %d columns the title does not read %q:\n%s", c.window, c.want, title)
+			}
+		})
+	}
+}
+
+// Unsent comments are state the operator needs; a file count is context. So
+// when both cannot fit, the file count is the one that goes.
+func TestModel_aNarrowColumnKeepsQueuedCommentsOverTheFileCount_issue283(t *testing.T) {
+	m := modelShowingDiff(t, diffOf(map[string][]string{"internal/gate/run.go": {"x := 1"}}))
+	down(m, 2)
+	typeNote(m, "this one")
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+
+	title := lineWith(t, m.View().Content, "diff ·")
+
+	if !strings.Contains(title, "diff · 1 comments · ⚠ no tests") {
+		t.Errorf("a queued comment was given up before the file count:\n%s", title)
+	}
+}
+
+// Parts are given up to make room for something, never on principle: with the
+// whole title fitting, nothing is dropped and it reads in its documented order.
+func TestModel_aWideColumnGivesUpNothing_issue283(t *testing.T) {
+	m := modelShowingDiff(t, diffOf(map[string][]string{"internal/gate/run.go": {"x := 1"}}))
+
+	title := lineWith(t, m.View().Content, "diff ·")
+
+	if !strings.Contains(title, "diff · 1 files · 0 comments · ⚠ no tests") {
+		t.Errorf("a wide column did not draw the whole title:\n%s", title)
+	}
+}
+
+// The rule is about whole parts, not about the flag: a paired diff too narrow
+// for its counts gives one up rather than being cut mid-word. `diff · 2 files`
+// says something; `0 comment` says nothing and looks like a bug.
+func TestModel_aTitleWithNoFlagIsStillGivenUpInWholeParts_issue283(t *testing.T) {
+	m := modelShowingDiff(t, diffOf(map[string][]string{
+		"internal/gate/run.go":      {"x := 1"},
+		"internal/gate/run_test.go": {"// t"},
+	}))
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	title := lineWith(t, m.View().Content, "diff ·")
+
+	if !strings.Contains(title, "diff · 2 files") || strings.Contains(title, "comment") {
+		t.Errorf("the title was cut mid-word rather than given up whole:\n%s", title)
+	}
+}
+
+// Giving parts up must not buy width back: the row is still exactly the frame.
+func TestModel_theElidedTitleStillFitsItsColumn_issue283(t *testing.T) {
+	m := modelShowingDiff(t, diffOf(map[string][]string{"internal/gate/run.go": {"x := 1"}}))
+	for _, w := range []int{160, 120, 100, 92, 84, 76} {
+		m.Update(tea.WindowSizeMsg{Width: w, Height: 30})
+
+		for i, l := range strings.Split(m.View().Content, "\n") {
+			if got := lipgloss.Width(l); got != w {
+				t.Fatalf("width %d: row %d is %d cells, want %d:\n%s", w, i, got, w, l)
+			}
+		}
 	}
 }
