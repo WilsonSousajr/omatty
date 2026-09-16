@@ -55,7 +55,7 @@ func (m *Model) reviewTitle(width int) string {
 func (m *Model) viewTitle(budget int) string {
 	switch m.review.View {
 	case ViewTree:
-		return "files · " + m.sessionTitle(m.review.SessionID) + m.filterMarker()
+		return m.treeTitle(budget)
 	case ViewPreview:
 		return m.review.Preview.Path
 	case ViewGate:
@@ -63,6 +63,39 @@ func (m *Model) viewTitle(budget int) string {
 	}
 	return joinTitle(m.diffTitleParts(), budget)
 }
+
+// treeTitle is "files · <session> /query", fitted by shortening the session
+// name and, past the point where a name says anything, dropping it (#285).
+//
+// The filter marker never goes, and that is the whole point of the rule. The
+// listing under it is short *because* a filter is in force; a cut marker leaves
+// a filtered tree indistinguishable from a complete one, and nothing else on
+// screen says otherwise. A dropped count is missing information, which the diff
+// title can afford; a dropped marker is misleading, which no title can.
+//
+// The name shrinks rather than being dropped outright because it is a name: a
+// shortened one still identifies the session, where a shortened count says
+// nothing - which is why the diff title gives its parts up whole and this one
+// does not. Deliberately not the same machinery: two different rules, and one
+// mechanism over both would hide which applies where.
+func (m *Model) treeTitle(budget int) string {
+	const head = "files · "
+	marker := m.filterMarker()
+	room := budget - lipgloss.Width(head) - lipgloss.Width(marker)
+	if room < minNameCells {
+		if marker == "" {
+			return strings.TrimSuffix(head, " · ")
+		}
+		return head + strings.TrimSpace(marker)
+	}
+	return head + elideMiddle(m.sessionTitle(m.review.SessionID), room) + marker
+}
+
+// minNameCells is the room below which a shortened session name is not worth
+// the cells: two characters and an ellipsis identify nothing. The session is
+// named by the sidebar cursor and by the pane title beside it either way,
+// which is what makes the name the part that can go.
+const minNameCells = 6
 
 // titlePart is one piece of the diff title and how long it survives a column
 // too narrow to hold everything. Higher survives longer.
