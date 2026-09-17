@@ -57,7 +57,7 @@ func usableDir(dir string) error {
 
 // runStep runs one step, or declines to run it when its tool is absent.
 func runStep(ctx context.Context, dir string, step Step) StepResult {
-	if tool, absent := absentTool(step.Run); absent {
+	if tool, absent := absentTool(step.Run, dir); absent {
 		return StepResult{
 			Step:    step,
 			Verdict: Missing,
@@ -109,13 +109,20 @@ func classify(ctx context.Context, err error) (Verdict, int) {
 // The cost is one tiny process per step, which is nothing beside running a
 // test suite, and it replaces a list of shell builtins that could never be
 // completed - they differ by shell.
-func absentTool(run string) (string, bool) {
+func absentTool(run, dir string) (string, bool) {
 	name := leadingWord(run)
 	if name == "" {
 		return "", false
 	}
 	// `command -v --` so a name beginning with a dash is a name, not a flag.
 	probe := exec.Command("sh", "-c", `command -v -- "$1" > /dev/null 2>&1`, "sh", name)
+	// In the directory the step will run in, not the one omatty was launched
+	// from. A gate line is written relative to the repository it belongs to -
+	// `./scripts/check-coverage.sh` is what Detect itself proposes - so a probe
+	// run anywhere else answers a question nobody asked, and answers it "no"
+	// (#289). Missing also stops the gate, so the invented absence costs every
+	// step after it too.
+	probe.Dir = dir
 	if probe.Run() != nil {
 		return name, true
 	}
