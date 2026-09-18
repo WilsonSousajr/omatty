@@ -336,7 +336,8 @@ recommendation with the most external evidence behind it.
 **R4. Put PR and CI state on the session card.** The field asks for the remote
 verdict (Orca #18484/#18485/#18487); fleet ships it; omatty has only the local
 one. The two are complements. This is verification, not orchestration, so it
-passes invariant 12 without argument — unlike Orca #10131, which does not.
+clears "Not on the roadmap"'s anti-orchestrator line without argument —
+unlike Orca #10131, which does not.
 
 **R5. Give the review pane a notion of *since when*.** Orca #11840 asks for
 "changes this turn" / "since my last review", backed by a ref. omatty shows

@@ -42,11 +42,11 @@ missing is the gate being wrong about the code.
 | claude-squad | literal English UI strings in a captured tmux pane | 10 of 133 issues, including the tracker's most-discussed (#51, 18 comments) |
 | ccmanager | regex over Claude Code's drawn prompt box | #227 "State detection shows idle when Claude Code is busy" |
 | fleet | **hooks** | one status bug (#220), and only on Codex, whose hook set is incomplete |
-| omatty | hooks + transcript (invariant 3) | — |
+| omatty | hooks + transcript (invariant 2) | — |
 
 The correlation is clean enough to state plainly: the two projects that read
 the screen have a permanent bug class, and the one that reads hooks has an
-incident. Invariant 3 was argued from first principles in M2 with nothing to
+incident. Invariant 2 was argued from first principles in M2 with nothing to
 point at. It now has three projects' trackers behind it, and `comparison.md`
 (#301) should say so in one sentence with the issue numbers, because it is the
 rare competitive claim that is verifiable by a reader in thirty seconds.
@@ -73,7 +73,7 @@ field wants that omatty's thesis endorses without qualification: it is
 verification, not orchestration.
 
 The line to hold is Orca **#10131**, "auto-run agents when PR checks fail".
-That is the orchestrator move, refused by invariant 12, and it sits one step
+That is the orchestrator move, refused in "Not on the roadmap", and it sits one step
 past #233's auto-run. Worth citing by number in "Not on the roadmap" as a live
 example of the drift, rather than as a hypothetical.
 

@@ -103,7 +103,7 @@ The pane-capture bugs are fixed one symptom at a time — a retry here, a
 version check there — rather than by moving status off the screen, because
 moving it off the screen means not using tmux, which is the project's
 foundation. The architecture is load-bearing and the bug class is therefore
-permanent. This is the clearest illustration in the pass of why invariant 3
+permanent. This is the clearest illustration in the pass of why invariant 2
 is an invariant and not a preference.
 
 ## Do-not-repeat lessons for omatty
