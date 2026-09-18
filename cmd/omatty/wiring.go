@@ -128,6 +128,7 @@ func withStoreDeps(
 // removal (#40, #41, #159).
 func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui.RunDeps {
 	deps.Rename = sessionRenamer(store)
+	deps.RenameBranch = branchRenamer(store, vcs.NewCLI())
 	deps.Archive = sessionArchiver(store)
 	deps.RemoveWorktree = git.RemoveWorktree
 	deps.RemoveProject = projectRemover(store)
@@ -228,6 +229,15 @@ func sessionRenamer(store *registry.Store) ui.RenameFunc {
 	}
 }
 
+// branchRenamer adapts registry.RenameSessionBranch to ui.BranchRenameFunc, so
+// the model can name a worktree's branch without holding the store or git
+// (#151) - the shape sessionRenamer already has.
+func branchRenamer(store *registry.Store, git vcs.Git) ui.BranchRenameFunc {
+	return func(sess registry.Session, branch string, unstartedOnly bool) (bool, error) {
+		return registry.RenameSessionBranch(store, git, sess, branch, unstartedOnly)
+	}
+}
+
 // sessionArchiver adapts registry.RemoveSession to ui.ArchiveFunc, returning
 // the row that was actually removed.
 //
@@ -287,9 +297,12 @@ func creatorOpts(cfg config.Config) registry.CreatorOpts {
 // factory inside the running program, which M2 wires up along with status.
 func sessionCreator(cfg config.Config, store *registry.Store) ui.CreateFunc {
 	c := registry.NewCreator(vcs.NewCLI(), creatorOpts(cfg), uuid.NewString)
-	return func(project, title, branch string) (registry.Session, error) {
+	return func(project, title, branch string, worktree bool) (registry.Session, error) {
 		if project == "" {
 			return registry.Session{}, fmt.Errorf("no project selected; run `omatty add <dir>` first")
+		}
+		if worktree {
+			return registry.AddWorktreeSession(store, c, project, title, branch)
 		}
 		return registry.AddSession(store, c, project, title, branch)
 	}

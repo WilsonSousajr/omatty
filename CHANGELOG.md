@@ -75,6 +75,19 @@ for each milestone and what was deliberately cut.
     `(binary)`. The header no longer pans with the body, since it now fits
     where it is. (#291)
 
+- **`ctrl+o N` stops asking for a branch name.** It was the last prompt that
+  demanded a string before anything could start, because `git worktree add -b`
+  runs at creation and bakes the name into a directory and into `state.json`.
+  The worktree is now created on a placeholder named after the session —
+  `omatty-2501d6b4` — and the session's first prompt renames it, the way that
+  prompt already names the session: `fix-the-horizontal-wheel-pan`. Only while
+  the branch has nothing committed to it; after the first commit the name is in
+  a history you may have pushed, and `ctrl+o B` renames it by hand. The
+  worktree's *directory* keeps its original name whichever way — Claude is
+  running in it, and its transcript path is derived from it. A branch you do
+  type is now passed through the same `registry.Slug` filter model output has
+  always had, which it never was. (#151, #127)
+
 - **`ctrl+o m` hands the mouse back to your terminal.** #107 asked the host for
   mouse reporting and never added a way to stop asking, so `?1002h` was held
   from a session's first frame to its last and the terminal could never make a

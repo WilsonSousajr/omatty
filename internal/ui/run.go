@@ -86,7 +86,9 @@ type RunDeps struct {
 	// Rename persists a session's new title (#41); Name reads the first prompt
 	// that titles a session created without one (#127).
 	Rename RenameFunc
-	Name   NameFunc
+	// RenameBranch names a worktree's branch from its first prompt (#151).
+	RenameBranch BranchRenameFunc
+	Name         NameFunc
 	// ModelName is the opt-in headless naming call, nil when off (#127).
 	ModelName ModelNameFunc
 	// Archive drops a session from the registry and RemoveWorktree deletes its
@@ -150,7 +152,7 @@ func modelFor(
 ) *Model {
 	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
-		Diff: d.Diff, Files: d.Files, Stat: d.Stat, Rename: d.Rename, Name: d.Name, ModelName: d.ModelName,
+		Diff: d.Diff, Files: d.Files, Stat: d.Stat, Rename: d.Rename, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,

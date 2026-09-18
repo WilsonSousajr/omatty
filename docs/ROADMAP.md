@@ -569,12 +569,21 @@ what M7 left.
   "Releases" below and AGENTS.md; `main` is protected; the merge commit is
   tagged. `omatty --version` came with it, so the tag names something the
   binary can report.
-- **#151 - name the worktree branch (#127 step 3).** `ctrl+o N` still demands
-  a name because `git worktree add -b` bakes it into a directory and into
-  `state.json`. Either a placeholder branch (`omatty/<date>-<n>`) renamed only
-  while it has no commits, or keep asking for this one string. It must use
-  `registry.Slug`, the same filter step 2 applies to model output, never a
-  looser one.
+- **#151 - name the worktree branch (#127 step 3).** Done 2026-09-18. The
+  placeholder shape, not the keep-asking one. `ctrl+o N` creates the worktree
+  on `omatty-<first 8 of the uuid>` and the session's first prompt renames it,
+  only while the branch has nothing committed to it; `ctrl+o B` renames one by
+  hand. Two deliberate departures from the sketch above, both written up in the
+  PR. The placeholder carries no slash and no date counter: `registry.Slug`
+  forbids `/` and `paths.WorktreeDir` joins the branch into a path, and a
+  counter would collide with a branch an archived session left behind, while
+  the uuid is unique by construction and - like `PlaceholderTitle` -
+  recomputable from `state.json` alone, which is what lets a relaunched session
+  still know its branch is provisional (invariant 9). And the worktree
+  *directory* does not move: `git worktree move` would change the cwd of a
+  running claude and the transcript path derived from it, which is #60. Dir and
+  Branch have always been stored separately, so they were never required to
+  agree. A typed branch now passes `registry.Slug` too, which it never did.
 - **#152 - a second agent profile, Codex first.** #46 built the seam with
   claude as its only entry; the roadmap's original promise was Codex and
   opencode. Each is one file in `internal/agent`: a command template, a
@@ -584,6 +593,29 @@ what M7 left.
   so an agent with a different settings schema needs a file per profile; and
   discovery and adoption read claude's store only, so adopting another agent's
   sessions is its own issue.
+
+  Half-spiked 2026-09-18 against 55 real rollouts under `~/.codex/sessions/`,
+  recorded on the issue so nobody repeats it. The transcript is
+  `~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<ISO8601>-<uuid>.jsonl`, whose
+  `session_meta.payload.id` is the uuid - but the date directories and the
+  timestamp prefix are not known in advance, so `Profile.TranscriptPath` cannot
+  be the pure join `paths.Transcript` is and the seam needs a scan. The
+  envelope is `{timestamp, type, payload}`; `event_msg/task_started` and
+  `task_complete` pair exactly and are the busy/idle signal, `user_message`
+  carries the prompt and `token_count` the meter. One functional gap to write
+  down before building: `DeriveKind` can never report `PermissionRequested`
+  from a transcript, and Codex has no hook mechanism, so a Codex session can
+  never show "waiting for you". What is still unknown is the half that blocks
+  it - whether `codex` accepts an externally assigned session id at all, which
+  omatty's whole architecture rests on, and which flag resumes one. That needs
+  the real binary, which was not on the machine.
+
+- **#217 - the mouse is captured for the whole session.** Done 2026-09-18.
+  #107 asked the host for mouse reporting and never added a way to stop
+  asking, so `?1002h` was held from a session's first frame to its last and the
+  terminal could never select text. `ctrl+o m` hands it back, the header says
+  `mouse off` while it is handed back, and the modifier-drag stays the quick
+  answer for one selection.
 - **#153 and #154 - the rest of #128.** Both done 2026-09-08. The token
   meter (PR #163) is in the focused pane's rule, the operator's call on
   screen: `▰▰▰▰▰▰▱▱ 80% cached`, cache-read over everything the prompt was

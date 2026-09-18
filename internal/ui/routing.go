@@ -194,11 +194,10 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 	// test and by no unit test - they send the legacy spelling. Rename carried
 	// the same gap, and a comment asserting the opposite of the one three lines
 	// below it (#87, #103, #122).
+	if m.renameCommand(key) {
+		return nil
+	}
 	switch key {
-	case "shift+r", "shift+R", "R":
-		// Lower-case r is restart, so a missed spelling here is silent: it
-		// restarts nothing rather than failing to rename.
-		m.openRename()
 	case "x":
 		m.openConfirm()
 	case "/":
@@ -213,4 +212,25 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 		m.openModal(modal{Kind: modalHelp})
 	}
 	return nil
+}
+
+// renameCommand opens one of the two rename boxes and reports whether the key
+// was one of them. Split off modalCommand for the reason that table was split
+// off navigate: #151's second rename key pushed it past the length limit, and
+// the two belong together - one names a session, the other names the branch it
+// is on.
+func (m *Model) renameCommand(key string) bool {
+	switch key {
+	case "shift+r", "shift+R", "R":
+		// Lower-case r is restart, so a missed spelling here is silent: it
+		// restarts nothing rather than failing to rename.
+		m.openRename()
+	case "shift+b", "shift+B", "B":
+		// The branch rather than the title: a worktree's branch is a name git
+		// and the filesystem hold too, so it gets a key of its own (#151).
+		m.openBranchRename()
+	default:
+		return false
+	}
+	return true
 }

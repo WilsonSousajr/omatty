@@ -61,15 +61,16 @@ func (m *Model) relaunch(sess registry.Session) tea.Cmd {
 // nameless branch. A plain prompt may be blank; the creator registers a
 // placeholder title and the first prompt names the session (#127).
 func (m *Model) submitPrompt() tea.Cmd {
+	worktree := m.modal.Editor.Worktree
 	branch := ""
-	if m.modal.Editor.Worktree {
+	if worktree {
 		branch = m.modal.Editor.Buffer
 	}
 	m.lastErr = ""
 	project := m.SelectedProject()
 	title := m.modal.Editor.Buffer
 	m.modal = modal{}
-	cmd, err := m.addSession(project, title, branch)
+	cmd, err := m.addSession(project, title, branch, worktree)
 	if err != nil {
 		slog.Error("creating session",
 			"project", project, "title", title, "branch", branch, "err", err)
@@ -83,8 +84,8 @@ func (m *Model) submitPrompt() tea.Cmd {
 // sidebar so it is visible and focused immediately (issue #32). A session
 // whose terminal will not start is not added: it would be a row you cannot
 // focus.
-func (m *Model) addSession(project, title, branch string) (tea.Cmd, error) {
-	sess, err := m.create(project, title, branch)
+func (m *Model) addSession(project, title, branch string, worktree bool) (tea.Cmd, error) {
+	sess, err := m.create(project, title, branch, worktree)
 	if err != nil {
 		return nil, err
 	}

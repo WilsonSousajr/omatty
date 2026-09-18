@@ -17,6 +17,12 @@ import (
 // worktree resolves to its parent, anything else in repos resolves to itself,
 // and everything else is not a repository. A named type, per AGENTS.md.
 type FakeGit struct {
+	// RenamedFrom and RenamedTo record a branch rename (#151), Commits is
+	// what CommitsOnBranch reports.
+	RenamedFrom, RenamedTo string
+	RenameErr              error
+	Commits                int
+	CommitsErr             error
 	// Repos are directories that are main checkouts.
 	Repos map[string]bool
 	// Worktrees maps a linked worktree to the repository it belongs to.
@@ -302,4 +308,17 @@ func TestPropose_EmptyStoreIsNotAnError(t *testing.T) {
 	if len(got) != 0 {
 		t.Errorf("candidates = %+v, want none", got)
 	}
+}
+
+// RenameBranch records the rename #151 asks for; git's own behaviour is
+// proved against the real binary in internal/vcs.
+func (f *FakeGit) RenameBranch(_, old, name string) error {
+	f.RenamedFrom, f.RenamedTo = old, name
+	return f.RenameErr
+}
+
+// CommitsOnBranch reports what the test set: zero is a branch nobody has
+// committed to, which is the only one #151 renames.
+func (f *FakeGit) CommitsOnBranch(string, string, string) (int, error) {
+	return f.Commits, f.CommitsErr
 }
