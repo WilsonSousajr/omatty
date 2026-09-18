@@ -48,7 +48,7 @@ dismisses it.
 
 This is the same class of dependency as ccmanager's box-drawing regex and a
 step more fragile: it breaks on a copy edit, and it breaks for any user whose
-agent is not running in English. Together, the two projects make invariant 3's
+agent is not running in English. Together, the two projects make invariant 2's
 case better than the invariant's own prose does — the field's two most popular
 terminal managers both read the screen, and both are one upstream string
 change from being wrong.

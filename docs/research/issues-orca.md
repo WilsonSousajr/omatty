@@ -60,7 +60,7 @@ Two honest readings, and #300 has to pick:
   (`internal/github/pr.go`) — and omatty has no answer to it at all.
 
 Both readings can be true, and #10131 is where they part: "auto-run agents when
-PR checks fail" is the orchestrator move, refused by invariant 12. omatty's
+PR checks fail" is the orchestrator move, refused in "Not on the roadmap". omatty's
 `S` sends failures into the session **when a person presses it**, and #233's
 auto-run gates a session when its turn ends without sending anything. The line
 between those and #10131 is exactly the line "Not on the roadmap" draws, and it

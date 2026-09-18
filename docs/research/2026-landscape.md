@@ -8,9 +8,8 @@
 > re-runs rather than re-invents it.
 >
 > **Analysis only.** No implementation decision is made in this file, and no
-> recommendation below binds the roadmap. Sections 4-6 — developments,
-> `R1..Rn` recommendations, and sources — are #298. What omatty should *do*
-> about any of it is decided in `docs/ROADMAP.md`, in the open.
+> recommendation in §5 binds the roadmap. What omatty should *do* about any of
+> it is decided in `docs/ROADMAP.md`, in the open.
 
 ## Why this document exists
 
@@ -261,6 +260,141 @@ It is one README-level observation, not a finished argument — trackers may sho
 users asking for it (#297), and absence from a README is not absence from a
 product. #300 decides what it is worth.
 
+## 4. Developments worth knowing
+
+Four things changed, or became visible, between v0.1.0 shipping on 2026-09-10
+and this capture on 2026-09-18. They are listed in the order they should worry
+anyone.
+
+### 4.1 The first party shipped the category's core
+
+§3.1 has the quotations. Restated as the thing it is: `claude agents` gives a
+terminal screen of parallel sessions with their state, each in its own git
+worktree under `.claude/worktrees/`, in research preview, from the vendor of
+the agent omatty embeds.
+
+That is M1's skeleton and M2's status, first-party and free. Every roadmap
+argument written before 2026-09-18 assumed that square was empty, and none of
+them is void — omatty still runs the real binary interactively in a pane you
+type into, across several repositories, with a gate on the card — but the
+*reason to exist* can no longer be "watch several sessions at once". It has to
+be the part agent view does not do, and that part has to be said out loud in
+`README.md` (#301).
+
+The honest read is that this is good news for the thesis and bad news for the
+pitch. M9 already bet that parallelism is not the scarce thing; the first party
+commoditising parallelism is that bet paying off. What it costs is the sentence
+omatty currently opens with.
+
+### 4.2 Orca took the noun
+
+`stablyai/orca` — 71,802 stars in six months, YC-backed, topic `ade` — calls
+itself "the ADE for working with a fleet of parallel agents". `README.md`'s
+first line is "A terminal ADE". Whatever omatty does about this, it should do
+it knowingly: the word now points somewhere else for most people who hear it.
+
+### 4.3 The camp consolidated while the reference implementation went quiet
+
+claude-squad, the project that defined this shape, last committed 2026-08-20
+and has three open requests for multi-repository support it has not taken.
+ccmanager shipped multi-project mode. fleet shipped hooks-based status, PR
+state and worktree file carrying, in Go, at 53 stars. Crystal renamed itself
+Nimbalyst and kept going. Nothing in the camp is dying, and nothing in it is
+where the field's attention is: vibe-kanban alone outweighs the whole camp
+three times over.
+
+### 4.4 The review loop stopped being unusual
+
+Orca annotates diff lines and ships the comments back; vibe-kanban leaves
+inline comments and sends them to the agent; Nimbalyst steps through red/green
+edits. M3 shipped in a field where this was rare and now sits in one where it
+is table stakes. What is *not* table stakes, per #296, is surviving the file
+changing underneath — and per §3.2, nobody at all runs the project's check
+line per session.
+
+## 5. What this means for omatty
+
+Numbered so #299, #300 and #301 can cite them. Each is a recommendation, and a
+recommendation here is an input to the roadmap, not a decision in it.
+
+**R1. Rewrite `README.md`'s opening claim, and do it from evidence.** "Every
+other tool in this space is either a desktop app or scoped to a single
+repository" is false (ccmanager, fleet). "A terminal ADE" now collides with
+Orca. The replacement should say what agent view and the camp do *not* do:
+the real binary interactively in a pane, several repositories at once, a
+project's own gate on the card, comments that survive the file changing.
+Owner: #300 verifies, #301 writes.
+
+**R2. Source or drop M9's "roughly a hundred and fifty".** §2 gives the queries
+and the dates. The qualitative claim stands without the number.
+
+**R3. Treat "a fresh worktree you can actually run" as a first-class feature.**
+Four independent requests across three competitors, two shipped
+implementations, no omatty answer. See `issues-synthesis.md` §1. This is the
+recommendation with the most external evidence behind it.
+
+**R4. Put PR and CI state on the session card.** The field asks for the remote
+verdict (Orca #18484/#18485/#18487); fleet ships it; omatty has only the local
+one. The two are complements. This is verification, not orchestration, so it
+clears "Not on the roadmap"'s anti-orchestrator line without argument —
+unlike Orca #10131, which does not.
+
+**R5. Give the review pane a notion of *since when*.** Orca #11840 asks for
+"changes this turn" / "since my last review", backed by a ref. omatty shows
+everything a session changed. For a tool whose whole claim is time-to-judgement
+this is a gap in the thesis itself, not a nice-to-have.
+
+**R6. Carry the anchoring difference into the pitch, narrowly.** #296 verified
+that Orca flags a stale note and omatty re-resolves it. That is one property,
+it is real, and it is the kind of specific claim a reader can check. Do not
+inflate it into "our review is better".
+
+**R7. Amend #152 with fleet's Codex hooks, and plan for their incompleteness.**
+`internal/hooks/codex_hooks.go` shows `PermissionRequest` is obtainable at
+`~/.codex/hooks.json`; fleet #220 shows a partial hook set leaves a session
+confidently wrong. Both belong on the issue. *(Done 2026-09-18 — the correction
+is posted on #152.)*
+
+**R8. Cite the field in the refusals rather than reasoning alone.** "Not on the
+roadmap" argues every refusal from first principles. Three of them now have
+live examples: `--autoyes` (claude-squad #222, #151, and ccmanager's public
+objection to it), agent-to-agent messaging (`fleet skill install`), and
+CI-triggered agent runs (Orca #10131). A refusal that names what it is refusing
+is harder to re-open by accident.
+
+**R9. Do not widen the surface.** ccmanager has four open issues at 1,246
+stars because it does one thing; Orca has 3,036 at 71,802 because it does
+everything. M12's output should be R3, R4 and R5 — all inside the thesis — and
+should refuse the rest on the record.
+
+## 6. Sources
+
+All read 2026-09-18.
+
+**Primary repositories** (default branch, cloned or read via the GitHub API):
+`stablyai/orca`, `kbwo/ccmanager`, `smtg-ai/claude-squad`, `brizzai/fleet`,
+`nimbalyst/nimbalyst`, `stravu/crystal`, `BloopAI/vibe-kanban`,
+`dagger/container-use`, `imbue-ai/sculptor`, `ykdojo/safeclaw`,
+`devflowinc/uzi`, `akitaonrails/ai-jail`, `jesseduffield/lazygit`,
+`dandavison/delta`, `Wilfred/difftastic`.
+
+**GitHub API** for every number in §2 and the field-size probes: `repos/{r}`,
+`repos/{r}/releases/latest`, `search/issues`, `search/repositories`.
+
+**Anthropic documentation** for §3.1: `code.claude.com/docs/en/overview` and
+`code.claude.com/docs/en/agent-view`.
+
+**Method** — the six-artifact shape, the evidence rules, and the separation of
+research from decision — is adapted from `akitaonrails/ai-memory`'s
+`docs/research-2026-landscape.md`, `docs/comparison.md`,
+`docs/competitive-parity.md`, `docs/prior-art-implementation-findings.md` and
+its `docs/issues-*.md` set, read 2026-09-18.
+
+**Not used as sources**, and named so the next pass does not mistake them for
+any: `abralo.com/alternatives`, `runpane.com/alternatives/claude-squad`,
+`nimbalyst.com/blog/*`, `codeagentswarm.com/guides/*`, `munderdiffl.in/blog/*`.
+Each is published by a vendor that appears in its own ranking.
+
 ## Reproducing the table
 
 ```bash
@@ -282,6 +416,6 @@ in the header when you do, and say in the same commit what moved.
 
 ---
 
-Sections 4 (developments), 5 (`R1..Rn` recommendations) and 6 (sources) are
-#298. The per-project deep dives are #296, tracker mining is #297, and the
-audit of all of it against our own code is #299.
+The per-project deep dives are #296, tracker mining is #297 and
+`issues-synthesis.md`, and the audit of all of it against our own code is
+#299. What omatty *does* about §5 is #301's, in `docs/ROADMAP.md`.

@@ -65,7 +65,7 @@ differently, and the failure is the argument:
   which is a documented interface, and it degrades to transcript-only rather
   than to nothing.
 
-This is the single most useful finding in the deep-dive pass. Invariant 3's
+This is the single most useful finding in the deep-dive pass. Invariant 2's
 "never scraped from the screen" was argued from first principles in M2; there
 is now a shipped, popular, well-built counter-example to point at, and it
 spells out exactly what the rule buys.
@@ -96,8 +96,8 @@ owes it a correction rather than a defence.
 - **Devcontainer integration**, and an experimental auto-approval that uses a
   second model to judge whether a prompt is safe. The latter is refused
   territory for omatty — it is "sending something without being asked" in
-  everything but name — and belongs in "Ideas Not To Copy" with invariant 12
-  named.
+  everything but name — and belongs in "Ideas Not To Copy" with the refusal it
+  breaks named: "sending anything without being asked".
 
 ## 6. Weaknesses to avoid
 

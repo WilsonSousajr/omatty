@@ -21,7 +21,7 @@ differently, or a version that changes the frame all produce a wrong state.
 
 **Read this next to claude-squad's §A.** The two most popular terminal session
 managers in the field pick different screen-scraping mechanisms and get the
-same bug class. omatty's invariant 3 — status from hooks and the transcript,
+same bug class. omatty's invariant 2 — status from JSONL and hooks,
 "never scraped from the screen" — was argued from first principles in M2 with
 no examples to point at. It now has two.
 
@@ -73,7 +73,7 @@ Stronger guarantee, hard dependency.
 
 The cost of the multi-agent seam: each agent CLI grabs the terminal
 differently and the manager's own escape key has to survive it. omatty has one
-and a half agents and a single `ctrl+o` leader (invariant 2); #152 should read
+and a half agents and a single `ctrl+o` leader (invariant 1); #152 should read
 these two issues before adding the second profile, because they are what the
 seam actually costs at eight.
 

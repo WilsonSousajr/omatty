@@ -152,7 +152,7 @@ diffs; it does not judge them.
   field. #297 reads that tracker; a number alone is not a verdict.
 - Electron, a mobile app, a cloud story and an SSH remote in six months is a
   surface area omatty could not staff, and — more to the point — could not
-  hold to invariant 12.
+  hold to the line "Not on the roadmap" draws.
 
 ## 7. Bottom line
 
