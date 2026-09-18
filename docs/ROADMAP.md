@@ -1031,7 +1031,9 @@ and the research deliberately stops before deciding their shape:
   orchestration - the card reports a verdict someone else computed and acts on
   nothing.
 - **#311 a review scoped to *since when*.** Orca #11840 asks for "changes this
-  turn" / "since my last review", backed by a ref. omatty shows everything a
+  turn" / "since my last review", backed by "a refs/orca baseline snapped at
+  agent turn boundaries" - a mechanism omatty has the parts for, since the
+  `Stop` hook already marks the boundary. omatty shows everything a
   session changed, so a reviewer re-reads three turns on the third turn. This
   is the only gap the pass found *in the thesis itself*.
 
