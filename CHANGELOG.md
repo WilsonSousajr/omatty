@@ -65,6 +65,15 @@ for each milestone and what was deliberately cut.
     what says which file is on screen and its directories are context:
     `…/lifecycle/restart.go`. The `…/` is part of the answer — `lifecycle/…`
     alone would read as a complete repo-relative path. (#287)
+  - The **diff's file header fits itself too**, by a fourth rule, because its
+    parts rank differently again: the `N uncovered` count is never given up —
+    it is the finding, and it was the first thing a narrow column cut — the
+    path shortens from the front as the preview title does, and `+13 -0` goes
+    last, only when keeping it would cost the filename. At the default window
+    `internal/paths/scratch.go +13 -0  5 uncovered` reads `scratch.go  5
+    uncovered`. A rename shortens both names and a binary keeps its
+    `(binary)`. The header no longer pans with the body, since it now fits
+    where it is. (#291)
 
 - **M11 — The Harness.** The gate stops trusting prose. Three rules this
   repository had written down and nothing checked are now steps that fail, and

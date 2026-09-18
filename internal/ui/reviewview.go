@@ -273,21 +273,35 @@ func (m *Model) renderEntries(w, rows int) []string {
 
 // renderEntry draws one row; the cursor row is reversed.
 func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []review.Comment) string {
-	text := m.fitContent(m.entryText(e, comments), w)
+	text := m.fitRow(e, comments, w)
 	if cursor {
 		return cursorStyle.Render(text)
 	}
 	return entryStyle(e, m.review.Diff).Render(text)
 }
 
-// entryText is the plain text of a row before styling.
+// fitRow draws one row into the column. A file header fits itself and stays
+// put; every other row is panned and then cut (#291).
+//
+// The header does not pan because it is a header: pan.go says why the titles
+// keep a plain fitLine, and a header that slides sideways with the body reads
+// as a broken frame. Once it fits itself there is nothing behind it to reveal,
+// and panning would slide the count off the left instead of the right.
+func (m *Model) fitRow(e review.Entry, comments []review.Comment, w int) string {
+	if e.Kind == review.EntryFile {
+		fi := e.Pos.File
+		return fitLine(fileHeading(m.review.Diff.Files[fi], m.uncoveredNote(fi), w), w)
+	}
+	return m.fitContent(m.entryText(e, comments), w)
+}
+
+// entryText is the plain text of a panned row before styling. A file header is
+// not one of them: it fits itself, in fileheader.go.
 //
 // A method since #255: what a row says now depends on the coverage overlay the
 // session's last gate loaded, and the overlay is the model's.
 func (m *Model) entryText(e review.Entry, comments []review.Comment) string {
 	switch e.Kind {
-	case review.EntryFile:
-		return m.fileHeading(e.Pos.File)
 	case review.EntryHunk:
 		return expandTabs(e.Text)
 	case review.EntryComment:
@@ -355,22 +369,6 @@ func signPrefix(k review.LineKind) string {
 		return "-"
 	}
 	return " "
-}
-
-// fileHeading is "path +a -b", with both names for a rename, a note for a
-// binary whose lines nobody can read, and the count of added lines no test
-// covers - so a long diff says where to look without being scrolled (#255).
-func (m *Model) fileHeading(fi int) string {
-	f := m.review.Diff.Files[fi]
-	name := f.Path
-	if f.Status == review.FileRenamed {
-		name = f.OldPath + " → " + f.Path
-	}
-	if f.Binary {
-		return name + " (binary)"
-	}
-	a, r := f.Counts()
-	return fmt.Sprintf("%s +%d -%d%s", name, a, r, m.uncoveredNote(fi))
 }
 
 // uncoveredNote counts what the markers under this header will say, and says

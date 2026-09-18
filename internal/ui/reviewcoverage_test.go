@@ -137,3 +137,67 @@ func rowsOf(t *testing.T, m *ui.Model, needles ...string) string {
 	}
 	return strings.Join(out, "\n")
 }
+
+// The count is the finding, so it is the last part of the header to be given
+// up - and it used to be the first. At 120 columns the row ended "+2 -1  1"
+// and at 140 "1 uncover", a fragment that reads as part of the diffstat
+// rather than as a count of anything (#291).
+func TestModel_aNarrowColumnKeepsTheUncoveredCountWhole_issue291(t *testing.T) {
+	m := modelWithOverlay(t, overlayProfile)
+
+	for _, w := range []int{160, 140, 120, 100, 92, 84, 80} {
+		m.Update(tea.WindowSizeMsg{Width: w, Height: 30})
+		got := lineWith(t, m.View().Content, "model.go")
+		if !strings.Contains(got, "1 uncovered") {
+			t.Errorf("at %d columns the file header is %q, want the count present and whole", w, got)
+		}
+	}
+}
+
+// The path is what shortens instead, from the front, so the filename - the
+// part that says which file this is - survives every width (#287, #291).
+func TestModel_aNarrowFileHeaderShortensThePathFromTheFront_issue291(t *testing.T) {
+	m := modelWithOverlay(t, overlayProfile)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+
+	got := lineWith(t, m.View().Content, "model.go")
+	if !strings.Contains(got, "…/model.go") {
+		t.Errorf("file header = %q, want the path shortened from the front with the marker", got)
+	}
+	if strings.Contains(got, "+2 -1") {
+		t.Errorf("file header = %q, want the diffstat given up before the count", got)
+	}
+}
+
+// Every drawn row is still exactly the window at every width the header has to
+// fit itself in. A rule that keeps a part by growing the row would trade one
+// bug for a worse one (#174, #291).
+func TestModel_theFileHeaderNeverRunsPastItsColumn_issue291(t *testing.T) {
+	m := modelWithOverlay(t, overlayProfile)
+
+	for _, w := range []int{160, 140, 120, 100, 92, 84, 80} {
+		m.Update(tea.WindowSizeMsg{Width: w, Height: 30})
+		assertFrameIs(t, m, w, 30)
+	}
+}
+
+// The header fits itself, so it no longer pans with the body: panning the
+// column leaves it where it is, whole, instead of sliding the count off the
+// left-hand edge (#291).
+func TestModel_panningTheDiffLeavesTheFileHeaderInPlace_issue291(t *testing.T) {
+	m := modelWithOverlay(t, overlayProfile)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	viewBefore := m.View().Content
+	before := lineWith(t, viewBefore, "model.go")
+
+	for range 4 {
+		press(m, key('l'))
+	}
+
+	if m.View().Content == viewBefore {
+		t.Fatal("the column never panned, so the header staying put proves nothing")
+	}
+	if after := lineWith(t, m.View().Content, "model.go"); after != before {
+		t.Errorf("the file header moved when the column panned:\nbefore %q\nafter  %q", before, after)
+	}
+}
