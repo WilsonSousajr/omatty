@@ -30,6 +30,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. On `develop`, unreleased. |
 | M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. On `develop`, unreleased. |
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. On `develop`, unreleased. |
+| M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. What it found is below; what it produced is #309-#311. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -960,6 +961,97 @@ in a hurry to make it.
 |---|---|---|
 | v0.1.0 | 2026-09-10 | M1-M8, all eight milestones. 307 commits. (#134) |
 
+## M12 - The Field
+
+**Delivers:** an answer to the question the first eleven milestones assumed.
+`README.md` claimed that "every other tool in this space is either a desktop
+app or scoped to a single repository". M9's thesis put omatty in "a field of
+roughly a hundred and fifty agent orchestrators". Seven features were refused
+in "Not on the roadmap" against a field this repository never named. Nothing
+here had ever been checked against a live page.
+
+**Why this and not something else.** Every refusal above is worth exactly the
+evidence behind it, and there was none. The method is `akitaonrails/ai-memory`'s
+- the same artifact set one project-stage later: a dated landscape survey,
+per-competitor deep dives, tracker mining, a prior-art ledger, a self-critical
+parity audit, and a public comparison. Its rules came with it: every
+load-bearing claim checked against a live primary page rather than remembered,
+vendor "alternatives" pages refused as sources and named, and research
+documents that make no implementation decisions - the roadmap makes those, in
+the open, which is this section.
+
+**The research, in eight slices**, one issue and one PR each: #295 and #298 the
+field inventory and its `R1-R9` recommendations, #296 four deep dives read at
+code level, #297 five tracker minings, #299 the ledger at P0/P1/P2, #300 the
+parity audit, #301 `docs/comparison.md` and this section, #302 the method
+captured as a skill. All of it is in `docs/research/`, captured 2026-09-18.
+
+**What it found, and none of it was expected:**
+
+- **The first party shipped the category's core.** `claude agents`, in research
+  preview, is "one screen for all your background sessions", each isolated
+  "into an isolated git worktree under `.claude/worktrees/`". That is M1's
+  skeleton and M2's status, free and in the box. It is M9's bet paying off -
+  parallelism was never the scarce thing - and it cost the sentence `README.md`
+  opened with, which #301 rewrote.
+- **`README.md`'s field claim was false.** `kbwo/ccmanager` is a terminal tool
+  with a documented Multi-Project Mode and recursive repository discovery;
+  `brizzai/fleet` groups sessions by repo in a Go TUI. Rewritten in #301.
+- **The gate is still nobody else's feature.** Across every README read - the
+  terminal camp, the desktop camp, the board camp - no tool runs the project's
+  own check line per session and shows the verdict beside it. That square is
+  empty, and M9 and M10 are standing in it.
+- **Invariant 2 was right, and now has evidence instead of an argument.**
+  `claude-squad` matches literal English UI strings in a captured tmux pane and
+  `ccmanager` regex-matches Claude's drawn prompt box; between them that is the
+  field's dominant bug class, including `claude-squad`'s most-discussed issue.
+  `fleet`, which reads hooks, has one status bug.
+- **The moat is narrower than the pitch was.** One feature and one property -
+  the gate, and content-anchored comments - scoped to several sessions across
+  several repositories. Two of the seven lines in the moat ledger are parity
+  rather than advantage. `competitive-parity.md` deleted three more for not
+  being true, and answers "is this just lazygit and a CI badge?" with a
+  concession before an argument.
+- **#152 was wrong about Codex.** `fleet` ships Codex hooks - `SessionStart`,
+  `UserPromptSubmit`, `PermissionRequest`, `Stop` - at `~/.codex/hooks.json`,
+  in the same event-map shape as Claude's. The correction is posted on #152.
+
+**What it builds.** Three issues, all inside the thesis rather than beside it,
+and the research deliberately stops before deciding their shape:
+
+- **#309 a worktree you can actually run.** The field's most-repeated unmet
+  need - `ccmanager` #7 shipped it, `claude-squad` #260 and #277 are open
+  asking, `fleet` shipped its own - and omatty has no answer. It is P0 because
+  M9 made the gate the product: a gate step that fails because `.env` is
+  missing is the gate being wrong about the code, and a red card the operator
+  learns to ignore is worse than no card.
+- **#310 PR and CI state on the session card.** The field asks for the remote
+  verdict (Orca #18484, #18485, #18487; `fleet` ships it). omatty has the local
+  one. They are complements, and this is verification rather than
+  orchestration - the card reports a verdict someone else computed and acts on
+  nothing.
+- **#311 a review scoped to *since when*.** Orca #11840 asks for "changes this
+  turn" / "since my last review", backed by a ref. omatty shows everything a
+  session changed, so a reviewer re-reads three turns on the third turn. This
+  is the only gap the pass found *in the thesis itself*.
+
+**Deliberately cut:**
+
+- **Everything else on the P1/P2 list** - a comment that knows it was sent,
+  scrollback after a reattach (#191), per-file reviewed marks, generated-file
+  suppression, sub-line comments, Homebrew. Real, small, and none of them is
+  the reason to open the tool. They stay in `prior-art-findings.md` with their
+  priorities so the next pass does not rediscover them.
+- **Widening the agent seam to match `ccmanager`'s eight.** #152 stays the
+  scope. `ccmanager`'s #82 and #107 are what each added profile costs: an
+  escape-key bug per agent.
+- **A full read of Orca's tracker.** 3,036 open issues; #297 probed it against
+  omatty's own design and its document says plainly that a probe cannot support
+  a claim about what its users complain about most. Nimbalyst and vibe-kanban
+  were not mined at all. That is where a second pass starts.
+
+---
+
 ## Not on the roadmap
 
 Considered and cut, so they do not creep back in through the side door.
@@ -979,6 +1071,24 @@ for a stated reason rather than by omission.
 | Cloud, accounts, sync | A project's accumulated knowledge is `AGENTS.md` and whatever memory tooling you use — on disk, in the repo, read by the agent *and* by you. Hidden context that only the tool can see is a regression, not a feature. |
 | A planning board inside the TUI | The board is GitHub project 13. A second one inside omatty means two sources of truth and a reconciliation problem nobody asked for. |
 | Agent-to-agent messaging | Same reason as the coordinator. If two sessions need to agree on something, that is a conversation for the person watching both of them. |
+
+**Each of these now has a live example, found by M12's research** (2026-09-18).
+A refusal that names what it is refusing is harder to re-open by accident than
+one argued from principle alone:
+
+| Refused | Who ships it | Still refused because |
+|---|---|---|
+| Auto-accepting prompts | `claude-squad`'s `-y/--autoyes` (its #222, #151), and `ccmanager`'s experimental AI auto-approval | It bypasses Claude Code's own confirmations. `ccmanager`'s README argues against `claude-squad`'s version by name — "not recommended for safe operation" — which is a competitor making omatty's case. |
+| Agents dispatching to each other | `fleet skill install` — an Agent Skill teaching agents `fleet wt` and `fleet send` | Well made, opt-in, and exactly the thing above. The option was available and taken by someone else; the reason for declining has not changed. |
+| Agent runs triggered by CI | Orca #10131, "auto-run agents when PR checks fail" | One step past #233's auto-run, which gates a session when its turn ends and *sends nothing*. That step is where a verification tool becomes an orchestrator. |
+| A board driving the agents | `vibe-kanban`, and a camp three times the size of the terminal camp | Two sources of truth. The board is GitHub project 13. |
+| Mobile companions, cloud sessions, account sync | Orca, Nimbalyst | Hidden context only the tool can see is a regression. |
+
+One idea found in the field is **not** refused, only unanswered: **forking a
+session's conversation** (`fleet`'s `f`). Invariant 9 asks the first question —
+what is the copy's uuid, and which transcript does it claim? `fleet` #142 and
+#226 are both identity bugs, which suggests the question is the hard part and
+the UI is not. If it is ever proposed, start there.
 
 What is left after all that is the loop the rest of this roadmap builds: start
 a session, read what it did, say what is wrong, run the gate, send the failures
