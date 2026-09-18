@@ -125,9 +125,12 @@ type Model struct {
 	notice string
 	// wheel counts scroll notches so a momentum flick becomes a few pages of
 	// transcript rather than tens of them (#107).
-	wheel  wheelAccumulator
-	width  int
-	height int
+	wheel wheelAccumulator
+	// mouseReleased is true while the host terminal owns the pointer, so it
+	// can make a selection of its own (#217). Display-only, never persisted.
+	mouseReleased bool
+	width         int
+	height        int
 }
 
 // NewModel builds the root model from its dependencies.

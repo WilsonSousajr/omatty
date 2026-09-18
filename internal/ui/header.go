@@ -115,7 +115,18 @@ func crumbRail(owns bool) string {
 // already handles.
 func (m *Model) breadcrumbBranch(id string) string { return m.repoStat[id].Branch }
 
-// sidebarSegment is the header row's sidebar share: how many projects.
+// sidebarSegment is the header row's sidebar share: how many projects, and
+// whether the mouse has been handed back to the terminal (#217).
+//
+// The marker lives here because this segment is the one piece of chrome that
+// is drawn whole at every width: the pane segment collapses under pressure
+// (#177) and the footer's facts are dropped entirely once the keymap fills a
+// default window, which is exactly the window an operator toggling the mouse
+// is most likely to be in.
 func (m *Model) sidebarSegment() string {
-	return "projects · " + strconv.Itoa(len(m.state.Projects))
+	seg := "projects · " + strconv.Itoa(len(m.state.Projects))
+	if m.mouseReleased {
+		return seg + " · " + mouseOffMark
+	}
+	return seg
 }

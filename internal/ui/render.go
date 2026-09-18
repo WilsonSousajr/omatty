@@ -100,8 +100,10 @@ func (m *Model) View() tea.View {
 	// Without this the host sends no mouse events at all, and its alternate
 	// scroll turns every wheel notch into arrow keys that land in Claude's
 	// prompt. The cost is the crosshair pointer and shift-drag to select
-	// text, which is what asking for the wheel costs anywhere (#107).
-	v.MouseMode = tea.MouseModeCellMotion
+	// text, which is what asking for the wheel costs anywhere (#107) - and
+	// which the operator can now stop paying, per frame, with the toggle
+	// mouse.go describes (#217).
+	v.MouseMode = m.mouseMode()
 	v.Cursor = m.paneCursor()
 	return v
 }

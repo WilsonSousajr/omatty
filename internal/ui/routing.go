@@ -171,6 +171,8 @@ func (m *Model) paneCommand(key string) tea.Cmd {
 		return m.toggleView(ViewTree)
 	case "g":
 		return m.toggleView(ViewGate)
+	case "m":
+		return m.toggleMouse()
 	case "q":
 		return tea.Quit
 	}

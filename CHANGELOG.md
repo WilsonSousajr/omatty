@@ -75,6 +75,17 @@ for each milestone and what was deliberately cut.
     `(binary)`. The header no longer pans with the body, since it now fits
     where it is. (#291)
 
+- **`ctrl+o m` hands the mouse back to your terminal.** #107 asked the host for
+  mouse reporting and never added a way to stop asking, so `?1002h` was held
+  from a session's first frame to its last and the terminal could never make a
+  selection of its own — a plain drag scrolled instead. Released, the host owns
+  the pointer again: native selection, copy-on-select and context menu, no
+  crosshair; the wheel, the sidebar's clicks and the review column's stop until
+  you press it again. The header says `mouse off` while it is released, in the
+  one piece of chrome that is drawn whole at every width. The keyboard is
+  untouched either way, and the modifier-drag stays the quick answer for a
+  single selection. (#217)
+
 - **M11 — The Harness.** The gate stops trusting prose. Three rules this
   repository had written down and nothing checked are now steps that fail, and
   the package structure underneath them is a number printed on every run.

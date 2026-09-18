@@ -48,6 +48,11 @@ func (a *wheelAccumulator) page(direction int) bool {
 // arrives with every click, and answering both would run moveCursor twice
 // per click.
 func (m *Model) onMouse(msg tea.MouseMsg) tea.Cmd {
+	// Released, the host is not reporting and nothing should arrive; dropping
+	// it here anyway is one place to be sure of it rather than three (#217).
+	if m.mouseReleased {
+		return nil
+	}
 	switch typed := msg.(type) {
 	case tea.MouseWheelMsg:
 		return m.scrollPane(typed)
