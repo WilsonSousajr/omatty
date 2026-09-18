@@ -3,9 +3,14 @@
 A terminal ADE: multiple projects and multiple parallel Claude Code sessions
 in one window.
 
-Every other tool in this space is either a desktop app or scoped to a single
-repository. omatty is terminal-native — it works over SSH on a headless box —
-and shows sessions from *several* repositories side by side.
+omatty is terminal-native — it works over SSH on a headless box — and shows
+sessions from *several* repositories side by side. Other terminal managers do
+the second part; the desktop apps do neither. What none of them do, and what
+Claude Code's own `claude agents` does not do either, is run the project's own
+check line in each session's worktree and put the verdict on the card.
+
+`docs/comparison.md` is the fair version of that claim, with the places other
+tools are ahead.
 
 ## What omatty is
 
@@ -33,6 +38,7 @@ bottleneck in the loop; you are the part of it that catches things. omatty's job
 is to get you to the point of catching them sooner.
 
 `docs/ROADMAP.md` lists what that rules out, and why.
+`docs/comparison.md` says how it compares to everything else in the field.
 
 ## Status
 

@@ -429,6 +429,14 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
   `watcher`.
 - `CHANGELOG.md` — what each release changed, with the issues behind it.
   Written as part of the promoting PR; see "Branches and releases".
+- `docs/comparison.md` — how omatty compares to every other tool in this
+  space, fairly, including where they are ahead. Read it before proposing a
+  feature, alongside the roadmap.
+- `docs/research/` — the evidence behind it, captured 2026-09-18: the field
+  inventory, four per-competitor deep dives read at code level, five
+  issue-tracker minings, the prior-art ledger at P0/P1/P2 with its "Ideas Not
+  To Copy", and the self-critical parity audit. Research documents make no
+  implementation decisions; the roadmap does.
 - `README.md` — install and usage.
 
 <!-- ai-memory:start -->
