@@ -53,6 +53,7 @@ var leaderKeys = []keyHelp{
 	{"d", "open or close the diff pane"},
 	{"f", "open or close the file tree"},
 	{"g", "open or close the gate pane"},
+	{"m", "hand the mouse back to your terminal, or take it back"},
 	{"?", "this list"},
 	{"q", "quit"},
 }
@@ -68,10 +69,13 @@ var leaderKeys = []keyHelp{
 // and iTerm2 use option. Naming only shift sent half the operators dragging
 // out a stream of escape sequences instead of a selection.
 //
-// The drag is still how you take text off the screen yourself. It is listed
-// beside the copy the program makes, which since #212 reaches the host
-// clipboard on its own - the two answer different questions, and listing
-// only one of them was what made copy look broken.
+// The drag is still how you take text off the screen yourself, and it is
+// still the quick answer for a one-off selection. It is listed beside the copy
+// the program makes, which since #212 reaches the host clipboard on its own -
+// the two answer different questions, and listing only one of them was what
+// made copy look broken. For anything longer than one drag, `m` above hands
+// the mouse back entirely and the terminal behaves as it does everywhere
+// else (#217).
 var claudeKeys = []keyHelp{
 	{"pgup / pgdn", "scroll the transcript"},
 	{"shift/opt+drag", "select text yourself (your terminal picks the modifier)"},

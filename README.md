@@ -141,6 +141,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o d` | open or close the diff pane |
 | `ctrl+o f` | open or close the file tree |
 | `ctrl+o g` | open or close the gate pane, and run the gate |
+| `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
@@ -163,6 +164,14 @@ column's rule closes it. The column's rule reads `─ review ─────×` 
 told apart from a diff Claude draws inside its own pane, which is Claude's to
 open and close. Clicks inside the pane go to Claude.
 
+All of that costs the one thing a terminal normally does with a pointer:
+while omatty is asking the host for mouse events, the host will not make a
+selection of its own. `ctrl+o m` hands the mouse back, and the header says
+`mouse off` while it is handed back. The terminal then selects, copies on
+select and opens its context menu exactly as it does everywhere else; the
+wheel, the sidebar's clicks and the review column's stop working until you
+press `ctrl+o m` again. The keyboard is untouched either way.
+
 ### Paste and copy
 
 A paste goes to the pane that has the keys: Claude's prompt, or the note and
@@ -180,10 +189,11 @@ for your clipboard's contents.
 
 Taking text off the screen *yourself* is still your terminal's job, and
 because omatty asks it for the mouse (for the wheel and for clicks), a plain
-drag is a scroll rather than a selection. Hold the modifier your terminal
-bypasses reporting with - `shift` on Ghostty, kitty, xterm and Alacritty,
-`option` on Apple Terminal and iTerm2 - and drag. The selection is the
-composed screen, so keep it inside one pane. Text that has scrolled out of
+drag is a scroll rather than a selection. For one selection, hold the modifier
+your terminal bypasses reporting with - `shift` on Ghostty, kitty, xterm and
+Alacritty, `option` on Apple Terminal and iTerm2 - and drag. For anything
+longer, `ctrl+o m` gives the mouse back until you ask for it again. The
+selection is the composed screen, so keep it inside one pane. Text that has scrolled out of
 the pane is in Claude's transcript, not on screen; `pgup` reaches it.
 
 On an empty project's header, `ctrl+o x` forgets the project instead - the

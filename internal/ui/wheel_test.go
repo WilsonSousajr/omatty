@@ -212,6 +212,10 @@ func TestUpdate_ClicksAreDroppedRatherThanBroadcast_issue107(t *testing.T) {
 
 // Nothing arrives at all unless omatty asks the host terminal for it, and
 // asking is also what stops alternate scroll turning the wheel into arrows.
+//
+// Since #217 this is the *default* rather than every frame unconditionally:
+// the operator can hand the mouse back. What #107 asserted is unchanged - a
+// session that has not been asked to release it still asks for the wheel.
 func TestView_EnablesMouseReportingSoTheWheelArrives_issue107(t *testing.T) {
 	m, _ := modelWithFakes(t)
 
