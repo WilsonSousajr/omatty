@@ -10,8 +10,8 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
-func noCreate(_, title, branch string) (registry.Session, error) {
-	return registry.Session{ID: "created", Title: title, Branch: branch}, nil
+func noCreate(_, title, branch string, worktree bool) (registry.Session, error) {
+	return registry.Session{ID: "created", Title: title, Branch: branch, Worktree: worktree}, nil
 }
 
 func noStart(registry.Session, int, int) (termwrap.Terminal, error) { return termwrap.NewFake(""), nil }

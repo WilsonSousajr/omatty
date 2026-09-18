@@ -143,6 +143,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o g` | open or close the gate pane, and run the gate |
 | `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
+| `ctrl+o B` | rename a worktree session's branch |
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
 | `ctrl+o /` | jump to a session by typing part of its name |
@@ -257,7 +258,14 @@ session there. Archiving a project's last session leaves the cursor on that
 project for the same reason.
 
 A session created with `ctrl+o n` and a blank title is named by the first
-prompt you type into it. With `naming.model = true`, a second, headless
+prompt you type into it. `ctrl+o N` asks for nothing either: the worktree is
+created on a placeholder branch named after the session - `omatty-2501d6b4` -
+and the same first prompt renames it to `fix-the-horizontal-wheel-pan`, but
+only while the branch has nothing committed to it. After the first commit the
+name is in a history you may already have pushed, so it stays and `ctrl+o B`
+is how you change it. A branch you type at creation is never renamed, and the
+worktree's *directory* keeps its original name whatever the branch is called:
+Claude is running in it. With `naming.model = true`, a second, headless
 `claude -p --model haiku` call then turns that prompt into a short slug such
 as `diff-horizontal-scroll-fix`. It is off by default because it spends your
 quota: the call carries the CLI's own system prompt, which cost about $0.60 at

@@ -39,6 +39,11 @@ const (
 	// because Kind is what selects the commit and adoption's commit both
 	// registers and starts each pick.
 	modalAdopt
+	// modalBranch renames the selected worktree's branch, opened with B (#151).
+	// A kind of its own rather than a flag on the rename box: Kind is what
+	// selects the commit, and a branch reaches git and the filesystem where a
+	// title reaches neither.
+	modalBranch
 	// modalHelp lists every leader key, opened with ? (#103). It takes no text:
 	// esc closes it, and the leader closes it and arms the next key.
 	modalHelp
@@ -64,13 +69,15 @@ type modal struct {
 func (m *Model) modalOpen() bool { return m.modal.Kind != modalNone }
 
 // namingRequired reports whether the open editor's buffer must be non-blank.
-// A rename would blank a title that exists, and a worktree prompt's buffer
-// becomes a git branch name, which cannot be deferred: `git worktree add -b`
-// runs at creation and bakes the name into the directory and into state.json
-// (#41, #127). A plain ctrl+o n has nothing to lose - the session is
-// registered under a placeholder and named by its first prompt.
+// A rename would blank a title, or a branch, that already exists.
+//
+// A worktree prompt no longer does. It used to, because `git worktree add -b`
+// runs at creation and bakes the name into a directory and into state.json, so
+// the one string ctrl+o N asked for could not be deferred (#41, #127). Since
+// #151 it is not deferred - it is decided, as a placeholder, and renamed by
+// the session's first prompt. Neither prompt has anything left to lose.
 func (m *Model) namingRequired() bool {
-	return m.modal.Kind == modalRename || m.modal.Editor.Worktree
+	return m.modal.Kind == modalRename || m.modal.Kind == modalBranch
 }
 
 // lineEditor is the one-line text input behind both the new-session prompt and
@@ -112,7 +119,7 @@ func (m *Model) Prompt() Prompt {
 // share a handler; only the commit differs, and Kind selects that.
 func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch m.modal.Kind {
-	case modalPrompt, modalRename:
+	case modalPrompt, modalRename, modalBranch:
 		return m.onEditorKey(msg)
 	case modalConfirm:
 		return m.onConfirmKey(msg.Keystroke())
@@ -179,8 +186,11 @@ func (m *Model) commitEditor() tea.Cmd {
 		return nil
 	}
 	m.modal.Editor.Buffer = trimmed
-	if m.modal.Kind == modalRename {
+	switch m.modal.Kind {
+	case modalRename:
 		return m.commitRename()
+	case modalBranch:
+		return m.commitBranchRename(m.modal.Editor.Target, trimmed)
 	}
 	return m.submitPrompt()
 }

@@ -13,16 +13,17 @@ import (
 
 // recordCreate is a named fake capturing what the prompt asked for.
 type recordCreate struct {
-	Project string
-	Title   string
-	Branch  string
-	Calls   int
-	Err     error
+	Project  string
+	Title    string
+	Branch   string
+	Worktree bool
+	Calls    int
+	Err      error
 }
 
-func (r *recordCreate) fn(project, title, branch string) (registry.Session, error) {
+func (r *recordCreate) fn(project, title, branch string, worktree bool) (registry.Session, error) {
 	r.Calls++
-	r.Project, r.Title, r.Branch = project, title, branch
+	r.Project, r.Title, r.Branch, r.Worktree = project, title, branch, worktree
 	if r.Err != nil {
 		return registry.Session{}, r.Err
 	}
@@ -247,17 +248,10 @@ func TestModel_LeaderNWithABlankBufferCreatesAnUntitledSession_issue127(t *testi
 	}
 }
 
-// A worktree prompt's buffer becomes a git branch, which cannot be deferred,
-// so it still refuses a blank (#127).
-func TestModel_LeaderShiftNStillRefusesABlankBranch_issue127(t *testing.T) {
-	c := &recordCreate{}
-	m, _ := modelWithCreate(t, c)
-	press(m, ctrl('o'))
-	press(m, tea.KeyPressMsg{Code: 'n', Mod: tea.ModShift, Text: "N"})
-
-	press(m, special(tea.KeyEnter))
-
-	if !m.Prompt().Active || c.Calls != 0 {
-		t.Errorf("worktree prompt: active=%v creates=%d; want it still open and nothing created", m.Prompt().Active, c.Calls)
-	}
-}
+// #127's guard on an N prompt is redefined by #151, not weakened: it refused a
+// blank buffer because that buffer became a git branch name and
+// `git worktree add -b` cannot be given nothing. The registry now names the
+// branch itself, so there is nothing blank left to refuse - see
+// TestModel_aWorktreePromptNoLongerDemandsAName_issue151 for what it became.
+// The other half of the guard, a rename box that would blank a name that
+// exists, is asserted in rename_test.go and is untouched.

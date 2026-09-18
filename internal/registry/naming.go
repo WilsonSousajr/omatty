@@ -22,6 +22,26 @@ func PlaceholderTitle(id string) string {
 	return id[:placeholderCells]
 }
 
+// placeholderBranchPrefix marks a branch omatty named because nobody else
+// had: it is the operator's clue, in `git branch`, that the name is provisional.
+const placeholderBranchPrefix = "omatty-"
+
+// PlaceholderBranch is the branch a worktree session carries until its first
+// prompt says what the work is (#151). It is the placeholder title with a
+// prefix, so it is already lower-case hex and already passes Slug.
+//
+// Derived from the uuid rather than counted, and recomputable from the
+// session alone, which is the whole design: a counter would collide with a
+// branch an archived session left behind, and a map of "which branches are
+// still provisional" is empty after a relaunch - so a session created,
+// prompted and then restarted would keep its placeholder forever. That is the
+// argument PlaceholderTitle already makes, and invariant 9 exists for.
+//
+//	registry.PlaceholderBranch("abc12345-6789-...") // "omatty-abc12345"
+func PlaceholderBranch(id string) string {
+	return placeholderBranchPrefix + strings.ToLower(PlaceholderTitle(id))
+}
+
 // slugCells caps a slug. Forty: a branch name that still fits a sidebar
 // title column and a PR title.
 const slugCells = 40

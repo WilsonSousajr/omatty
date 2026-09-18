@@ -38,13 +38,29 @@ func NewCreator(git vcs.Git, opts CreatorOpts, newID func() string) *Creator {
 // session in the project's main checkout; otherwise omatty creates a worktree
 // at paths.WorktreeDir. On any failure st is left untouched.
 func (c *Creator) Create(st *State, project, title, branch string) (Session, error) {
+	return c.create(st, project, title, branch, branch != "")
+}
+
+// CreateWorktree registers a session on a fresh worktree whether or not a
+// branch was named. An empty branch takes the placeholder, which the session's
+// first prompt renames (#151) - so ctrl+o N no longer has one string it must
+// have before it can start anything.
+func (c *Creator) CreateWorktree(st *State, project, title, branch string) (Session, error) {
+	return c.create(st, project, title, branch, true)
+}
+
+// create is the one registration path both entry points take. worktree is a
+// parameter rather than "branch != \"\"" because since #151 those are different
+// questions: a worktree session may arrive with no branch named at all.
+func (c *Creator) create(st *State, project, title, branch string, worktree bool) (Session, error) {
 	p, err := findProject(st, project)
 	if err != nil {
 		return Session{}, err
 	}
 	id := c.newID()
-	sess := Session{ID: id, Project: project, Title: titleOr(title, id), Dir: p.Root, Branch: branch}
-	if branch != "" {
+	sess := Session{ID: id, Project: project, Title: titleOr(title, id), Dir: p.Root}
+	if worktree {
+		sess.Branch = branchOr(branch, id)
 		if err := c.addWorktree(&sess, p); err != nil {
 			return Session{}, err
 		}
@@ -67,6 +83,22 @@ func (c *Creator) addWorktree(sess *Session, p Project) error {
 	}
 	sess.Dir, sess.Base, sess.Worktree = dir, recordedBase(base), true
 	return nil
+}
+
+// branchOr is the branch to put a worktree on: the slug of what the operator
+// typed, or a placeholder for one created before the work it would describe
+// exists.
+//
+// Slug, not TrimSpace, and that is a fix rather than a tidy-up: this name
+// reaches `git worktree add -b` and a directory name, and until #151 a typed
+// branch was the one untrusted string that got there unfiltered - looser than
+// the filter #127 step 2 already applies to model output, which is exactly
+// what naming.go says must never happen.
+func branchOr(branch, id string) string {
+	if s := Slug(branch); s != "" {
+		return s
+	}
+	return PlaceholderBranch(id)
 }
 
 // titleOr is the name to register a session under: what the operator typed,

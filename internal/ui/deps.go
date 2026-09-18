@@ -15,9 +15,12 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
-// CreateFunc registers a new session in project and returns it. branch is
-// empty for a session on the project's main checkout.
-type CreateFunc func(project, title, branch string) (registry.Session, error)
+// CreateFunc registers a new session in project and returns it.
+//
+// worktree says whether omatty creates one, which since #151 is no longer the
+// same question as whether branch is empty: a worktree session may arrive with
+// no branch named at all, and the registry names it.
+type CreateFunc func(project, title, branch string, worktree bool) (registry.Session, error)
 
 // StartFunc launches the embedded terminal for a session at w by h. Injected
 // so the model can start a session created at runtime without knowing how;
@@ -67,6 +70,9 @@ type Deps struct {
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
 	Name   NameFunc
+	// RenameBranch gives a worktree's placeholder branch the name its first
+	// prompt settled on (#151).
+	RenameBranch BranchRenameFunc
 	// ModelName asks the agent to improve an auto-derived title. Nil means
 	// off, which is the default and the operator's opt-in (#127).
 	ModelName ModelNameFunc
@@ -140,12 +146,7 @@ func (d Deps) withReviewDefaults() Deps {
 // noTailStart are the exceptions, because with no watcher running there is
 // genuinely no tailer to start or stop and doing nothing is the right answer.
 func (d Deps) withLifecycleDefaults() Deps {
-	if d.Rename == nil {
-		d.Rename = noRename
-	}
-	if d.Name == nil {
-		d.Name = noName
-	}
+	d = d.withNamingDefaults()
 	if d.Archive == nil {
 		d.Archive = noArchive
 	}
@@ -159,6 +160,23 @@ func (d Deps) withLifecycleDefaults() Deps {
 		d.Stop = noStop
 	}
 	return d.withTailDefaults().withDiscoveryDefaults()
+}
+
+// withNamingDefaults fills what names a session: its title, the first prompt
+// that derives one, and the branch that takes it (#41, #127, #151). Split out
+// of withLifecycleDefaults because #151 pushed that one past the length limit,
+// and these three answer one question between them.
+func (d Deps) withNamingDefaults() Deps {
+	if d.Rename == nil {
+		d.Rename = noRename
+	}
+	if d.RenameBranch == nil {
+		d.RenameBranch = noBranchRename
+	}
+	if d.Name == nil {
+		d.Name = noName
+	}
+	return d
 }
 
 // withTailDefaults fills both halves of the status tailer.

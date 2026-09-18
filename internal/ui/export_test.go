@@ -219,3 +219,13 @@ func (m *Model) CoverageOf(id string) (map[string]map[int]bool, bool) {
 // ArmGateWait is the command Init uses to wait on the next gate report, so a
 // test can prove a report actually crosses the channel (#231).
 func (m *Model) ArmGateWait() tea.Cmd { return m.waitForGate() }
+
+// SessionBranch is the branch the model believes a session is on, so a test
+// can see a rename land without reaching into state.json (#151).
+func (m *Model) SessionBranch(id string) string {
+	sess, ok := m.session(id)
+	if !ok {
+		return ""
+	}
+	return sess.Branch
+}

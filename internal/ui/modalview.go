@@ -48,6 +48,7 @@ var leaderKeys = []keyHelp{
 	{"a", "register a project claude already knows"},
 	{"A", "adopt a session claude already knows"},
 	{"R", "rename the selected session"},
+	{"B", "rename a worktree session's branch"},
 	{"x", "archive the session, or forget an empty project"},
 	{"r", "restart a crashed session"},
 	{"d", "open or close the diff pane"},
@@ -235,6 +236,9 @@ func (m *Model) editorLabel() string {
 	if m.modal.Kind == modalRename {
 		return "rename session"
 	}
+	if m.modal.Kind == modalBranch {
+		return "rename branch"
+	}
 	if m.modal.Editor.Worktree {
 		return "new branch (worktree)"
 	}
@@ -244,7 +248,7 @@ func (m *Model) editorLabel() string {
 // modalNames is what the header row calls each surface that opens one way
 // (#177), in sentence case; a kind not listed - none - names nothing.
 var modalNames = map[modalKind]string{
-	modalRename: "rename", modalConfirm: "confirm", modalList: "switch",
+	modalRename: "rename", modalBranch: "rename branch", modalConfirm: "confirm", modalList: "switch",
 	modalPicker: "register project", modalAdopt: "adopt session", modalHelp: "keys",
 }
 
@@ -265,7 +269,7 @@ func modalName(md modal) string {
 // earns its place here rather than lengthening that constant.
 func modalFooter(md modal) string {
 	switch md.Kind {
-	case modalPrompt, modalRename:
+	case modalPrompt, modalRename, modalBranch:
 		return "enter confirm  esc cancel  ctrl+c quit"
 	case modalConfirm:
 		// The answers are listed in full in the pane directly above, and they

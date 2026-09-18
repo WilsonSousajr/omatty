@@ -58,7 +58,10 @@ type Model struct {
 	files    ListFilesFunc
 	preview  PreviewFunc
 	rename   RenameFunc
-	name     NameFunc
+	// renameBranch renames a worktree session's branch once its first prompt
+	// has said what the work is (#151).
+	renameBranch BranchRenameFunc
+	name         NameFunc
 	// modelNamer is nil unless the config opted in to a headless naming call
 	// (#127).
 	modelNamer ModelNameFunc
@@ -160,6 +163,7 @@ func NewModel(deps Deps) *Model {
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
+	m.renameBranch = d.RenameBranch
 	m.modelNamer = d.ModelName
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
 	m.removeProject = d.RemoveProject
@@ -333,12 +337,27 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 		return m.onFilesLoaded(typed)
 	case WorktreeRemovedMsg:
 		return m.onWorktreeRemoved(typed)
-	case NamedMsg:
-		return m.onNamed(typed)
-	case ModelNamedMsg:
-		return m.onModelNamed(typed)
+	}
+	if cmd, handled := m.onNamingMsg(msg); handled {
+		return cmd
 	}
 	return m.onPaneMsg(msg)
+}
+
+// onNamingMsg answers what names a session: its first prompt, the model's
+// improvement on it, and the branch that takes the result (#127, #151). A
+// table of its own because onDataMsg ran past the length limit with them in
+// it, and they are one conversation.
+func (m *Model) onNamingMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case NamedMsg:
+		return m.onNamed(typed), true
+	case ModelNamedMsg:
+		return m.onModelNamed(typed), true
+	case BranchNamedMsg:
+		return m.onBranchNamed(typed), true
+	}
+	return nil, false
 }
 
 // onStreamMsg is the messages fed by a long-lived source over a channel: the
