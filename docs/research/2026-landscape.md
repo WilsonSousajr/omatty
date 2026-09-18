@@ -340,7 +340,9 @@ clears "Not on the roadmap"'s anti-orchestrator line without argument —
 unlike Orca #10131, which does not.
 
 **R5. Give the review pane a notion of *since when*.** Orca #11840 asks for
-"changes this turn" / "since my last review", backed by a ref. omatty shows
+"changes this turn" / "since my last review", backed by "a refs/orca baseline
+snapped at agent turn boundaries" — which is a mechanism omatty already has the
+parts for, since the `Stop` hook marks the boundary. omatty shows
 everything a session changed. For a tool whose whole claim is time-to-judgement
 this is a gap in the thesis itself, not a nice-to-have.
 

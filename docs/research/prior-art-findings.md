@@ -122,8 +122,9 @@ auth is not that, but the boundary needs stating before it is built.
 
 ### P1-2. The review pane has no notion of *since when*
 
-**Evidence:** Orca #11840 — "turn-scoped diff review: 'changes this turn' /
-'since my last review' scopes backed by a ref".
+**Evidence:** Orca #11840 (open) — "Turn-scoped diff review — 'changes this
+turn' / 'since my last review' scopes backed by a refs/orca baseline snapped at
+agent turn boundaries".
 
 **omatty today:** `internal/review` shows everything a session changed against
 its base. After three turns you re-read three turns.

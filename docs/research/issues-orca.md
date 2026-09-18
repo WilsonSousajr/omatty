@@ -13,19 +13,27 @@
 - **#18120 (open)** "[Feature]: Sub-line comments — character range and/or
   multiple comments per diff line"
 - **#11840 (open)** "[Feature]: Turn-scoped diff review — 'changes this turn' /
-  'since my last review' scopes backed by a ref"
+  'since my last review' scopes backed by a **refs/orca baseline snapped at
+  agent turn boundaries**"
 - **#19718 (open)** "[Feature]: Option to omit excerpts from markdown review
   notes"
 - **#7991 (closed)** "Source control freezes when a branch has too many changed
   files"
 
 **#11840 is the most interesting issue found in the entire pass.** "Changes
-this turn" and "since my last review", backed by a git ref, is a demand for
-exactly the thing omatty says it optimises — how fast a person can tell
+this turn" and "since my last review", backed by a git ref snapped at each turn
+boundary, is a demand for exactly the thing omatty says it optimises — how fast a person can tell
 whether what came back is any good — from the users of the largest tool in the
 field. omatty's review pane shows everything a session changed; it has no
 notion of *since when*. That is a roadmap candidate with external demand
 already attached, and it fits the thesis rather than stretching it.
+
+The title also hands over the mechanism: a ref *snapped at agent turn
+boundaries*. omatty already knows when a turn ends — the `Stop` hook,
+`internal/watcher` — and `internal/vcs` can write a ref there. The scope becomes
+a diff against that ref instead of against the base, and `internal/review`'s
+anchoring is untouched, since an anchor is `(file, hunk header, content hash,
+nth)` and does not care which two trees produced the hunk.
 
 #18120 (multiple comments per line, sub-line ranges) is a natural extension of
 omatty's anchor: `Anchor{File, Hunk, Hash, Nth}` already disambiguates repeated

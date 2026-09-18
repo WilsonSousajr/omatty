@@ -437,6 +437,10 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
   issue-tracker minings, the prior-art ledger at P0/P1/P2 with its "Ideas Not
   To Copy", and the self-critical parity audit. Research documents make no
   implementation decisions; the roadmap does.
+- `.claude/skills/market-research/SKILL.md` — how the research in
+  `docs/research/` was produced, so the next pass re-runs the method rather
+  than re-deriving it: the artifacts, the evidence rules, the `gh` commands
+  behind every number, and the traps M12 already hit.
 - `README.md` — install and usage.
 
 <!-- ai-memory:start -->
