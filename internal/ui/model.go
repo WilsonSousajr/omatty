@@ -51,6 +51,11 @@ type Model struct {
 	// (#40).
 	modal  modal
 	review ReviewPane
+	// frameMemo is the last frame and the inputs it was built from, and
+	// paneOnly records that the message just handled could not have touched
+	// any of them. See frame().
+	frameMemo frameCache
+	paneOnly  bool
 	// comments is each session's pending review queue, kept across opening and
 	// closing the column; only submit drains it (#22).
 	comments map[string]*review.Comments
@@ -281,18 +286,34 @@ func (m *Model) repaintHeld() []tea.Cmd {
 // Update routes messages to one handler per type, so it stays a router and
 // stays inside the 20-line function limit.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Any message may change what is on screen, so the memoised frame is
+	// dropped unless the message took the one path that provably cannot
+	// touch model state - onWindowFocus's broadcast, which sets paneOnly.
+	// Invalidating by default is what keeps a message type added later from
+	// silently leaving a stale screen behind: the cost of forgetting is a
+	// rebuild, never a lie.
+	m.paneOnly = false
+	cmd := m.routeMsg(msg)
+	if !m.paneOnly {
+		m.frameMemo.valid = false
+	}
+	return m, cmd
+}
+
+// routeMsg hands one message to the table that owns it.
+func (m *Model) routeMsg(msg tea.Msg) tea.Cmd {
 	if cmd, ok := m.onInput(msg); ok {
-		return m, cmd
+		return cmd
 	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		return m, m.onResize(msg)
+		return m.onResize(msg)
 	case TickMsg:
-		return m, scheduleTick()
+		return scheduleTick()
 	case StatTickMsg:
-		return m, m.onStatTick()
+		return m.onStatTick()
 	default:
-		return m, m.onDataMsg(msg)
+		return m.onDataMsg(msg)
 	}
 }
 
@@ -432,6 +453,12 @@ func (m *Model) onWindowFocus(msg tea.Msg) tea.Cmd {
 	// poll must reach the terminal that scheduled it. Unfocused sessions are
 	// pumped too, or they stop reading their PTYs (issue #33). Keys are
 	// deliberately not broadcast - they belong to the focused session only.
+	//
+	// This is the one path that mutates a terminal and never the model, so
+	// the frame outlives it. The single thing it can change - the focused
+	// pane's content - is part of the memo's key, so it is checked rather
+	// than assumed.
+	m.paneOnly = true
 	return m.broadcast(msg)
 }
 

@@ -111,10 +111,45 @@ func (m *Model) View() tea.View {
 // frame is the header row, the rule and the body: the sidebar, the pane and,
 // when open, the review column, a hairline between each pair (#174).
 func (m *Model) frame() string {
+	pane := m.paneContent()
+	if f := &m.frameMemo; f.valid && f.w == m.width && f.h == m.height && f.pane == pane {
+		return f.out
+	}
 	termW, termH := PaneSize(m.width, m.height, m.review.Open)
 	now := m.clock() // once per frame, so every age is measured against the same instant
 	cols, segs := m.bodyColumns(termW, termH, now)
-	return joinRows(headerRow(segs), ruleRow(segs), joinColumns(cols))
+	out := joinRows(headerRow(segs), ruleRow(segs), joinColumns(cols))
+	m.frameMemo = frameCache{valid: true, w: m.width, h: m.height, pane: pane, out: out}
+	return out
+}
+
+// frameCache is the last frame and every input it was built from that the
+// model does not otherwise track: the window, and the focused pane's grid.
+//
+// A frame is drawn on every message, and at a dozen sessions most messages
+// are output from a pane nobody is looking at - which changes the sidebar
+// not at all, because status comes from the transcript and never from the
+// grid (invariant 2). Those frames are identical to the one before them and
+// used to cost a full rebuild each.
+//
+// valid is the zero value, so a fresh Model builds its first frame rather
+// than serving an empty one.
+type frameCache struct {
+	valid bool
+	w, h  int
+	pane  string
+	out   string
+}
+
+// paneContent is the focused emulator's rendered grid: the one input to the
+// frame that changes without any message reaching the model. bubbleterm
+// hands back a string it already holds, so asking is cheap and comparing it
+// is a memcmp against a full rebuild.
+func (m *Model) paneContent() string {
+	if t := m.focusedTerminal(); t != nil {
+		return t.View()
+	}
+	return ""
 }
 
 // joinRows stacks blocks that are already the same width - which is every
