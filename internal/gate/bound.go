@@ -13,13 +13,50 @@ const (
 	MaxOutputLines = 200
 	// MaxOutputBytes bounds a step that writes few lines but enormous ones.
 	MaxOutputBytes = 16 << 10
+	// KeptBytes is how much of a step's output is held while it is still
+	// running. Four times MaxOutputBytes, so everything tail could keep is
+	// still in hand when the step ends, while the peak stays bounded.
+	//
+	// The caps above bound what a step *contributes*; this one bounds what it
+	// *costs to collect*. exec.CombinedOutput held the whole of a runaway
+	// step in memory and only then handed it to tail, which is the failure
+	// this file's comment describes, one layer earlier than it was fixed.
+	KeptBytes = MaxOutputBytes * 4
 )
+
+// boundedOutput collects a step's output while holding at most KeptBytes of
+// it, keeping the newest bytes and counting what it discarded so the elision
+// can still say how much was lost.
+//
+// Stdout and Stderr are both set to one of these, which os/exec serves from
+// a single pipe and a single goroutine when the two are the same writer -
+// the same arrangement CombinedOutput makes, so nothing here needs a lock.
+type boundedOutput struct {
+	kept    []byte
+	dropped int
+}
+
+func (b *boundedOutput) Write(p []byte) (int, error) {
+	b.kept = append(b.kept, p...)
+	if excess := len(b.kept) - KeptBytes; excess > 0 {
+		b.dropped += excess
+		b.kept = b.kept[:copy(b.kept, b.kept[excess:])]
+	}
+	return len(p), nil
+}
+
+// String is everything still inside the window.
+func (b *boundedOutput) String() string { return string(b.kept) }
 
 // tail bounds a step's output, keeping the end. The end is where a test runner
 // puts the summary that says what broke; the head is usually the package list.
-func tail(out string) string {
+// dropped is what the collecting window already threw away before tail saw
+// anything, so a runaway step's elision counts those bytes too rather than
+// reporting only the part that reached here.
+func tail(out string, dropped int) string {
 	kept, droppedLines := lastLines(out, MaxOutputLines)
 	kept, droppedBytes := lastBytes(kept, MaxOutputBytes)
+	droppedBytes += dropped
 	if droppedLines == 0 && droppedBytes == 0 {
 		return out
 	}

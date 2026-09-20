@@ -65,18 +65,32 @@ func runStep(ctx context.Context, dir string, step Step) StepResult {
 		}
 	}
 	started := time.Now()
-	cmd := exec.CommandContext(ctx, "sh", "-c", step.Run)
-	cmd.Dir = dir
-	isolate(cmd)
-	cmd.WaitDelay = cancelGrace
-	out, err := cmd.CombinedOutput()
+	out, err := shellOut(ctx, dir, step.Run)
 
 	verdict, code := classify(ctx, err)
-	result := StepResult{Step: step, Verdict: verdict, ExitCode: code, Output: tail(string(out)), Elapsed: time.Since(started)}
+	result := StepResult{Step: step, Verdict: verdict, ExitCode: code, Output: out, Elapsed: time.Since(started)}
 	if step.Kind == KindCoverage {
 		result.Percent = percentIn(result.Output)
 	}
 	return result
+}
+
+// shellOut runs one gate line under sh and returns its output already bounded
+// both ways: to a KeptBytes window while it runs, and to the caps tail
+// applies once it has finished.
+//
+// Stdout and Stderr are the same writer, which os/exec serves from one pipe
+// and one goroutine - the arrangement CombinedOutput makes, without
+// CombinedOutput's habit of holding a runaway step's every byte first.
+func shellOut(ctx context.Context, dir, run string) (string, error) {
+	cmd := exec.CommandContext(ctx, "sh", "-c", run)
+	cmd.Dir = dir
+	isolate(cmd)
+	cmd.WaitDelay = cancelGrace
+	var out boundedOutput
+	cmd.Stdout, cmd.Stderr = &out, &out
+	err := cmd.Run()
+	return tail(out.String(), out.dropped), err
 }
 
 // classify turns the error from a finished command into a verdict. Invariant
