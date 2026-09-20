@@ -59,7 +59,7 @@ func (m *Model) renderHeaderRow(project string) string {
 
 // cardTop is line one past the rail: the glyph, the title, the age.
 func (m *Model) cardTop(row Row, now time.Time) string {
-	glyph := glyphStyle(row.Status).Render(statusGlyph(row.Status))
+	glyph := statusCell(row.Status)
 	title := m.titleStyle(row.Session.ID).Render(fitLine(row.Session.Title, titleCols))
 	age := mutedStyle.Render(padLeft(clip(AgeString(now, m.status[row.Session.ID].At), ageCols), ageCols))
 	return glyph + " " + title + " " + age + " "

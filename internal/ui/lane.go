@@ -62,10 +62,10 @@ var laneBlock = map[watcher.Status]string{
 func (m *Model) renderLane(id string) string {
 	l := m.lane[id]
 	var b strings.Builder
+	b.Grow(laneCells * laneCellBudget)
 	b.WriteString(strings.Repeat(" ", laneCells-l.filled))
 	for i, s := range l.seen[laneCells-l.filled:] {
-		age := l.filled - 1 - i
-		b.WriteString(laneCellStyle(s, age).Render(laneBlock[s]))
+		b.WriteString(laneCell(s, l.filled-1-i))
 	}
 	return b.String()
 }

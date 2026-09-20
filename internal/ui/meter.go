@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"sync"
+
 	"math"
 	"strconv"
 	"strings"
@@ -50,12 +52,28 @@ func cacheShare(t watcher.Tokens) (float64, bool) {
 func renderMeter(share float64) string {
 	filled := int(math.Round(share * meterCells))
 	var b strings.Builder
+	b.Grow(meterCells * laneCellBudget)
 	for i := range filled {
-		b.WriteString(lipgloss.NewStyle().Foreground(meterCellColor(i)).Render(meterFull))
+		b.WriteString(meterFilled()[i])
 	}
 	b.WriteString(mutedStyle.Render(strings.Repeat(meterEmpty, meterCells-filled)))
 	return b.String()
 }
+
+// meterFilled is each filled meter cell already rendered. Its colour depends
+// only on its position on the ramp, so the eight of them are built once
+// rather than restyled on every frame that draws the header.
+var meterFilled = sync.OnceValue(func() [meterCells]string {
+	var cells [meterCells]string
+	for i := range meterCells {
+		cells[i] = lipgloss.NewStyle().Foreground(meterCellColor(i)).Render(meterFull)
+	}
+	return cells
+})
+
+// laneCellBudget is a generous guess at one styled cell's bytes, used only to
+// size a builder: an SGR pair around a single glyph.
+const laneCellBudget = 24
 
 // tokensPart is the usage segment whole: the meter and its percentage when
 // there is input to measure, then the in/out counts (#39, #153). The header

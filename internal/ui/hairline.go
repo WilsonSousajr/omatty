@@ -50,10 +50,15 @@ func (m *Model) keyboardEdge() keyboardEdge {
 // grey on every other seam.
 func hairlineStyle(accent bool) lipgloss.Style {
 	if accent {
-		return lipgloss.NewStyle().Foreground(colorAccent)
+		return accentStyle
 	}
-	return lipgloss.NewStyle().Foreground(colorHairline)
+	return hairlineGreyStyle
 }
+
+// hairlineGreyStyle is every seam that does not own the keyboard. A fixed
+// style beside style.go's, rather than one built per cell per frame; the
+// accent case is accentStyle, which is already the same colour.
+var hairlineGreyStyle = lipgloss.NewStyle().Foreground(colorHairline)
 
 // hairlineColumn is one hairline h rows tall, a column for JoinHorizontal.
 // Each cell is rendered on its own so a line of the frame carries the cell's
