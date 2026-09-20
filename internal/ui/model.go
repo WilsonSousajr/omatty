@@ -420,7 +420,9 @@ func (m *Model) onWindowFocus(msg tea.Msg) tea.Cmd {
 	switch msg.(type) {
 	case tea.FocusMsg:
 		m.hasFocus = true
-		return nil
+		// Catch up on whatever changed while the poll was gated off, rather
+		// than leaving stale cards up for the rest of the ten-second period.
+		return m.pollAll()
 	case tea.BlurMsg:
 		m.hasFocus = false
 		return nil
