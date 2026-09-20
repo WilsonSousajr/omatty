@@ -16,6 +16,9 @@
 //	omatty hook                       forward a claude hook event (internal)
 //	omatty --version                  print the release this binary was built from
 //
+// OMATTY_HEAP_PROFILE names a file to write a heap profile to when the TUI
+// exits, for diagnosing what a long-running window is holding.
+//
 // A branch argument puts the session in a fresh worktree; without one it runs
 // in the project's main checkout.
 package main
@@ -95,6 +98,9 @@ func run() error {
 	slog.Info("config", "leader", cfg.Leader, "claude_bin", cfg.ClaudeBin, "worktree_root", cfg.WorktreeRoot)
 	store := registry.NewStore(paths.StateFile(home))
 	if len(os.Args) < 2 {
+		// After the TUI has stopped, so the profile describes a settled
+		// heap rather than one mid-frame.
+		defer writeHeapProfile()
 		return runTUI(home, cfg, store)
 	}
 	return dispatch(os.Args[1], os.Args[2:], home, cfg, store)
