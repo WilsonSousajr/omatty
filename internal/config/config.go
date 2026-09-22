@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -85,13 +86,36 @@ func Load(path, home string) (Config, error) {
 }
 
 // knownKeys is the list an unknown-key error offers, so a typo is answered
-// with the spelling that would have worked.
-const knownKeys = "leader, claude_bin, worktree_root, base_branch, naming.model"
+// with the spelling that would have worked. Derived from Config's toml tags
+// rather than written down: the written list never learned M9's [gate]
+// table, so a typo there was answered with five keys, none of them the one
+// meant (#321).
+//
+//	knownKeys() // "leader, claude_bin, ..., gate.max_parallel, gate.auto"
+func knownKeys() string {
+	return strings.Join(tagPaths(reflect.TypeOf(Config{}), ""), ", ")
+}
+
+// tagPaths is every key t decodes, in field order, a nested table's keys
+// prefixed with its own name the way the decoder spells them.
+func tagPaths(t reflect.Type, prefix string) []string {
+	var paths []string
+	for i := range t.NumField() {
+		f := t.Field(i)
+		name := prefix + f.Tag.Get("toml")
+		if f.Type.Kind() == reflect.Struct {
+			paths = append(paths, tagPaths(f.Type, name+".")...)
+			continue
+		}
+		paths = append(paths, name)
+	}
+	return paths
+}
 
 // refuseUnknownKeys turns a typo into an error that names it.
 func refuseUnknownKeys(path string, md toml.MetaData) error {
 	if keys := md.Undecoded(); len(keys) > 0 {
-		return fmt.Errorf("config %s: unknown key %q, want one of %s", path, keys[0].String(), knownKeys)
+		return fmt.Errorf("config %s: unknown key %q, want one of %s", path, keys[0].String(), knownKeys())
 	}
 	return nil
 }
