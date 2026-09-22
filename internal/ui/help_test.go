@@ -56,7 +56,7 @@ func TestModel_everyBoundLeaderKeyIsDocumented_issue103(t *testing.T) {
 	}
 }
 
-// boundLeaderKeys reads the case values out of routing.go's three command
+// boundLeaderKeys reads the case values out of routing.go's command
 // switches. Parsing the source rather than probing a model is what makes this
 // exhaustive: a switch arm cannot be enumerated at runtime, so a probe would
 // only ever confirm the keys it already thought to try - which is the same
@@ -68,7 +68,7 @@ func boundLeaderKeys(t *testing.T) []string {
 		t.Fatalf("parsing routing.go: %v", err)
 	}
 	var keys []string
-	for _, name := range []string{"navigate", "cursorMove", "paneCommand", "modalCommand"} {
+	for _, name := range []string{"navigate", "cursorMove", "paneCommand", "lifecycleCommand", "modalCommand"} {
 		keys = append(keys, caseStrings(findFunc(t, file, name))...)
 	}
 	return keys

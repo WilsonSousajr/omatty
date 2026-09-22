@@ -120,3 +120,53 @@ func TestForgetSession_ClearsEveryPerSessionMap(t *testing.T) {
 			"for the life of the process", held, forgottenID)
 	}
 }
+
+// Stop is archive's opposite: the process goes, the session stays. Every map
+// but terms must still hold the id, found by the same reflection, so a map
+// added later is checked without anyone remembering to (#318).
+func TestStopSession_KeepsEveryPerSessionMapButTerms_issue318(t *testing.T) {
+	m := filledModel()
+	m.terms[forgottenID] = termwrap.NewFake("")
+
+	_ = m.stopSession(m.state.Sessions[0])
+
+	if held := mapsHolding(m, forgottenID); slicesContain(held, "terms") || len(held) != len(sessionMaps(m))-1 {
+		t.Errorf("after stop the id is held by %v, want every session map but terms", held)
+	}
+	if _, ok := m.sessionIndex(forgottenID); !ok {
+		t.Error("stop removed the session's row")
+	}
+}
+
+// A stopped pane still owns the keyboard, so the accent stays on its edge
+// while it waits for enter (#318).
+func TestKeyboardEdge_StaysOnAStoppedPane_issue318(t *testing.T) {
+	m := filledModel()
+	delete(m.terms, forgottenID)
+
+	if got := m.keyboardEdge(); got != edgePane {
+		t.Errorf("keyboardEdge() = %v on a stopped pane, want edgePane", got)
+	}
+}
+
+func slicesContain(xs []string, x string) bool {
+	for _, s := range xs {
+		if s == x {
+			return true
+		}
+	}
+	return false
+}
+
+// A stopped card reads as asleep: its title is muted unless it is the one
+// selected, which stays bold so the cursor is never lost (#318).
+func TestTitleStyle_MutesAStoppedCard_issue318(t *testing.T) {
+	m := NewModel(Deps{State: registry.State{
+		Projects: []registry.Project{{Name: "p", Root: "/p"}},
+		Sessions: []registry.Session{{ID: "live", Project: "p"}, {ID: "asleep", Project: "p"}},
+	}, Terms: map[string]termwrap.Terminal{"live": termwrap.NewFake("")}})
+
+	if got := m.titleStyle("asleep").Render("x"); got != mutedStyle.Render("x") {
+		t.Errorf("a stopped card's title renders %q, want the muted %q", got, mutedStyle.Render("x"))
+	}
+}

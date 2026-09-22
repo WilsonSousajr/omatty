@@ -236,7 +236,17 @@ func (m *Model) renderTerminal(w, h int) string {
 		// h rows, not h-1: the title is in the header row (#128, #174).
 		return fitBlock(strings.Split(term.View(), "\n"), w, h)
 	}
+	if row, ok := m.sidebar.Selected(); ok {
+		return fitBlock(m.stoppedLines(row.Session.Title), w, h)
+	}
 	return fitBlock(m.emptyLines(), w, h)
+}
+
+// stoppedLines is a selected session with no process: ctrl+o s stopped it,
+// or it has not been started (#318). Not the empty state, which would tell
+// the operator to create a session while one sits selected.
+func (m *Model) stoppedLines(title string) []string {
+	return []string{"", title + " is stopped", "", "enter resumes it", "ctrl+c or " + m.leader + " q to quit"}
 }
 
 // emptyLines is the pane with no session to show: what to do next, and the way

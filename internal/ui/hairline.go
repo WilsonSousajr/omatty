@@ -40,7 +40,9 @@ func (m *Model) keyboardEdge() keyboardEdge {
 	if m.reviewOwnsKeys() {
 		return edgeReview
 	}
-	if m.focusedTerminal() != nil {
+	// The row, as in focus(): a stopped pane still takes the keys, so the
+	// accent stays on its edge while it waits for enter (#318).
+	if m.paneSelected() {
 		return edgePane
 	}
 	return edgeNone

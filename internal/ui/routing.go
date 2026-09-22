@@ -49,8 +49,14 @@ func (m *Model) focus() (focusTarget, bool) {
 	if m.review.Focused {
 		return focusReview, true
 	}
-	return focusTerminal, m.focusedTerminal() != nil
+	// The row, not the terminal: a stopped session has no terminal and is
+	// still the pane that owns the keys. Asking about the terminal sent a
+	// stopped pane's keys to omatty's commands, where a bare q quit (#318).
+	return focusTerminal, m.paneSelected()
 }
+
+// paneSelected reports whether a session row is selected, running or not.
+func (m *Model) paneSelected() bool { return m.Selected() != "" }
 
 // dispatch hands a plain keystroke to the focused pane.
 func (m *Model) dispatch(target focusTarget, msg tea.KeyPressMsg) tea.Cmd {
@@ -62,7 +68,10 @@ func (m *Model) dispatch(target focusTarget, msg tea.KeyPressMsg) tea.Cmd {
 	case focusReview:
 		return m.onPaneKey(msg.Keystroke())
 	default:
-		return m.focusedTerminal().Update(msg)
+		if term := m.focusedTerminal(); term != nil {
+			return term.Update(msg)
+		}
+		return m.onStoppedKey(msg)
 	}
 }
 
@@ -162,9 +171,10 @@ func (m *Model) cursorMove(key string) (func(), bool) {
 
 // paneCommand runs the leader commands that act on the focused session.
 func (m *Model) paneCommand(key string) tea.Cmd {
+	if cmd, ok := m.lifecycleCommand(key); ok {
+		return cmd
+	}
 	switch key {
-	case "r":
-		return m.restartSelected()
 	case "d":
 		return m.toggleView(ViewDiff)
 	case "f":
@@ -177,6 +187,20 @@ func (m *Model) paneCommand(key string) tea.Cmd {
 		return tea.Quit
 	}
 	return m.modalCommand(key)
+}
+
+// lifecycleCommand is the two keys that end the focused session's process:
+// restart starts another at once (#15), stop leaves the pane waiting for
+// enter (#318). Split off paneCommand when the second pushed it past the
+// statement limit, and the pair belong together.
+func (m *Model) lifecycleCommand(key string) (tea.Cmd, bool) {
+	switch key {
+	case "r":
+		return m.restartSelected(), true
+	case "s":
+		return m.stopSelected(), true
+	}
+	return nil, false
 }
 
 // modalCommand opens a surface that takes the keyboard. It is a third table
