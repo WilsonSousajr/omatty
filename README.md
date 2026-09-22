@@ -262,6 +262,7 @@ auto = false               # run a session's gate when its turn ends
 
 [sessions]
 lazy_start = true          # at boot, start only sessions dtach still holds; enter starts the rest
+idle_stop = "0"            # stop a session quiet this long, keeping it; "0" is off
 ```
 
 `sessions.lazy_start` is on because every `claude` costs a few hundred MB
@@ -275,7 +276,16 @@ to `false` to start every session at boot, as before.
 Lazy start stops the fleet re-forming; it does not disband one. Sessions dtach
 is already holding are reattached, not stopped, so quitting and relaunching
 omatty with eleven held sessions still leaves eleven running. They go away on a
-reboot, or with `ctrl+o s`.
+reboot, with `ctrl+o s`, or with `sessions.idle_stop`.
+
+`sessions.idle_stop` takes a duration such as `"90m"` or `"72h"` (there is no
+`d` unit), and stops a session that has been quiet that long exactly as `ctrl+o s` would: its
+process ends, its row, transcript and comments stay, and `enter` resumes it.
+Quiet means that its last turn in the transcript, the moment omatty last started
+it, and the last key you typed into its pane are all older than the threshold.
+A session you are looking at, one in the middle of a turn, and one waiting on
+your answer are never stopped. It is off by default, because ending a process
+you did not ask to end costs a turn if omatty is wrong about quiet.
 
 `gate.auto` is off because a test suite on every idle costs real time. With it
 on, a session that finishes a turn is gated immediately and a red result

@@ -290,11 +290,20 @@ func (m *Model) forgetSessionMaps(id string) {
 	delete(m.gateRunning, id)
 	delete(m.covers, id)
 	delete(m.coverFailed, id)
+	m.forgetCardMaps(id)
+}
+
+// forgetCardMaps is the second half of forgetSessionMaps: what the card and
+// the boot kept per session. Split off when the idle sweep's map pushed the
+// one list past the statement limit (#319); the reflection test covers both
+// halves alike.
+func (m *Model) forgetCardMaps(id string) {
 	delete(m.repoStat, id) // display-only, and the card is gone with the row (#180)
 	delete(m.statPending, id)
 	delete(m.statFailed, id)
 	delete(m.filesPending, id)
 	delete(m.reattached, id)
+	delete(m.activeAt, id) // the idle sweep's floor (#319)
 }
 
 // WorktreeRemovedMsg carries the outcome of a worktree removal into Update.

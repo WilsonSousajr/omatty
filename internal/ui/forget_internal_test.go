@@ -101,6 +101,7 @@ func filledModel() *Model {
 	m.filesPending[forgottenID] = true
 	m.reattached[forgottenID] = true
 	m.terms[forgottenID] = nil
+	m.activeAt[forgottenID] = time.Unix(0, 0)
 	return m
 }
 

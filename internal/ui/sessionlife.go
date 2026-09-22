@@ -50,6 +50,7 @@ func (m *Model) relaunch(sess registry.Session) tea.Cmd {
 		_ = old.Close()
 	}
 	m.terms[sess.ID] = term
+	m.markActive(sess.ID) // a fresh process is not idle (#319)
 	// Born at the live size, so no Resize races claude's startup (issue #73).
 	// The replacement process gets its own clipboard wait: the old one ended
 	// with the terminal it was reading (#212).
@@ -108,6 +109,7 @@ func (m *Model) foldInSession(sess registry.Session) (tea.Cmd, error) {
 		return nil, fmt.Errorf("starting session %s: %w", sess.ID, err)
 	}
 	m.terms[sess.ID] = term
+	m.markActive(sess.ID) // a fresh process is not idle (#319)
 	m.state.Sessions = append(m.state.Sessions, sess)
 	m.sidebar = NewSidebar(SidebarRows(m.state, m.statusMap()))
 	if !m.selectSession(sess.ID) {

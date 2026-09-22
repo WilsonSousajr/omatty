@@ -69,6 +69,8 @@ func (m *Model) dispatch(target focusTarget, msg tea.KeyPressMsg) tea.Cmd {
 		return m.onPaneKey(msg.Keystroke())
 	default:
 		if term := m.focusedTerminal(); term != nil {
+			// Typing is use, whatever the transcript says (#319).
+			m.markActive(m.Selected())
 			return term.Update(msg)
 		}
 		return m.onStoppedKey(msg)

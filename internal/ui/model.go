@@ -140,6 +140,11 @@ type Model struct {
 	mouseReleased bool
 	width         int
 	height        int
+	// idleStop and activeAt are the idle sweep (#319): its threshold, zero
+	// when off, and when omatty last started or the operator last typed into
+	// each session - the floors under the transcript's own last turn.
+	idleStop time.Duration
+	activeAt map[string]time.Time
 }
 
 // NewModel builds the root model from its dependencies.
@@ -161,7 +166,7 @@ func NewModel(deps Deps) *Model {
 		hasFocus:   true,
 		reattached: d.Reattached,
 	}
-	return m.withSources(d).withGate(d).withWindow().withRuntimeMaps()
+	return m.withSources(d).withGate(d).withWindow().withRuntimeMaps().withSweep(d)
 }
 
 // withSources attaches the injected functions that reach outside ui: the
@@ -266,7 +271,7 @@ func (m *Model) Init() tea.Cmd {
 	}
 	// The first stat poll runs at start rather than a tick later, so a card
 	// names its branch before the operator has read the screen (#180).
-	cmds = append(cmds, scheduleTick(), m.onStatTick())
+	cmds = append(cmds, scheduleTick(), m.onStatTick(), m.scheduleSweep())
 	return tea.Batch(cmds...)
 }
 
@@ -314,6 +319,8 @@ func (m *Model) routeMsg(msg tea.Msg) tea.Cmd {
 		return scheduleTick()
 	case StatTickMsg:
 		return m.onStatTick()
+	case SweepTickMsg:
+		return m.onSweepTick()
 	default:
 		return m.onDataMsg(msg)
 	}

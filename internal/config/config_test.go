@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/config"
 )
@@ -171,5 +172,48 @@ func TestLoad_LazyStartFalseIsHonoured_issue317(t *testing.T) {
 	}
 	if got.Sessions.LazyStart {
 		t.Error("lazy_start = false was read as true")
+	}
+}
+
+// idle_stop is off unless asked for: ending a process the operator did not
+// ask to end costs a turn if omatty is wrong about "quiet" (#319).
+func TestLoad_IdleStopIsOffByDefault_issue319(t *testing.T) {
+	home := t.TempDir()
+	got, err := config.Load(filepath.Join(home, "none.toml"), home)
+	if err != nil || got.Sessions.IdleStop != 0 {
+		t.Errorf("Load() with no file = (idle_stop %v, %v), want 0 and no error", got.Sessions.IdleStop, err)
+	}
+}
+
+// A duration is what a person writes: "90m", not a count of nanoseconds.
+func TestLoad_ReadsIdleStopAsADuration_issue319(t *testing.T) {
+	home := t.TempDir()
+	got, err := config.Load(writeConfig(t, home, "[sessions]\nidle_stop = \"90m\"\n"), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if time.Duration(got.Sessions.IdleStop) != 90*time.Minute {
+		t.Errorf("idle_stop = %v, want 90m", time.Duration(got.Sessions.IdleStop))
+	}
+}
+
+// A negative threshold or a typo is refused, naming the file, the key and the
+// value, rather than silently sweeping everything or nothing (#319).
+func TestLoad_RefusesABadIdleStop_issue319(t *testing.T) {
+	for _, value := range []string{"-5m", "soon"} {
+		home := t.TempDir()
+		path := writeConfig(t, home, "[sessions]\nidle_stop = \""+value+"\"\n")
+
+		_, err := config.Load(path, home)
+
+		if err == nil {
+			t.Errorf("idle_stop = %q was accepted, want an error", value)
+			continue
+		}
+		for _, want := range []string{path, "idle_stop", value} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("idle_stop = %q: error %q does not name %q", value, err, want)
+			}
+		}
 	}
 }

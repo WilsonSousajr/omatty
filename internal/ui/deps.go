@@ -104,6 +104,9 @@ type Deps struct {
 	Notice string
 	// Leader is the key omatty intercepts. Empty means DefaultLeader (#44).
 	Leader string
+	// IdleStop stops a session quiet this long, as ctrl+o s would; zero is
+	// off, and the default (#319).
+	IdleStop time.Duration
 	// Reattached names the sessions whose claude was already running when
 	// omatty started: their panes come back blank and are asked to repaint
 	// once at boot (#191). Nil means none.
