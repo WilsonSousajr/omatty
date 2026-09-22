@@ -1054,6 +1054,87 @@ and the research deliberately stops before deciding their shape:
 
 ---
 
+## M13 - Memory and idle CPU
+
+**Delivers:** an answer to "why is omatty holding most of a gigabyte", and
+the part of that answer omatty owns. Measured on a live window: thirteen
+sessions, three days up, **505 MB physical footprint** with a further 298 MB
+swapped, RSS sawtoothing **183 MB to 364 MB every two seconds**, and
+**12-17% of a core while nothing was happening**.
+
+**Why this and not something else.** Twelve milestones shipped without a
+single measurement of what the binary costs to leave open, which is the one
+thing a tool you leave open all day is judged on. The sawtooth said the
+answer was two separate problems - roughly 183 MB genuinely retained, and
+roughly 180 MB of garbage produced every two seconds - and that split is
+what the work below follows.
+
+**What was fixed.**
+
+- **The frame was rebuilt on every message, and measured three times over.**
+  A CPU profile of the idle process named `ansi.StringWidth` as 62% of a
+  frame: `fitLine` measured a line to decide whether to cut it and `padRight`
+  measured it again to pad it, then `lipgloss.JoinVertical` and
+  `JoinHorizontal` measured every line of every column a third time to align
+  blocks that are already exactly their own width - the #174 promise
+  `TestFrame_EveryLineIsExactlyTheWindow_issue174` has asserted all along.
+  `joinRows` and `joinColumns` trade on that invariant instead of
+  rediscovering it. Lane cells, meter cells and status glyphs were restyled
+  per cell per frame although each is fixed by a tiny domain, and are now
+  rendered once. `BenchmarkFrame` at thirteen sessions: 385 us and 464 allocs
+  to 135 us and 386.
+- **The frame is memoised, invalidating by default.** Most messages are
+  output from a pane nobody is looking at, and such a frame is identical to
+  the one before it - status comes from the transcript, never the grid
+  (invariant 2). The memo is keyed on the window and the focused pane's
+  grid; `Update` drops it for every message and exactly one path puts it
+  back, the broadcast that mutates a terminal and never the model. A message
+  type added later is stale-proof by default, and eighteen of them are
+  asserted against a fresh rebuild.
+- **Archive forgot five of fifteen per-session maps.** The rest stayed for
+  the life of the process, most expensively `covers`, a `map[int]bool` per
+  source line per file. The guard is a reflection test, not a written list.
+- **Gate output was bounded only after `CombinedOutput` had held all of it**,
+  which is the failure `internal/gate/bound.go` already described, one layer
+  earlier than it was being fixed.
+- **Every checkout was polled while the window was blurred**, two or three
+  git processes per session every ten seconds.
+- **`OMATTY_HEAP_PROFILE`**, because none of the above could be asked of the
+  binary; it all had to be inferred from `vmmap`, `ps` and a new benchmark.
+
+**Measured end to end**, eight chatty sessions through a real PTY:
+**35-41% of a core to 16-18%**, peak RSS 153-155 MB to 135-137 MB.
+
+**Not fixed, and not omatty's to fix.** The retained heap is dominated by two
+upstream constants, which `OMATTY_HEAP_PROFILE` showed on its first run - on
+a **two**-session window, 61% of the live heap was one of them:
+
+```
+8194.75kB 61.48%  github.com/charmbracelet/x/ansi.(*Parser).SetDataSize
+1034.66kB  7.76%  github.com/charmbracelet/ultraviolet.NewBuffer
+```
+
+- `x/vt`'s `NewEmulator` calls `SetDataSize(1024 * 1024 * 4)` - **4 MiB of
+  ANSI parser buffer per emulator**, 64x the `ansi.NewParser` default,
+  allocated whether or not the session ever draws. At thirteen sessions that
+  is 52 MB before a byte of anything else.
+- Each emulator holds **two screens, each with a 10,000-line scrollback**
+  (`vt.DefaultScrollbackSize`), of which omatty reads *nothing*: the wheel
+  forwards `PgUp`/`PgDn` to the child so claude's own pager answers
+  (`internal/ui/wheel.go`), and the repository contains no reference to
+  `Scrollback`, `GetCells` or `CellAt`. A `uv.Cell` is 112 bytes with five
+  pointer words, so a saturated lane of scrollback is tens of MB per session
+  that nothing can display.
+
+`vt.Emulator` exports `SetScrollbackSize`, but `bubbleterm.Emulator` holds
+its `vt` field unexported with no accessor, so none of this is reachable from
+here. Fixing it means a passthrough in `taigrr/bubbleterm` and a smaller
+default - or an argument for one - in `charmbracelet/x`. That is an upstream
+conversation, not a change to this repository, and invariant 4 is what keeps
+its blast radius to `internal/termwrap` when it happens.
+
+---
+
 ## Not on the roadmap
 
 Considered and cut, so they do not creep back in through the side door.

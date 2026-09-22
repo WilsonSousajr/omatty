@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"sync"
+
 	"image/color"
 
 	"charm.land/lipgloss/v2"
@@ -48,6 +50,30 @@ var statusColors = map[watcher.Status]color.Color{
 // glyphStyle colours a status glyph.
 func glyphStyle(s watcher.Status) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(glyphColor(s))
+}
+
+// statusCells is every status's coloured glyph, rendered once.
+//
+// The pair (colour, glyph) is fixed per status, so a card that redraws the
+// same status draws the same cell - but it was restyled and re-rendered on
+// every card of every frame, and a frame is drawn on every message. Built on
+// first use rather than in an initialiser, the pattern internal/highlight
+// uses for its style.
+var statusCells = sync.OnceValue(func() map[watcher.Status]string {
+	cells := make(map[watcher.Status]string, len(statusGlyphs))
+	for st := range statusGlyphs {
+		cells[st] = glyphStyle(st).Render(statusGlyph(st))
+	}
+	return cells
+})
+
+// statusCell is a status's coloured glyph. A status with no glyph of its own
+// falls through to the same rendering statusGlyph's "-" default would give.
+func statusCell(s watcher.Status) string {
+	if c, ok := statusCells()[s]; ok {
+		return c
+	}
+	return glyphStyle(s).Render(statusGlyph(s))
 }
 
 var (

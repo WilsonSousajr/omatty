@@ -55,3 +55,22 @@ func TestRun_oneEnormousLine_isStillBounded(t *testing.T) {
 		t.Errorf("Output is %d bytes, want it bounded near %d", len(got[0].Output), gate.MaxOutputBytes)
 	}
 }
+
+// Beyond the collecting window, not merely beyond the caps: a step that
+// writes hundreds of kilobytes is bounded while it runs, and still says so.
+func TestRun_aFloodBeyondTheCollectingWindow_isBoundedAndSaysSo(t *testing.T) {
+	steps := []gate.Step{{Name: "test", Run: fmt.Sprintf("head -c %d /dev/zero | tr '\\0' 'x'; echo; echo DONE", gate.KeptBytes*3)}}
+
+	got, _ := gate.Run(context.Background(), t.TempDir(), steps)
+
+	out := got[0].Output
+	if len(out) > gate.MaxOutputBytes*2 {
+		t.Errorf("Output is %d bytes, want it bounded near %d", len(out), gate.MaxOutputBytes)
+	}
+	if !strings.Contains(out, "DONE") {
+		t.Error("output lost the trailing line; the window must keep the end")
+	}
+	if !strings.Contains(out, "elided") {
+		t.Error("output was truncated without saying so")
+	}
+}

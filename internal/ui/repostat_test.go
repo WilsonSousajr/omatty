@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/ui"
@@ -150,5 +151,34 @@ func TestModel_NoStatReaderPollsNothing_issue180(t *testing.T) {
 	}
 	if _, ok := m.RepoStatOf("s1"); ok {
 		t.Error("a model with no stat reader holds a stat")
+	}
+}
+
+// While omatty is blurred nothing on a card can be read, and the periodic
+// poll is two or three git processes per session. At a dozen sessions that
+// is a few process spawns a second, all day, for a screen nobody is looking
+// at.
+func TestModel_ABlurredWindowDoesNotPollEverySession(t *testing.T) {
+	m, stat := modelWithStat(t)
+	m.Update(tea.BlurMsg{})
+
+	deliver(m, m.PollAll())
+
+	if len(stat.Asked) != 0 {
+		t.Errorf("a blurred window polled %v; it should spawn no git at all", stat.Asked)
+	}
+}
+
+// Coming back must not leave stale cards on screen: focus polls at once
+// rather than waiting out the rest of the ten-second period.
+func TestModel_RegainingFocusPollsEverySession(t *testing.T) {
+	m, stat := modelWithStat(t)
+	m.Update(tea.BlurMsg{})
+
+	_, cmd := m.Update(tea.FocusMsg{})
+	deliver(m, cmd)
+
+	if len(stat.Asked) != 3 {
+		t.Errorf("regaining focus asked %v, want all three sessions polled", stat.Asked)
 	}
 }
