@@ -70,6 +70,9 @@ type Deps struct {
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
 	Name   NameFunc
+	// Rebind persists the conversation a session's claude moved to on /clear
+	// (#316).
+	Rebind RebindFunc
 	// RenameBranch gives a worktree's placeholder branch the name its first
 	// prompt settled on (#151).
 	RenameBranch BranchRenameFunc
@@ -163,7 +166,8 @@ func (d Deps) withLifecycleDefaults() Deps {
 }
 
 // withNamingDefaults fills what names a session: its title, the first prompt
-// that derives one, and the branch that takes it (#41, #127, #151). Split out
+// that derives one, the branch that takes it, and the conversation it is on
+// (#41, #127, #151, #316). Split out
 // of withLifecycleDefaults because #151 pushed that one past the length limit,
 // and these three answer one question between them.
 func (d Deps) withNamingDefaults() Deps {
@@ -175,6 +179,9 @@ func (d Deps) withNamingDefaults() Deps {
 	}
 	if d.Name == nil {
 		d.Name = noName
+	}
+	if d.Rebind == nil {
+		d.Rebind = noRebind
 	}
 	return d
 }

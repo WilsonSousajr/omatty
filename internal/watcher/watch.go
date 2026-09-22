@@ -68,8 +68,13 @@ func (w *Watch) Events() <-chan Event { return w.events }
 // Add starts tailing a session's transcript, for a session created at
 // runtime as well as the initial ones. Adding an id that is already tailed
 // stops the tailer it displaces, which nothing else holds a reference to (#40).
+//
+// The transcript is the conversation's, and so are the ids its events carry:
+// after /clear that is no longer sess.ID, and re-adding the rebound session
+// is how the tailer follows it (#316). The map stays keyed by sess.ID.
 func (w *Watch) Add(sess registry.Session) {
-	tl := Tail(sess.ID, w.deps.TranscriptPath(w.deps.Home, sess.Dir, sess.ID), w.events, w.deps.Clock, pollEvery, w.deps.Adapter)
+	conv := sess.ConversationID()
+	tl := Tail(conv, w.deps.TranscriptPath(w.deps.Home, sess.Dir, conv), w.events, w.deps.Clock, pollEvery, w.deps.Adapter)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if old := w.tailers[sess.ID]; old != nil {

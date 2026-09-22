@@ -84,3 +84,14 @@ func TestApply_UsageOnFreshStateStillRecordsTokens(t *testing.T) {
 		t.Errorf("Tokens = %+v, want %+v recorded on a zero state", got.Tokens, tok)
 	}
 }
+
+// A cleared pane is a fresh conversation waiting for its first prompt (#316).
+func TestApply_ReboundIsIdle_issue316(t *testing.T) {
+	cur := watcher.SessionState{Status: watcher.StatusDone, At: t0}
+
+	got := watcher.Apply(cur, watcher.Event{Kind: watcher.SessionRebound, At: t0.Add(time.Second)})
+
+	if got.Status != watcher.StatusIdle {
+		t.Errorf("Apply(SessionRebound) status = %q, want %q", got.Status, watcher.StatusIdle)
+	}
+}

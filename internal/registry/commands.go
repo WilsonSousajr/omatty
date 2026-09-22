@@ -334,15 +334,24 @@ func NamedProject(s *Store, name string) (Project, error) {
 	return findProject(&st, name)
 }
 
-// KnownSessionIDs is every session id state.json holds, which is what adoption
-// leaves out of what it offers (#91, #122). Exported for the same reason
-// NamedProject is: cmd/ had a second copy of it.
+// KnownSessionIDs is every session id state.json holds, rebound conversations
+// included, which is what adoption leaves out of what it offers (#91, #122,
+// #316). Exported for the same reason NamedProject is: cmd/ had a second copy
+// of it.
 func KnownSessionIDs(s *Store) ([]string, error) {
 	st, err := s.Load()
 	if err != nil {
 		return nil, err
 	}
-	return sessionIDs(&st), nil
+	ids := sessionIDs(&st)
+	// A row /clear moved on holds a second transcript, which adoption must
+	// not offer again (#316).
+	for _, sess := range st.Sessions {
+		if sess.Conversation != "" {
+			ids = append(ids, sess.Conversation)
+		}
+	}
+	return ids, nil
 }
 
 // AdoptSession registers a claude session that already exists, so omatty can

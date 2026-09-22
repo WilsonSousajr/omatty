@@ -23,7 +23,7 @@ import (
 func TestLauncher_CommandPassesSessionIDAndOwnSettings(t *testing.T) {
 	l := supervisor.NewLauncher(agent.Claude(), "claude", "/home/u/.omatty/hooks.json", t.TempDir(), &detach.Plain{})
 
-	cmd, err := l.Command("abc-123", "/w/parser-fix")
+	cmd, err := l.Command(registry.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
 	if err != nil {
 		t.Fatalf("Command() error = %v, want nil", err)
@@ -44,7 +44,7 @@ func TestLauncher_CommandPassesSessionIDAndOwnSettings(t *testing.T) {
 // arguments, not about that.
 func commandArgs(t *testing.T, l *supervisor.Launcher, sessionID, dir string) string {
 	t.Helper()
-	cmd, err := l.Command(sessionID, dir)
+	cmd, err := l.Command(registry.Session{ID: sessionID, Dir: dir})
 	if err != nil {
 		t.Fatalf("Command(%q, %q) error = %v, want nil", sessionID, dir, err)
 	}
@@ -207,7 +207,7 @@ func TestLauncher_CommandWrapsThroughTheHolder_issue43(t *testing.T) {
 	h := &fakeHolder{Wrapped: exec.Command("dtach", "-A", "/s.sock")}
 	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), h)
 
-	cmd, err := l.Command("abc-123", "/w/parser-fix")
+	cmd, err := l.Command(registry.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
 	if err != nil {
 		t.Fatalf("Command() error = %v, want nil", err)
@@ -229,7 +229,7 @@ func TestLauncher_CommandSurfacesAHolderFailure_issue43(t *testing.T) {
 	h := &fakeHolder{WrapErr: errors.New("socket path is 130 bytes, over the 104-byte limit")}
 	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), h)
 
-	_, err := l.Command("abc-123", "/w")
+	_, err := l.Command(registry.Session{ID: "abc-123", Dir: "/w"})
 
 	if err == nil {
 		t.Fatal("Command() returned nil after the holder failed, want an error")

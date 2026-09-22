@@ -62,8 +62,20 @@ func KindOf(p hooks.Payload) (Kind, bool) {
 	if p.HookEventName == "Notification" {
 		return notificationKind(p.NotificationType)
 	}
+	if p.HookEventName == "SessionStart" && startsNewConversation(p.Source) {
+		return SessionRebound, true
+	}
 	kind, ok := kindByEvent[p.HookEventName]
 	return kind, ok
+}
+
+// startsNewConversation reports whether a SessionStart's source moved a
+// running claude onto a new session id. Only these two: a desktop Claude Code
+// forked from a pane inherits its settings and reports a new id in the same
+// place with source resume, and re-binding on that would hand the pane to
+// someone else's conversation (#316).
+func startsNewConversation(source string) bool {
+	return source == "clear" || source == "compact"
 }
 
 func notificationKind(notifType string) (Kind, bool) {
@@ -203,7 +215,7 @@ func (l *Listener) decode(conn net.Conn) (Event, bool) {
 	if !ok {
 		return Event{}, false
 	}
-	return Event{SessionID: p.SessionID, Kind: kind, At: l.clock()}, true
+	return Event{SessionID: p.SessionID, Kind: kind, At: l.clock(), Owner: p.OmattySession}, true
 }
 
 // offer sends without blocking. A full sink means the UI is behind; the

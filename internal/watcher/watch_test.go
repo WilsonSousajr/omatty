@@ -175,3 +175,25 @@ func TestStart_DegradesToTailerOnlyWhenTheSocketCannotBind_issue49(t *testing.T)
 		t.Fatal("the tailer produced nothing; status is dead without the socket")
 	}
 }
+
+// Regression, issue #316: after /clear the tailer kept reading the transcript
+// that had stopped growing. A rebound row is tailed at its conversation's
+// path, still keyed by its ID so the next Add replaces it.
+func TestWatch_AddTailsTheReboundConversation_issue316(t *testing.T) {
+	home := shortHome(t)
+	w := Start(claudeDeps(home), twoSessions())
+	defer w.Close()
+	first := w.tailers["s1"]
+
+	w.Add(registry.Session{ID: "s1", Project: "p", Title: "one", Dir: "/p", Conversation: "c1"})
+
+	tl := w.tailers["s1"]
+	if want := paths.Transcript(home, "/p", "c1"); tl.path != want || tl.sessionID != "c1" {
+		t.Errorf("tailer = (%q, %q), want (%q, c1)", tl.sessionID, tl.path, want)
+	}
+	select {
+	case <-first.Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("the pre-clear tailer is still running")
+	}
+}

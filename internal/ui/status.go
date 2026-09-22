@@ -37,11 +37,20 @@ func (m *Model) waitForEvent() tea.Cmd {
 // wait. Newer-wins lives in watcher.Apply; the model just stores the result.
 // A hook can name any session id; only registered ones may grow the status
 // map or reach the operator's notifications (issue #69).
+//
+// An event names a conversation, which is translated to its row's ID here,
+// once, so everything downstream stays keyed as it was before /clear could
+// move a conversation out from under its row (#316).
 func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 	e := watcher.Event(ev)
-	if !m.knownSession(e.SessionID) {
+	if e.Kind == watcher.SessionRebound {
+		m.followClear(e)
+	}
+	id, ok := m.sessionOfConversation(e.SessionID)
+	if !ok {
 		return m.waitForEvent()
 	}
+	e.SessionID = id
 	before := m.status[e.SessionID]
 	after := watcher.Apply(before, e)
 	m.status[e.SessionID] = after

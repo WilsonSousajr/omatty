@@ -77,7 +77,9 @@ func runHook() {
 	if err != nil {
 		return
 	}
-	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second)
+	// The launcher set SessionEnv on claude and the hook inherited it; it is
+	// what ties a /clear's new conversation to its pane (#316).
+	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second, os.Getenv(hooks.SessionEnv))
 }
 
 func run() error {
