@@ -12,6 +12,19 @@ import (
 
 // A wiring test of the kind main_test.go concedes is missing: the configured
 // binary reaches the launcher (#44).
+// The config's lazy_start reaches the boot, in both directions (#317).
+func TestTuiDeps_PassesLazyStart_issue317(t *testing.T) {
+	for _, lazy := range []bool{true, false} {
+		env := tuiEnv{Home: "/h", Agent: agent.Claude(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+		env.Cfg = config.Defaults("/h")
+		env.Cfg.Sessions.LazyStart = lazy
+
+		if got := tuiDeps(env, nil, registry.State{}).LazyStart; got != lazy {
+			t.Errorf("config lazy_start = %v reached the boot as %v", lazy, got)
+		}
+	}
+}
+
 func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T) {
 	// A short home: tuiDeps touches no file, but with dtach installed the
 	// launcher derives a socket path from it and refuses one over 103 bytes,

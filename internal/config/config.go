@@ -28,12 +28,24 @@ type Naming struct {
 // caller can use directly: past Load there is no "unset" state, so no caller
 // needs a second default of its own (#44).
 type Config struct {
-	Leader       string `toml:"leader"`
-	ClaudeBin    string `toml:"claude_bin"`
-	WorktreeRoot string `toml:"worktree_root"`
-	BaseBranch   string `toml:"base_branch"`
-	Naming       Naming `toml:"naming"`
-	Gate         Gate   `toml:"gate"`
+	Leader       string   `toml:"leader"`
+	ClaudeBin    string   `toml:"claude_bin"`
+	WorktreeRoot string   `toml:"worktree_root"`
+	BaseBranch   string   `toml:"base_branch"`
+	Naming       Naming   `toml:"naming"`
+	Gate         Gate     `toml:"gate"`
+	Sessions     Sessions `toml:"sessions"`
+}
+
+// Sessions is the [sessions] table: when omatty spends a claude process on a
+// session (#317).
+type Sessions struct {
+	// LazyStart boots only the sessions dtach is already holding, and starts
+	// the rest when the operator presses enter in their pane. On by default:
+	// a claude costs ~225 MB before its first turn, and eleven of them at
+	// boot were 2.99 GB on the machine this was measured on, ten idle for
+	// days. False starts every session at boot, as omatty did before.
+	LazyStart bool `toml:"lazy_start"`
 }
 
 // Gate is the [gate] section: how omatty runs a project's own checks (#229).
@@ -54,7 +66,7 @@ type Gate struct {
 func Defaults(home string) Config {
 	return Config{
 		Leader: "ctrl+o", ClaudeBin: "claude", WorktreeRoot: paths.DefaultWorktreeRoot(home),
-		Gate: Gate{MaxParallel: 2},
+		Gate: Gate{MaxParallel: 2}, Sessions: Sessions{LazyStart: true},
 	}
 }
 
