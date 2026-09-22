@@ -51,6 +51,7 @@ var leaderKeys = []keyHelp{
 	{"B", "rename a worktree session's branch"},
 	{"x", "archive the session, or forget an empty project"},
 	{"r", "restart a crashed session"},
+	{"s", "stop the session's process, keeping it; enter resumes it"},
 	{"d", "open or close the diff pane"},
 	{"f", "open or close the file tree"},
 	{"g", "open or close the gate pane"},

@@ -98,10 +98,16 @@ func (m *Model) rail(selected bool) string {
 	return " "
 }
 
-// titleStyle is ink and bold on the selected card, text on the rest.
+// titleStyle is ink and bold on the selected card, muted on a stopped one,
+// text on the rest. A stopped card keeps its glyph and age - those come from
+// the transcript (invariant 2) - and reads as asleep by its title alone, so
+// no legend and no layout change (#318).
 func (m *Model) titleStyle(id string) lipgloss.Style {
 	if m.isSelected(id) {
 		return headerStyle
+	}
+	if m.terms[id] == nil {
+		return mutedStyle
 	}
 	return textStyle
 }

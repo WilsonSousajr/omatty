@@ -149,6 +149,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o g` | open or close the gate pane, and run the gate |
 | `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
+| `ctrl+o s` | stop the selected session's claude, keeping the session; `enter` resumes it |
 | `ctrl+o B` | rename a worktree session's branch |
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
@@ -156,6 +157,13 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o a` | register a project claude already knows you use |
 | `ctrl+o A` | adopt a claude session already in this project |
 | `ctrl+o q` | quit |
+
+`ctrl+o s` ends a session's `claude` process and frees its memory (a few
+hundred MB each) without forgetting the session: its card keeps its status and
+age, and its queued review comments stay. The pane then says it is stopped, and
+`enter` starts it again with `--resume`, so nothing is lost but a turn that was
+in flight. Unlike `ctrl+o x` there is no confirmation, because nothing is lost
+that `enter` cannot bring back.
 
 `ctrl+o R` opens the session's title for editing, pre-filled, so correcting a
 typo is a small edit. `enter` confirms, `esc` cancels. The title is

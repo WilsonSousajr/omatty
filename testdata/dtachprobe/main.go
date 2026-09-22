@@ -64,6 +64,25 @@ func main() {
 		exit("stop: " + err.Error())
 	}
 	fmt.Println("stopped; pidfile removed:", !exists(detach.PidPath(home, "probe-session")))
+	stopThenStart(holder, cmd, home)
+}
+
+// stopThenStart is ctrl+o s followed by enter (#318): after a real Stop the
+// same command line must start a new master with a new process, not attach
+// to a dead socket. The unit tests assert what dtach is handed; only this
+// shows what dtach does with that sequence, which is #43's lesson.
+func stopThenStart(holder detach.Holder, cmd *exec.Cmd, home string) {
+	held, _ := holder.Held("probe-session")
+	fmt.Println("\n--- after stop: held =", held, "(want false) ---")
+	fmt.Println("--- start again (must print FIRST-PAINT with a new pid) ---")
+	fmt.Println(attachFor(cmd, 3*time.Second))
+	held, _ = holder.Held("probe-session")
+	pid, _ := os.ReadFile(detach.PidPath(home, "probe-session"))
+	fmt.Printf("held again = %v, pidfile: %q\n", held, strings.TrimSpace(string(pid)))
+	if err := holder.Stop("probe-session"); err != nil {
+		exit("second stop: " + err.Error())
+	}
+	fmt.Println("stopped again; pidfile removed:", !exists(detach.PidPath(home, "probe-session")))
 }
 
 // attachFor runs one dtach client in a PTY for d, then kills the client only -
