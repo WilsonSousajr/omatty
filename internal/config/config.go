@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 
@@ -46,6 +47,35 @@ type Sessions struct {
 	// boot were 2.99 GB on the machine this was measured on, ten idle for
 	// days. False starts every session at boot, as omatty did before.
 	LazyStart bool `toml:"lazy_start"`
+	// IdleStop stops a session that has been quiet this long, exactly as
+	// ctrl+o s does: process ended, row kept, enter resumes it. Zero is off,
+	// and the default: ending a process the operator did not ask to end costs
+	// a turn if omatty is wrong about "quiet", so it is opted into, the
+	// argument [gate] auto makes (#233, #319).
+	IdleStop Duration `toml:"idle_stop"`
+}
+
+// Duration is a config value a person writes as "90m" or "2h", parsed by
+// time.ParseDuration. Its own type so the TOML decoder reads a string, and so
+// a nonsense value fails in Load, where the error names the file and the key,
+// rather than wherever the value is first used (#319).
+type Duration time.Duration
+
+// UnmarshalText parses text as a non-negative duration. Zero means off; a
+// negative threshold has no meaning and would sweep every session at once.
+//
+//	var d config.Duration
+//	err := d.UnmarshalText([]byte("90m"))
+func (d *Duration) UnmarshalText(text []byte) error {
+	v, err := time.ParseDuration(string(text))
+	if err != nil {
+		return fmt.Errorf("duration %q: want one such as \"90m\" or \"2h\": %w", text, err)
+	}
+	if v < 0 {
+		return fmt.Errorf("duration %q is negative, want \"0\" (off) or a positive one such as \"90m\"", text)
+	}
+	*d = Duration(v)
+	return nil
 }
 
 // Gate is the [gate] section: how omatty runs a project's own checks (#229).

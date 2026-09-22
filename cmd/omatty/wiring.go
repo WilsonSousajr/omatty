@@ -78,24 +78,31 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 	git, holder := vcs.NewCLI(), env.Holder
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
-		Stop:   holder.Stop,
-		Notice: holder.Notice(),
-		Launch: supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
-		Agent:  env.Agent,
-		// The gate's bound comes from the config; the Runner raises a zero to
-		// one, so an old config file without a [gate] section still works.
-		GateParallel: env.Cfg.Gate.MaxParallel,
-		GateAuto:     env.Cfg.Gate.Auto,
-		LazyStart:    env.Cfg.Sessions.LazyStart,
-		Factory:      termwrap.Start,
-		Create:       sessionCreator(env.Cfg, store),
-		Leader:       env.Cfg.Leader,
-		Name:         sessionNamer(home),
-		Diff:         review.NewSource(git).Load,
-		Stat:         review.NewSource(git).Stat,
-		Files:        git.ListFiles,
+		Stop:    holder.Stop,
+		Notice:  holder.Notice(),
+		Launch:  supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
+		Agent:   env.Agent,
+		Factory: termwrap.Start,
+		Create:  sessionCreator(env.Cfg, store),
+		Leader:  env.Cfg.Leader,
+		Name:    sessionNamer(home),
+		Diff:    review.NewSource(git).Load,
+		Stat:    review.NewSource(git).Stat,
+		Files:   git.ListFiles,
 	}
-	return withStoreDeps(deps, store, home, git)
+	return withStoreDeps(withTableDeps(deps, env.Cfg), store, home, git)
+}
+
+// withTableDeps copies the config's [gate] and [sessions] tables onto the run.
+// Split from tuiDeps when [sessions] pushed it past the length limit (#317,
+// #319); the four are all plain values read from one file.
+func withTableDeps(deps ui.RunDeps, cfg config.Config) ui.RunDeps {
+	// The gate's bound comes from the config; the Runner raises a zero to
+	// one, so an old config file without a [gate] section still works.
+	deps.GateParallel, deps.GateAuto = cfg.Gate.MaxParallel, cfg.Gate.Auto
+	deps.LazyStart = cfg.Sessions.LazyStart
+	deps.IdleStop = time.Duration(cfg.Sessions.IdleStop)
+	return deps
 }
 
 // wiringGit is the slice of vcs.CLI the dependency wiring below needs.

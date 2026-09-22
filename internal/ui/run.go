@@ -149,6 +149,8 @@ type RunDeps struct {
 	// GateParallel bounds how many gates run at once (#229). Zero is raised
 	// to one by the Runner, so an unset config is a working default.
 	GateParallel int
+	// IdleStop stops a session quiet this long; zero is off (#319).
+	IdleStop time.Duration
 	// LazyStart boots only the sessions a holder already keeps alive; the
 	// rest wait for enter. On unless [sessions] lazy_start = false (#317).
 	LazyStart bool
@@ -193,6 +195,7 @@ func modelFor(
 		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
 		GateReports: gates.Reports(), GateRun: gates.Start, GateAuto: d.GateAuto,
+		IdleStop: d.IdleStop,
 	})
 }
 

@@ -45,7 +45,8 @@ func (m *Model) onStatTick() tea.Cmd { return tea.Batch(m.pollAll(), scheduleSta
 // as long as the window is left open - to refresh cards nobody can see.
 // onWindowFocus polls on the way back in, so coming back never shows a stale
 // card. A terminal that never reports focus leaves hasFocus at its true
-// default and polls exactly as before.
+// default and polls exactly as before. The idle sweep looks alike and is
+// deliberately not gated this way: see scheduleSweep (#319).
 func (m *Model) pollAll() tea.Cmd {
 	if m.stat == nil || !m.hasFocus {
 		return nil

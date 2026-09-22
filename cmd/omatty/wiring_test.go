@@ -3,6 +3,7 @@ package main
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/config"
@@ -22,6 +23,17 @@ func TestTuiDeps_PassesLazyStart_issue317(t *testing.T) {
 		if got := tuiDeps(env, nil, registry.State{}).LazyStart; got != lazy {
 			t.Errorf("config lazy_start = %v reached the boot as %v", lazy, got)
 		}
+	}
+}
+
+// The config's idle_stop reaches the model's sweep (#319).
+func TestTuiDeps_PassesIdleStop_issue319(t *testing.T) {
+	env := tuiEnv{Home: "/h", Agent: agent.Claude(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env.Cfg = config.Defaults("/h")
+	env.Cfg.Sessions.IdleStop = config.Duration(90 * time.Minute)
+
+	if got := tuiDeps(env, nil, registry.State{}).IdleStop; got != 90*time.Minute {
+		t.Errorf("config idle_stop = 90m reached the sweep as %v", got)
 	}
 }
 
