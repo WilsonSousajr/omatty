@@ -16,6 +16,9 @@ Core design:
   emulator and owns only the panes around it.
 - **omatty assigns the session UUID** (`claude --session-id <uuid>`), so it knows
   the transcript path `~/.claude/projects/<slug>/<uuid>.jsonl` deterministically.
+  `/clear` moves claude to a new uuid; the `SessionStart` hook reports it with
+  `source: "clear"` and the pane's `OMATTY_SESSION`, and the row records it as
+  `Conversation` while its `ID` stays the key (#316).
 - **Status is read from structured JSONL, never scraped from the screen.** Hooks
   injected via `--settings` give low latency; the JSONL tail gives truth.
 - **A session is a Claude process in a directory.** Worktrees are opt-in.

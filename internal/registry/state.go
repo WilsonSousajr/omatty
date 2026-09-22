@@ -49,6 +49,23 @@ type Session struct {
 	// never "claude": two spellings of one agent in one file is the drift the
 	// derivable default exists to avoid.
 	Agent string `json:"agent,omitempty"`
+	// Conversation is the uuid claude is on now, when that is no longer ID.
+	// /clear moves claude to a new uuid and a new transcript; ID stays the
+	// row's permanent key, because it also names the dtach socket that holds
+	// the process and every map the UI keeps (#316). Empty means ID, which is
+	// every row written before #316 - derivable, so Version stays 1
+	// (invariant 9, the argument Base and Agent make above).
+	Conversation string `json:"conversation,omitempty"`
+}
+
+// ConversationID is the uuid to resume and the transcript to tail.
+//
+//	path := paths.Transcript(home, sess.Dir, sess.ConversationID())
+func (s Session) ConversationID() string {
+	if s.Conversation != "" {
+		return s.Conversation
+	}
+	return s.ID
 }
 
 // State is the whole persisted registry.

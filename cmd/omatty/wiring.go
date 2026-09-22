@@ -124,10 +124,11 @@ func withStoreDeps(
 	return withPickerDeps(withLifecycleDeps(deps, store, git), store, home, git)
 }
 
-// withLifecycleDeps adds rename, archive, worktree removal and project
-// removal (#40, #41, #159).
+// withLifecycleDeps adds rename, rebind, archive, worktree removal and project
+// removal (#40, #41, #159, #316).
 func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui.RunDeps {
 	deps.Rename = sessionRenamer(store)
+	deps.Rebind = sessionRebinder(store)
 	deps.RenameBranch = branchRenamer(store, vcs.NewCLI())
 	deps.Archive = sessionArchiver(store)
 	deps.RemoveWorktree = git.RemoveWorktree
@@ -229,6 +230,15 @@ func sessionRenamer(store *registry.Store) ui.RenameFunc {
 	}
 }
 
+// sessionRebinder adapts registry.RebindSession to ui.RebindFunc, so the model
+// can follow a /clear onto its new conversation without holding the store
+// (#316).
+func sessionRebinder(store *registry.Store) ui.RebindFunc {
+	return func(sessionID, conversation string) error {
+		return registry.RebindSession(store, sessionID, conversation)
+	}
+}
+
 // branchRenamer adapts registry.RenameSessionBranch to ui.BranchRenameFunc, so
 // the model can name a worktree's branch without holding the store or git
 // (#151) - the shape sessionRenamer already has.
@@ -278,7 +288,9 @@ func modelNamer(cfg config.Config) (ui.ModelNameFunc, func()) {
 // can name a session from its transcript without reading one itself (#127).
 func sessionNamer(home string) ui.NameFunc {
 	return func(sess registry.Session) (string, error) {
-		return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ID))
+		// The conversation, not the ID: after /clear the row's first
+		// transcript is the one it left behind (#316).
+		return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()))
 	}
 }
 

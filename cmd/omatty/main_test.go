@@ -448,3 +448,39 @@ func TestResolveVersion_IsEmptyWhenNeitherIsSet_issue134(t *testing.T) {
 		t.Errorf("resolveVersion(\"\", \"\") = %q, want \"\"", got)
 	}
 }
+
+// Regression, issue #316: the TUI's rebind reaches state.json, which is what
+// the next start resumes from.
+func TestSessionRebinder_PersistsTheConversation_issue316(t *testing.T) {
+	store := storeIn(t)
+	st := registry.State{Version: registry.Version,
+		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "main", Dir: "/p/omatty"}}}
+	if err := store.Save(st); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sessionRebinder(store)("s1", "after-clear"); err != nil {
+		t.Fatalf("rebind error = %v, want nil", err)
+	}
+
+	got, _ := store.Load()
+	if got.Sessions[0].Conversation != "after-clear" {
+		t.Errorf("persisted row = %+v, want conversation after-clear", got.Sessions[0])
+	}
+}
+
+// A cleared session is named from the conversation it is on, not from the
+// transcript its row was created with (#316).
+func TestSessionNamer_ReadsTheReboundConversation_issue316(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "omatty")
+	adoptFixture(t, home, dir, "before-clear", "the old work")
+	adoptFixture(t, home, dir, "after-clear", "fix the parser")
+
+	title, err := sessionNamer(home)(registry.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
+
+	if err != nil || !strings.Contains(title, "parser") {
+		t.Errorf("sessionNamer = (%q, %v), want a title from the post-clear prompt", title, err)
+	}
+}

@@ -15,7 +15,9 @@ import (
 type Kind int
 
 // The events that move a session between statuses. UsageUpdated is orthogonal:
-// it carries tokens and never changes the status.
+// it carries tokens and never changes the status. SessionRebound is a
+// SessionStart for a new conversation in a running pane - a /clear - and
+// names that pane in Event.Owner (#316).
 const (
 	SessionStarted Kind = iota
 	PromptSubmitted
@@ -26,6 +28,7 @@ const (
 	Idle
 	SessionEnded
 	UsageUpdated
+	SessionRebound
 )
 
 // Tokens is a session's cumulative usage.
@@ -45,6 +48,10 @@ type Event struct {
 	Kind      Kind
 	At        time.Time
 	Tokens    Tokens // UsageUpdated: cumulative totals
+	// Owner is the registry id of the pane whose claude sent a hook event,
+	// from hooks.SessionEnv; empty for the tailer and for a claude omatty did
+	// not launch. SessionID is the conversation, which /clear changes (#316).
+	Owner string
 }
 
 // SessionState is what the sidebar shows for a session.
@@ -65,6 +72,7 @@ var statusFor = map[Kind]Status{
 	TurnEnded:           StatusDone,
 	Idle:                StatusDone,
 	SessionEnded:        StatusExited,
+	SessionRebound:      StatusIdle,
 }
 
 // Apply folds an event into a session's state. Tokens update regardless of

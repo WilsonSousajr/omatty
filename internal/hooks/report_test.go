@@ -50,7 +50,7 @@ func TestReport_ForwardsThePayloadToTheSocket_issue18(t *testing.T) {
 	path, got := listen(t)
 	stdin := strings.NewReader(`{"session_id":"abc","hook_event_name":"Notification","notification_type":"idle_prompt"}`)
 
-	if err := hooks.Report(stdin, path, time.Second); err != nil {
+	if err := hooks.Report(stdin, path, time.Second, ""); err != nil {
 		t.Fatalf("Report() error = %v, want nil", err)
 	}
 
@@ -73,7 +73,7 @@ func TestReport_ForwardsThePayloadToTheSocket_issue18(t *testing.T) {
 func TestReport_MissingSocketIsNotAnError_issue18(t *testing.T) {
 	err := hooks.Report(
 		strings.NewReader(`{"session_id":"x","hook_event_name":"Stop"}`),
-		filepath.Join(shortSocketDir(t), "no"), time.Second)
+		filepath.Join(shortSocketDir(t), "no"), time.Second, "")
 	if err != nil {
 		t.Errorf("Report() with no socket = %v, want nil (invariant 11)", err)
 	}
@@ -81,7 +81,7 @@ func TestReport_MissingSocketIsNotAnError_issue18(t *testing.T) {
 
 func TestReport_MalformedJSONIsNotAnError_issue18(t *testing.T) {
 	path, _ := listen(t)
-	if err := hooks.Report(strings.NewReader("{not json at all"), path, time.Second); err != nil {
+	if err := hooks.Report(strings.NewReader("{not json at all"), path, time.Second, ""); err != nil {
 		t.Errorf("Report() with garbage stdin = %v, want nil (invariant 11)", err)
 	}
 }
@@ -93,7 +93,7 @@ func TestReport_OversizedStdinIsBounded_issue18(t *testing.T) {
 	huge := `{"session_id":"` + strings.Repeat("A", 2<<20) + `","hook_event_name":"Stop"}`
 
 	done := make(chan error, 1)
-	go func() { done <- hooks.Report(strings.NewReader(huge), path, time.Second) }()
+	go func() { done <- hooks.Report(strings.NewReader(huge), path, time.Second, "") }()
 
 	select {
 	case err := <-done:
@@ -147,7 +147,7 @@ func TestReport_ForwardsAPostToolUseWithAHugeResponse_issue55(t *testing.T) {
 	in := `{"session_id":"abc","hook_event_name":"PostToolUse","tool_response":"` +
 		strings.Repeat("x", 200<<10) + `"}`
 
-	if err := hooks.Report(strings.NewReader(in), path, time.Second); err != nil {
+	if err := hooks.Report(strings.NewReader(in), path, time.Second, ""); err != nil {
 		t.Fatal(err)
 	}
 

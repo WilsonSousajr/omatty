@@ -63,6 +63,7 @@ type Model struct {
 	files    ListFilesFunc
 	preview  PreviewFunc
 	rename   RenameFunc
+	rebind   RebindFunc // follows a /clear onto its new conversation (#316)
 	// renameBranch renames a worktree session's branch once its first prompt
 	// has said what the work is (#151).
 	renameBranch BranchRenameFunc
@@ -168,6 +169,7 @@ func NewModel(deps Deps) *Model {
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
+	m.rebind = d.Rebind
 	m.renameBranch = d.RenameBranch
 	m.modelNamer = d.ModelName
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop

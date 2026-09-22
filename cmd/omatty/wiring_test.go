@@ -24,7 +24,7 @@ func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T)
 
 	deps := tuiDeps(env, nil, registry.State{})
 
-	cmd, err := deps.Launch.Command("id", home)
+	cmd, err := deps.Launch.Command(registry.Session{ID: "id", Dir: home})
 	if err != nil {
 		t.Fatal(err)
 	}
