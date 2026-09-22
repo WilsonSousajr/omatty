@@ -31,7 +31,7 @@ func TestLoad_MissingFileIsEveryDefault_issue44(t *testing.T) {
 
 func TestLoad_ReadsEveryKey_issue44(t *testing.T) {
 	home := t.TempDir()
-	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\nauto = true\n")
+	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\nauto = true\n[sessions]\nlazy_start = false\n")
 	got, err := config.Load(path, home)
 	if err != nil {
 		t.Fatal(err)
@@ -39,6 +39,7 @@ func TestLoad_ReadsEveryKey_issue44(t *testing.T) {
 	want := config.Config{
 		Leader: "ctrl+a", ClaudeBin: "/opt/claude", WorktreeRoot: "/vol/wt", BaseBranch: "develop",
 		Naming: config.Naming{Model: true}, Gate: config.Gate{MaxParallel: 3, Auto: true},
+		Sessions: config.Sessions{LazyStart: false},
 	}
 	if got != want {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -151,5 +152,24 @@ func TestLoad_gateAutoIsOffByDefault_issue233(t *testing.T) {
 	}
 	if got.Gate.Auto {
 		t.Error("Gate.Auto is on by default, want off")
+	}
+}
+
+// Lazy start is on unless the operator turns it off: a fleet of idle claudes
+// was 2.99 GB on the machine #317 was measured on.
+func TestDefaults_LazyStartIsOn_issue317(t *testing.T) {
+	if !config.Defaults(t.TempDir()).Sessions.LazyStart {
+		t.Error("Defaults().Sessions.LazyStart = false, want true")
+	}
+}
+
+func TestLoad_LazyStartFalseIsHonoured_issue317(t *testing.T) {
+	home := t.TempDir()
+	got, err := config.Load(writeConfig(t, home, "[sessions]\nlazy_start = false\n"), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Sessions.LazyStart {
+		t.Error("lazy_start = false was read as true")
 	}
 }

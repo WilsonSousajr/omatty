@@ -15,26 +15,57 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
-// StartTerminals launches one embedded terminal per registered session, keyed
-// by session id. w and h are the WINDOW size; each PTY is born at the pane
-// size, so claude paints at the right width from its first frame instead of
-// racing a later resize (issue #51).
+// StartTerminals launches an embedded terminal for each session in want,
+// keyed by session id. w and h are the WINDOW size; each PTY is born at the
+// pane size, so claude paints at the right width from its first frame instead
+// of racing a later resize (issue #51).
+//
+//	terms := ui.StartTerminals(st, sessionsToStart(d, held), l, termwrap.Start, w, h, leader)
+//
+// A session left out - not wanted, or failing to start - has no terminal,
+// which its pane shows as stopped with enter to start it (#318). One failed
+// start used to abort the whole boot, so a single bad session kept every
+// other one from opening; it is logged and skipped instead (#317).
 func StartTerminals(
-	st registry.State, l *supervisor.Launcher, f termwrap.Factory, w, h int, leader string,
-) (map[string]termwrap.Terminal, error) {
+	st registry.State, want map[string]bool, l *supervisor.Launcher, f termwrap.Factory, w, h int, leader string,
+) map[string]termwrap.Terminal {
 	// The review column is closed at birth, so the terminal gets the full
 	// width beside the sidebar (#21).
 	pw, ph := PTYSize(w, h, false)
-	terms := make(map[string]termwrap.Terminal, len(st.Sessions))
+	terms := make(map[string]termwrap.Terminal, len(want))
 	for _, sess := range st.Sessions {
+		if !want[sess.ID] {
+			continue
+		}
 		term, err := l.Start(f, sess, pw, ph)
 		if err != nil {
-			return nil, fmt.Errorf("ui: starting terminal for session %s: %w", sess.ID, err)
+			slog.Warn("starting a session's terminal at boot; its pane shows it stopped",
+				"session", sess.ID, "dir", sess.Dir, "err", err)
+			continue
 		}
 		// Invariant 6: one emulator panic must not take down the app.
 		terms[sess.ID] = termwrap.NewGuard(term, leader+" r")
 	}
-	return terms, nil
+	return terms
+}
+
+// sessionsToStart is the boot policy in one place (#317). Under lazy start it
+// is exactly the sessions a holder is already keeping alive: attaching one
+// costs a dtach client and a PTY, while not attaching frees nothing - its
+// claude runs on either way - and would leave #191's repaint nudge with no
+// terminal to repaint. Every other session waits for enter. Without dtach
+// nothing is held, so a lazy boot starts none, which is right: nothing
+// survived the quit, so each was going to cold-start anyway, and now does so
+// on demand. lazy_start = false starts every session, as before.
+func sessionsToStart(d RunDeps, held map[string]bool) map[string]bool {
+	if d.LazyStart {
+		return held
+	}
+	all := make(map[string]bool, len(d.State.Sessions))
+	for _, sess := range d.State.Sessions {
+		all[sess.ID] = true
+	}
+	return all
 }
 
 // HeldSessions is the set of sessions whose claude is already running from
@@ -118,6 +149,9 @@ type RunDeps struct {
 	// GateParallel bounds how many gates run at once (#229). Zero is raised
 	// to one by the Runner, so an unset config is a working default.
 	GateParallel int
+	// LazyStart boots only the sessions a holder already keeps alive; the
+	// rest wait for enter. On unless [sessions] lazy_start = false (#317).
+	LazyStart bool
 	// GateAuto runs a session's gate when its turn ends (#233). Off unless
 	// the config asks for it.
 	GateAuto bool
@@ -130,10 +164,7 @@ func Run(d RunDeps) error {
 	// Asked before the terminals start: once a client is attached the socket
 	// exists whether or not a claude was already behind it (#191).
 	held := HeldSessions(d.Launch, d.State)
-	terms, err := StartTerminals(d.State, d.Launch, d.Factory, d.Width, d.Height, d.Leader)
-	if err != nil {
-		return err
-	}
+	terms := StartTerminals(d.State, sessionsToStart(d, held), d.Launch, d.Factory, d.Width, d.Height, d.Leader)
 	defer closeTerminals(terms)
 	watch := watcher.Start(watchDeps(d), d.State.Sessions)
 	defer watch.Close()

@@ -86,6 +86,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		// one, so an old config file without a [gate] section still works.
 		GateParallel: env.Cfg.Gate.MaxParallel,
 		GateAuto:     env.Cfg.Gate.Auto,
+		LazyStart:    env.Cfg.Sessions.LazyStart,
 		Factory:      termwrap.Start,
 		Create:       sessionCreator(env.Cfg, store),
 		Leader:       env.Cfg.Leader,

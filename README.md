@@ -259,7 +259,23 @@ model = false              # let a headless claude call improve auto-derived ses
 [gate]
 max_parallel = 2           # how many gates may run at once
 auto = false               # run a session's gate when its turn ends
+
+[sessions]
+lazy_start = true          # at boot, start only sessions dtach still holds; enter starts the rest
 ```
+
+`sessions.lazy_start` is on because every `claude` costs a few hundred MB
+before its first turn, and a boot that started all of them paid that for
+sessions nobody opened. With it on, omatty reattaches the sessions dtach is
+still holding and leaves the rest stopped: their pane says so, and `enter`
+starts one with `--resume`. Without dtach nothing survives a quit, so a lazy
+boot starts nothing and each session starts the first time you use it. Set it
+to `false` to start every session at boot, as before.
+
+Lazy start stops the fleet re-forming; it does not disband one. Sessions dtach
+is already holding are reattached, not stopped, so quitting and relaunching
+omatty with eleven held sessions still leaves eleven running. They go away on a
+reboot, or with `ctrl+o s`.
 
 `gate.auto` is off because a test suite on every idle costs real time. With it
 on, a session that finishes a turn is gated immediately and a red result
