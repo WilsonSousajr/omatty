@@ -141,7 +141,10 @@ func TestModel_gatePaneWithNoRunnerWired_listsTheStepsItWouldRun_issue231(t *tes
 		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
 	m := ui.NewModel(baseDeps(st, fakeTermsFor(st))) // no GateRun
-	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	// Wide enough for a whole command: since #342 a pending row reserves the
+	// elapsed column its verdict will fill, so at 100 columns the command is
+	// cut at the column edge (and reached by panning), as a verdict row's is.
+	m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 
 	leader(m, key('g'))
 
