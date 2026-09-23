@@ -5,7 +5,11 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -265,5 +269,66 @@ func TestModel_gatePaneScrollsPastTheColumnHeight_issue231(t *testing.T) {
 	// The view is bounded by the column, not by the output.
 	if lines := strings.Count(m.View().Content, "\n"); lines > 60 {
 		t.Errorf("the pane drew %d lines; the column must bound it", lines)
+	}
+}
+
+// dollarColumns is the display column of each step's "$ <run>" in body, keyed
+// by the command, so a test can compare where the command starts across rows.
+func dollarColumns(t *testing.T, body string, runs ...string) map[string]int {
+	t.Helper()
+	cols := map[string]int{}
+	for _, line := range strings.Split(ansi.Strip(body), "\n") {
+		for _, run := range runs {
+			if i := strings.Index(line, "$ "+run); i >= 0 {
+				cols[run] = ansi.StringWidth(line[:i])
+			}
+		}
+	}
+	for _, run := range runs {
+		if _, ok := cols[run]; !ok {
+			t.Fatalf("no row shows $ %s:\n%s", run, body)
+		}
+	}
+	return cols
+}
+
+// The command column must not move: rows with names of different lengths
+// line up, and a row does not shift when its verdict replaces the pending
+// mark. Before #342 a pending row put four spaces after the name, so "test"
+// sat one column right of "fmt", and a name longer than six characters broke
+// the verdict view's fixed width as well.
+func TestModel_gateRowsKeepOneCommandColumn_issue342(t *testing.T) {
+	steps := []gate.Step{
+		{Name: "fmt", Run: "gofmt -l ."},
+		{Name: "test", Run: "go test ./..."},
+		{Name: "coverage", Run: "./cov.sh"},
+	}
+	runs := []string{"gofmt -l .", "go test ./...", "./cov.sh"}
+	st := registry.State{
+		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty", Gate: steps}},
+		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	}
+	m := ui.NewModel(baseDeps(st, fakeTermsFor(st))) // no runner: the pending view
+	m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	leader(m, key('g'))
+
+	pending := dollarColumns(t, m.View().Content, runs...)
+
+	results := make([]gate.StepResult, len(steps))
+	for i, step := range steps {
+		results[i] = gate.StepResult{Step: step, Verdict: gate.Pass, Elapsed: 1500 * time.Millisecond}
+	}
+	m.SetGateReport("s1", gate.Report{ID: "s1", Results: results})
+	m.Update(tea.WindowSizeMsg{Width: 140, Height: 30}) // drop the memoised pending frame
+	verdict := dollarColumns(t, m.View().Content, runs...)
+
+	want := pending[runs[0]]
+	for _, run := range runs {
+		if pending[run] != want {
+			t.Errorf("pending: $ %s at column %d, want %d (the column of $ %s)", run, pending[run], want, runs[0])
+		}
+		if verdict[run] != want {
+			t.Errorf("verdict: $ %s at column %d, want %d, where it sat while pending", run, verdict[run], want)
+		}
 	}
 }
