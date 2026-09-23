@@ -94,7 +94,7 @@ func (m *Model) paneParts(row Row, now time.Time, owns bool) headerParts {
 		Branch: m.breadcrumbBranch(row.Session.ID),
 	}
 	if st.Status != "" {
-		glyph := glyphStyle(st.Status).Render(statusGlyph(st.Status))
+		glyph := statusCell(st.Status)
 		p.State = strings.TrimSpace(glyph + " " + string(st.Status) + " " + AgeString(now, st.At))
 	}
 	p.Meter, p.Counts = meterPart(st.Tokens), countsPart(st.Tokens)
@@ -115,7 +115,18 @@ func crumbRail(owns bool) string {
 // already handles.
 func (m *Model) breadcrumbBranch(id string) string { return m.repoStat[id].Branch }
 
-// sidebarSegment is the header row's sidebar share: how many projects.
+// sidebarSegment is the header row's sidebar share: how many projects, and
+// whether the mouse has been handed back to the terminal (#217).
+//
+// The marker lives here because this segment is the one piece of chrome that
+// is drawn whole at every width: the pane segment collapses under pressure
+// (#177) and the footer's facts are dropped entirely once the keymap fills a
+// default window, which is exactly the window an operator toggling the mouse
+// is most likely to be in.
 func (m *Model) sidebarSegment() string {
-	return "projects · " + strconv.Itoa(len(m.state.Projects))
+	seg := "projects · " + strconv.Itoa(len(m.state.Projects))
+	if m.mouseReleased {
+		return seg + " · " + mouseOffMark
+	}
+	return seg
 }

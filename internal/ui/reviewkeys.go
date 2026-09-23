@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/paste"
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
 
@@ -167,5 +168,5 @@ func (m *Model) submitReview() tea.Cmd {
 	cs.Clear()
 	m.review.Focused = false
 	m.rebuildEntries()
-	return term.SendInput(review.BracketedPaste(body))
+	return term.SendInput(paste.BracketedPaste(body))
 }

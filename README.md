@@ -3,13 +3,51 @@
 A terminal ADE: multiple projects and multiple parallel Claude Code sessions
 in one window.
 
-Every other tool in this space is either a desktop app or scoped to a single
-repository. omatty is terminal-native — it works over SSH on a headless box —
-and shows sessions from *several* repositories side by side.
+omatty is terminal-native — it works over SSH on a headless box — and shows
+sessions from *several* repositories side by side. Other terminal managers do
+the second part; the desktop apps do neither. What none of them do, and what
+Claude Code's own `claude agents` does not do either, is run the project's own
+check line in each session's worktree and put the verdict on the card.
+
+`docs/comparison.md` is the fair version of that claim, with the places other
+tools are ahead.
+
+## What omatty is
+
+There are a great many tools for running coding agents in parallel, and they
+almost all optimise the same thing: how much agent-work you can have in flight
+at once. Fleets, coordinators, queues, boards.
+
+omatty optimises the other thing: **how quickly you can tell whether what came
+back is any good.**
+
+So a project here is not a container for delegated tasks. It is a repository
+and the sessions running against it. omatty starts the real `claude` binary —
+it does not reimplement Claude's interface — and shows you what each session
+changed, with your comments anchored to the *content* of the lines rather than
+their numbers, sent back as one message.
+
+A project also carries its **gate**: the `fmt`/`vet`/`lint`/`test`/coverage
+line that decides whether the work is sound. omatty runs it in the session's
+own directory, shows the result on the session's card, and sends the failures
+back into the session that caused them — one keystroke, or on its own when a
+turn ends, if you ask for that.
+
+It does not delegate, plan, schedule, or decide on your behalf. You are not a
+bottleneck in the loop; you are the part of it that catches things. omatty's job
+is to get you to the point of catching them sooner.
+
+`docs/ROADMAP.md` lists what that rules out, and why.
+`docs/comparison.md` says how it compares to everything else in the field.
 
 ## Status
 
-**v0.1.0 — the first release.** Eight milestones, all built:
+**v0.2.0**, 2026-09-22 — the first release with the gate. It adds **M9 — The
+Gate**, **M10 — Coverage on the diff**, **M11 — The Harness** and **M13 —
+Memory and idle CPU** to v0.1.0's eight milestones, plus the session
+lifecycle: `ctrl+o s` stops a session without forgetting it, boot starts only
+what `dtach` is still holding, and `[sessions] idle_stop` can stop what has
+gone quiet. `CHANGELOG.md` has the whole list.
 
 | Milestone | Delivers |
 |---|---|
@@ -21,6 +59,10 @@ and shows sessions from *several* repositories side by side.
 | **M6** Persistence | With `dtach`, quitting detaches rather than ends; relaunching reattaches. Sessions claude already has can be adopted. |
 | **M7** Reach | A config file, mouse support, the agent seam, and a visual identity. |
 | **M8** Surface | The frame, colour rule, cards, header, footer and diffstat that the panes are drawn in. |
+| **M9** The Gate | A project carries the check line that says whether work in it is sound. omatty runs it per session, shows the verdict on the card, and sends the failures back into the session. |
+| **M10** Coverage on the diff | Of the lines a session added, the ones no test covers, marked in the diff with a count per file — and a word on the title when a change brought no tests with it. |
+| **M11** The Harness | Nothing an operator sees: invariant 4's import boundaries, module hygiene, per-function C.R.A.P. and the package dependency structure become steps of this repository's gate that fail. |
+| **M13** Memory and idle CPU | Idle CPU cut by about 55%, and a per-session leak on archive fixed. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
 pre-1.0, and the key table, `config.toml` keys and `state.json` schema are
@@ -33,7 +75,7 @@ not yet frozen. `docs/ROADMAP.md` has the reasoning and what was cut;
 go install github.com/WilsonSousajr/omatty/cmd/omatty@latest
 ```
 
-Or `@v0.1.0` for the release rather than the tip of `main`. From a clone,
+Or `@v0.2.0` for the release rather than the tip of `main`. From a clone,
 `go install ./cmd/omatty` does the same thing.
 
 Requires Go 1.26, `git`, and `claude` on your PATH, with `$(go env GOPATH)/bin`
@@ -64,6 +106,8 @@ omatty add ~/Projects/my-app          # or register one by hand
 omatty rm my-app                      # forget a project (the repository stays)
 omatty new my-app main                # a session on the main checkout
 omatty new my-app parser-fix parser-fix   # a session on a fresh worktree
+omatty gate my-app                    # show the gate, or propose one and confirm
+omatty gate my-app --detect           # print the proposal, write nothing
 omatty                                # run the TUI
 omatty --version                      # which build is this
 ```
@@ -75,6 +119,25 @@ repository they came from. On a well-used machine that is 34 directories in
 the store collapsing to 6 worth listing. It only ever proposes: nothing is
 registered until you pick it.
 
+`omatty gate` reads the repository and proposes the check line it already
+uses — `gofmt`, `go vet`, `golangci-lint`, `go test -race`, a coverage script;
+`cargo fmt --check`, `cargo clippy`, `cargo test`; `ruff` and `pytest`; or the
+`lint` and `test` scripts a `package.json` defines. Like `discover`, it only
+proposes: nothing is written, and nothing is ever run, until you confirm it.
+
+A coverage step also declares the **profile** it writes, and the listing you
+confirm says so:
+
+```
+  cov   $ ./scripts/check-coverage.sh   [coverage]  -> cover.out
+```
+
+That path is read out of the session's own directory when its gate finishes,
+and it is what puts the uncovered markers on the diff. Go profiles and lcov are
+both understood, told apart by content rather than by file name. A project that
+writes its profile somewhere else names it in `~/.omatty/state.json`; a project
+that declares none simply gets no overlay.
+
 Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 
 | Key | Action |
@@ -85,13 +148,24 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o N` | new session on a fresh worktree |
 | `ctrl+o d` | open or close the diff pane |
 | `ctrl+o f` | open or close the file tree |
+| `ctrl+o g` | open or close the gate pane, and run the gate |
+| `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
+| `ctrl+o s` | stop the selected session's claude, keeping the session; `enter` resumes it |
+| `ctrl+o B` | rename a worktree session's branch |
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
 | `ctrl+o /` | jump to a session by typing part of its name |
 | `ctrl+o a` | register a project claude already knows you use |
 | `ctrl+o A` | adopt a claude session already in this project |
 | `ctrl+o q` | quit |
+
+`ctrl+o s` ends a session's `claude` process and frees its memory (a few
+hundred MB each) without forgetting the session: its card keeps its status and
+age, and its queued review comments stay. The pane then says it is stopped, and
+`enter` starts it again with `--resume`, so nothing is lost but a turn that was
+in flight. Unlike `ctrl+o x` there is no confirmation, because nothing is lost
+that `enter` cannot bring back.
 
 `ctrl+o R` opens the session's title for editing, pre-filled, so correcting a
 typo is a small edit. `enter` confirms, `esc` cancels. The title is
@@ -106,6 +180,14 @@ gives the column the keys, and a click on the `×` at the right end of the
 column's rule closes it. The column's rule reads `─ review ─────×` so it is
 told apart from a diff Claude draws inside its own pane, which is Claude's to
 open and close. Clicks inside the pane go to Claude.
+
+All of that costs the one thing a terminal normally does with a pointer:
+while omatty is asking the host for mouse events, the host will not make a
+selection of its own. `ctrl+o m` hands the mouse back, and the header says
+`mouse off` while it is handed back. The terminal then selects, copies on
+select and opens its context menu exactly as it does everywhere else; the
+wheel, the sidebar's clicks and the review column's stop working until you
+press `ctrl+o m` again. The keyboard is untouched either way.
 
 ### Paste and copy
 
@@ -124,10 +206,11 @@ for your clipboard's contents.
 
 Taking text off the screen *yourself* is still your terminal's job, and
 because omatty asks it for the mouse (for the wheel and for clicks), a plain
-drag is a scroll rather than a selection. Hold the modifier your terminal
-bypasses reporting with - `shift` on Ghostty, kitty, xterm and Alacritty,
-`option` on Apple Terminal and iTerm2 - and drag. The selection is the
-composed screen, so keep it inside one pane. Text that has scrolled out of
+drag is a scroll rather than a selection. For one selection, hold the modifier
+your terminal bypasses reporting with - `shift` on Ghostty, kitty, xterm and
+Alacritty, `option` on Apple Terminal and iTerm2 - and drag. For anything
+longer, `ctrl+o m` gives the mouse back until you ask for it again. The
+selection is the composed screen, so keep it inside one pane. Text that has scrolled out of
 the pane is in Claude's transcript, not on screen; `pgup` reaches it.
 
 On an empty project's header, `ctrl+o x` forgets the project instead - the
@@ -174,7 +257,42 @@ base_branch = ""           # fork worktrees from this branch; empty means the ch
 
 [naming]
 model = false              # let a headless claude call improve auto-derived session titles
+
+[gate]
+max_parallel = 2           # how many gates may run at once
+auto = false               # run a session's gate when its turn ends
+
+[sessions]
+lazy_start = true          # at boot, start only sessions dtach still holds; enter starts the rest
+idle_stop = "0"            # stop a session quiet this long, keeping it; "0" is off
 ```
+
+`sessions.lazy_start` is on because every `claude` costs a few hundred MB
+before its first turn, and a boot that started all of them paid that for
+sessions nobody opened. With it on, omatty reattaches the sessions dtach is
+still holding and leaves the rest stopped: their pane says so, and `enter`
+starts one with `--resume`. Without dtach nothing survives a quit, so a lazy
+boot starts nothing and each session starts the first time you use it. Set it
+to `false` to start every session at boot, as before.
+
+Lazy start stops the fleet re-forming; it does not disband one. Sessions dtach
+is already holding are reattached, not stopped, so quitting and relaunching
+omatty with eleven held sessions still leaves eleven running. They go away on a
+reboot, with `ctrl+o s`, or with `sessions.idle_stop`.
+
+`sessions.idle_stop` takes a duration such as `"90m"` or `"72h"` (there is no
+`d` unit), and stops a session that has been quiet that long exactly as `ctrl+o s` would: its
+process ends, its row, transcript and comments stay, and `enter` resumes it.
+Quiet means that its last turn in the transcript, the moment omatty last started
+it, and the last key you typed into its pane are all older than the threshold.
+A session you are looking at, one in the middle of a turn, and one waiting on
+your answer are never stopped. It is off by default, because ending a process
+you did not ask to end costs a turn if omatty is wrong about quiet.
+
+`gate.auto` is off because a test suite on every idle costs real time. With it
+on, a session that finishes a turn is gated immediately and a red result
+notifies you when omatty is not the window you are looking at. Either way, only
+a gate you confirmed is ever run.
 
 A project that has no sessions yet is selectable too: `ctrl+o ]` reaches
 it, the pane says which project is empty, and `ctrl+o n` creates its first
@@ -182,7 +300,14 @@ session there. Archiving a project's last session leaves the cursor on that
 project for the same reason.
 
 A session created with `ctrl+o n` and a blank title is named by the first
-prompt you type into it. With `naming.model = true`, a second, headless
+prompt you type into it. `ctrl+o N` asks for nothing either: the worktree is
+created on a placeholder branch named after the session - `omatty-2501d6b4` -
+and the same first prompt renames it to `fix-the-horizontal-wheel-pan`, but
+only while the branch has nothing committed to it. After the first commit the
+name is in a history you may already have pushed, so it stays and `ctrl+o B`
+is how you change it. A branch you type at creation is never renamed, and the
+worktree's *directory* keeps its original name whatever the branch is called:
+Claude is running in it. With `naming.model = true`, a second, headless
 `claude -p --model haiku` call then turns that prompt into a short slug such
 as `diff-horizontal-scroll-fix`. It is off by default because it spends your
 quota: the call carries the CLI's own system prompt, which cost about $0.60 at

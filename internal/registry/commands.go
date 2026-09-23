@@ -21,6 +21,14 @@ type SessionBrancher interface {
 	CurrentBranch(dir string) (string, error)
 }
 
+// BranchRenamer is the slice of vcs.Git a branch rename needs, declared as
+// narrow as RepoRooter and SessionBrancher above and for the same reason.
+type BranchRenamer interface {
+	MainCheckout(dir string) (string, error)
+	CommitsOnBranch(repoRoot, base, branch string) (int, error)
+	RenameBranch(repoRoot, old, name string) error
+}
+
 // SessionPick is one session offered for adoption, as far as the registry is
 // concerned: enough to write a row and nothing more.
 type SessionPick struct {
@@ -131,6 +139,76 @@ func RenameSession(s *Store, id, title string) error {
 	}
 	st.Sessions[i].Title = title
 	return s.Save(st)
+}
+
+// RenameBranch records a session's new branch. It writes Branch and nothing
+// else: Dir is where claude is running and where its transcript path is
+// derived from, so the worktree directory keeps the name it was created with
+// (#60, #151). state.json has always stored the two separately, so they were
+// never required to agree.
+//
+//	err := registry.RenameBranch(store, sess.ID, "fix-the-wheel-pan")
+func RenameBranch(s *Store, id, branch string) error {
+	if Slug(branch) != branch || branch == "" {
+		return fmt.Errorf(
+			"registry: session %q: branch %q is not a name git and the filesystem both accept, want %q",
+			id, branch, Slug(branch))
+	}
+	st, err := s.Load()
+	if err != nil {
+		return err
+	}
+	i, err := indexOfSession(&st, id)
+	if err != nil {
+		return err
+	}
+	st.Sessions[i].Branch = branch
+	return s.Save(st)
+}
+
+// RenameSessionBranch renames a worktree session's branch in git and then
+// records it, reporting whether it did.
+//
+// unstartedOnly is #151's rule: rename only a branch with nothing committed to
+// it. After the first commit the name is in a history someone may already have
+// pushed, so the automatic rename declines - false with a nil error, a refusal
+// rather than a failure. The operator's own ctrl+o B passes false, because
+// they asked and the history is theirs.
+//
+// A session with no recorded Base has nothing to count against and is treated
+// as started, which is the safe answer for a row written before #21
+// (invariant 9).
+//
+// git first, state.json second. A state.json naming a branch git does not have
+// would break every later diff; a branch git renamed and state.json missed is
+// recoverable and says so.
+//
+//	renamed, err := registry.RenameSessionBranch(store, git, sess, "fix-the-pan", true)
+func RenameSessionBranch(s *Store, git BranchRenamer, sess Session, branch string, unstartedOnly bool) (bool, error) {
+	root, err := git.MainCheckout(sess.Dir)
+	if err != nil {
+		return false, err
+	}
+	if unstartedOnly {
+		started, err := branchStarted(git, root, sess)
+		if err != nil || started {
+			return false, err
+		}
+	}
+	if err := git.RenameBranch(root, sess.Branch, branch); err != nil {
+		return false, err
+	}
+	return true, RenameBranch(s, sess.ID, branch)
+}
+
+// branchStarted reports whether a session's branch has anything its base does
+// not. No recorded base means no answer, which counts as started.
+func branchStarted(git BranchRenamer, root string, sess Session) (bool, error) {
+	if sess.Base == "" {
+		return true, nil
+	}
+	n, err := git.CommitsOnBranch(root, sess.Base, sess.Branch)
+	return n > 0, err
 }
 
 // RemoveSession drops a session from the registry and returns it, so the
@@ -256,15 +334,24 @@ func NamedProject(s *Store, name string) (Project, error) {
 	return findProject(&st, name)
 }
 
-// KnownSessionIDs is every session id state.json holds, which is what adoption
-// leaves out of what it offers (#91, #122). Exported for the same reason
-// NamedProject is: cmd/ had a second copy of it.
+// KnownSessionIDs is every session id state.json holds, rebound conversations
+// included, which is what adoption leaves out of what it offers (#91, #122,
+// #316). Exported for the same reason NamedProject is: cmd/ had a second copy
+// of it.
 func KnownSessionIDs(s *Store) ([]string, error) {
 	st, err := s.Load()
 	if err != nil {
 		return nil, err
 	}
-	return sessionIDs(&st), nil
+	ids := sessionIDs(&st)
+	// A row /clear moved on holds a second transcript, which adoption must
+	// not offer again (#316).
+	for _, sess := range st.Sessions {
+		if sess.Conversation != "" {
+			ids = append(ids, sess.Conversation)
+		}
+	}
+	return ids, nil
 }
 
 // AdoptSession registers a claude session that already exists, so omatty can
@@ -356,6 +443,23 @@ func AddSession(s *Store, c *Creator, project, title, branch string) (Session, e
 		return Session{}, err
 	}
 	sess, err := c.Create(&st, project, title, branch)
+	if err != nil {
+		return Session{}, err
+	}
+	return sess, s.Save(st)
+}
+
+// AddWorktreeSession registers a session on a fresh worktree and persists the
+// state. An empty branch is named by the creator, which is what lets ctrl+o N
+// start without asking for one (#151).
+//
+//	sess, err := registry.AddWorktreeSession(store, c, "omatty", "", "")
+func AddWorktreeSession(s *Store, c *Creator, project, title, branch string) (Session, error) {
+	st, err := s.Load()
+	if err != nil {
+		return Session{}, err
+	}
+	sess, err := c.CreateWorktree(&st, project, title, branch)
 	if err != nil {
 		return Session{}, err
 	}

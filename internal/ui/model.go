@@ -4,6 +4,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/coverage"
+	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -49,6 +51,11 @@ type Model struct {
 	// (#40).
 	modal  modal
 	review ReviewPane
+	// frameMemo is the last frame and the inputs it was built from, and
+	// paneOnly records that the message just handled could not have touched
+	// any of them. See frame().
+	frameMemo frameCache
+	paneOnly  bool
 	// comments is each session's pending review queue, kept across opening and
 	// closing the column; only submit drains it (#22).
 	comments map[string]*review.Comments
@@ -56,7 +63,11 @@ type Model struct {
 	files    ListFilesFunc
 	preview  PreviewFunc
 	rename   RenameFunc
-	name     NameFunc
+	rebind   RebindFunc // follows a /clear onto its new conversation (#316)
+	// renameBranch renames a worktree session's branch once its first prompt
+	// has said what the work is (#151).
+	renameBranch BranchRenameFunc
+	name         NameFunc
 	// modelNamer is nil unless the config opted in to a headless naming call
 	// (#127).
 	modelNamer ModelNameFunc
@@ -64,6 +75,25 @@ type Model struct {
 	// persisted, and correctly empty after a relaunch: whether a session
 	// still needs a name is derived from its title, not from this map.
 	namePending map[string]bool
+	// gates is each session's last gate report, display-only like the lane and
+	// repoStat and never persisted: state.json must suffice alone
+	// (invariant 9). Absent means no gate has run, which the card shows as a
+	// blank line rather than as a pass (#230).
+	gates map[string]gate.Report
+	// gateRunning is the sessions with a run in flight, so the pane says so
+	// rather than showing the last verdict as if it were current.
+	gateRunning map[string]bool
+	// covers is each session's coverage overlay, read when its gate finishes
+	// (#254). Display-only like gates and never persisted; coverFailed makes
+	// the warning once per session rather than once per run.
+	covers      map[string]coverage.Profile
+	coverFailed map[string]bool
+	// gateReports and gateRun are the gate's two halves, shaped like the
+	// watcher's: a channel of results in, a request out. Concrete types stay
+	// out of the model so a test substitutes a recorder for the Runner.
+	gateReports <-chan gate.Report
+	gateRun     GateRunFunc
+	gateAuto    bool
 	// lane is each session's recent-status trace for the sidebar (#128).
 	lane map[string]activityLane
 	// stat reads a card's branch and diffstat; repoStat is the last answer per
@@ -104,9 +134,17 @@ type Model struct {
 	notice string
 	// wheel counts scroll notches so a momentum flick becomes a few pages of
 	// transcript rather than tens of them (#107).
-	wheel  wheelAccumulator
-	width  int
-	height int
+	wheel wheelAccumulator
+	// mouseReleased is true while the host terminal owns the pointer, so it
+	// can make a selection of its own (#217). Display-only, never persisted.
+	mouseReleased bool
+	width         int
+	height        int
+	// idleStop and activeAt are the idle sweep (#319): its threshold, zero
+	// when off, and when omatty last started or the operator last typed into
+	// each session - the floors under the transcript's own last turn.
+	idleStop time.Duration
+	activeAt map[string]time.Time
 }
 
 // NewModel builds the root model from its dependencies.
@@ -128,7 +166,7 @@ func NewModel(deps Deps) *Model {
 		hasFocus:   true,
 		reattached: d.Reattached,
 	}
-	return m.withSources(d).withWindow().withRuntimeMaps()
+	return m.withSources(d).withGate(d).withWindow().withRuntimeMaps().withSweep(d)
 }
 
 // withSources attaches the injected functions that reach outside ui: the
@@ -136,6 +174,8 @@ func NewModel(deps Deps) *Model {
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
+	m.rebind = d.Rebind
+	m.renameBranch = d.RenameBranch
 	m.modelNamer = d.ModelName
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
 	m.removeProject = d.RemoveProject
@@ -154,6 +194,15 @@ func (m *Model) withWindow() *Model {
 	return m
 }
 
+// withGate attaches the gate's two halves and whether it runs itself. Its own
+// builder rather than three more lines in NewModel, which was already at the
+// length limit (#233) - and the three belong together: a Runner with no
+// reports channel, or auto-run with no Runner, would each be a half-wiring.
+func (m *Model) withGate(d Deps) *Model {
+	m.gateReports, m.gateRun, m.gateAuto = d.GateReports, d.GateRun, d.GateAuto
+	return m
+}
+
 // withRuntimeMaps allocates the per-session maps the model fills as it runs:
 // live status, notification times, and each session's queued review comments.
 // They are never nil, so no method needs a nil guard (issue #76).
@@ -163,6 +212,10 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.comments = map[string]*review.Comments{}
 	m.namePending = map[string]bool{}
 	m.lane = map[string]activityLane{}
+	m.gates = map[string]gate.Report{}
+	m.gateRunning = map[string]bool{}
+	m.covers = map[string]coverage.Profile{}
+	m.coverFailed = map[string]bool{}
 	m.repoStat = map[string]review.Stat{}
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
@@ -213,9 +266,12 @@ func (m *Model) Init() tea.Cmd {
 	if cmd := m.waitForEvent(); cmd != nil {
 		cmds = append(cmds, cmd)
 	}
+	if cmd := m.waitForGate(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
 	// The first stat poll runs at start rather than a tick later, so a card
 	// names its branch before the operator has read the screen (#180).
-	cmds = append(cmds, scheduleTick(), m.onStatTick())
+	cmds = append(cmds, scheduleTick(), m.onStatTick(), m.scheduleSweep())
 	return tea.Batch(cmds...)
 }
 
@@ -237,18 +293,36 @@ func (m *Model) repaintHeld() []tea.Cmd {
 // Update routes messages to one handler per type, so it stays a router and
 // stays inside the 20-line function limit.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Any message may change what is on screen, so the memoised frame is
+	// dropped unless the message took the one path that provably cannot
+	// touch model state - onWindowFocus's broadcast, which sets paneOnly.
+	// Invalidating by default is what keeps a message type added later from
+	// silently leaving a stale screen behind: the cost of forgetting is a
+	// rebuild, never a lie.
+	m.paneOnly = false
+	cmd := m.routeMsg(msg)
+	if !m.paneOnly {
+		m.frameMemo.valid = false
+	}
+	return m, cmd
+}
+
+// routeMsg hands one message to the table that owns it.
+func (m *Model) routeMsg(msg tea.Msg) tea.Cmd {
 	if cmd, ok := m.onInput(msg); ok {
-		return m, cmd
+		return cmd
 	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		return m, m.onResize(msg)
+		return m.onResize(msg)
 	case TickMsg:
-		return m, scheduleTick()
+		return scheduleTick()
 	case StatTickMsg:
-		return m, m.onStatTick()
+		return m.onStatTick()
+	case SweepTickMsg:
+		return m.onSweepTick()
 	default:
-		return m, m.onDataMsg(msg)
+		return m.onDataMsg(msg)
 	}
 }
 
@@ -283,21 +357,59 @@ func (m *Model) onInput(msg tea.Msg) (tea.Cmd, bool) {
 // The split is paneCommand's: one table ran past the length limit, and the
 // ones after it are named here so they still read as one list (#122).
 func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
+	if cmd, handled := m.onStreamMsg(msg); handled {
+		return cmd
+	}
 	switch typed := msg.(type) {
-	case StatusMsg:
-		return m.onStatus(typed)
 	case DiffLoadedMsg:
 		return m.onDiffLoaded(typed)
 	case FilesLoadedMsg:
 		return m.onFilesLoaded(typed)
 	case WorktreeRemovedMsg:
 		return m.onWorktreeRemoved(typed)
-	case NamedMsg:
-		return m.onNamed(typed)
-	case ModelNamedMsg:
-		return m.onModelNamed(typed)
+	}
+	if cmd, handled := m.onNamingMsg(msg); handled {
+		return cmd
 	}
 	return m.onPaneMsg(msg)
+}
+
+// onNamingMsg answers what names a session: its first prompt, the model's
+// improvement on it, and the branch that takes the result (#127, #151). A
+// table of its own because onDataMsg ran past the length limit with them in
+// it, and they are one conversation.
+func (m *Model) onNamingMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case NamedMsg:
+		return m.onNamed(typed), true
+	case ModelNamedMsg:
+		return m.onModelNamed(typed), true
+	case BranchNamedMsg:
+		return m.onBranchNamed(typed), true
+	}
+	return nil, false
+}
+
+// onStreamMsg is the messages fed by a long-lived source over a channel: the
+// watcher's status events and the gate Runner's reports. Each folds itself in
+// and re-arms its own wait, which is what separates them from the one-shot
+// results below - those answer a tea.Cmd omatty issued once and are done.
+//
+// A table of its own because onDataMsg was already at the statement limit that
+// split it from onSessionMsg (#122), and #231's gate reports pushed it over.
+// The second return says whether the message was one of these, so a nil
+// command from a handler is not mistaken for "not mine".
+func (m *Model) onStreamMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case StatusMsg:
+		return m.onStatus(typed), true
+	case GateMsg:
+		return m.onGate(typed), true
+	case coverageMsg:
+		m.onCoverage(typed)
+		return nil, true
+	}
+	return nil, false
 }
 
 // onPaneMsg is onDataMsg's second table: what a running pane produced on its
@@ -338,7 +450,9 @@ func (m *Model) onWindowFocus(msg tea.Msg) tea.Cmd {
 	switch msg.(type) {
 	case tea.FocusMsg:
 		m.hasFocus = true
-		return nil
+		// Catch up on whatever changed while the poll was gated off, rather
+		// than leaving stale cards up for the rest of the ten-second period.
+		return m.pollAll()
 	case tea.BlurMsg:
 		m.hasFocus = false
 		return nil
@@ -348,6 +462,12 @@ func (m *Model) onWindowFocus(msg tea.Msg) tea.Cmd {
 	// poll must reach the terminal that scheduled it. Unfocused sessions are
 	// pumped too, or they stop reading their PTYs (issue #33). Keys are
 	// deliberately not broadcast - they belong to the focused session only.
+	//
+	// This is the one path that mutates a terminal and never the model, so
+	// the frame outlives it. The single thing it can change - the focused
+	// pane's content - is part of the memo's key, so it is checked rather
+	// than assumed.
+	m.paneOnly = true
 	return m.broadcast(msg)
 }
 

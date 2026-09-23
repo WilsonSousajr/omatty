@@ -7,6 +7,16 @@ on:
 env:
   # Pinned so CI and the local gate run the identical linter (AGENTS.md).
   GOLANGCI_VERSION: v2.13.2
+  # Pinned for the same reason: a scanner that changes under you reports
+  # different things on different days, and the gate cannot tell a new
+  # finding from a new scanner.
+  GOVULN_VERSION: v1.8.0
+  # Exact, not "1.26". setup-go resolves a floating minor to the newest
+  # patch, and it had drifted to 1.26.8 while go.mod said 1.26.5 - which is
+  # not cosmetic: govulncheck finds GO-2026-6088 reachable on 1.26.5 and
+  # nothing on 1.26.8, so the same gate passed here and failed locally (#261).
+  # Keep in step with go.mod; scripts/hygiene_test.go asserts they match.
+  GO_VERSION: "1.26.8"
 
 jobs:
   gate:
@@ -19,18 +29,34 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.26"
+          go-version: ${{ env.GO_VERSION }}
       - name: gofmt
         run: test -z "$(gofmt -l .)"
       - name: vet
         run: go vet ./...
+      - name: module tidiness
+        run: go mod tidy -diff
       - name: install golangci-lint
         run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${{ env.GOLANGCI_VERSION }}
       - name: lint
         run: "$(go env GOPATH)/bin/golangci-lint run"
+      # Before the test suite: a go list and an AST walk cost seconds, and an
+      # architectural violation should surface before four minutes of -race.
+      # Same cheapest-first rule internal/gate's Detect already documents.
+      - name: dependency structure
+        run: ./scripts/check-deps.sh
+      - name: install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULN_VERSION }}
+      - name: vulnerabilities
+        run: "$(go env GOPATH)/bin/govulncheck ./..."
       - name: test
         run: go test ./... -race
       - name: coverage gate
         run: ./scripts/check-coverage.sh 90
+      # Straight after the coverage gate, so it reuses the cover.out that step
+      # just wrote. Anywhere else and it regenerates the profile, doubling the
+      # suite's cost on both runners for no visible reason.
+      - name: crap gate
+        run: ./scripts/check-crap.sh 12
       - name: build
         run: go build ./...

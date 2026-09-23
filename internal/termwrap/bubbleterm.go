@@ -107,9 +107,10 @@ func attach(cmd *exec.Cmd, tty *os.File) error {
 }
 
 // withTerm replaces TERM with xterm-256color, the terminal x/vt implements.
-// omatty never sets cmd.Env, so without this the host's own value (an
-// xterm-ghostty, say) would reach claude and make it emit sequences the
-// emulator does not know. bubbleterm's StartCommand did the same.
+// cmd.Env is the host's own environment (plus the owning session since #316,
+// or nil in a test), so without this the host's TERM (an xterm-ghostty, say)
+// would reach claude and make it emit sequences the emulator does not know.
+// bubbleterm's StartCommand did the same.
 func withTerm(env []string) []string {
 	if env == nil {
 		env = os.Environ()

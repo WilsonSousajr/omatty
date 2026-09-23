@@ -7,6 +7,7 @@ package ui
 import (
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
@@ -14,9 +15,12 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
-// CreateFunc registers a new session in project and returns it. branch is
-// empty for a session on the project's main checkout.
-type CreateFunc func(project, title, branch string) (registry.Session, error)
+// CreateFunc registers a new session in project and returns it.
+//
+// worktree says whether omatty creates one, which since #151 is no longer the
+// same question as whether branch is empty: a worktree session may arrive with
+// no branch named at all, and the registry names it.
+type CreateFunc func(project, title, branch string, worktree bool) (registry.Session, error)
 
 // StartFunc launches the embedded terminal for a session at w by h. Injected
 // so the model can start a session created at runtime without knowing how;
@@ -37,11 +41,19 @@ type RepoStatFunc func(sess registry.Session, projectRoot string) (review.Stat, 
 //	m := ui.NewModel(ui.Deps{State: st, Terms: terms, Create: create, Start: start,
 //	        Events: w.Events(), Clock: time.Now, Notifier: notify.New(), TailStart: w.Add})
 type Deps struct {
-	State     registry.State
-	Terms     map[string]termwrap.Terminal
-	Create    CreateFunc
-	Start     StartFunc
-	Events    <-chan watcher.Event
+	State  registry.State
+	Terms  map[string]termwrap.Terminal
+	Create CreateFunc
+	Start  StartFunc
+	Events <-chan watcher.Event
+	// GateReports and GateRun wire internal/gate's Runner in. Both optional:
+	// without them the gate pane still opens and explains itself, which is
+	// what a model built by a test sees.
+	GateReports <-chan gate.Report
+	GateRun     GateRunFunc
+	// GateAuto runs a session's gate when its turn ends. Off by default: a
+	// test suite on every idle costs real time, so it is asked for (#233).
+	GateAuto  bool
 	Clock     func() time.Time
 	Notifier  notify.Notifier
 	TailStart func(registry.Session)
@@ -58,6 +70,12 @@ type Deps struct {
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
 	Name   NameFunc
+	// Rebind persists the conversation a session's claude moved to on /clear
+	// (#316).
+	Rebind RebindFunc
+	// RenameBranch gives a worktree's placeholder branch the name its first
+	// prompt settled on (#151).
+	RenameBranch BranchRenameFunc
 	// ModelName asks the agent to improve an auto-derived title. Nil means
 	// off, which is the default and the operator's opt-in (#127).
 	ModelName ModelNameFunc
@@ -86,6 +104,9 @@ type Deps struct {
 	Notice string
 	// Leader is the key omatty intercepts. Empty means DefaultLeader (#44).
 	Leader string
+	// IdleStop stops a session quiet this long, as ctrl+o s would; zero is
+	// off, and the default (#319).
+	IdleStop time.Duration
 	// Reattached names the sessions whose claude was already running when
 	// omatty started: their panes come back blank and are asked to repaint
 	// once at boot (#191). Nil means none.
@@ -131,12 +152,7 @@ func (d Deps) withReviewDefaults() Deps {
 // noTailStart are the exceptions, because with no watcher running there is
 // genuinely no tailer to start or stop and doing nothing is the right answer.
 func (d Deps) withLifecycleDefaults() Deps {
-	if d.Rename == nil {
-		d.Rename = noRename
-	}
-	if d.Name == nil {
-		d.Name = noName
-	}
+	d = d.withNamingDefaults()
 	if d.Archive == nil {
 		d.Archive = noArchive
 	}
@@ -150,6 +166,27 @@ func (d Deps) withLifecycleDefaults() Deps {
 		d.Stop = noStop
 	}
 	return d.withTailDefaults().withDiscoveryDefaults()
+}
+
+// withNamingDefaults fills what names a session: its title, the first prompt
+// that derives one, the branch that takes it, and the conversation it is on
+// (#41, #127, #151, #316). Split out
+// of withLifecycleDefaults because #151 pushed that one past the length limit,
+// and these three answer one question between them.
+func (d Deps) withNamingDefaults() Deps {
+	if d.Rename == nil {
+		d.Rename = noRename
+	}
+	if d.RenameBranch == nil {
+		d.RenameBranch = noBranchRename
+	}
+	if d.Name == nil {
+		d.Name = noName
+	}
+	if d.Rebind == nil {
+		d.Rebind = noRebind
+	}
+	return d
 }
 
 // withTailDefaults fills both halves of the status tailer.
@@ -183,3 +220,8 @@ func (d Deps) withDiscoveryDefaults() Deps {
 	}
 	return d
 }
+
+// GateRunFunc asks for a gate run. It is gate.Runner.Start, named here so the
+// model takes a function rather than the Runner itself (invariant: the UI
+// holds no concurrency of its own).
+type GateRunFunc func(sessionID, dir string, steps []gate.Step)

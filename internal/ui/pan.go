@@ -5,6 +5,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/WilsonSousajr/omatty/internal/review"
 )
 
 // This file is the review column's horizontal axis. Every content row is drawn
@@ -101,6 +103,8 @@ func (m *Model) walkMaxWidth() int {
 		return m.treeMaxWidth()
 	case ViewPreview:
 		return m.previewMaxWidth()
+	case ViewGate:
+		return m.gateMaxWidth()
 	default:
 		return m.diffMaxWidth()
 	}
@@ -122,11 +126,17 @@ func (m *Model) treeMaxWidth() int {
 	return widest
 }
 
+// diffMaxWidth is how far the diff can pan: the widest row that pans. A file
+// header is skipped because it no longer does - it fits its column itself
+// (#291), so it can never be the row that sets the clamp.
 func (m *Model) diffMaxWidth() int {
 	comments := m.commentsFor(m.review.SessionID).All()
 	widest := 0
 	for _, e := range m.review.Entries {
-		widest = max(widest, lipgloss.Width(entryText(e, m.review.Diff, comments)))
+		if e.Kind == review.EntryFile {
+			continue
+		}
+		widest = max(widest, lipgloss.Width(m.entryText(e, comments)))
 	}
 	return widest
 }

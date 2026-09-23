@@ -90,7 +90,19 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Stat:    review.NewSource(git).Stat,
 		Files:   git.ListFiles,
 	}
-	return withStoreDeps(deps, store, home, git)
+	return withStoreDeps(withTableDeps(deps, env.Cfg), store, home, git)
+}
+
+// withTableDeps copies the config's [gate] and [sessions] tables onto the run.
+// Split from tuiDeps when [sessions] pushed it past the length limit (#317,
+// #319); the four are all plain values read from one file.
+func withTableDeps(deps ui.RunDeps, cfg config.Config) ui.RunDeps {
+	// The gate's bound comes from the config; the Runner raises a zero to
+	// one, so an old config file without a [gate] section still works.
+	deps.GateParallel, deps.GateAuto = cfg.Gate.MaxParallel, cfg.Gate.Auto
+	deps.LazyStart = cfg.Sessions.LazyStart
+	deps.IdleStop = time.Duration(cfg.Sessions.IdleStop)
+	return deps
 }
 
 // wiringGit is the slice of vcs.CLI the dependency wiring below needs.
@@ -120,10 +132,12 @@ func withStoreDeps(
 	return withPickerDeps(withLifecycleDeps(deps, store, git), store, home, git)
 }
 
-// withLifecycleDeps adds rename, archive, worktree removal and project
-// removal (#40, #41, #159).
+// withLifecycleDeps adds rename, rebind, archive, worktree removal and project
+// removal (#40, #41, #159, #316).
 func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui.RunDeps {
 	deps.Rename = sessionRenamer(store)
+	deps.Rebind = sessionRebinder(store)
+	deps.RenameBranch = branchRenamer(store, vcs.NewCLI())
 	deps.Archive = sessionArchiver(store)
 	deps.RemoveWorktree = git.RemoveWorktree
 	deps.RemoveProject = projectRemover(store)
@@ -224,6 +238,24 @@ func sessionRenamer(store *registry.Store) ui.RenameFunc {
 	}
 }
 
+// sessionRebinder adapts registry.RebindSession to ui.RebindFunc, so the model
+// can follow a /clear onto its new conversation without holding the store
+// (#316).
+func sessionRebinder(store *registry.Store) ui.RebindFunc {
+	return func(sessionID, conversation string) error {
+		return registry.RebindSession(store, sessionID, conversation)
+	}
+}
+
+// branchRenamer adapts registry.RenameSessionBranch to ui.BranchRenameFunc, so
+// the model can name a worktree's branch without holding the store or git
+// (#151) - the shape sessionRenamer already has.
+func branchRenamer(store *registry.Store, git vcs.Git) ui.BranchRenameFunc {
+	return func(sess registry.Session, branch string, unstartedOnly bool) (bool, error) {
+		return registry.RenameSessionBranch(store, git, sess, branch, unstartedOnly)
+	}
+}
+
 // sessionArchiver adapts registry.RemoveSession to ui.ArchiveFunc, returning
 // the row that was actually removed.
 //
@@ -264,7 +296,9 @@ func modelNamer(cfg config.Config) (ui.ModelNameFunc, func()) {
 // can name a session from its transcript without reading one itself (#127).
 func sessionNamer(home string) ui.NameFunc {
 	return func(sess registry.Session) (string, error) {
-		return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ID))
+		// The conversation, not the ID: after /clear the row's first
+		// transcript is the one it left behind (#316).
+		return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()))
 	}
 }
 
@@ -283,9 +317,12 @@ func creatorOpts(cfg config.Config) registry.CreatorOpts {
 // factory inside the running program, which M2 wires up along with status.
 func sessionCreator(cfg config.Config, store *registry.Store) ui.CreateFunc {
 	c := registry.NewCreator(vcs.NewCLI(), creatorOpts(cfg), uuid.NewString)
-	return func(project, title, branch string) (registry.Session, error) {
+	return func(project, title, branch string, worktree bool) (registry.Session, error) {
 		if project == "" {
 			return registry.Session{}, fmt.Errorf("no project selected; run `omatty add <dir>` first")
+		}
+		if worktree {
+			return registry.AddWorktreeSession(store, c, project, title, branch)
 		}
 		return registry.AddSession(store, c, project, title, branch)
 	}

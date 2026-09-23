@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -35,7 +36,10 @@ func (s *Source) Load(sess registry.Session, projectRoot string) (Diff, error) {
 	if err != nil {
 		return Diff{}, err
 	}
-	return ParseDiff(strings.NewReader(raw + extra))
+	// Two readers, not raw+extra: the concatenation allocated a second copy
+	// of the whole diff, and a session that touches a lockfile or generated
+	// code makes that copy large. ParseDiff only ever reads forward.
+	return ParseDiff(io.MultiReader(strings.NewReader(raw), strings.NewReader(extra)))
 }
 
 // baseCommit is HEAD for a main-checkout session, else the merge-base with the

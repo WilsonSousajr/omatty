@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/detach"
+	"github.com/WilsonSousajr/omatty/internal/hooks"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
@@ -52,12 +54,32 @@ func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder deta
 // returns a client attaching to a master that outlives omatty. The two decisions
 // compose rather than interact: the holder never inspects the claude line, and
 // the flag choice above is unaware a holder exists (#43).
-func (l *Launcher) Command(sessionID, dir string) (*exec.Cmd, error) {
-	resume := HasTranscript(l.profile, l.home, dir, sessionID)
-	args := l.profile.Command(l.bin, sessionID, dir, resume, l.hooksFile)
+//
+// The conversation is what claude resumes, and the row's ID is what the holder
+// names and what the hook reads back from the environment: after /clear the
+// two differ, and only the first moves (#316).
+func (l *Launcher) Command(sess registry.Session) (*exec.Cmd, error) {
+	conv := sess.ConversationID()
+	resume := HasTranscript(l.profile, l.home, sess.Dir, conv)
+	args := l.profile.Command(l.bin, conv, sess.Dir, resume, l.hooksFile)
 	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Dir = dir
-	return l.holder.Wrap(sessionID, cmd)
+	cmd.Dir = sess.Dir
+	cmd.Env = ownedEnv(os.Environ(), sess.ID)
+	return l.holder.Wrap(sess.ID, cmd)
+}
+
+// ownedEnv is env with hooks.SessionEnv set to id. A value inherited from an
+// outer omatty pane is dropped rather than shadowed, so an omatty running
+// inside omatty cannot re-bind the pane it runs in (#316).
+func ownedEnv(env []string, id string) []string {
+	prefix := hooks.SessionEnv + "="
+	out := make([]string, 0, len(env)+1)
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, prefix) {
+			out = append(out, kv)
+		}
+	}
+	return append(out, prefix+id)
 }
 
 // HasTranscript reports whether the profile's agent has written a transcript
@@ -72,7 +94,7 @@ func HasTranscript(profile agent.Profile, home, dir, sessionID string) bool {
 func (l *Launcher) Start(
 	f termwrap.Factory, sess registry.Session, w, h int,
 ) (termwrap.Terminal, error) {
-	cmd, err := l.Command(sess.ID, sess.Dir)
+	cmd, err := l.Command(sess)
 	if err != nil {
 		return nil, err
 	}

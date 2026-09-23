@@ -77,8 +77,11 @@ thing that ever owns stdout.
 
 ## Package breakdown
 
-One responsibility per package, typed APIs, no cycles. `ui` is the only
-package that imports bubbletea.
+One responsibility per package, typed APIs, no cycles. `internal/ui` and
+`internal/termwrap` are the only packages that import bubbletea - termwrap
+because bubbleterm is itself a bubbletea component, so `termwrap.Terminal`
+returns `tea.Cmd`. Enforced by `depguard` since #260; before that both this
+page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 
 | Package | Owns |
 |---|---|
@@ -88,10 +91,13 @@ package that imports bubbletea.
 | `internal/detach` | omatty's only route to `dtach`. Returns a no-op holder when the binary is absent. |
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
 | `internal/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
+| `internal/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. |
+| `internal/gate` | A project's own verification commands, run in a session's directory. Verdicts come from exit status only (invariant 12). |
 | `internal/highlight` | omatty's only route to the syntax highlighter (chroma), with omatty's own colour style (#197). |
 | `internal/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
+| `internal/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
 | `internal/paths` | Every filesystem location omatty reads or writes. Pure; takes `home` explicitly so tests never touch the real one. |
 | `internal/registry` | Projects, sessions, `state.json`, and the commands that edit them (add, remove, rename, adopt, create). |
 | `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |
@@ -102,7 +108,7 @@ package that imports bubbletea.
 | `internal/watcher` | Transcript tailer + hook listener → typed status events, through an `Adapter`. |
 | `testdata/` | `fake-claude`, `ptyrun`, `screen`, `dtachprobe`: the harness for the real-PTY smoke test the gate cannot replace. |
 
-## The eleven invariants, and why
+## The twelve invariants, and why
 
 AGENTS.md lists them as rules. Each one is here with the failure it prevents.
 
@@ -149,7 +155,8 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
 8. **Review submission is one bracketed paste, then one `\r`.** Writing a
    multi-line prompt raw sends N premature messages, one per newline.
    `ESC[200~ … ESC[201~` tells Claude the whole block is a single input
-   (`review/paste.go`).
+   (`paste/paste.go`, its own package since #223 so review and gate can both
+   reach it without importing each other).
 
 9. **`state.json` must always suffice to relaunch every session.** Crash
    recovery is `claude --resume <uuid>` (#36), and that only works if
@@ -171,6 +178,24 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
     opening the log or reading config, so nothing that can fail sits in its
     path (#54).
 
+12. **[M9] Gate verdicts come from exit status, never from output text.**
+    Invariant 2 applied to the gate, and the same argument: a step's output is
+    a rendering — it moves with tool version, `-v`, locale and colour — while
+    its exit code is the fact the tool is asserting. So no package greps stdout
+    to decide pass or fail. A `kind = "coverage"` step has its percentage
+    parsed for display only, and an unparseable one yields zero rather than
+    failing a run that the command itself said had passed.
+
+    The corollary that matters in practice is `Missing` vs `Fail`. Steps run
+    under `sh -c` — gate lines carry pipes, arguments and script paths — so
+    `cmd.Err` never fires the way it would for a direct exec: `sh` is present
+    even when the tool is not, and an absent tool comes back as the shell's
+    exit 127. That is a convention rather than a guarantee, and a real command
+    may exit 127 for its own reasons, so the gate does not read it as one.
+    Instead it resolves the step's leading word with `exec.LookPath` before
+    running anything. Reporting an uninstalled `golangci-lint` as a failing
+    lint step would send a session off to fix code that was never broken.
+
 ## The seams
 
 A seam is a package omatty owns that stands between the rest of the code and
@@ -185,6 +210,58 @@ and the tests substitute a named fake for it.
 | `detach` | the dtach CLI | Optional at runtime; a `Plain` holder makes its absence a footer notice rather than a code path. `dtachprobe` exists because its unit tests assert the command line dtach is *given*, and a missing directory shipped green (#43). |
 | `agent` | the coding agent | An agent is a command template plus a status adapter. A second agent is a new file here, not an edit to `supervisor`, `watcher`, `paths` and `cmd` at once (#46). |
 | `highlight` | chroma | Not pre-1.0, but the blast-radius rule is the same: one package owns the lexers and the style, and the style is omatty's because every stock theme spends the accent and the diff hues on keywords (#197). |
+
+Every seam above is now an enforced import rule rather than a convention:
+`depguard` in `.golangci.yml` fences bubbleterm and the PTY to `termwrap`,
+bubbletea to `{ui, termwrap}`, chroma to `highlight` and go-gitdiff to
+`review`, and `os/exec` to the six packages that shell out. The git seam is the
+exception depguard cannot see - git is reached by a string literal, not an
+import - so `TestNoGitOutsideVcs` covers it instead (#260).
+
+### The seams as numbers
+
+Robert Martin's package metrics over `./internal/...`, printed by
+`./scripts/check-deps.sh` (#263). Ca is how many packages import this one, Ce
+how many it imports, and `I = Ce/(Ca+Ce)` — 0 is a stable leaf, 1 is a package
+nothing depends on.
+
+| Package | Ca | Ce | I |
+|---|---|---|---|
+| `internal/ui` | 0 | 13 | 1.00 |
+| `internal/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
+| `internal/supervisor` | 1 | 5 | 0.83 |
+| `internal/review` | 1 | 3 | 0.75 |
+| `internal/agent` | 2 | 3 | 0.60 |
+| `internal/detach`, `watcher` | 1–3 | 1–3 | 0.50 |
+| `internal/registry` | 4 | 3 | 0.43 |
+| `internal/paths` | 6 | 0 | 0.00 |
+| `internal/gate`, `golist`, `hooks`, `termwrap`, `vcs`, `fuzzy` | 1–2 | 0 | 0.00 |
+| `internal/coverage` | 2 | 0 | 0.00 |
+| `internal/highlight`, `keys`, `notify`, `paste` | 1 | 0 | 0.00 |
+
+The chain reads as a clean monotonic descent —
+`cmd → ui → supervisor → agent → watcher → registry → {gate, paths, vcs}` — so
+the Stable Dependencies Principle holds with **0 violations over 36 edges**, the
+tightest being `watcher → registry` at **+0.071**.
+
+**That is a gate, not an observation** (#269). It landed report-only on purpose:
+`I` is a ratio of small integers and moves in jumps — `internal/config` is
+Ca=1 Ce=1, and one new importer would take it from 0.50 to 0.33 — so a gate
+failing on a margin nobody had watched move would be one people learn to
+`--no-verify` past. The margin was watched instead, and across every merge from
+#263 to #278 the tightest edge stayed `watcher → registry` at exactly +0.071,
+through a change that took the graph from 35 edges to 36. A violation now fails
+`./scripts/check-deps.sh`, which CI runs before the test suite.
+
+**Distance from the main sequence is deliberately not measured here.** Martin
+pairs instability with abstractness and calls a stable, concrete package the
+"Zone of Pain". By that reading eight of these packages score the maximum
+distance — and they are the ones this architecture is proudest of. The reason is
+that Go declares interfaces at the *consumer*, and usually unexported:
+`watcher.Adapter` lives in `watcher` precisely so `agent` can satisfy it, which
+is the paragraph below. `internal/paths` is Ca=6, Ce=0, pure, and has no
+exported interface because nothing needs one. Gating on distance would demand
+exactly the speculative interfaces AGENTS.md bans. Do not "fix" these numbers.
 
 **The adapter interface lives in the consumer.** `watcher.Adapter` is declared
 in `watcher`, not in `agent`, and `agent` imports `watcher` to satisfy it -

@@ -16,6 +16,9 @@ Core design:
   emulator and owns only the panes around it.
 - **omatty assigns the session UUID** (`claude --session-id <uuid>`), so it knows
   the transcript path `~/.claude/projects/<slug>/<uuid>.jsonl` deterministically.
+  `/clear` moves claude to a new uuid; the `SessionStart` hook reports it with
+  `source: "clear"` and the pane's `OMATTY_SESSION`, and the row records it as
+  `Conversation` while its `ID` stays the key (#316).
 - **Status is read from structured JSONL, never scraped from the screen.** Hooks
   injected via `--settings` give low latency; the JSONL tail gives truth.
 - **A session is a Claude process in a directory.** Worktrees are opt-in.
@@ -30,7 +33,10 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 
 ## Technology stack
 
-- **Go 1.26**, module `github.com/WilsonSousajr/omatty`.
+- **Go 1.26.8**, module `github.com/WilsonSousajr/omatty`. Pinned exactly in
+  both `go.mod` and `ci.yml`, not floated as `1.26`: setup-go resolves a
+  floating minor to the newest patch, and it had silently drifted a patch
+  ahead of `go.mod` (#261).
 - **TUI:** `charm.land/bubbletea/v2`, `lipgloss/v2`, `bubbles/v2`.
 - **Embedded terminal:** `github.com/taigrr/bubbleterm` (pre-1.0 — invariant 4),
   `github.com/creack/pty`.
@@ -55,15 +61,29 @@ internal/
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
+├── paste/          bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── highlight/      [M5] OUR interface over chroma (invariant 4 in spirit).
+├── gate/           [M9] a project's own verification commands -> per-step verdicts.
+├── coverage/       [M10] a coverage profile -> per-line verdicts and raw blocks.
+├── golist/         [M11] OUR interface over `go list` (invariant 4 in spirit).
+├── crap/           [M11] per-function complexity x coverage -> a C.R.A.P. score.
+├── depgraph/       [M11] the internal import graph -> Ca, Ce, instability, SDP.
+├── coverage/       [M10] a coverage profile -> per-line verdicts.
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
+tools/              gate tools with a main: crapcheck, depcheck. Inside ./... so gofmt,
+                    vet, lint and build cover them; outside ./internal/... so an
+                    untestable main does not pull the coverage gate down.
 testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-claude.
 ```
 
 One responsibility per package, typed APIs, no circular dependencies.
-`ui` is the only package that imports bubbletea.
+`internal/ui` and `internal/termwrap` are the only packages that import
+bubbletea. termwrap is a real exception, not an oversight: bubbleterm is itself
+a bubbletea component, so `termwrap.Terminal` returns `tea.Cmd` and cannot avoid
+the import. Enforced by `depguard`, not asked for (#260) - this file claimed for
+nine milestones that `ui` was the only one, and nothing noticed otherwise.
 
 ## Build and test commands
 
@@ -72,10 +92,23 @@ Run the full local gate before claiming any change is ready. CI runs the same:
 ```bash
 gofmt -l .                                    # must print nothing
 go vet ./...
-golangci-lint run                             # funlen, dupl, gocyclo, gocognit, revive
+go mod tidy -diff                             # go.mod and go.sum are tidy
+golangci-lint run                             # + depguard: invariant 4, enforced
+govulncheck ./...                             # no reachable known vulnerability
+./scripts/check-deps.sh                       # package coupling; test-graph cycles
 go test ./... -race
 ./scripts/check-coverage.sh 90
+./scripts/check-crap.sh 12                    # per-function complexity x coverage
 ```
+
+`go mod tidy -diff` and `govulncheck` are the only steps that need the network.
+Install the scanner with the version `ci.yml` pins:
+`go install golang.org/x/vuln/cmd/govulncheck@v1.8.0`.
+
+`govulncheck` reports against the *toolchain doing the analysis*, not against
+`go.mod`, which is why the Go version is pinned exactly. On go1.26.5 it found
+GO-2026-6088 reachable through `internal/highlight`; on go1.26.8 it finds
+nothing. The same gate passed on CI and failed locally, and nothing said why.
 
 Tests never invoke the real `claude` binary or the network. `testdata/fake-claude`
 emits scripted ANSI and JSONL and stands in for it everywhere.
@@ -89,11 +122,18 @@ smoke test of the real binary in a real, sized PTY**, which a person reads:
 go run ./testdata/ptyrun omatty                              # 100x30, ctrl+o q after 8s
 PTY_COLS=60 PTY_ROWS=20 PTY_KEYS=$'\x0fj\x0fq' go run ./testdata/ptyrun omatty
 go run ./testdata/dtachprobe /tmp/probehome                  # [M6] detach and reattach
+go run ./testdata/gateprobe                                 # [M9] a real gate, bound and supersede
 ```
 
 `dtachprobe` is the same argument for `internal/detach`: its unit tests assert
 the command line dtach is given, which is why a missing `~/.omatty/s` shipped
 green and broke every session start (#43). The probe runs the line.
+
+`gateprobe` is that argument again for `internal/gate` (#229). Its unit tests
+say what a step's verdict is; only the probe shows a real gate failing in the
+middle with the steps after it `pending` rather than `pass`, a tool that is
+absent reported `missing` against this machine's actual `PATH`, the Runner's
+bound holding two sessions apart, and a superseded run staying quiet.
 
 `testdata/` is outside `./...` by Go convention, so the harness is deliberately
 not in the gate.
@@ -109,6 +149,17 @@ not in the gate.
 - **Explicit types.** No `any`/`interface{}` and no `map[string]any` crossing a
   package boundary. Parse untyped input into a struct at the edge, once.
 - **No duplication.** Extract shared logic; `dupl` runs in the lint gate.
+- **C.R.A.P. under 12.** `CC² × (1 − coverage)³ + CC`, scored per function by
+  `./scripts/check-crap.sh`. `gocyclo` bounds branches and `gocognit` bounds how
+  hard they are to read; neither notices that the branchiest function in the
+  file is the one no test reaches. A repo-wide coverage total does not notice
+  either - the gate was green at 90% while `watcher.PromptText`, an exported
+  function, had nothing testing it at all (#262). The canonical threshold is 30
+  and is unreachable here: at the `gocyclo` cap of 10 and this repo's 90%
+  coverage floor the worst possible score is 10.1. It shipped at 15, the lowest
+  value green at the time, and moved to 12 once those two functions were tested
+  (#267) - a ratchet, and the direction it moves in is the only one. Raise
+  coverage or split the function; do not raise the limit.
 - **Early returns.** Maximum 2 levels of indentation inside a function. Nesting
   is what `gocognit` charges for (threshold 15), so this rule is checked, not
   merely asked for: a function that nests instead of returning early scores far
@@ -136,8 +187,27 @@ not in the gate.
 - **Inject through constructor or parameter.** No package-level mutable state,
   no global singletons, no `init()` side effects.
 - **Wrap third-party libraries behind a thin interface this project owns.**
-  `internal/termwrap` owns bubbleterm; `internal/vcs` owns the git CLI. No other
-  package may import them or shell out to git.
+  `internal/termwrap` owns bubbleterm and the PTY, `internal/vcs` owns the git
+  CLI, `internal/highlight` owns chroma, `internal/review` owns go-gitdiff. No
+  other package may import them. Enforced by `depguard` in `.golangci.yml`.
+- **Shelling out is a capability, not a convenience.** `os/exec` is reachable
+  from `detach`, `gate`, `golist`, `notify`, `supervisor`, `termwrap` and
+  `vcs`, and nowhere else in production code. `termwrap` is on that list because it names
+  `*exec.Cmd` in a signature without ever constructing one - a distinction
+  depguard cannot draw. Adding a seventh package is a decision, so
+  `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
+  in both `.golangci.yml` and here.
+- **Depend in the direction of stability.** For every edge A -> B,
+  `I(A) >= I(B)`, where `I = Ce/(Ca+Ce)` over direct, production,
+  module-internal imports. A package many things depend on must not reach up to
+  one built to change, or everything below it is pinned by something that moves.
+  `./scripts/check-deps.sh` prints the table and the tightest margin, and a
+  violation **fails the run** (#269). The repo obeys this with a margin of
+  +0.071 that has not moved across eight merges, and the number is printed on
+  every run because instability is a ratio of small integers and moves in
+  jumps - which is why the rule was measured for a fortnight before it was
+  enforced. The table is in `docs/ARCHITECTURE.md`, with the
+  paragraph on why distance from the main sequence is deliberately not measured.
 - Before adding a dependency, check the project does not already have the
   capability.
 
@@ -161,6 +231,16 @@ not in the gate.
 4. **bubbleterm and git are reachable only through `internal/termwrap` and
    `internal/vcs`.** bubbleterm is pre-1.0 and will break; the blast radius must
    stay inside one package we own.
+
+   Enforced by `depguard` in `.golangci.yml` (#260) - but only half of it can
+   be. bubbleterm is an import, so a rule can fence it. git is a *string
+   literal* handed to `exec`, which no import rule can see, so that half is
+   `TestNoGitOutsideVcs` in `scripts/depguard_test.go`.
+
+   depguard can only ever fail in one direction: it catches an import that
+   breaks a rule, never a rule that has quietly stopped describing the code.
+   That is why the allowlists are asserted against `go list` rather than merely
+   written down.
 5. **`stdout` belongs to the TUI.** Every diagnostic goes to the slog file
    handler. A stray `fmt.Println` corrupts the screen. Enforced by `forbidigo`.
 6. **One panicking session must not kill the app.** Each supervisor goroutine
@@ -180,6 +260,28 @@ not in the gate.
     nothing to stdout or stderr. Its `hooks.json` timeout is 5 s. A hook that
     hangs or errors would stall every claude session on the machine, whether
     or not omatty is running.
+12. **[M9] Gate verdicts come from exit status, never from output text.** A
+    step passes if and only if its process exits 0. No package may grep a
+    step's stdout or stderr to decide pass or fail — that is invariant 2's rule
+    applied to the gate, and for the same reason: the text is a rendering, the
+    exit code is the fact. The single exception is a step declared
+    `kind = "coverage"`, whose *percentage* is parsed for display; its pass or
+    fail still comes from the exit code, and a percentage that will not parse
+    yields zero rather than failing the run.
+
+    The corollary that costs something is `Missing` vs `Fail`. A step runs
+    under `sh -c`, because gate lines carry pipes, arguments and script paths,
+    and that means `cmd.Err` never fires: `sh` exists even when the tool does
+    not. An absent tool arrives as the shell's exit 127 — a convention, not a
+    guarantee, and a legitimate command may return it too. So the gate resolves
+    a step's leading word with `exec.LookPath` *before* running it, and reports
+    `Missing` without running anything. That is a pre-flight, not output
+    parsing, so this invariant holds. It earns its keep because reporting an
+    uninstalled `golangci-lint` as a failing lint step would send a session off
+    to fix code that was never broken.
+
+    The gate runs the project's own commands verbatim, so a step that invokes
+    `git` is the project's business and is not a breach of invariant 4.
 
 ## Testing instructions
 
@@ -259,15 +361,16 @@ message and explain why the behaviour it asserted was never correct.
   - Type: `feat` `fix` `docs` `test` `refactor` `perf` `chore` `build` `ci` —
     the same set as the commit-message types, so a `feat`-labelled issue
     produces `feat(#N):` commits.
-  - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7` `M8`. Every open issue carries
-    one, including a bug found against an already-shipped milestone - it takes
-    the milestone it will be fixed in, not the one that introduced it. Work a
-    milestone deferred keeps that milestone's label and waits in Backlog: the
-    label says where the work belongs, the column says whether anyone is on
-    it, and the two answer different questions.
+  - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7` `M8` `M9` `M10` `M11`. Every
+    open issue carries one, including a bug found against an already-shipped
+    milestone - it takes the milestone it will be fixed in, not the one that
+    introduced it. Work a milestone deferred keeps that milestone's label and
+    waits in Backlog: the label says where the work belongs, the column says
+    whether anyone is on it, and the two answer different questions.
   - Area: `area:paths` `area:registry` `area:vcs` `area:termwrap`
     `area:supervisor` `area:keys` `area:ui` `area:cmd` `area:hooks`
-    `area:watcher` `area:notify` `area:discover`.
+    `area:watcher` `area:notify` `area:discover` `area:gate` `area:review`
+    `area:coverage`.
   - Flags: `invariant` (changing this touches a cross-cutting invariant —
     argue it explicitly, never assume it is safe), `regression` (needs a test
     that fails before the fix), `blocked`.
@@ -295,7 +398,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
   | | |
   |---|---|
-  | The CI gate, green on both runners | `gofmt`, `go vet`, `golangci-lint`, `go test -race`, 90% coverage, `go build` — on `ubuntu-latest` and `macos-latest` |
+  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, `go test -race`, 90% coverage, C.R.A.P. under 12, `go build` — on `ubuntu-latest` and `macos-latest` |
   | The real-binary smoke test | Rule 2 in `docs/ROADMAP.md`, run against a scratch `HOME` with `testdata/fake-claude`, **read by a person** |
 
   The gate is the same one every milestone clears, for the same reason: the
@@ -317,7 +420,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
 ## Documentation map
 
-- `docs/ROADMAP.md` — milestones M1-M8, what is in each and why, what was
+- `docs/ROADMAP.md` — milestones M1-M11, what is in each and why, what was
   deliberately cut, and how a release reaches `main`. Read it before
   proposing a feature.
 - `docs/superpowers/specs/2026-09-01-omatty-design.md` — the design this repo
@@ -329,6 +432,18 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
   `watcher`.
 - `CHANGELOG.md` — what each release changed, with the issues behind it.
   Written as part of the promoting PR; see "Branches and releases".
+- `docs/comparison.md` — how omatty compares to every other tool in this
+  space, fairly, including where they are ahead. Read it before proposing a
+  feature, alongside the roadmap.
+- `docs/research/` — the evidence behind it, captured 2026-09-18: the field
+  inventory, four per-competitor deep dives read at code level, five
+  issue-tracker minings, the prior-art ledger at P0/P1/P2 with its "Ideas Not
+  To Copy", and the self-critical parity audit. Research documents make no
+  implementation decisions; the roadmap does.
+- `.claude/skills/market-research/SKILL.md` — how the research in
+  `docs/research/` was produced, so the next pass re-runs the method rather
+  than re-deriving it: the artifacts, the evidence rules, the `gh` commands
+  behind every number, and the traps M12 already hit.
 - `README.md` — install and usage.
 
 <!-- ai-memory:start -->

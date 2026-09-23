@@ -1,13 +1,27 @@
 // Package registry holds omatty's projects and sessions and persists them.
 package registry
 
+import "github.com/WilsonSousajr/omatty/internal/gate"
+
 // Version is the state.json schema version. Bump only with a migration.
 const Version = 1
 
-// Project is a registered git repository.
+// Project is a registered git repository and the gate it is verified by.
 type Project struct {
 	Name string `json:"name"`
 	Root string `json:"root"` // absolute path to the main checkout
+	// Gate is the project's own verification commands, run in a session's
+	// directory when the session goes quiet (#227).
+	//
+	// Nil is not missing data, it is "not configured yet", which is what
+	// gate.Detect and the confirm picker are for - so a file written before
+	// M9 needs no migration and Version stays 1. That is the argument Agent
+	// and Base already carry above: the empty value is derivable, so it is
+	// not a schema break (invariant 9).
+	//
+	// Never written as an empty array. A project with no gate omits the key,
+	// so the file stays readable and a review diff stays quiet.
+	Gate []gate.Step `json:"gate,omitempty"`
 }
 
 // Session is one Claude Code process in one directory.
@@ -35,6 +49,23 @@ type Session struct {
 	// never "claude": two spellings of one agent in one file is the drift the
 	// derivable default exists to avoid.
 	Agent string `json:"agent,omitempty"`
+	// Conversation is the uuid claude is on now, when that is no longer ID.
+	// /clear moves claude to a new uuid and a new transcript; ID stays the
+	// row's permanent key, because it also names the dtach socket that holds
+	// the process and every map the UI keeps (#316). Empty means ID, which is
+	// every row written before #316 - derivable, so Version stays 1
+	// (invariant 9, the argument Base and Agent make above).
+	Conversation string `json:"conversation,omitempty"`
+}
+
+// ConversationID is the uuid to resume and the transcript to tail.
+//
+//	path := paths.Transcript(home, sess.Dir, sess.ConversationID())
+func (s Session) ConversationID() string {
+	if s.Conversation != "" {
+		return s.Conversation
+	}
+	return s.ID
 }
 
 // State is the whole persisted registry.

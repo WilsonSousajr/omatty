@@ -210,7 +210,7 @@ type promptRecord struct {
 // FirstPromptTitle is the title to give a session, read from the first thing
 // the operator typed into its transcript, or "" when it holds none yet.
 //
-//	title, err := discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ID))
+//	title, err := discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()))
 //
 // Exported so a session omatty created is named the way an adopted one is:
 // titleOf is this function's other caller, and two rules for what a session

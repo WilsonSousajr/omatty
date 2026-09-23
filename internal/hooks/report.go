@@ -19,26 +19,44 @@ const maxPayload = 4 << 20
 // this is not one claude wrote.
 const maxField = 1024
 
+// SessionEnv names the environment variable the launcher sets on every
+// session's process to that session's registry id. The hook inherits it from
+// claude, which is how a SessionStart for a new conversation - a /clear -
+// names the pane it belongs to: the payload's cwd cannot, since two panes may
+// share a directory (#316).
+const SessionEnv = "OMATTY_SESSION"
+
 // Payload is the slice of a hook's stdin that status needs.
+//
+// Source is SessionStart's reason ("startup", "resume", "clear", "compact").
+// OmattySession is never read from stdin: Report stamps it from SessionEnv,
+// so a payload cannot claim a pane it was not launched in (#316).
 type Payload struct {
 	SessionID        string `json:"session_id"`
 	HookEventName    string `json:"hook_event_name"`
 	NotificationType string `json:"notification_type,omitempty"`
 	ToolName         string `json:"tool_name,omitempty"`
+	Source           string `json:"source,omitempty"`
+	OmattySession    string `json:"omatty_session,omitempty"`
 }
 
 // Report reads a hook payload from stdin and forwards it to omatty's socket as
-// one JSON line. It is the whole of `omatty hook`.
+// one JSON line, stamped with omattySession - the value of SessionEnv in the
+// hook's environment, empty for a claude omatty did not launch. It is the
+// whole of `omatty hook`.
+//
+//	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second, os.Getenv(hooks.SessionEnv))
 //
 // Invariant 11: a hook must never block or fail claude. Every failure — no
 // socket (omatty closed), refused connection, malformed input — returns nil so
 // the command exits 0. The error return exists only so tests can assert the
 // forwarding path; cmd discards it.
-func Report(stdin io.Reader, socketPath string, dialTimeout time.Duration) error {
+func Report(stdin io.Reader, socketPath string, dialTimeout time.Duration, omattySession string) error {
 	p, ok := ParsePayload(stdin)
 	if !ok {
 		return nil
 	}
+	p.OmattySession = omattySession
 	conn, err := net.DialTimeout("unix", socketPath, dialTimeout)
 	if err != nil {
 		return nil // omatty is not listening; that is fine
@@ -117,6 +135,8 @@ func routableField(name string, p *Payload) *string {
 		return &p.NotificationType
 	case "tool_name":
 		return &p.ToolName
+	case "source":
+		return &p.Source
 	}
 	return nil
 }

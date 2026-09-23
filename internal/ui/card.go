@@ -31,18 +31,21 @@ const (
 // in lane.go covers it too.
 const rail = "▎"
 
-// renderRow draws a row's lines: one for a project header, two for a card.
+// renderRow draws a row's lines: one for a project header, three for a card.
 //
 //	▎● parser-fix           4m
 //	▎  main      +12 −3 ▁▃▇█▅▂
+//	▎  ✓✓✓✗ test       88.4%
 func (m *Model) renderRow(row Row, now time.Time) []string {
 	if row.Session == nil {
 		return []string{m.renderHeaderRow(row.Project)}
 	}
 	r := m.rail(m.isSelected(row.Session.ID))
+	id := row.Session.ID
 	return []string{
 		r + m.cardTop(row, now),
-		r + "  " + m.cardMeta(row.Session.ID) + " " + m.renderLane(row.Session.ID) + " ",
+		r + "  " + m.cardMeta(id) + " " + m.renderLane(id) + " ",
+		r + "  " + m.cardGate(id) + " ",
 	}
 }
 
@@ -56,7 +59,7 @@ func (m *Model) renderHeaderRow(project string) string {
 
 // cardTop is line one past the rail: the glyph, the title, the age.
 func (m *Model) cardTop(row Row, now time.Time) string {
-	glyph := glyphStyle(row.Status).Render(statusGlyph(row.Status))
+	glyph := statusCell(row.Status)
 	title := m.titleStyle(row.Session.ID).Render(fitLine(row.Session.Title, titleCols))
 	age := mutedStyle.Render(padLeft(clip(AgeString(now, m.status[row.Session.ID].At), ageCols), ageCols))
 	return glyph + " " + title + " " + age + " "
@@ -95,10 +98,16 @@ func (m *Model) rail(selected bool) string {
 	return " "
 }
 
-// titleStyle is ink and bold on the selected card, text on the rest.
+// titleStyle is ink and bold on the selected card, muted on a stopped one,
+// text on the rest. A stopped card keeps its glyph and age - those come from
+// the transcript (invariant 2) - and reads as asleep by its title alone, so
+// no legend and no layout change (#318).
 func (m *Model) titleStyle(id string) lipgloss.Style {
 	if m.isSelected(id) {
 		return headerStyle
+	}
+	if m.terms[id] == nil {
+		return mutedStyle
 	}
 	return textStyle
 }

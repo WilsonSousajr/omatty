@@ -24,6 +24,12 @@ type Git interface {
 	CurrentBranch(dir string) (string, error)
 	AddWorktree(repoRoot, dir, branch, base string) error
 	RemoveWorktree(repoRoot, dir string) error
+	// RenameBranch renames a branch in place, leaving any worktree that has
+	// it checked out exactly where it is (#151).
+	RenameBranch(repoRoot, old, name string) error
+	// CommitsOnBranch counts what branch has that base does not, which is how
+	// a branch nobody has committed to yet is told from one that is in use.
+	CommitsOnBranch(repoRoot, base, branch string) (int, error)
 	// MergeBase returns the commit where ref and dir's HEAD diverged.
 	MergeBase(dir, ref string) (string, error)
 	// Diff returns the unified diff of dir's working tree against commit, so
@@ -167,6 +173,34 @@ func (c *CLI) CurrentBranch(dir string) (string, error) {
 func (c *CLI) AddWorktree(repoRoot, dir, branch, base string) error {
 	_, err := c.run(repoRoot, "worktree", "add", "-b", branch, dir, base)
 	return err
+}
+
+// RenameBranch renames a branch. git updates the HEAD of a linked worktree
+// that has it checked out, so the worktree follows the name without moving:
+// its directory is where claude is running and where the transcript path is
+// derived from, and moving it would blind the tailer (#60, #151).
+//
+// -m rather than -M, so a name already taken is refused instead of clobbered.
+func (c *CLI) RenameBranch(repoRoot, old, name string) error {
+	_, err := c.run(repoRoot, "branch", "-m", old, name)
+	return err
+}
+
+// CommitsOnBranch counts the commits branch has and base does not. Zero means
+// nobody has committed to it yet, which is the only state #151 renames a
+// placeholder in: after the first commit the name is in a history someone may
+// already have pushed.
+func (c *CLI) CommitsOnBranch(repoRoot, base, branch string) (int, error) {
+	out, err := c.run(repoRoot, "rev-list", "--count", base+".."+branch)
+	if err != nil {
+		return 0, err
+	}
+	n, err := strconv.Atoi(out)
+	if err != nil {
+		return 0, fmt.Errorf("vcs: counting commits on %q since %q: %q is not a count: %w",
+			branch, base, out, err)
+	}
+	return n, nil
 }
 
 // RemoveWorktree deletes a linked worktree, discarding uncommitted changes.

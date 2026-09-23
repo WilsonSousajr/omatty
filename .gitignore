@@ -1,3 +1,11 @@
-# Built binary at the repo root only - a bare "omatty" would also match cmd/omatty/.
+# Built binaries at the repo root only - a bare "omatty" would also match
+# cmd/omatty/, and a bare "crapcheck" would match tools/crapcheck/ (#27).
 /omatty
+/crapcheck
+/depcheck
 cover.out
+
+# Compiled test binaries from `go test -c`. Not root-anchored: the extension
+# cannot collide with a package directory, and the artefact lands wherever it
+# was built (#320).
+*.test

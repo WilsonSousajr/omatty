@@ -9,10 +9,16 @@ import (
 // FakeGit records worktree calls and returns canned results. A named type,
 // per AGENTS.md, so a failure message says what stood in for git.
 type FakeGit struct {
-	Branch    string
-	AddErr    error
-	AddedDir  string
-	AddedRoot string
+	// RenamedFrom and RenamedTo record a branch rename (#151), Commits is
+	// what CommitsOnBranch reports.
+	RenamedFrom, RenamedTo string
+	RenameErr              error
+	Commits                int
+	CommitsErr             error
+	Branch                 string
+	AddErr                 error
+	AddedDir               string
+	AddedRoot              string
 	// AddedFrom is the start point the worktree was forked from (#21).
 	AddedFrom string
 	Removed   []string
@@ -57,4 +63,17 @@ func (f *FakeGit) AddWorktree(repoRoot, dir, branch, base string) error {
 	}
 	f.AddedRoot, f.AddedDir, f.AddedFrom = repoRoot, dir, base
 	return nil
+}
+
+// RenameBranch records the rename #151 asks for; git's own behaviour is
+// proved against the real binary in internal/vcs.
+func (f *FakeGit) RenameBranch(_, old, name string) error {
+	f.RenamedFrom, f.RenamedTo = old, name
+	return f.RenameErr
+}
+
+// CommitsOnBranch reports what the test set: zero is a branch nobody has
+// committed to, which is the only one #151 renames.
+func (f *FakeGit) CommitsOnBranch(string, string, string) (int, error) {
+	return f.Commits, f.CommitsErr
 }

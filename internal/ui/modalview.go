@@ -48,10 +48,14 @@ var leaderKeys = []keyHelp{
 	{"a", "register a project claude already knows"},
 	{"A", "adopt a session claude already knows"},
 	{"R", "rename the selected session"},
+	{"B", "rename a worktree session's branch"},
 	{"x", "archive the session, or forget an empty project"},
 	{"r", "restart a crashed session"},
+	{"s", "stop the session's process, keeping it; enter resumes it"},
 	{"d", "open or close the diff pane"},
 	{"f", "open or close the file tree"},
+	{"g", "open or close the gate pane"},
+	{"m", "hand the mouse back to your terminal, or take it back"},
 	{"?", "this list"},
 	{"q", "quit"},
 }
@@ -67,10 +71,13 @@ var leaderKeys = []keyHelp{
 // and iTerm2 use option. Naming only shift sent half the operators dragging
 // out a stream of escape sequences instead of a selection.
 //
-// The drag is still how you take text off the screen yourself. It is listed
-// beside the copy the program makes, which since #212 reaches the host
-// clipboard on its own - the two answer different questions, and listing
-// only one of them was what made copy look broken.
+// The drag is still how you take text off the screen yourself, and it is
+// still the quick answer for a one-off selection. It is listed beside the copy
+// the program makes, which since #212 reaches the host clipboard on its own -
+// the two answer different questions, and listing only one of them was what
+// made copy look broken. For anything longer than one drag, `m` above hands
+// the mouse back entirely and the terminal behaves as it does everywhere
+// else (#217).
 var claudeKeys = []keyHelp{
 	{"pgup / pgdn", "scroll the transcript"},
 	{"shift/opt+drag", "select text yourself (your terminal picks the modifier)"},
@@ -230,6 +237,9 @@ func (m *Model) editorLabel() string {
 	if m.modal.Kind == modalRename {
 		return "rename session"
 	}
+	if m.modal.Kind == modalBranch {
+		return "rename branch"
+	}
 	if m.modal.Editor.Worktree {
 		return "new branch (worktree)"
 	}
@@ -239,7 +249,7 @@ func (m *Model) editorLabel() string {
 // modalNames is what the header row calls each surface that opens one way
 // (#177), in sentence case; a kind not listed - none - names nothing.
 var modalNames = map[modalKind]string{
-	modalRename: "rename", modalConfirm: "confirm", modalList: "switch",
+	modalRename: "rename", modalBranch: "rename branch", modalConfirm: "confirm", modalList: "switch",
 	modalPicker: "register project", modalAdopt: "adopt session", modalHelp: "keys",
 }
 
@@ -260,7 +270,7 @@ func modalName(md modal) string {
 // earns its place here rather than lengthening that constant.
 func modalFooter(md modal) string {
 	switch md.Kind {
-	case modalPrompt, modalRename:
+	case modalPrompt, modalRename, modalBranch:
 		return "enter confirm  esc cancel  ctrl+c quit"
 	case modalConfirm:
 		// The answers are listed in full in the pane directly above, and they

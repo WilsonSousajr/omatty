@@ -9,8 +9,15 @@
 //	omatty discover                   register from the repositories claude knows
 //	omatty adopt <project>            register claude sessions already in that project
 //	omatty new <project> <title> [branch]  create a session
+//	omatty gate <project>             show the gate that verifies it, or propose one
+//	omatty gate <project> --detect    print the proposal without writing it
+//	omatty gate <project> --set       write the proposal without asking
+//	omatty gate <project> --clear     forget the gate
 //	omatty hook                       forward a claude hook event (internal)
 //	omatty --version                  print the release this binary was built from
+//
+// OMATTY_HEAP_PROFILE names a file to write a heap profile to when the TUI
+// exits, for diagnosing what a long-running window is holding.
 //
 // A branch argument puts the session in a fresh worktree; without one it runs
 // in the project's main checkout.
@@ -70,7 +77,9 @@ func runHook() {
 	if err != nil {
 		return
 	}
-	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second)
+	// The launcher set SessionEnv on claude and the hook inherited it; it is
+	// what ties a /clear's new conversation to its pane (#316).
+	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second, os.Getenv(hooks.SessionEnv))
 }
 
 func run() error {
@@ -91,6 +100,9 @@ func run() error {
 	slog.Info("config", "leader", cfg.Leader, "claude_bin", cfg.ClaudeBin, "worktree_root", cfg.WorktreeRoot)
 	store := registry.NewStore(paths.StateFile(home))
 	if len(os.Args) < 2 {
+		// After the TUI has stopped, so the profile describes a settled
+		// heap rather than one mid-frame.
+		defer writeHeapProfile()
 		return runTUI(home, cfg, store)
 	}
 	return dispatch(os.Args[1], os.Args[2:], home, cfg, store)

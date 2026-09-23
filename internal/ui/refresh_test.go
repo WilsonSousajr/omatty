@@ -20,7 +20,7 @@ type liveCreate struct {
 	Project string
 }
 
-func (l *liveCreate) fn(project, title, branch string) (registry.Session, error) {
+func (l *liveCreate) fn(project, title, branch string, worktree bool) (registry.Session, error) {
 	l.Calls++
 	l.Project = project
 	if l.Err != nil {
@@ -28,7 +28,7 @@ func (l *liveCreate) fn(project, title, branch string) (registry.Session, error)
 	}
 	l.Next = registry.Session{
 		ID: "new-id", Project: project, Title: title,
-		Branch: branch, Worktree: branch != "",
+		Branch: branch, Worktree: worktree,
 	}
 	return l.Next, nil
 }

@@ -11,14 +11,20 @@ import (
 // order, so a test can assert which ref was diffed against. A named type, per
 // AGENTS.md, so a failure message says what stood in for git.
 type FakeGit struct {
-	Branch       string            // CurrentBranch of any dir
-	MergeBaseOut string            // MergeBase result
-	DiffOut      string            // Diff result
-	ShortstatOut vcs.Shortstat     // Shortstat result (#180)
-	UntrackedOut []string          // Untracked result
-	FileDiffs    map[string]string // UntrackedDiff result per path
-	Files        []string          // ListFiles result (#24)
-	Err          error             // returned by every method when set
+	// RenamedFrom and RenamedTo record a branch rename (#151), Commits is
+	// what CommitsOnBranch reports.
+	RenamedFrom, RenamedTo string
+	RenameErr              error
+	Commits                int
+	CommitsErr             error
+	Branch                 string            // CurrentBranch of any dir
+	MergeBaseOut           string            // MergeBase result
+	DiffOut                string            // Diff result
+	ShortstatOut           vcs.Shortstat     // Shortstat result (#180)
+	UntrackedOut           []string          // Untracked result
+	FileDiffs              map[string]string // UntrackedDiff result per path
+	Files                  []string          // ListFiles result (#24)
+	Err                    error             // returned by every method when set
 	// Errs fails one method by name, so a test can reach an error path that
 	// lies behind a call which has to succeed first.
 	Errs  map[string]error
@@ -76,4 +82,17 @@ func (f *FakeGit) UntrackedDiff(dir, p string) (string, error) {
 
 func (f *FakeGit) ListFiles(dir string) ([]string, error) {
 	return f.Files, f.record("ListFiles", dir)
+}
+
+// RenameBranch records the rename #151 asks for; git's own behaviour is
+// proved against the real binary in internal/vcs.
+func (f *FakeGit) RenameBranch(_, old, name string) error {
+	f.RenamedFrom, f.RenamedTo = old, name
+	return f.RenameErr
+}
+
+// CommitsOnBranch reports what the test set: zero is a branch nobody has
+// committed to, which is the only one #151 renames.
+func (f *FakeGit) CommitsOnBranch(string, string, string) (int, error) {
+	return f.Commits, f.CommitsErr
 }

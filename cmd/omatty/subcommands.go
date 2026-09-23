@@ -35,8 +35,11 @@ func dispatch(cmd string, args []string, home string, cfg config.Config, store *
 		return discoverProjects(store, home, os.Stdin)
 	case "adopt":
 		return adoptSessions(store, home, vcs.NewCLI(), args, os.Stdin)
+	case "gate":
+		return gateCommand(store, args, os.Stdin)
 	default:
-		return fmt.Errorf("unknown command %q (want add, rm, new, discover, adopt, --version, or no argument)", cmd)
+		return fmt.Errorf(
+			"unknown command %q (want add, rm, new, discover, adopt, gate, --version, or no argument)", cmd)
 	}
 }
 

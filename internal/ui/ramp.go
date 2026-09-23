@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"sync"
+
 	"image/color"
 
 	"charm.land/lipgloss/v2"
@@ -48,6 +50,35 @@ func laneCellColor(s watcher.Status, age int) color.Color {
 // laneCellStyle colours one lane cell.
 func laneCellStyle(s watcher.Status, age int) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(laneCellColor(s, age))
+}
+
+// renderedLaneCells is every lane cell already rendered, by status and then by age.
+//
+// A cell depends on nothing but those two, and both domains are tiny and
+// fixed: laneCells ages over the statuses laneBlock names. Rendering them per
+// frame cost a Style and an SGR build per cell, six per card, thirteen cards
+// at a time.
+var renderedLaneCells = sync.OnceValue(func() map[watcher.Status][laneCells]string {
+	byStatus := make(map[watcher.Status][laneCells]string, len(laneBlock))
+	for st, block := range laneBlock {
+		var ages [laneCells]string
+		for age := range laneCells {
+			ages[age] = laneCellStyle(st, age).Render(block)
+		}
+		byStatus[st] = ages
+	}
+	return byStatus
+})
+
+// laneCell is the rendered cell for a status at an age. An age outside the
+// lane, or a status laneBlock does not name, draws nothing - which is what
+// rendering an empty block gave before.
+func laneCell(s watcher.Status, age int) string {
+	ages, ok := renderedLaneCells()[s]
+	if !ok || age < 0 || age >= laneCells {
+		return ""
+	}
+	return ages[age]
 }
 
 // rampWarm and rampCool are the meter's two ends. Named rather than looked up

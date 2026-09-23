@@ -38,8 +38,17 @@ func scheduleStatTick() tea.Cmd {
 func (m *Model) onStatTick() tea.Cmd { return tea.Batch(m.pollAll(), scheduleStatTick()) }
 
 // pollAll is one poll per session, nil for a model with no reader.
+//
+// Nothing is polled while omatty is blurred. Each poll is two or three git
+// processes (CurrentBranch, the base resolution, Shortstat), so a dozen
+// sessions every ten seconds is a few process spawns a second, sustained for
+// as long as the window is left open - to refresh cards nobody can see.
+// onWindowFocus polls on the way back in, so coming back never shows a stale
+// card. A terminal that never reports focus leaves hasFocus at its true
+// default and polls exactly as before. The idle sweep looks alike and is
+// deliberately not gated this way: see scheduleSweep (#319).
 func (m *Model) pollAll() tea.Cmd {
-	if m.stat == nil {
+	if m.stat == nil || !m.hasFocus {
 		return nil
 	}
 	cmds := make([]tea.Cmd, 0, len(m.state.Sessions))

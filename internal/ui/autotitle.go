@@ -20,7 +20,7 @@ import (
 // means the session has not been spoken to yet, which is not a failure.
 //
 //	deps.Name = func(sess registry.Session) (string, error) {
-//	        return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ID))
+//	        return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()))
 //	}
 type NameFunc func(sess registry.Session) (string, error)
 
@@ -90,7 +90,13 @@ func (m *Model) onNamed(msg NamedMsg) tea.Cmd {
 		slog.Warn("naming session", "session", msg.SessionID, "title", msg.Title, "err", err)
 		return nil
 	}
-	return m.modelName(msg.SessionID, msg.Title)
+	// The branch takes the name the title settles on, so when the model is
+	// going to be asked for a better one it waits for that answer rather than
+	// renaming twice or renaming to the worse of the two (#151).
+	if cmd := m.modelName(msg.SessionID, msg.Title); cmd != nil {
+		return cmd
+	}
+	return m.maybeRenameBranch(msg.SessionID, msg.Title)
 }
 
 // ModelNameFunc asks the agent for a better name than the prompt-derived
@@ -125,21 +131,34 @@ func (m *Model) modelName(sessionID, title string) tea.Cmd {
 	}
 }
 
-// onModelNamed applies the improved name unless the title moved on while the
-// call was in flight. It renames through applyTitle alone and never through
-// onNamed: onNamed is what dispatches modelName, so routing back through it
-// would ask the model to improve its own answer, forever.
+// onModelNamed applies the improved name and then lets the branch take
+// whatever title the session ended up with - the model's answer, or the step-1
+// title when there was no usable answer. Naming the branch from the title
+// rather than from the message is what makes a failed model call cost the
+// better name and nothing else (#151).
 func (m *Model) onModelNamed(msg ModelNamedMsg) tea.Cmd {
-	if msg.Err != nil {
-		slog.Warn("model naming", "session", msg.SessionID, "err", msg.Err)
+	if err := m.applyModelName(msg); err != nil {
+		slog.Warn("model naming", "session", msg.SessionID, "title", msg.Title, "err", err)
+	}
+	sess, ok := m.session(msg.SessionID)
+	if !ok {
 		return nil
+	}
+	return m.maybeRenameBranch(msg.SessionID, sess.Title)
+}
+
+// applyModelName applies the model's suggestion unless it failed, was empty,
+// or the title moved on while the call was in flight. It renames through
+// applyTitle alone and never through onNamed: onNamed is what dispatches
+// modelName, so routing back through it would ask the model to improve its own
+// answer, forever.
+func (m *Model) applyModelName(msg ModelNamedMsg) error {
+	if msg.Err != nil {
+		return msg.Err
 	}
 	sess, ok := m.session(msg.SessionID)
 	if !ok || msg.Title == "" || sess.Title != msg.From {
 		return nil
 	}
-	if err := m.applyTitle(msg.SessionID, msg.Title); err != nil {
-		slog.Warn("model naming", "session", msg.SessionID, "title", msg.Title, "err", err)
-	}
-	return nil
+	return m.applyTitle(msg.SessionID, msg.Title)
 }

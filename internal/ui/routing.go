@@ -49,8 +49,14 @@ func (m *Model) focus() (focusTarget, bool) {
 	if m.review.Focused {
 		return focusReview, true
 	}
-	return focusTerminal, m.focusedTerminal() != nil
+	// The row, not the terminal: a stopped session has no terminal and is
+	// still the pane that owns the keys. Asking about the terminal sent a
+	// stopped pane's keys to omatty's commands, where a bare q quit (#318).
+	return focusTerminal, m.paneSelected()
 }
+
+// paneSelected reports whether a session row is selected, running or not.
+func (m *Model) paneSelected() bool { return m.Selected() != "" }
 
 // dispatch hands a plain keystroke to the focused pane.
 func (m *Model) dispatch(target focusTarget, msg tea.KeyPressMsg) tea.Cmd {
@@ -62,7 +68,12 @@ func (m *Model) dispatch(target focusTarget, msg tea.KeyPressMsg) tea.Cmd {
 	case focusReview:
 		return m.onPaneKey(msg.Keystroke())
 	default:
-		return m.focusedTerminal().Update(msg)
+		if term := m.focusedTerminal(); term != nil {
+			// Typing is use, whatever the transcript says (#319).
+			m.markActive(m.Selected())
+			return term.Update(msg)
+		}
+		return m.onStoppedKey(msg)
 	}
 }
 
@@ -74,6 +85,8 @@ func (m *Model) onPaneKey(key string) tea.Cmd {
 		return m.onTreeKey(key)
 	case ViewPreview:
 		return m.onPreviewKey(key)
+	case ViewGate:
+		return m.onGateKey(key)
 	default:
 		return m.onReviewKey(key)
 	}
@@ -160,17 +173,36 @@ func (m *Model) cursorMove(key string) (func(), bool) {
 
 // paneCommand runs the leader commands that act on the focused session.
 func (m *Model) paneCommand(key string) tea.Cmd {
+	if cmd, ok := m.lifecycleCommand(key); ok {
+		return cmd
+	}
 	switch key {
-	case "r":
-		return m.restartSelected()
 	case "d":
 		return m.toggleView(ViewDiff)
 	case "f":
 		return m.toggleView(ViewTree)
+	case "g":
+		return m.toggleView(ViewGate)
+	case "m":
+		return m.toggleMouse()
 	case "q":
 		return tea.Quit
 	}
 	return m.modalCommand(key)
+}
+
+// lifecycleCommand is the two keys that end the focused session's process:
+// restart starts another at once (#15), stop leaves the pane waiting for
+// enter (#318). Split off paneCommand when the second pushed it past the
+// statement limit, and the pair belong together.
+func (m *Model) lifecycleCommand(key string) (tea.Cmd, bool) {
+	switch key {
+	case "r":
+		return m.restartSelected(), true
+	case "s":
+		return m.stopSelected(), true
+	}
+	return nil, false
 }
 
 // modalCommand opens a surface that takes the keyboard. It is a third table
@@ -188,11 +220,10 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 	// test and by no unit test - they send the legacy spelling. Rename carried
 	// the same gap, and a comment asserting the opposite of the one three lines
 	// below it (#87, #103, #122).
+	if m.renameCommand(key) {
+		return nil
+	}
 	switch key {
-	case "shift+r", "shift+R", "R":
-		// Lower-case r is restart, so a missed spelling here is silent: it
-		// restarts nothing rather than failing to rename.
-		m.openRename()
 	case "x":
 		m.openConfirm()
 	case "/":
@@ -207,4 +238,25 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 		m.openModal(modal{Kind: modalHelp})
 	}
 	return nil
+}
+
+// renameCommand opens one of the two rename boxes and reports whether the key
+// was one of them. Split off modalCommand for the reason that table was split
+// off navigate: #151's second rename key pushed it past the length limit, and
+// the two belong together - one names a session, the other names the branch it
+// is on.
+func (m *Model) renameCommand(key string) bool {
+	switch key {
+	case "shift+r", "shift+R", "R":
+		// Lower-case r is restart, so a missed spelling here is silent: it
+		// restarts nothing rather than failing to rename.
+		m.openRename()
+	case "shift+b", "shift+B", "B":
+		// The branch rather than the title: a worktree's branch is a name git
+		// and the filesystem hold too, so it gets a key of its own (#151).
+		m.openBranchRename()
+	default:
+		return false
+	}
+	return true
 }

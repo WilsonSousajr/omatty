@@ -1,0 +1,269 @@
+package ui_test
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/ui"
+)
+
+func gateReport(verdicts ...gate.Verdict) gate.Report {
+	names := []string{"fmt", "vet", "test", "cov"}
+	out := make([]gate.StepResult, len(verdicts))
+	for i, v := range verdicts {
+		out[i] = gate.StepResult{
+			Step:    gate.Step{Name: names[i], Run: names[i] + " ./..."},
+			Verdict: v,
+		}
+	}
+	return gate.Report{ID: "s1", Results: out}
+}
+
+// The gate is a third mode of the review column rather than a fourth pane.
+// Adding a pane would be the orchestrator-shaped move; the column already has
+// the layout, the scrolling and the submit path, and a gate is the same kind
+// of object as a diff - something you read, then act on (#231).
+func TestModel_LeaderGOpensTheGateInTheReviewColumn_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.SetGateReport("s1", gateReport(gate.Pass, gate.Pass, gate.Fail, gate.Pending))
+
+	leader(m, key('g'))
+
+	if !m.ReviewOpen() || !m.ReviewFocused() {
+		t.Fatalf("after ctrl+o g: open=%v focused=%v, want both true", m.ReviewOpen(), m.ReviewFocused())
+	}
+	body := m.View().Content
+	for _, want := range []string{"fmt", "vet", "test", "cov"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the gate pane does not list %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestModel_LeaderGAgainClosesTheColumn_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.SetGateReport("s1", gateReport(gate.Pass))
+	leader(m, key('g'))
+
+	leader(m, key('g'))
+
+	if m.ReviewOpen() {
+		t.Error("ctrl+o g twice left the column open")
+	}
+}
+
+// Switching between the column's modes must not close it: d then g is a
+// change of view, the same way d then f already is.
+func TestModel_GateAndDiffSwitchWithoutClosing_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.SetGateReport("s1", gateReport(gate.Pass))
+
+	leader(m, key('d'))
+	leader(m, key('g'))
+
+	if !m.ReviewOpen() {
+		t.Fatal("switching from the diff to the gate closed the column")
+	}
+	if !strings.Contains(m.View().Content, "gate") {
+		t.Errorf("the column is not showing the gate:\n%s", m.View().Content)
+	}
+}
+
+// The title says which view has the keys, as the other three do.
+func TestModel_gatePaneTitleNamesTheView_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.SetGateReport("s1", gateReport(gate.Pass, gate.Fail))
+
+	leader(m, key('g'))
+
+	if head := strings.SplitN(m.View().Content, "\n", 2)[0]; !strings.Contains(head, "gate") {
+		t.Errorf("header = %q, want it to name the gate view", head)
+	}
+}
+
+// A session whose project has no gate must say so. An empty pane would read
+// as "the gate found nothing", which is the opposite of the truth.
+func TestModel_gatePaneWithNoGateConfigured_saysSo_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+
+	leader(m, key('g'))
+
+	body := m.View().Content
+	if !strings.Contains(body, "no gate") {
+		t.Errorf("the pane does not explain the absent gate:\n%s", body)
+	}
+	if !strings.Contains(body, "omatty gate") {
+		t.Errorf("the pane does not say how to set one:\n%s", body)
+	}
+}
+
+// A step's output is folded away until asked for: four steps of test output
+// would bury the summary the pane exists to show.
+func TestModel_gatePaneFoldsAStepOpen_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	rep := gateReport(gate.Pass, gate.Fail)
+	rep.Results[1].Output = "--- FAIL: TestThing\n    thing_test.go:12: got 1, want 2\n"
+	m.SetGateReport("s1", rep)
+	leader(m, key('g'))
+
+	if strings.Contains(m.View().Content, "thing_test.go") {
+		t.Fatal("a step's output is shown before it is folded open")
+	}
+	press(m, key('j'))
+	press(m, special(13)) // enter
+
+	if !strings.Contains(m.View().Content, "thing_test.go") {
+		t.Errorf("enter did not fold the step open:\n%s", m.View().Content)
+	}
+}
+
+// esc leaves the column, the same way it does from the diff and the tree.
+func TestModel_escLeavesTheGatePane_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.SetGateReport("s1", gateReport(gate.Pass))
+	leader(m, key('g'))
+
+	press(m, special(27)) // esc
+
+	if m.ReviewFocused() {
+		t.Error("esc did not hand the keys back")
+	}
+}
+
+// A run that could not happen is neither pass nor fail, and the pane has to
+// carry the reason rather than show an empty list.
+func TestModel_gatePaneShowsAFailedRun_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.SetGateReport("s1", gate.Report{ID: "s1", Err: errRun("working directory is gone")})
+
+	leader(m, key('g'))
+
+	if !strings.Contains(m.View().Content, "working directory is gone") {
+		t.Errorf("the pane does not carry the run's error:\n%s", m.View().Content)
+	}
+}
+
+// The help modal lists every leader key; a binding missing from it is a
+// binding nobody finds (#103).
+func TestHelp_listsTheGateBinding_issue231(t *testing.T) {
+	m, _ := modelWithFakes(t)
+	leader(m, key('?'))
+
+	if body := m.View().Content; !strings.Contains(body, "gate") {
+		t.Errorf("the help modal does not list the gate binding:\n%s", body)
+	}
+	_ = ui.SidebarWidth
+}
+
+// The cursor stops at the ends rather than wrapping: a gate is a short list
+// read top to bottom, and wrapping from the last step to the first would
+// suggest an order that is not there.
+func TestModel_gateCursorStopsAtTheEnds_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.SetGateReport("s1", gateReport(gate.Pass, gate.Fail))
+	leader(m, key('g'))
+
+	for range 5 {
+		press(m, key('k')) // up, from the top
+	}
+	if !strings.Contains(m.View().Content, "▸ ✓ fmt") {
+		t.Errorf("cursor left the first step going up:\n%s", m.View().Content)
+	}
+
+	for range 5 {
+		press(m, key('j')) // down, past the end
+	}
+	if !strings.Contains(m.View().Content, "▸ ✗ vet") {
+		t.Errorf("cursor left the last step going down:\n%s", m.View().Content)
+	}
+}
+
+// A pane with nothing in it must not move a cursor that has nowhere to go.
+func TestModel_gateCursorWithNoSteps_doesNothing_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.SetGateReport("s1", gate.Report{ID: "s1"})
+	leader(m, key('g'))
+
+	press(m, key('j'))
+	press(m, key('k'))
+
+	if m.View().Content == "" {
+		t.Error("the pane stopped rendering after moving a cursor over no steps")
+	}
+}
+
+// Panning has to know how wide the gate's text is, or l would scroll into
+// blank space past the end of the longest command.
+func TestModel_gatePanStopsAtTheWidestLine_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	rep := gateReport(gate.Pass, gate.Fail)
+	rep.Results[1].Step.Run = strings.Repeat("x", 200)
+	m.SetGateReport("s1", rep)
+	leader(m, key('g'))
+
+	for range 40 {
+		press(m, key('l'))
+	}
+	afterPanning := m.View().Content
+
+	press(m, key('0')) // back to the left edge
+	if m.View().Content == afterPanning {
+		t.Error("panning right then home changed nothing; the gate view is not pannable")
+	}
+	if !strings.Contains(m.View().Content, "fmt") {
+		t.Errorf("home did not return to the left edge:\n%s", m.View().Content)
+	}
+}
+
+// A step with no output folds open to nothing rather than to a blank row that
+// looks like output the pane failed to show.
+func TestModel_foldingAStepWithNoOutput_addsNothing_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.SetGateReport("s1", gateReport(gate.Pass, gate.Pass))
+	leader(m, key('g'))
+	before := strings.Count(m.View().Content, "\n")
+
+	press(m, special(13)) // enter on a step whose Output is ""
+
+	if after := strings.Count(m.View().Content, "\n"); after != before {
+		t.Errorf("folding an empty step changed the pane height: %d -> %d", before, after)
+	}
+}
+
+// Elapsed is shown for a step that ran and omitted for one that did not, so a
+// Pending row does not claim to have taken 0.0s.
+func TestModel_gatePaneShowsElapsedOnlyForStepsThatRan_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	rep := gateReport(gate.Pass, gate.Pending)
+	rep.Results[0].Elapsed = 1500 * time.Millisecond
+	m.SetGateReport("s1", rep)
+
+	leader(m, key('g'))
+
+	body := m.View().Content
+	if !strings.Contains(body, "1.5s") {
+		t.Errorf("the finished step does not show its time:\n%s", body)
+	}
+	if strings.Contains(body, "0.0s") {
+		t.Errorf("a step that never ran claims a duration:\n%s", body)
+	}
+}
+
+// A long gate scrolls rather than overflowing the column.
+func TestModel_gatePaneScrollsPastTheColumnHeight_issue231(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	rep := gateReport(gate.Pass, gate.Fail)
+	rep.Results[1].Output = strings.Repeat("a line of failure output\n", 200)
+	m.SetGateReport("s1", rep)
+	leader(m, key('g'))
+
+	press(m, key('j'))
+	press(m, special(13)) // fold the flooding step open
+
+	// The view is bounded by the column, not by the output.
+	if lines := strings.Count(m.View().Content, "\n"); lines > 60 {
+		t.Errorf("the pane drew %d lines; the column must bound it", lines)
+	}
+}

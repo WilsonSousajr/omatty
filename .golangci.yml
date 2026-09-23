@@ -12,6 +12,11 @@ linters:
     - ineffassign
     - unused
     - forbidigo
+    # Invariant 4 was prose for nine milestones and had gone stale without
+    # anyone noticing: AGENTS.md said internal/ui was the only package
+    # importing bubbletea, and internal/termwrap had been importing it for
+    # milestones. Same move as gocognit below - a rule nothing enforced.
+    - depguard
   settings:
     funlen:
       lines: 20
@@ -27,6 +32,66 @@ linters:
       # because AGENTS.md's "maximum 2 levels of indentation" had nothing
       # enforcing it, and nesting depth is exactly what this metric weights.
       min-complexity: 15
+    depguard:
+      rules:
+        # Invariant 4. bubbleterm is pre-1.0 and will break; the blast radius
+        # stays inside the one package we own. creack/pty rides with it because
+        # termwrap is what owns the PTY.
+        bubbleterm:
+          files:
+            - "!**/internal/termwrap/**"
+          deny:
+            - pkg: github.com/taigrr/bubbleterm
+              desc: "invariant 4 - reach bubbleterm only through internal/termwrap"
+            - pkg: github.com/creack/pty
+              desc: "invariant 4 - internal/termwrap owns the PTY"
+
+        # internal/ui is where the TUI lives. internal/termwrap is the one
+        # exception and a real one: bubbleterm is itself a bubbletea component,
+        # so termwrap.Terminal returns tea.Cmd and cannot avoid the import.
+        bubbletea:
+          files:
+            - "!**/internal/ui/**"
+            - "!**/internal/termwrap/**"
+          deny:
+            - pkg: charm.land/bubbletea/v2
+              desc: "the TUI lives in internal/ui; internal/termwrap is the wrapper exception"
+            - pkg: charm.land/bubbles/v2
+              desc: "the TUI lives in internal/ui"
+            - pkg: charm.land/lipgloss/v2
+              desc: "rendering lives in internal/ui"
+
+        # The rest of the seams named in docs/ARCHITECTURE.md: one package per
+        # third-party surface, so a breaking upgrade has one blast radius.
+        wrappers:
+          files:
+            - "!**/internal/highlight/**"
+            - "!**/internal/review/**"
+          deny:
+            - pkg: github.com/alecthomas/chroma/v2
+              desc: "invariant 4 in spirit - internal/highlight owns chroma"
+            - pkg: github.com/bluekeyes/go-gitdiff
+              desc: "internal/review owns diff parsing"
+
+        # Shelling out is a capability, not a convenience. These six are the
+        # packages that do it today; scripts/depguard_test.go asserts the list
+        # still matches the code, which is the half depguard cannot check.
+        # Tests are exempt: internal/ui, internal/watcher/e2e and scripts all
+        # drive subprocesses to build fixtures.
+        subprocess:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/internal/detach/**"
+            - "!**/internal/gate/**"
+            - "!**/internal/golist/**"
+            - "!**/internal/notify/**"
+            - "!**/internal/supervisor/**"
+            - "!**/internal/termwrap/**"
+            - "!**/internal/vcs/**"
+          deny:
+            - pkg: os/exec
+              desc: "shelling out belongs to detach, gate, golist, notify, supervisor, termwrap and vcs"
     forbidigo:
       forbid:
         # Invariant 5: stdout belongs to the TUI.

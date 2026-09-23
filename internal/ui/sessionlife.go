@@ -1,6 +1,6 @@
 // The life of one session inside the running app - created, folded in,
-// restarted. Shared by creation (#32), adoption (#122) and restart (#15, #43);
-// model.go stays the state and the message router.
+// restarted, stopped. Shared by creation (#32), adoption (#122), restart
+// (#15, #43) and stop (#318); model.go stays the state and the message router.
 
 package ui
 
@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // sessionRelaunchMsg carries a session whose held claude has been ended and
@@ -49,6 +50,7 @@ func (m *Model) relaunch(sess registry.Session) tea.Cmd {
 		_ = old.Close()
 	}
 	m.terms[sess.ID] = term
+	m.markActive(sess.ID) // a fresh process is not idle (#319)
 	// Born at the live size, so no Resize races claude's startup (issue #73).
 	// The replacement process gets its own clipboard wait: the old one ended
 	// with the terminal it was reading (#212).
@@ -61,15 +63,16 @@ func (m *Model) relaunch(sess registry.Session) tea.Cmd {
 // nameless branch. A plain prompt may be blank; the creator registers a
 // placeholder title and the first prompt names the session (#127).
 func (m *Model) submitPrompt() tea.Cmd {
+	worktree := m.modal.Editor.Worktree
 	branch := ""
-	if m.modal.Editor.Worktree {
+	if worktree {
 		branch = m.modal.Editor.Buffer
 	}
 	m.lastErr = ""
 	project := m.SelectedProject()
 	title := m.modal.Editor.Buffer
 	m.modal = modal{}
-	cmd, err := m.addSession(project, title, branch)
+	cmd, err := m.addSession(project, title, branch, worktree)
 	if err != nil {
 		slog.Error("creating session",
 			"project", project, "title", title, "branch", branch, "err", err)
@@ -83,8 +86,8 @@ func (m *Model) submitPrompt() tea.Cmd {
 // sidebar so it is visible and focused immediately (issue #32). A session
 // whose terminal will not start is not added: it would be a row you cannot
 // focus.
-func (m *Model) addSession(project, title, branch string) (tea.Cmd, error) {
-	sess, err := m.create(project, title, branch)
+func (m *Model) addSession(project, title, branch string, worktree bool) (tea.Cmd, error) {
+	sess, err := m.create(project, title, branch, worktree)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +109,7 @@ func (m *Model) foldInSession(sess registry.Session) (tea.Cmd, error) {
 		return nil, fmt.Errorf("starting session %s: %w", sess.ID, err)
 	}
 	m.terms[sess.ID] = term
+	m.markActive(sess.ID) // a fresh process is not idle (#319)
 	m.state.Sessions = append(m.state.Sessions, sess)
 	m.sidebar = NewSidebar(SidebarRows(m.state, m.statusMap()))
 	if !m.selectSession(sess.ID) {
@@ -129,3 +133,60 @@ func (m *Model) foldInSession(sess registry.Session) (tea.Cmd, error) {
 // rebuilt rows and is still not found means the rebuild dropped it, which is
 // the one case addSession would want to hear about.
 func (m *Model) selectSession(id string) bool { return m.sidebar.SelectByID(id) }
+
+// stopSelected ends the focused session's process and keeps the session
+// (#318). ctrl+o s: the way to reclaim a claude's memory without archiving
+// the row, its queued comments and its history of status.
+func (m *Model) stopSelected() tea.Cmd {
+	row, ok := m.sidebar.Selected()
+	if !ok || m.terms[row.Session.ID] == nil {
+		return nil
+	}
+	return m.stopSession(*row.Session)
+}
+
+// stopSession ends one session's process: the held claude, then the pane's
+// terminal. Only m.terms forgets the id - the whole distinction from
+// archive's forgetSessionMaps. The tailer keeps running, because the
+// transcript is still the only source of the stopped card's status and age.
+//
+// No confirmation, as for ctrl+o r: nothing typed is lost and enter resumes
+// it with --resume. The notice names that undo, and the turn a busy session
+// loses, which is the one real cost.
+func (m *Model) stopSession(sess registry.Session) tea.Cmd {
+	if term := m.terms[sess.ID]; term != nil {
+		_ = term.Close()
+	}
+	delete(m.terms, sess.ID)
+	m.notice = stopNotice(sess.Title, m.status[sess.ID].Status)
+	return m.stopSessionCmd(sess, nil)
+}
+
+// onStoppedKey is a stopped pane's whole keymap. The pane still owns the
+// keyboard (invariant 1), but there is no process to hand a key to: enter
+// starts one, ctrl+c stays the way out it is everywhere else (#28), and every
+// other key is swallowed with a word, because one forwarded into a claude
+// still painting its prompt would simply vanish (#318).
+func (m *Model) onStoppedKey(msg tea.KeyPressMsg) tea.Cmd {
+	row, ok := m.sidebar.Selected()
+	if !ok {
+		return nil
+	}
+	switch msg.Keystroke() {
+	case "enter":
+		return m.relaunch(*row.Session)
+	case "ctrl+c":
+		return tea.Quit
+	}
+	m.notice = row.Session.Title + " is stopped; enter resumes it"
+	return nil
+}
+
+// stopNotice is what the footer says after a stop.
+func stopNotice(title string, status watcher.Status) string {
+	notice := "stopped " + title + "; enter resumes it"
+	if status == watcher.StatusThinking || status == watcher.StatusTool {
+		notice += " (its turn in flight was lost)"
+	}
+	return notice
+}

@@ -11,7 +11,7 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/paste"
 )
 
 // onPaste delivers a paste to whatever owns the keyboard, the way dispatch
@@ -31,7 +31,11 @@ func (m *Model) onPaste(msg tea.PasteMsg) tea.Cmd {
 	case focusFilter:
 		m.setTreeFilter(editPaste(m.review.Filter.Query, msg.Content))
 	case focusTerminal:
-		return m.focusedTerminal().SendInput(review.BracketedText(msg.Content))
+		// A stopped pane is focused with no terminal behind it, and drops
+		// the paste as the review column does (#318).
+		if term := m.focusedTerminal(); term != nil {
+			return term.SendInput(paste.BracketedText(msg.Content))
+		}
 	}
 	return nil
 }

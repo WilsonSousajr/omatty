@@ -27,6 +27,12 @@ not only the coverage gate. See "Rules" at the end for why.
 | M7 | Reach | **Built** 2026-09-07 as PRs #135-#148; the four terminal bugs a day of use found were fixed 2026-09-09 as PRs #210-#214. Leftovers still open; see "What is left". |
 | M8 | Surface | **Built** 2026-09-09 as PRs #181-#186, stacked; see the M8 section and "What is left". |
 | — | **Released** | **v0.1.0**, 2026-09-10. All eight promoted to `main` (#134). See "Releases". |
+| M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. Released in v0.2.0. |
+| M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. Released in v0.2.0. |
+| M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. Released in v0.2.0. |
+| M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. What it found is below; what it produced is #309-#311. |
+| M13 | Memory and idle CPU | **Done.** PR #314, merged 2026-09-22. Released in v0.2.0. |
+| — | **Released** | **v0.2.0**, 2026-09-22. M9-M11, M13 and the session lifecycle promoted to `main` (#328). See "Releases". |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -566,12 +572,21 @@ what M7 left.
   "Releases" below and AGENTS.md; `main` is protected; the merge commit is
   tagged. `omatty --version` came with it, so the tag names something the
   binary can report.
-- **#151 - name the worktree branch (#127 step 3).** `ctrl+o N` still demands
-  a name because `git worktree add -b` bakes it into a directory and into
-  `state.json`. Either a placeholder branch (`omatty/<date>-<n>`) renamed only
-  while it has no commits, or keep asking for this one string. It must use
-  `registry.Slug`, the same filter step 2 applies to model output, never a
-  looser one.
+- **#151 - name the worktree branch (#127 step 3).** Done 2026-09-18. The
+  placeholder shape, not the keep-asking one. `ctrl+o N` creates the worktree
+  on `omatty-<first 8 of the uuid>` and the session's first prompt renames it,
+  only while the branch has nothing committed to it; `ctrl+o B` renames one by
+  hand. Two deliberate departures from the sketch above, both written up in the
+  PR. The placeholder carries no slash and no date counter: `registry.Slug`
+  forbids `/` and `paths.WorktreeDir` joins the branch into a path, and a
+  counter would collide with a branch an archived session left behind, while
+  the uuid is unique by construction and - like `PlaceholderTitle` -
+  recomputable from `state.json` alone, which is what lets a relaunched session
+  still know its branch is provisional (invariant 9). And the worktree
+  *directory* does not move: `git worktree move` would change the cwd of a
+  running claude and the transcript path derived from it, which is #60. Dir and
+  Branch have always been stored separately, so they were never required to
+  agree. A typed branch now passes `registry.Slug` too, which it never did.
 - **#152 - a second agent profile, Codex first.** #46 built the seam with
   claude as its only entry; the roadmap's original promise was Codex and
   opencode. Each is one file in `internal/agent`: a command template, a
@@ -581,6 +596,29 @@ what M7 left.
   so an agent with a different settings schema needs a file per profile; and
   discovery and adoption read claude's store only, so adopting another agent's
   sessions is its own issue.
+
+  Half-spiked 2026-09-18 against 55 real rollouts under `~/.codex/sessions/`,
+  recorded on the issue so nobody repeats it. The transcript is
+  `~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<ISO8601>-<uuid>.jsonl`, whose
+  `session_meta.payload.id` is the uuid - but the date directories and the
+  timestamp prefix are not known in advance, so `Profile.TranscriptPath` cannot
+  be the pure join `paths.Transcript` is and the seam needs a scan. The
+  envelope is `{timestamp, type, payload}`; `event_msg/task_started` and
+  `task_complete` pair exactly and are the busy/idle signal, `user_message`
+  carries the prompt and `token_count` the meter. One functional gap to write
+  down before building: `DeriveKind` can never report `PermissionRequested`
+  from a transcript, and Codex has no hook mechanism, so a Codex session can
+  never show "waiting for you". What is still unknown is the half that blocks
+  it - whether `codex` accepts an externally assigned session id at all, which
+  omatty's whole architecture rests on, and which flag resumes one. That needs
+  the real binary, which was not on the machine.
+
+- **#217 - the mouse is captured for the whole session.** Done 2026-09-18.
+  #107 asked the host for mouse reporting and never added a way to stop
+  asking, so `?1002h` was held from a session's first frame to its last and the
+  terminal could never select text. `ctrl+o m` hands it back, the header says
+  `mouse off` while it is handed back, and the modifier-drag stays the quick
+  answer for one selection.
 - **#153 and #154 - the rest of #128.** Both done 2026-09-08. The token
   meter (PR #163) is in the focused pane's rule, the operator's call on
   screen: `▰▰▰▰▰▰▱▱ 80% cached`, cache-read over everything the prompt was
@@ -623,13 +661,271 @@ what M7 left.
   key table: the note and filter lines as text, the focused terminal
   re-bracketed with no carriage return (invariant 8), the column and a modal
   drop it. Copy is documented, not built: forwarding OSC 52 needs a callback
-  `x/vt` does not have, and is **#212**, open in Backlog.
+  `x/vt` does not have, and was **#212**, shipped 2026-09-10 in PR #216:
+  bubbletea already had SetClipboard, and the lift runs before the C1 guard.
 - **#168 - the review column ignored the mouse and looked like claude's
   diff.** Done 2026-09-09, PR #214. A click on a row moves that view's cursor
   and takes the keys; a `×` on the column's rule closes it; the rule reads
   `─ review ─────×` where the pane's stays plain dashes, so omatty's diff and
   the one claude draws inside its pane are told apart. Clicks in the pane
   stay claude's (#107).
+
+---
+
+## M9 - The Gate
+
+**Delivers:** a project stops being a path and becomes a repository, the gate
+that says whether work in it is sound, and the sessions running against it.
+omatty runs that gate in a session's own directory, shows the verdict on the
+session's card, and sends the failures back into the session that caused them.
+
+**Why this and not something else.** v0.1.0 shipped into a field of roughly a
+hundred and fifty agent orchestrators, and every one of them optimises the same
+variable: how much agent-work can be in flight at once. omatty bets on the
+other one - how fast a person can tell whether what came back is any good - and
+that bet had already decided M3's review loop and everything the roadmap
+refused. M9 makes it explicit and builds the rest of it. "Not on the roadmap"
+above now carries the refusals with their reasons.
+
+**What it is, in thirteen slices**, one issue and one PR each:
+
+- **#222 thesis (PR #235).** README says what omatty is; "Not on the roadmap"
+  leads with the anti-orchestrator entry and gives each refusal a reason;
+  AGENTS.md and ARCHITECTURE.md gain **invariant 12**.
+- **#223 `internal/paste` (PR #236).** Invariant 8 moves out of `review` into
+  a package of its own, so `review` and `gate` can both reach it without
+  importing each other.
+- **#224 `internal/gate` (PR #237).** Steps, exit-status verdicts, bounded
+  output. A gate stops at the first step that does not pass; the rest report
+  `Pending`, not `Pass`. Output is capped at capture - 200 lines or 16 KiB,
+  keeping the tail, where a test runner puts the summary.
+- **#238 process groups (PR #237).** Found by CI: macOS passed and ubuntu did
+  not, because killing the `sh` a step runs under is enough only when it
+  exec'd the command into itself. Cancelling now kills the group.
+- **#225 coverage (PR #239).** A `kind = "coverage"` step has its percentage
+  read for display. The parser picks a *line* before it picks a number, and
+  its fixtures are recorded from real tools.
+- **#226 detect (PR #241).** omatty proposes a gate by reading the checkout,
+  and only ever proposes. The Node branch reads `package.json` for *whether* a
+  script exists and never what it contains.
+- **#227 `Project.Gate` (PR #240).** `state.json` stays at version 1: a nil
+  gate is "not configured yet", and the empty value is derivable
+  (invariant 9), the argument `Agent` and `Base` already carry.
+- **#228 `omatty gate` (PR #243).** Show, propose, set or clear. The plain
+  form is the confirm-once flow `discover` and `adopt` already use.
+- **#229 the Runner (PR #242).** Bounded parallelism, supersede, panic
+  recovery. `testdata/gateprobe` is its real-binary half.
+- **#230 the card strip (PR #245).** A third card line, always drawn.
+  `READY` is derived from a green gate, a non-empty diff and a resting
+  session - never stored.
+- **#244 revealHeader (PR #245).** Found by an existing test when the card
+  grew: showing a project header could push the selected card out of a short
+  pane. Latent since #129.
+- **#231 the gate pane (PR #246).** The review column's fourth mode, and
+  running the gate from it. A mode rather than a fourth pane.
+- **#232 feedback (PR #247).** `S` sends the failures into the session as one
+  bracketed paste (invariant 8).
+- **#233 auto-run (PR #249).** `[gate] auto`, off by default, gating a session
+  when its turn ends. A red gate notifies only while omatty is blurred.
+- **#248 builtins (PR #249).** Found by #233's own smoke test: `exit` is a
+  shell builtin with no binary, so the `LookPath` pre-flight called a working
+  step `Missing` and stopped the gate. The hand-written list of builtins is
+  deleted in favour of asking the shell - `command -v` - because a list of
+  builtins cannot be completed across shells.
+
+**Deliberately cut, so they do not return sideways:**
+
+- **Coverage overlaid on the diff** - marking added lines no test covers - and
+  **test-file pairing flags**, which flag a diff that touches source and no
+  tests. Cut from M9 because both needed its coverage parsing first, and built
+  immediately after as **M10**; the entry stays here because the deferral is
+  the reason M10 exists. See the M10 section for what it did with them.
+- **Reading the gate out of `AGENTS.md`'s fenced block.** One source of truth
+  for human, agent and environment is the right long-term answer, but parsing
+  prose is fragile; M9 uses explicit config and the docs say to keep the two
+  in sync.
+- **A gate that blocks anything.** `READY` is a badge, not a permission.
+  Nothing in omatty refuses an action because a gate is red - the operator
+  decides, and a tool that argued with them about it would be the thing this
+  milestone exists not to build.
+- **Sending anything without being asked.** #233 runs the gate for you;
+  nothing sends a prompt on your behalf. That line is where a verification
+  tool becomes an orchestrator.
+
+---
+
+## M10 - Coverage on the diff
+
+**Delivers:** the milestone in one glance - of the lines this session added,
+which are not exercised by anything? omatty reads the profile the project's own
+gate just wrote, marks the added lines no test covers, and says a word when a
+change brought no tests with it at all.
+
+**Why this, and why it needed M9 first.** M9 put a gate beside each session and
+a percentage on its card. A percentage is a number about a repository; it does
+not say which of *these* lines, the ones that came back five minutes ago, are
+untested. That is the question a reviewer actually has, and answering it is the
+whole bet of this tool: not how much agent-work can be in flight, but how fast
+a person can tell whether what came back is any good. Both halves were cut from
+M9 explicitly and for the same reason - they needed a coverage profile parsed
+at line granularity, which is what #251 and #252 built.
+
+**What it is, in seven slices**, one issue and one PR each:
+
+- **#251 `internal/coverage` (PR #259).** A Go profile as per-line verdicts.
+  Three states, and the third earns the package its shape: covered, uncovered,
+  and *no verdict at all* for a line that is not a statement. An absent line is
+  silence, never a claim, because marking braces and declarations would be
+  noise that trains the eye to ignore the marker.
+- **#252 lcov and sniffing (PR #270).** The other format, and picking the
+  parser by looking at the file rather than at its name: `.info`, `.lcov`,
+  `.out` and `.txt` are each in use for *both* formats. A file that is neither
+  is an error, not an empty profile - an empty profile would quietly mean
+  "nothing here is uncovered", which is a lie the operator cannot notice.
+- **#253 `Step.Profile` (PR #273).** A coverage step *declares* the path it
+  writes. `omitempty`, so `state.json` stays at version 1 (invariant 9).
+  `Detect` proposes the ecosystem's convention - `cover.out`, `lcov.info`,
+  `coverage/lcov.info` - which is a fine thing to propose and confirm, and a
+  poor thing to assume at read time, which is exactly what #248 punished.
+- **#254 loading it (PR #274).** When a gate finishes, its profile is read out
+  of the session's own directory - a worktree session reads its own worktree,
+  so two sessions never read each other's numbers. Display-only, never
+  persisted. A profile that will not parse **leaves the previous overlay**
+  rather than blanking it: blanking would quietly claim nothing is uncovered.
+- **#255 the markers (PR #275).** An added line the overlay says never ran
+  draws `!` where its `+` would be, and the file header carries the count -
+  `internal/ui/model.go +2 -1  3 uncovered` - so a long diff says where to look
+  without being scrolled. The marker takes the sign's cell rather than adding a
+  gutter column, because a new column would shift every row of every diff,
+  including files the profile says nothing about.
+- **#256 `review.Pair` (PR #276).** The cheaper half, needing no coverage data:
+  four outcomes, not two. **Rust is the interesting case** - it puts tests in
+  the same file behind `#[cfg(test)]`, so a `.rs` hunk that adds one is paired
+  and one that does not is *Unknown*, never Unpaired. A flag that cried wolf on
+  every Rust change would teach the eye to skip it, and then it would be worth
+  nothing on the languages where it was right.
+- **#257 the flag (PR #277).** `diff · 3 files · 0 comments · ⚠ no tests`, and
+  only for Unpaired. Three quarters of the outcomes are silence, which is what
+  keeps the fourth worth reading.
+
+**Deliberately cut, so they do not return sideways:**
+
+- **A gate on any of it.** Nothing is blocked, nothing turns red, `S` sends no
+  more than it did. This is M9's line held one milestone later: the overlay and
+  the flag are remarks, and a tool that argued with the operator about them
+  would be the thing the roadmap exists not to build. A flag is exactly the
+  kind of thing that grows teeth later, so #257 ships with a test whose only
+  job is that it has none.
+- **Python's Cobertura XML.** `Detect` proposes *no* profile for a Python
+  project, because `internal/coverage` reads Go profiles and lcov and nothing
+  else. "No overlay" is legible; a path that never parses is an overlay that
+  never arrives and never says why.
+- **Typing a profile path at the command line.** `omatty gate --set` writes the
+  proposal; a project whose profile lives somewhere else is a `state.json`
+  edit. The confirm-once flow is about agreeing to what was *proposed*, and a
+  free-text path is a different act.
+- **An overlay that refreshes itself.** It describes the tree as the gate found
+  it and goes stale the moment the session edits again - which is exactly the
+  freshness the diff and the diffstat beside it already have. Watching the file
+  would buy a fresher wrong answer, since the profile is only true just after
+  the run that wrote it.
+- **Marking context and removed lines**, and a total in the title. A context
+  line's coverage is not this change's business, a removed line is not in the
+  tree the profile describes, and a per-file count already says where to look.
+- **Branch coverage.** Both formats carry it and neither carries it the same
+  way; line verdicts are what a diff can draw, and the second number would have
+  to be explained every time it disagreed with the first.
+
+---
+
+## M11 - The Harness
+
+**Delivers:** the gate stops trusting prose. Three rules this repository had
+written down and nothing checked - invariant 4's import boundaries, the module's
+own hygiene, and where untested code hides behind a repo-wide coverage average -
+become steps that fail, and the package structure underneath them becomes a
+number that is printed on every run.
+
+**Why this, immediately after M9.** M9 built the machinery for running *a
+project's* gate and showing the verdict beside the session that caused it. M11
+turns the same instrument on omatty itself, and it did so because the
+measurement kept finding the documents wrong. `AGENTS.md` said `ui` was the only
+package importing bubbletea; `internal/termwrap` had imported it in four files
+for weeks. The coverage gate was green at 90% with an *exported* function at 0%.
+A rule nobody measures is a rule that has already drifted - that is the whole
+argument of the milestone, and each slice is an instance of it.
+
+**What it is, in four slices**, one issue and one PR each:
+
+- **#260 depguard (PR #264).** Invariant 4's import half, enforced by a linter
+  that already ships inside the pinned golangci-lint - zero new tooling, zero
+  new CI steps. Four rules: bubbleterm and `creack/pty` to `internal/termwrap`;
+  bubbletea, bubbles and lipgloss to `ui` and `termwrap`; chroma to
+  `internal/highlight` and go-gitdiff to `internal/review`; `os/exec` to the six
+  packages that genuinely run one, with `!$test`. Every importer set was
+  *measured* rather than assumed, which is how the `termwrap` exception was
+  found and `AGENTS.md` corrected. Invariant 4's git half is a string literal,
+  not an import, so depguard structurally cannot see it and it stays a grep test
+  (`TestNoGitOutsideVcs`).
+- **#261 module hygiene (PR #265).** `go mod tidy -diff` after `vet`, and
+  `govulncheck` pinned by `GOVULN_VERSION` the way the linter already is. These
+  are the first steps of the gate that need the network, and the gate block in
+  `AGENTS.md` says so, because somebody will run it on a plane. The pin earns
+  itself immediately: `govulncheck` reports against the toolchain doing the
+  analysis rather than against `go.mod`, so the same tree was red locally and
+  green on CI until the Go version was pinned exactly.
+- **#262 C.R.A.P. (PR #266).** `CC² × (1 − cov)³ + CC`, scored per *function*,
+  because a repo-wide coverage average is exactly the place untested code hides:
+  `watcher.PromptText` is exported and at 0% inside a package measuring 92.2%.
+  The threshold is **12, not the canonical 30** - `gocyclo` is capped at 10 here
+  and a CC=10 function at the 90% floor scores 10.1, so a CRAP-30 gate would be
+  vacuous rather than merely slack. It shipped at 15 and ratcheted to 12 in
+  #267, below. Coverage blocks are attributed to
+  `*ast.FuncDecl` extents rather than joined against `go tool cover -func` text,
+  which prints methods without receivers (`Close` appears nine times) and
+  reports zero-statement functions as 0.0%.
+- **#263 the dependency structure (PR #268).** Ca, Ce, instability
+  `I = Ce/(Ca+Ce)`, abstractness and distance per package, printed on every run.
+  Two things are *enforced*: cycles through the **test** graph - the compiler
+  already refuses production cycles, but `a_test -> b -> a` compiles happily and
+  couples two packages in a direction their production code never admits to -
+  and the Stable Dependencies Principle, which landed behind `--sdp` and was
+  enforced in #269 below. The universe is `./internal/...` only; adding
+  `cmd/omatty` was measured and found *worse*, raising Ca on thirteen packages
+  and putting two edges at exactly zero margin.
+
+**Deliberately left, each with a reason rather than an omission:**
+
+- **The C.R.A.P. ratchet to 12** was left to #267 and **done 2026-09-16**
+  (PR #279). The gate shipped at 15 because that was the lowest value green at
+  the time, and the two functions holding it there - `PromptText` and
+  `typedText`, both CC=3 at 0%, scoring exactly 12.0 - had to be *tested*
+  before the threshold could move, or the ratchet would have been a red CI and
+  nothing else. `PromptText` is the one copy of what "the operator typed this"
+  means, read by both the tailer and discover, and it was exported for that
+  reason and then never tested: precisely the hole #262 built the gate to find.
+  With both covered the worst score in the tree is 8.2, so 12 landed with a
+  margin of nearly four.
+- **SDP as a failure rather than a report** was left to #269 and **done
+  2026-09-16** (PR #280). `I` is a ratio of small integers and moves in jumps -
+  `internal/config` is Ca=1 Ce=1, and a single new importer would take it from
+  0.50 to 0.33 - so a gate failing on a margin nobody had watched move would be
+  one people learn to `--no-verify` past. The margin was watched instead: across
+  every merge from #263 to #278 the tightest edge stayed `watcher -> registry`
+  at exactly +0.071, through M10's `ui -> coverage` edge taking the graph from
+  35 to 36. The flag is gone and a violation fails the run. Had the margin
+  oscillated, that would have been a finding rather than a failure - it did not.
+- **Gating on distance from the main sequence.** Eight packages sit at D = 1.00,
+  and that is what Go looks like rather than a defect: interfaces are declared
+  at the consumer and often unexported, so a stable pure leaf like
+  `internal/paths` (Ca=7, Ce=0 - exactly as designed) scores maximum distance.
+  Gating on D would demand precisely the speculative interfaces `AGENTS.md`
+  bans. The table is in `docs/ARCHITECTURE.md` with the paragraph explaining
+  why, so nobody "fixes" it later.
+- **Mutation testing and module size limits.** Named in the same argument that
+  produced this milestone and cut from it: a mutation run costs minutes per
+  package, and nothing yet says what omatty would do with the score. Cut for
+  cost, not for principle.
 
 ---
 
@@ -666,10 +962,226 @@ in a hurry to make it.
 | Release | Date | Contents |
 |---|---|---|
 | v0.1.0 | 2026-09-10 | M1-M8, all eight milestones. 307 commits. (#134) |
+| v0.2.0 | 2026-09-22 | M9, M10, M11, M13, the session lifecycle (#316-#319, #321) and M12's research. 122 commits. (#328) |
+
+## M12 - The Field
+
+**Delivers:** an answer to the question the first eleven milestones assumed.
+`README.md` claimed that "every other tool in this space is either a desktop
+app or scoped to a single repository". M9's thesis put omatty in "a field of
+roughly a hundred and fifty agent orchestrators". Seven features were refused
+in "Not on the roadmap" against a field this repository never named. Nothing
+here had ever been checked against a live page.
+
+**Why this and not something else.** Every refusal above is worth exactly the
+evidence behind it, and there was none. The method is `akitaonrails/ai-memory`'s
+- the same artifact set one project-stage later: a dated landscape survey,
+per-competitor deep dives, tracker mining, a prior-art ledger, a self-critical
+parity audit, and a public comparison. Its rules came with it: every
+load-bearing claim checked against a live primary page rather than remembered,
+vendor "alternatives" pages refused as sources and named, and research
+documents that make no implementation decisions - the roadmap makes those, in
+the open, which is this section.
+
+**The research, in eight slices**, one issue and one PR each: #295 and #298 the
+field inventory and its `R1-R9` recommendations, #296 four deep dives read at
+code level, #297 five tracker minings, #299 the ledger at P0/P1/P2, #300 the
+parity audit, #301 `docs/comparison.md` and this section, #302 the method
+captured as a skill. All of it is in `docs/research/`, captured 2026-09-18.
+
+**What it found, and none of it was expected:**
+
+- **The first party shipped the category's core.** `claude agents`, in research
+  preview, is "one screen for all your background sessions", each isolated
+  "into an isolated git worktree under `.claude/worktrees/`". That is M1's
+  skeleton and M2's status, free and in the box. It is M9's bet paying off -
+  parallelism was never the scarce thing - and it cost the sentence `README.md`
+  opened with, which #301 rewrote.
+- **`README.md`'s field claim was false.** `kbwo/ccmanager` is a terminal tool
+  with a documented Multi-Project Mode and recursive repository discovery;
+  `brizzai/fleet` groups sessions by repo in a Go TUI. Rewritten in #301.
+- **The gate is still nobody else's feature.** Across every README read - the
+  terminal camp, the desktop camp, the board camp - no tool runs the project's
+  own check line per session and shows the verdict beside it. That square is
+  empty, and M9 and M10 are standing in it.
+- **Invariant 2 was right, and now has evidence instead of an argument.**
+  `claude-squad` matches literal English UI strings in a captured tmux pane and
+  `ccmanager` regex-matches Claude's drawn prompt box; between them that is the
+  field's dominant bug class, including `claude-squad`'s most-discussed issue.
+  `fleet`, which reads hooks, has one status bug.
+- **The moat is narrower than the pitch was.** One feature and one property -
+  the gate, and content-anchored comments - scoped to several sessions across
+  several repositories. Two of the seven lines in the moat ledger are parity
+  rather than advantage. `competitive-parity.md` deleted three more for not
+  being true, and answers "is this just lazygit and a CI badge?" with a
+  concession before an argument.
+- **#152 was wrong about Codex.** `fleet` ships Codex hooks - `SessionStart`,
+  `UserPromptSubmit`, `PermissionRequest`, `Stop` - at `~/.codex/hooks.json`,
+  in the same event-map shape as Claude's. The correction is posted on #152.
+
+**What it builds.** Three issues, all inside the thesis rather than beside it,
+and the research deliberately stops before deciding their shape:
+
+- **#309 a worktree you can actually run.** The field's most-repeated unmet
+  need - `ccmanager` #7 shipped it, `claude-squad` #260 and #277 are open
+  asking, `fleet` shipped its own - and omatty has no answer. It is P0 because
+  M9 made the gate the product: a gate step that fails because `.env` is
+  missing is the gate being wrong about the code, and a red card the operator
+  learns to ignore is worse than no card.
+- **#310 PR and CI state on the session card.** The field asks for the remote
+  verdict (Orca #18484, #18485, #18487; `fleet` ships it). omatty has the local
+  one. They are complements, and this is verification rather than
+  orchestration - the card reports a verdict someone else computed and acts on
+  nothing.
+- **#311 a review scoped to *since when*.** Orca #11840 asks for "changes this
+  turn" / "since my last review", backed by "a refs/orca baseline snapped at
+  agent turn boundaries" - a mechanism omatty has the parts for, since the
+  `Stop` hook already marks the boundary. omatty shows everything a
+  session changed, so a reviewer re-reads three turns on the third turn. This
+  is the only gap the pass found *in the thesis itself*.
+
+**Deliberately cut:**
+
+- **Everything else on the P1/P2 list** - a comment that knows it was sent,
+  scrollback after a reattach (#191), per-file reviewed marks, generated-file
+  suppression, sub-line comments, Homebrew. Real, small, and none of them is
+  the reason to open the tool. They stay in `prior-art-findings.md` with their
+  priorities so the next pass does not rediscover them.
+- **Widening the agent seam to match `ccmanager`'s eight.** #152 stays the
+  scope. `ccmanager`'s #82 and #107 are what each added profile costs: an
+  escape-key bug per agent.
+- **A full read of Orca's tracker.** 3,036 open issues; #297 probed it against
+  omatty's own design and its document says plainly that a probe cannot support
+  a claim about what its users complain about most. Nimbalyst and vibe-kanban
+  were not mined at all. That is where a second pass starts.
+
+---
+
+## M13 - Memory and idle CPU
+
+**Delivers:** an answer to "why is omatty holding most of a gigabyte", and
+the part of that answer omatty owns. Measured on a live window: thirteen
+sessions, three days up, **505 MB physical footprint** with a further 298 MB
+swapped, RSS sawtoothing **183 MB to 364 MB every two seconds**, and
+**12-17% of a core while nothing was happening**.
+
+**Why this and not something else.** Twelve milestones shipped without a
+single measurement of what the binary costs to leave open, which is the one
+thing a tool you leave open all day is judged on. The sawtooth said the
+answer was two separate problems - roughly 183 MB genuinely retained, and
+roughly 180 MB of garbage produced every two seconds - and that split is
+what the work below follows.
+
+**What was fixed.**
+
+- **The frame was rebuilt on every message, and measured three times over.**
+  A CPU profile of the idle process named `ansi.StringWidth` as 62% of a
+  frame: `fitLine` measured a line to decide whether to cut it and `padRight`
+  measured it again to pad it, then `lipgloss.JoinVertical` and
+  `JoinHorizontal` measured every line of every column a third time to align
+  blocks that are already exactly their own width - the #174 promise
+  `TestFrame_EveryLineIsExactlyTheWindow_issue174` has asserted all along.
+  `joinRows` and `joinColumns` trade on that invariant instead of
+  rediscovering it. Lane cells, meter cells and status glyphs were restyled
+  per cell per frame although each is fixed by a tiny domain, and are now
+  rendered once. `BenchmarkFrame` at thirteen sessions: 385 us and 464 allocs
+  to 135 us and 386.
+- **The frame is memoised, invalidating by default.** Most messages are
+  output from a pane nobody is looking at, and such a frame is identical to
+  the one before it - status comes from the transcript, never the grid
+  (invariant 2). The memo is keyed on the window and the focused pane's
+  grid; `Update` drops it for every message and exactly one path puts it
+  back, the broadcast that mutates a terminal and never the model. A message
+  type added later is stale-proof by default, and eighteen of them are
+  asserted against a fresh rebuild.
+- **Archive forgot five of fifteen per-session maps.** The rest stayed for
+  the life of the process, most expensively `covers`, a `map[int]bool` per
+  source line per file. The guard is a reflection test, not a written list.
+- **Gate output was bounded only after `CombinedOutput` had held all of it**,
+  which is the failure `internal/gate/bound.go` already described, one layer
+  earlier than it was being fixed.
+- **Every checkout was polled while the window was blurred**, two or three
+  git processes per session every ten seconds.
+- **`OMATTY_HEAP_PROFILE`**, because none of the above could be asked of the
+  binary; it all had to be inferred from `vmmap`, `ps` and a new benchmark.
+
+**Measured end to end**, eight chatty sessions through a real PTY:
+**35-41% of a core to 16-18%**, peak RSS 153-155 MB to 135-137 MB.
+
+**Not fixed, and not omatty's to fix.** The retained heap is dominated by two
+upstream constants, which `OMATTY_HEAP_PROFILE` showed on its first run - on
+a **two**-session window, 61% of the live heap was one of them:
+
+```
+8194.75kB 61.48%  github.com/charmbracelet/x/ansi.(*Parser).SetDataSize
+1034.66kB  7.76%  github.com/charmbracelet/ultraviolet.NewBuffer
+```
+
+- `x/vt`'s `NewEmulator` calls `SetDataSize(1024 * 1024 * 4)` - **4 MiB of
+  ANSI parser buffer per emulator**, 64x the `ansi.NewParser` default,
+  allocated whether or not the session ever draws. At thirteen sessions that
+  is 52 MB before a byte of anything else.
+- Each emulator holds **two screens, each with a 10,000-line scrollback**
+  (`vt.DefaultScrollbackSize`), of which omatty reads *nothing*: the wheel
+  forwards `PgUp`/`PgDn` to the child so claude's own pager answers
+  (`internal/ui/wheel.go`), and the repository contains no reference to
+  `Scrollback`, `GetCells` or `CellAt`. A `uv.Cell` is 112 bytes with five
+  pointer words, so a saturated lane of scrollback is tens of MB per session
+  that nothing can display.
+
+`vt.Emulator` exports `SetScrollbackSize`, but `bubbleterm.Emulator` holds
+its `vt` field unexported with no accessor, so none of this is reachable from
+here. Fixing it means a passthrough in `taigrr/bubbleterm` and a smaller
+default - or an argument for one - in `charmbracelet/x`. That is an upstream
+conversation, not a change to this repository, and invariant 4 is what keeps
+its blast radius to `internal/termwrap` when it happens.
+
+---
 
 ## Not on the roadmap
 
-Considered and cut, so they do not creep back in through the side door:
+Considered and cut, so they do not creep back in through the side door.
+
+### omatty is a window, not an orchestrator
+
+This is the first entry because it is the one with the most pull on it. The
+field omatty ships into is full of tools that delegate; each of the following
+would be a reasonable-sounding step toward becoming one, and each is refused
+for a stated reason rather than by omission.
+
+| Refused | Why |
+|---|---|
+| A coordinator agent; agents that spawn agents | Success rates compound. At 90% a step, a ten-step delegated chain lands around 35%, and it removes the human at exactly the point where corrections are still cheap. Published measurements agree: most production agents run fewer than ten steps before someone intervenes. |
+| A spec or plan approval gate before work may start | A spec precise enough to generate correct code is already a program, just written in prose — and the spec-code contract breaks at the first hotfix. Plans stay optional artifacts you may write; never a state the UI makes you pass through. |
+| Unattended task queues, scheduled runs, PR or chat subscriptions | A session runs because a person started it. There is no mode in which omatty works while nobody is reading. |
+| Cloud, accounts, sync | A project's accumulated knowledge is `AGENTS.md` and whatever memory tooling you use — on disk, in the repo, read by the agent *and* by you. Hidden context that only the tool can see is a regression, not a feature. |
+| A planning board inside the TUI | The board is GitHub project 13. A second one inside omatty means two sources of truth and a reconciliation problem nobody asked for. |
+| Agent-to-agent messaging | Same reason as the coordinator. If two sessions need to agree on something, that is a conversation for the person watching both of them. |
+
+**Each of these now has a live example, found by M12's research** (2026-09-18).
+A refusal that names what it is refusing is harder to re-open by accident than
+one argued from principle alone:
+
+| Refused | Who ships it | Still refused because |
+|---|---|---|
+| Auto-accepting prompts | `claude-squad`'s `-y/--autoyes` (its #222, #151), and `ccmanager`'s experimental AI auto-approval | It bypasses Claude Code's own confirmations. `ccmanager`'s README argues against `claude-squad`'s version by name — "not recommended for safe operation" — which is a competitor making omatty's case. |
+| Agents dispatching to each other | `fleet skill install` — an Agent Skill teaching agents `fleet wt` and `fleet send` | Well made, opt-in, and exactly the thing above. The option was available and taken by someone else; the reason for declining has not changed. |
+| Agent runs triggered by CI | Orca #10131, "auto-run agents when PR checks fail" | One step past #233's auto-run, which gates a session when its turn ends and *sends nothing*. That step is where a verification tool becomes an orchestrator. |
+| A board driving the agents | `vibe-kanban`, and a camp three times the size of the terminal camp | Two sources of truth. The board is GitHub project 13. |
+| Mobile companions, cloud sessions, account sync | Orca, Nimbalyst | Hidden context only the tool can see is a regression. |
+
+One idea found in the field is **not** refused, only unanswered: **forking a
+session's conversation** (`fleet`'s `f`). Invariant 9 asks the first question —
+what is the copy's uuid, and which transcript does it claim? `fleet` #142 and
+#226 are both identity bugs, which suggests the question is the hard part and
+the UI is not. If it is ever proposed, start there.
+
+What is left after all that is the loop the rest of this roadmap builds: start
+a session, read what it did, say what is wrong, run the gate, send the failures
+back. Tests, review, and short iterations — ordinary engineering, applied to a
+faster pair.
+
+### Also cut
 
 - Claude self-reviewing its own diff
 - Commit / push / PR from inside omatty
@@ -682,8 +1194,6 @@ Considered and cut, so they do not creep back in through the side door:
   a quit. Not to be confused with M4's project discovery (#91), which reads
   the transcript store and registers nothing by itself.
 - Themes beyond one, or keybinding customisation beyond the leader
-- Any orchestration, planning board, or agent-to-agent messaging. omatty is a
-  window, not an orchestrator.
 
 ## Rules
 
@@ -695,7 +1205,7 @@ Considered and cut, so they do not creep back in through the side door:
    units; these were failures of the wiring between them. `testdata/`
    carries a PTY harness for this; using it is part of "done".
 3. **A milestone is not done while a blocker is open.** M1 is the example.
-4. **Invariants are argued, never assumed.** Anything touching the ten in
+4. **Invariants are argued, never assumed.** Anything touching the twelve in
    AGENTS.md says so in its commit message.
 5. **A milestone ends on `develop`; a release ends on `main`.** The promotion
    is a PR clearing rule 2's gate, and it is tagged. See "Releases". #134 is

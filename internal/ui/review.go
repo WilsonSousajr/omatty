@@ -42,11 +42,13 @@ type FilesLoadedMsg struct {
 // ReviewView is which face the review column shows.
 type ReviewView int
 
-// The column's views: the diff, the worktree tree, or one file's preview.
+// The column's views: the diff, the worktree tree, one file's preview, or the
+// project's gate (#231).
 const (
 	ViewDiff ReviewView = iota
 	ViewTree
 	ViewPreview
+	ViewGate
 )
 
 // focusTarget is which pane receives a key the router sends "to the terminal":
@@ -83,6 +85,12 @@ type ReviewPane struct {
 	TreeErr    string
 	TreeCursor int
 	TreeOffset int
+	// The gate view's state (#231). GateOpen is which steps are folded open,
+	// nil until one is - a step's output is hidden by default because four
+	// steps of test output would bury the summary the pane exists to show.
+	GateCursor int
+	GateOffset int
+	GateOpen   map[int]bool
 	// The preview view's state: one file at a time, so a new preview
 	// replaces the last rather than accumulating.
 	Preview       review.Preview
@@ -162,6 +170,11 @@ func (m *Model) toggleView(v ReviewView) tea.Cmd {
 	// Each view is a different shape of text, so a pan that made sense in one
 	// is meaningless in the next: switching starts at the left edge (#94).
 	m.review.Open, m.review.View, m.review.Focused, m.review.ColOffset = true, v, true, 0
+	if v == ViewGate {
+		// Opening the gate asks for a fresh one. A pane that only showed the
+		// last result would be a report with no way to ask for a new one.
+		m.runGate(id)
+	}
 	return tea.Batch(m.resizeIfWidthChanged(wasOpen), m.reloadIfNeeded(id, fresh), m.loadFilesIfMissing(id))
 }
 

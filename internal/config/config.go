@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 
@@ -27,18 +29,75 @@ type Naming struct {
 // caller can use directly: past Load there is no "unset" state, so no caller
 // needs a second default of its own (#44).
 type Config struct {
-	Leader       string `toml:"leader"`
-	ClaudeBin    string `toml:"claude_bin"`
-	WorktreeRoot string `toml:"worktree_root"`
-	BaseBranch   string `toml:"base_branch"`
-	Naming       Naming `toml:"naming"`
+	Leader       string   `toml:"leader"`
+	ClaudeBin    string   `toml:"claude_bin"`
+	WorktreeRoot string   `toml:"worktree_root"`
+	BaseBranch   string   `toml:"base_branch"`
+	Naming       Naming   `toml:"naming"`
+	Gate         Gate     `toml:"gate"`
+	Sessions     Sessions `toml:"sessions"`
+}
+
+// Sessions is the [sessions] table: when omatty spends a claude process on a
+// session (#317).
+type Sessions struct {
+	// LazyStart boots only the sessions dtach is already holding, and starts
+	// the rest when the operator presses enter in their pane. On by default:
+	// a claude costs ~225 MB before its first turn, and eleven of them at
+	// boot were 2.99 GB on the machine this was measured on, ten idle for
+	// days. False starts every session at boot, as omatty did before.
+	LazyStart bool `toml:"lazy_start"`
+	// IdleStop stops a session that has been quiet this long, exactly as
+	// ctrl+o s does: process ended, row kept, enter resumes it. Zero is off,
+	// and the default: ending a process the operator did not ask to end costs
+	// a turn if omatty is wrong about "quiet", so it is opted into, the
+	// argument [gate] auto makes (#233, #319).
+	IdleStop Duration `toml:"idle_stop"`
+}
+
+// Duration is a config value a person writes as "90m" or "2h", parsed by
+// time.ParseDuration. Its own type so the TOML decoder reads a string, and so
+// a nonsense value fails in Load, where the error names the file and the key,
+// rather than wherever the value is first used (#319).
+type Duration time.Duration
+
+// UnmarshalText parses text as a non-negative duration. Zero means off; a
+// negative threshold has no meaning and would sweep every session at once.
+//
+//	var d config.Duration
+//	err := d.UnmarshalText([]byte("90m"))
+func (d *Duration) UnmarshalText(text []byte) error {
+	v, err := time.ParseDuration(string(text))
+	if err != nil {
+		return fmt.Errorf("duration %q: want one such as \"90m\" or \"2h\": %w", text, err)
+	}
+	if v < 0 {
+		return fmt.Errorf("duration %q is negative, want \"0\" (off) or a positive one such as \"90m\"", text)
+	}
+	*d = Duration(v)
+	return nil
+}
+
+// Gate is the [gate] section: how omatty runs a project's own checks (#229).
+type Gate struct {
+	// MaxParallel bounds how many gates run at once. Small on purpose - four
+	// concurrent `go test ./... -race` make a laptop unusable, and a laggy TUI
+	// would make the gate worse than running it by hand.
+	MaxParallel int `toml:"max_parallel"`
+	// Auto runs a session's gate when its turn ends. False by default: a test
+	// suite on every idle costs real time and a real fan, so it is opted into
+	// rather than out of (#233).
+	Auto bool `toml:"auto"`
 }
 
 // Defaults is the configuration of a machine with no config file.
 //
 //	cfg := config.Defaults(home)
 func Defaults(home string) Config {
-	return Config{Leader: "ctrl+o", ClaudeBin: "claude", WorktreeRoot: paths.DefaultWorktreeRoot(home)}
+	return Config{
+		Leader: "ctrl+o", ClaudeBin: "claude", WorktreeRoot: paths.DefaultWorktreeRoot(home),
+		Gate: Gate{MaxParallel: 2}, Sessions: Sessions{LazyStart: true},
+	}
 }
 
 // Load reads path, filling every key the file omits from Defaults(home).
@@ -69,13 +128,36 @@ func Load(path, home string) (Config, error) {
 }
 
 // knownKeys is the list an unknown-key error offers, so a typo is answered
-// with the spelling that would have worked.
-const knownKeys = "leader, claude_bin, worktree_root, base_branch, naming.model"
+// with the spelling that would have worked. Derived from Config's toml tags
+// rather than written down: the written list never learned M9's [gate]
+// table, so a typo there was answered with five keys, none of them the one
+// meant (#321).
+//
+//	knownKeys() // "leader, claude_bin, ..., gate.max_parallel, gate.auto"
+func knownKeys() string {
+	return strings.Join(tagPaths(reflect.TypeOf(Config{}), ""), ", ")
+}
+
+// tagPaths is every key t decodes, in field order, a nested table's keys
+// prefixed with its own name the way the decoder spells them.
+func tagPaths(t reflect.Type, prefix string) []string {
+	var paths []string
+	for i := range t.NumField() {
+		f := t.Field(i)
+		name := prefix + f.Tag.Get("toml")
+		if f.Type.Kind() == reflect.Struct {
+			paths = append(paths, tagPaths(f.Type, name+".")...)
+			continue
+		}
+		paths = append(paths, name)
+	}
+	return paths
+}
 
 // refuseUnknownKeys turns a typo into an error that names it.
 func refuseUnknownKeys(path string, md toml.MetaData) error {
 	if keys := md.Undecoded(); len(keys) > 0 {
-		return fmt.Errorf("config %s: unknown key %q, want one of %s", path, keys[0].String(), knownKeys)
+		return fmt.Errorf("config %s: unknown key %q, want one of %s", path, keys[0].String(), knownKeys())
 	}
 	return nil
 }

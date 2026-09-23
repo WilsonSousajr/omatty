@@ -3,7 +3,7 @@ package ui_test
 import (
 	"errors"
 	"os/exec"
-	"strings"
+	"sort"
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/agent"
@@ -21,12 +21,9 @@ func TestStartTerminals_OnePerSessionInItsOwnDirectory(t *testing.T) {
 		return termwrap.NewFake(""), nil
 	}
 
-	terms, err := ui.StartTerminals(
-		twoProjectState(), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
+	terms := ui.StartTerminals(
+		twoProjectState(), every(twoProjectState()), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
 
-	if err != nil {
-		t.Fatalf("StartTerminals() error = %v, want nil", err)
-	}
 	if len(terms) != 3 {
 		t.Errorf("started %d terminals, want 3", len(terms))
 	}
@@ -40,20 +37,61 @@ func TestStartTerminals_OnePerSessionInItsOwnDirectory(t *testing.T) {
 	}
 }
 
-func TestStartTerminals_FailureNamesTheSession(t *testing.T) {
+// Regression, issue #317: one failed start aborted the whole boot, so a
+// single bad session kept every other one from opening. It is now left out
+// of the map - which the pane shows as stopped, with enter to retry - and
+// the rest start.
+func TestStartTerminals_AFailedStartLeavesOnlyThatSessionStopped_issue317(t *testing.T) {
+	calls := 0
 	factory := func(int, int, *exec.Cmd) (termwrap.Terminal, error) {
-		return nil, errors.New("pty exhausted")
+		calls++
+		if calls == 1 {
+			return nil, errors.New("pty exhausted")
+		}
+		return termwrap.NewFake(""), nil
 	}
 
-	_, err := ui.StartTerminals(
-		twoProjectState(), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
+	terms := ui.StartTerminals(
+		twoProjectState(), every(twoProjectState()), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
 
-	if err == nil {
-		t.Fatal("StartTerminals() returned nil after a factory failure, want an error")
+	if terms["s1"] != nil || terms["s2"] == nil || terms["s3"] == nil {
+		t.Errorf("started %v, want s2 and s3 with s1 left stopped", keysOf(terms))
 	}
-	if !strings.Contains(err.Error(), "s1") {
-		t.Errorf("error %q does not name the offending session", err)
+}
+
+// Lazy start hands StartTerminals only the sessions a holder already keeps
+// alive; the others are not started at all (#317).
+func TestStartTerminals_StartsOnlyTheWantedSessions_issue317(t *testing.T) {
+	calls := 0
+	factory := func(int, int, *exec.Cmd) (termwrap.Terminal, error) {
+		calls++
+		return termwrap.NewFake(""), nil
 	}
+
+	terms := ui.StartTerminals(
+		twoProjectState(), map[string]bool{"s2": true}, supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
+
+	if len(terms) != 1 || terms["s2"] == nil || calls != 1 {
+		t.Errorf("started %v with %d factory calls, want only s2 and one call", keysOf(terms), calls)
+	}
+}
+
+// every is the want-set that starts every session, as lazy_start = false does.
+func every(st registry.State) map[string]bool {
+	ids := map[string]bool{}
+	for _, sess := range st.Sessions {
+		ids[sess.ID] = true
+	}
+	return ids
+}
+
+func keysOf(terms map[string]termwrap.Terminal) []string {
+	ids := make([]string, 0, len(terms))
+	for id := range terms {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 func TestStartTerminals_EmptyRegistryStartsNothing(t *testing.T) {
@@ -63,12 +101,9 @@ func TestStartTerminals_EmptyRegistryStartsNothing(t *testing.T) {
 		return termwrap.NewFake(""), nil
 	}
 
-	terms, err := ui.StartTerminals(
-		emptyState(), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
+	terms := ui.StartTerminals(
+		emptyState(), every(emptyState()), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
 
-	if err != nil {
-		t.Fatalf("StartTerminals() error = %v, want nil", err)
-	}
 	if len(terms) != 0 || called != 0 {
 		t.Errorf("started %d terminals with %d factory calls, want 0 and 0", len(terms), called)
 	}
@@ -81,11 +116,8 @@ func TestStartTerminals_WrapsEveryTerminalInAGuard(t *testing.T) {
 		return termwrap.NewFake(""), nil
 	}
 
-	terms, err := ui.StartTerminals(
-		twoProjectState(), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
-	if err != nil {
-		t.Fatal(err)
-	}
+	terms := ui.StartTerminals(
+		twoProjectState(), every(twoProjectState()), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
 
 	for id, term := range terms {
 		if _, ok := term.(*termwrap.Guard); !ok {
@@ -104,11 +136,8 @@ func TestStartTerminals_BirthsThePTYAtThePaneSize_issue51(t *testing.T) {
 		return termwrap.NewFake(""), nil
 	}
 
-	_, err := ui.StartTerminals(oneSessionState(), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}),
+	ui.StartTerminals(oneSessionState(), every(oneSessionState()), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}),
 		factory, 140, 40, ui.DefaultLeader)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// PaneSize(140, 40) is 112x37, and the PTY is the whole pane now that the
 	// title sits in the header row (issue #75, #128, #174).

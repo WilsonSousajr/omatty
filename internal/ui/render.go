@@ -67,6 +67,12 @@ func treeFooterLine(leader string) string {
 	return "h/l/0 pan  enter open  / filter  a attach  o diff  esc back  " + leader + " ? keys"
 }
 
+// gateFooterLine replaces both in the gate view, where the keys are the few a
+// list of steps has (#231).
+func gateFooterLine(leader string) string {
+	return "j/k move  enter output  S send  esc back  " + leader + " ? keys"
+}
+
 // emptyTreeHint is the tree's empty state: a repository that listed
 // successfully and holds nothing, which is not a listing still in flight (#131).
 const emptyTreeHint = "no files - the repository is empty; press r to list again"
@@ -88,14 +94,16 @@ func (m *Model) emptyStateHint() string {
 // it (#35, #174). Every column is sized exactly before it is joined, so the
 // frame never exceeds the window.
 func (m *Model) View() tea.View {
-	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, m.frame(), m.renderFooter()))
+	v := tea.NewView(joinRows(m.frame(), m.renderFooter()))
 	v.AltScreen = true
 	v.ReportFocus = true // so FocusMsg/BlurMsg drive notifications
 	// Without this the host sends no mouse events at all, and its alternate
 	// scroll turns every wheel notch into arrow keys that land in Claude's
 	// prompt. The cost is the crosshair pointer and shift-drag to select
-	// text, which is what asking for the wheel costs anywhere (#107).
-	v.MouseMode = tea.MouseModeCellMotion
+	// text, which is what asking for the wheel costs anywhere (#107) - and
+	// which the operator can now stop paying, per frame, with the toggle
+	// mouse.go describes (#217).
+	v.MouseMode = m.mouseMode()
 	v.Cursor = m.paneCursor()
 	return v
 }
@@ -103,11 +111,82 @@ func (m *Model) View() tea.View {
 // frame is the header row, the rule and the body: the sidebar, the pane and,
 // when open, the review column, a hairline between each pair (#174).
 func (m *Model) frame() string {
+	pane := m.paneContent()
+	if f := &m.frameMemo; f.valid && f.w == m.width && f.h == m.height && f.pane == pane {
+		return f.out
+	}
 	termW, termH := PaneSize(m.width, m.height, m.review.Open)
 	now := m.clock() // once per frame, so every age is measured against the same instant
 	cols, segs := m.bodyColumns(termW, termH, now)
-	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
-	return lipgloss.JoinVertical(lipgloss.Left, headerRow(segs), ruleRow(segs), body)
+	out := joinRows(headerRow(segs), ruleRow(segs), joinColumns(cols))
+	m.frameMemo = frameCache{valid: true, w: m.width, h: m.height, pane: pane, out: out}
+	return out
+}
+
+// frameCache is the last frame and every input it was built from that the
+// model does not otherwise track: the window, and the focused pane's grid.
+//
+// A frame is drawn on every message, and at a dozen sessions most messages
+// are output from a pane nobody is looking at - which changes the sidebar
+// not at all, because status comes from the transcript and never from the
+// grid (invariant 2). Those frames are identical to the one before them and
+// used to cost a full rebuild each.
+//
+// valid is the zero value, so a fresh Model builds its first frame rather
+// than serving an empty one.
+type frameCache struct {
+	valid bool
+	w, h  int
+	pane  string
+	out   string
+}
+
+// paneContent is the focused emulator's rendered grid: the one input to the
+// frame that changes without any message reaching the model. bubbleterm
+// hands back a string it already holds, so asking is cheap and comparing it
+// is a memcmp against a full rebuild.
+func (m *Model) paneContent() string {
+	if t := m.focusedTerminal(); t != nil {
+		return t.View()
+	}
+	return ""
+}
+
+// joinRows stacks blocks that are already the same width - which is every
+// block the frame is built from, since fitBlock, hairlineColumn, headerRow
+// and ruleRow each size their output exactly (#174).
+//
+// lipgloss.JoinVertical measures every line of every block to align them,
+// and has nothing here to align. Measuring the finished frame a second time
+// made ansi.StringWidth 62% of a frame's own render cost at thirteen
+// sessions. The exactness this trades on is not an assumption:
+// TestFrame_EveryLineIsExactlyTheWindow_issue174 asserts it at three sizes
+// with the review column open and closed.
+func joinRows(blocks ...string) string { return strings.Join(blocks, "\n") }
+
+// joinColumns lays equal-height columns side by side, on the same bargain
+// joinRows makes: each column is already exactly its own width and exactly
+// as tall as the body, so lipgloss.JoinHorizontal has nothing to pad.
+func joinColumns(cols []string) string {
+	if len(cols) == 0 {
+		return ""
+	}
+	split := make([][]string, len(cols))
+	for i, col := range cols {
+		split[i] = strings.Split(col, "\n")
+	}
+	var b strings.Builder
+	for row := range split[0] {
+		if row > 0 {
+			b.WriteByte('\n')
+		}
+		for _, lines := range split {
+			if row < len(lines) {
+				b.WriteString(lines[row])
+			}
+		}
+	}
+	return b.String()
 }
 
 // bodyColumns is every column with the hairline before each one but the
@@ -127,7 +206,7 @@ func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segmen
 	}
 	rw := reviewContentWidth(m.width)
 	cols = append(cols, hairlineColumn(edge == edgeReview, termH), m.renderReview(rw, termH))
-	return cols, append(segs, segment{title: m.reviewTitle(), width: rw, owns: edge == edgeReview, closable: true})
+	return cols, append(segs, segment{title: m.reviewTitle(rw), width: rw, owns: edge == edgeReview, closable: true})
 }
 
 // renderSidebar draws the project/session rows in the sidebar's content
@@ -157,7 +236,17 @@ func (m *Model) renderTerminal(w, h int) string {
 		// h rows, not h-1: the title is in the header row (#128, #174).
 		return fitBlock(strings.Split(term.View(), "\n"), w, h)
 	}
+	if row, ok := m.sidebar.Selected(); ok {
+		return fitBlock(m.stoppedLines(row.Session.Title), w, h)
+	}
 	return fitBlock(m.emptyLines(), w, h)
+}
+
+// stoppedLines is a selected session with no process: ctrl+o s stopped it,
+// or it has not been started (#318). Not the empty state, which would tell
+// the operator to create a session while one sits selected.
+func (m *Model) stoppedLines(title string) []string {
+	return []string{"", title + " is stopped", "", "enter resumes it", "ctrl+c or " + m.leader + " q to quit"}
 }
 
 // emptyLines is the pane with no session to show: what to do next, and the way
@@ -242,8 +331,11 @@ func (m *Model) footerKeys() string {
 	if !m.reviewOwnsKeys() {
 		return footerLine(m.leader)
 	}
-	if m.review.View == ViewDiff {
+	switch m.review.View {
+	case ViewDiff:
 		return reviewFooterLine(m.leader)
+	case ViewGate:
+		return gateFooterLine(m.leader)
 	}
 	return treeFooterLine(m.leader)
 }
@@ -267,10 +359,22 @@ func fitBlock(lines []string, width, height int) string {
 // short, so the cut is padded too - the header row's exact width depends on
 // it, where the box's rule used to measure the title itself (#174).
 func fitLine(s string, width int) string {
-	if lipgloss.Width(s) > width {
-		s = lipgloss.NewStyle().MaxWidth(width).Render(s)
+	if w := lipgloss.Width(s); w <= width {
+		return padBy(s, width-w)
 	}
-	return padRight(s, width)
+	cut := lipgloss.NewStyle().MaxWidth(width).Render(s)
+	return padBy(cut, width-lipgloss.Width(cut))
+}
+
+// padBy appends n spaces, or none when n is not positive. Split out of
+// padRight so fitLine can pad by a width it has already measured: measuring
+// is grapheme segmentation over the whole line, and fitLine used to pay for
+// it twice on every line of every column of every frame.
+func padBy(s string, n int) string {
+	if n <= 0 {
+		return s
+	}
+	return s + strings.Repeat(" ", n)
 }
 
 // panLine drops the first cols display cells of s, which is how the review
@@ -299,8 +403,5 @@ func panLine(s string, cols int) string {
 
 // padRight is ANSI-aware: it measures visible width, not bytes.
 func padRight(s string, width int) string {
-	if n := width - lipgloss.Width(s); n > 0 {
-		return s + strings.Repeat(" ", n)
-	}
-	return s
+	return padBy(s, width-lipgloss.Width(s))
 }

@@ -223,10 +223,6 @@ func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd 
 				"session", sess.ID, "dir", sess.Dir, "err", err)
 		}
 	}
-	// The map is the one ui.Run's deferred closeTerminals holds, so deleting
-	// here is also what stops it being closed twice at exit (#72).
-	delete(m.terms, sess.ID)
-	delete(m.repoStat, sess.ID) // display-only, and the card is gone with the row (#180)
 	m.tailStop(sess.ID)
 	m.forgetSession(sess.ID)
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
@@ -265,12 +261,49 @@ func (m *Model) forgetSession(id string) {
 		kept = append(kept, m.state.Sessions[i+1:]...)
 		m.state.Sessions = kept
 	}
-	delete(m.status, id)
-	delete(m.notified, id)
-	delete(m.comments, id)
+	m.forgetSessionMaps(id)
 	if m.review.SessionID == id {
 		m.review = ReviewPane{}
 	}
+}
+
+// forgetSessionMaps drops id from every per-session map on the Model.
+//
+// Every one of them, in one place. Archive cleared five of fifteen for eleven
+// milestones and the rest stayed resident for the life of the process - most
+// expensively covers, which holds a map[int]bool per source line per file, so
+// archiving and recreating sessions only ever grew the heap.
+//
+// Adding a per-session map to Model without adding it here fails
+// TestForgetSession_ClearsEveryPerSessionMap, which finds the fields by
+// reflection rather than trusting this list to stay complete.
+func (m *Model) forgetSessionMaps(id string) {
+	// The terms map is the one ui.Run's deferred closeTerminals holds, so
+	// deleting here is also what stops it being closed twice at exit (#72).
+	delete(m.terms, id)
+	delete(m.status, id)
+	delete(m.notified, id)
+	delete(m.comments, id)
+	delete(m.namePending, id)
+	delete(m.lane, id)
+	delete(m.gates, id)
+	delete(m.gateRunning, id)
+	delete(m.covers, id)
+	delete(m.coverFailed, id)
+	m.forgetCardMaps(id)
+}
+
+// forgetCardMaps is the second half of forgetSessionMaps: what the card and
+// the boot kept per session. Split off when the idle sweep's map pushed the
+// one list past the statement limit (#319); the reflection test covers both
+// halves alike.
+func (m *Model) forgetCardMaps(id string) {
+	delete(m.repoStat, id) // display-only, and the card is gone with the row (#180)
+	delete(m.statPending, id)
+	delete(m.statFailed, id)
+	delete(m.filesPending, id)
+	delete(m.reattached, id)
+	delete(m.activeAt, id) // the idle sweep's floor (#319)
 }
 
 // WorktreeRemovedMsg carries the outcome of a worktree removal into Update.

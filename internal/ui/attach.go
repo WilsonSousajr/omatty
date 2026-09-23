@@ -6,7 +6,7 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/paste"
 )
 
 // attachSelected attaches the row under the tree cursor.
@@ -35,5 +35,5 @@ func (m *Model) attachPath(rel string, isDir bool) tea.Cmd {
 		rel += "/"
 	}
 	m.review.Focused = false
-	return term.SendInput(review.BracketedText("@" + rel + " "))
+	return term.SendInput(paste.BracketedText("@" + rel + " "))
 }

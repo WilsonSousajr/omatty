@@ -127,9 +127,9 @@ func TestModel_promptCreatesInTheOnlyProjectWhenNoSessionExists_issue158(t *test
 func TestModel_clickingAnEmptyHeaderSelectsIt_issue158(t *testing.T) {
 	m := modelWithEmptyProject(t, &recordCreate{})
 
-	// lines: omatty's header, s1's two-line card, then wstech's header on
-	// line 3 (#176).
-	m.Update(clickAt(3, sidebarLineY(3)))
+	// lines: omatty's header, then s1's card, then wstech's header - computed
+	// from cardLines so it follows the renderer (#176, #230).
+	m.Update(clickAt(3, sidebarLineY(1+ui.CardLines())))
 	if m.SelectedProject() != "wstech" {
 		t.Errorf("click on the empty header selected %q, want wstech", m.SelectedProject())
 	}
