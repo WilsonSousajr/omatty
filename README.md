@@ -42,12 +42,12 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.1.0 — the first release.** Eight milestones, all built. Three more are on
-`develop` and not yet released: **M9 — The Gate**, **M10 — Coverage on the
-diff**, and **M11 — The Harness**, which adds nothing an operator sees — it
-turns three rules this repository had only written down (invariant 4's import
-boundaries, the module's own hygiene, and per-function coverage) into steps of
-the gate that fail. `CHANGELOG.md` has all three under Unreleased.
+**v0.2.0**, 2026-09-22 — the first release with the gate. It adds **M9 — The
+Gate**, **M10 — Coverage on the diff**, **M11 — The Harness** and **M13 —
+Memory and idle CPU** to v0.1.0's eight milestones, plus the session
+lifecycle: `ctrl+o s` stops a session without forgetting it, boot starts only
+what `dtach` is still holding, and `[sessions] idle_stop` can stop what has
+gone quiet. `CHANGELOG.md` has the whole list.
 
 | Milestone | Delivers |
 |---|---|
@@ -59,8 +59,10 @@ the gate that fail. `CHANGELOG.md` has all three under Unreleased.
 | **M6** Persistence | With `dtach`, quitting detaches rather than ends; relaunching reattaches. Sessions claude already has can be adopted. |
 | **M7** Reach | A config file, mouse support, the agent seam, and a visual identity. |
 | **M8** Surface | The frame, colour rule, cards, header, footer and diffstat that the panes are drawn in. |
-| **M9** The Gate *(unreleased)* | A project carries the check line that says whether work in it is sound. omatty runs it per session, shows the verdict on the card, and sends the failures back into the session. |
-| **M10** Coverage on the diff *(unreleased)* | Of the lines a session added, the ones no test covers, marked in the diff with a count per file — and a word on the title when a change brought no tests with it. |
+| **M9** The Gate | A project carries the check line that says whether work in it is sound. omatty runs it per session, shows the verdict on the card, and sends the failures back into the session. |
+| **M10** Coverage on the diff | Of the lines a session added, the ones no test covers, marked in the diff with a count per file — and a word on the title when a change brought no tests with it. |
+| **M11** The Harness | Nothing an operator sees: invariant 4's import boundaries, module hygiene, per-function C.R.A.P. and the package dependency structure become steps of this repository's gate that fail. |
+| **M13** Memory and idle CPU | Idle CPU cut by about 55%, and a per-session leak on archive fixed. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
 pre-1.0, and the key table, `config.toml` keys and `state.json` schema are
@@ -73,7 +75,7 @@ not yet frozen. `docs/ROADMAP.md` has the reasoning and what was cut;
 go install github.com/WilsonSousajr/omatty/cmd/omatty@latest
 ```
 
-Or `@v0.1.0` for the release rather than the tip of `main`. From a clone,
+Or `@v0.2.0` for the release rather than the tip of `main`. From a clone,
 `go install ./cmd/omatty` does the same thing.
 
 Requires Go 1.26, `git`, and `claude` on your PATH, with `$(go env GOPATH)/bin`
