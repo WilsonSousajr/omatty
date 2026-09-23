@@ -11,6 +11,17 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.2.0] — 2026-09-22
+
+M9, M10, M11 and M13, the session lifecycle, and M12's research, built on
+`develop` between 2026-09-10 and 2026-09-22 and promoted together (#328). The
+headline is the gate: v0.1.0 did not have it.
+
+A minor bump, per the pre-1.0 rule: `state.json` gains optional fields
+(`Gate`, `Conversation`) whose empty value is derivable, and `config.toml`
+gains the `[gate]` and `[sessions]` tables. Nothing existing was renamed or
+removed.
+
 ### Added
 
 - **M9 — The Gate.** A project is now a repository, the gate that says whether
@@ -125,6 +136,22 @@ for each milestone and what was deliberately cut.
     `--sdp` on purpose and was enforced once the margin had been watched across
     eight merges without moving. (#263, #269)
 
+- **`ctrl+o s` stops a session without forgetting it.** The `claude` process
+  ends and frees its memory; the row, transcript, queued review comments and
+  card stay. The pane says the session is stopped, and `enter` resumes it
+  with `--resume` on its current conversation. Before this the only way to
+  free one was `ctrl+o x`, which archives it. (#318)
+- **`[sessions] idle_stop`** stops a session that has been quiet this long —
+  `"90m"`, `"72h"` — exactly as `ctrl+o s` would. Off by default (`"0"`): ending
+  a process you did not ask to end costs a turn if omatty is wrong about
+  "quiet". The selected session and one that is thinking, running a tool or
+  waiting on you are never stopped. (#319)
+- **M12 — The Field.** `docs/research/` surveys the tools omatty ships among —
+  a landscape, four code-level deep dives, four issue-tracker minings, a
+  prior-art ledger and a self-critical parity audit — and `docs/comparison.md`
+  is the public version. The method is captured as
+  `.claude/skills/market-research/`. (#295–#302)
+
 ### Fixed
 
 - Cancelling a gate step killed only the `sh` it ran under, leaving a
@@ -136,12 +163,48 @@ for each milestone and what was deliberately cut.
 - A shell builtin with no binary — `exit`, `return`, `local` — was reported as
   a missing tool, which also stopped the gate. omatty now asks the shell
   (`command -v`) instead of looking for a binary. (#248)
+- A gate step written relative to its repository —
+  `./scripts/check-coverage.sh`, which `omatty gate` itself proposes — was
+  reported not on `PATH` and never run, because the pre-flight looked for it
+  in omatty's working directory rather than the step's. (#289)
+- `/clear` gave claude a new conversation id and omatty never noticed: the
+  tailer watched a transcript that had stopped growing, hook events for the
+  new id were dropped, and the next start resumed the conversation as it was
+  before the clear. The session row now follows the clear (and a compact)
+  onto the new conversation, and keeps its own id. (#316)
+- A typo under `[gate]` in `config.toml` was answered with a list of known
+  keys that did not contain the `[gate]` ones. The list is now derived from
+  the config's own fields. (#321)
+- Archiving a session left its per-line coverage map in memory for the life
+  of the process. (#314)
 
 ### Changed
 
 - `internal/paste` owns invariant 8; it moved out of `internal/review` so the
   gate and the review loop can both reach it. (#223)
 - A session card is three lines rather than two. (#230)
+- **Boot starts only the sessions something is still holding.** `[sessions]
+  lazy_start`, on by default: with `dtach`, omatty reattaches the sessions
+  whose `claude` survived the quit and leaves every other one stopped until
+  you press `enter` in its pane. Measured on eleven registered sessions, the
+  old boot spawned 2.99 GB of `claude` for ten sessions idle three to thirteen
+  days. One failed start no longer aborts the whole boot. `lazy_start = false`
+  restores the old behaviour. (#317)
+- **M13 — idle CPU cut by about 55%.** A frame measured each line's width
+  three times over, and every checkout was polled while omatty was blurred;
+  both stopped. Eight chatty sessions through a real PTY went from 35–41% of a
+  core to 16–18%. (#314)
+- `README.md` opens with what omatty does that the field does not — the gate,
+  and review comments that survive the file changing — replacing a claim
+  about the field that M12 found to be false. (#301)
+
+### Known limitations
+
+- The agent seam still has one profile, claude. Codex is a follow-up. (#152)
+- Scrollback is not preserved across a detach and reattach. (#336)
+- Each embedded terminal holds a 4 MiB parser buffer and two 10,000-line
+  scrollbacks, which is most of omatty's retained memory and lives upstream.
+  (#315)
 
 ## [v0.1.0] — 2026-09-10
 
@@ -217,4 +280,6 @@ after its issue:
 - The agent seam has one profile, claude. Codex is a follow-up. (#152)
 - Scrollback is not preserved across a detach and reattach.
 
+[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.2.0...HEAD
+[v0.2.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.1.0
