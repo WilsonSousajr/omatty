@@ -235,7 +235,7 @@ func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd 
 	// under a detach holder the process outlives the PTY on purpose, which is
 	// what makes quitting safe. Archiving is the one place omatty means to end
 	// it, so it is the one place that says so (#43).
-	cmds := []tea.Cmd{m.stopSessionCmd(sess, nil), m.resizeSelected(), m.followSession()}
+	cmds := []tea.Cmd{m.stopSessionCmd(sess, nil), m.resizeSelected(), m.followSession(), m.dropTurnCmd(sess)}
 	if removeWorktree && sess.Worktree {
 		cmds = append(cmds, m.removeWorktreeCmd(sess))
 	}
@@ -304,7 +304,9 @@ func (m *Model) forgetCardMaps(id string) {
 	delete(m.statFailed, id)
 	delete(m.filesPending, id)
 	delete(m.reattached, id)
-	delete(m.activeAt, id) // the idle sweep's floor (#319)
+	delete(m.activeAt, id)    // the idle sweep's floor (#319)
+	delete(m.turnPending, id) // the turn baseline's bookkeeping (#311)
+	delete(m.turnErr, id)
 }
 
 // WorktreeRemovedMsg carries the outcome of a worktree removal into Update.

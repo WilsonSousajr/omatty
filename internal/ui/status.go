@@ -68,7 +68,7 @@ func (m *Model) afterStatus(e watcher.Event, before, after watcher.Status) tea.C
 	m.autoGate(e.SessionID, before, after)
 	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after),
 		m.refreshReview(e.SessionID, before, after), m.maybeName(e.SessionID),
-		m.refreshStat(e.SessionID, before, after))
+		m.refreshStat(e.SessionID, before, after), m.maybeSnapTurn(e))
 }
 
 func (m *Model) knownSession(id string) bool {
