@@ -384,8 +384,6 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	switch typed := msg.(type) {
 	case DiffLoadedMsg:
 		return m.onDiffLoaded(typed)
-	case TurnSnappedMsg:
-		return m.onTurnSnapped(typed)
 	case FilesLoadedMsg:
 		return m.onFilesLoaded(typed)
 	case WorktreeRemovedMsg:
@@ -394,7 +392,23 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	if cmd, handled := m.onNamingMsg(msg); handled {
 		return cmd
 	}
+	if cmd, handled := m.onTurnMsg(msg); handled {
+		return cmd
+	}
 	return m.onPaneMsg(msg)
+}
+
+// onTurnMsg answers the turn baseline's two results: a snapshot taken, and a
+// turn diff loaded (#311). A table of its own, as onNamingMsg is, because the
+// two cases took onDataMsg past the length limit.
+func (m *Model) onTurnMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case TurnLoadedMsg:
+		return m.onTurnLoaded(typed), true
+	case TurnSnappedMsg:
+		return m.onTurnSnapped(typed), true
+	}
+	return nil, false
 }
 
 // onNamingMsg answers what names a session: its first prompt, the model's

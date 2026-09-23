@@ -234,7 +234,9 @@ func TestView_EnablesMouseReportingSoTheWheelArrives_issue107(t *testing.T) {
 // option, and claiming shift outright was wrong for half of them.
 func TestModel_helpNamesTheKeysThatScrollTheSession_issue107(t *testing.T) {
 	m, _ := modelWithFakes(t)
-	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	// Tall enough for the whole keymap: it scrolls on anything shorter (#103),
+	// and #311's `t` row took it one past 40.
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 44})
 
 	press(m, ctrl('o'))
 	press(m, key('?'))

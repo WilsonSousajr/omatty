@@ -18,7 +18,7 @@ func (m *Model) openPreviewAtCursor() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	f := m.review.Diff.Files[e.Pos.File]
+	f := m.shownDiff().Files[e.Pos.File]
 	if f.Status == review.FileDeleted {
 		m.previewDeleted(f.Path)
 		return nil
@@ -38,7 +38,7 @@ func (m *Model) previewOffsetFor(e review.Entry) int {
 	if e.Kind == review.EntryFile || e.Kind == review.EntryOrphan {
 		return 0
 	}
-	l := m.review.Diff.LineAt(e.Pos)
+	l := m.shownDiff().LineAt(e.Pos)
 	no := l.NewNo
 	if no == 0 {
 		no = l.OldNo
@@ -67,13 +67,13 @@ func (m *Model) openDiffAtPreview() tea.Cmd {
 func (m *Model) entryForPreview() (int, bool) {
 	header, want := -1, m.review.PreviewOffset+1
 	for i, e := range m.review.Entries {
-		if m.review.Diff.Files[e.Pos.File].Path != m.review.Preview.Path {
+		if m.shownDiff().Files[e.Pos.File].Path != m.review.Preview.Path {
 			continue
 		}
 		if e.Kind == review.EntryFile {
 			header = i
 		}
-		if e.Kind == review.EntryLine && m.review.Diff.LineAt(e.Pos).NewNo == want {
+		if e.Kind == review.EntryLine && m.shownDiff().LineAt(e.Pos).NewNo == want {
 			return i, true
 		}
 	}

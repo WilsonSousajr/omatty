@@ -1,6 +1,8 @@
 package ui_test
 
 import (
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -8,6 +10,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
@@ -114,5 +117,236 @@ func TestModel_archiveDropsTheTurnBaseline_issue311(t *testing.T) {
 
 	if len(tr.Dropped) != 1 || tr.Dropped[0] != [2]string{"s1", "/p/omatty"} {
 		t.Errorf("dropped = %v, want [[s1 /p/omatty]]", tr.Dropped)
+	}
+}
+
+var errDiskFull = errors.New("disk full")
+
+// turnDiffText is what one turn did on top of sampleDiff's first file: it
+// added c := 4. The full diff also has b's change and new.txt; this does not.
+const turnDiffText = `diff --git a/internal/ui/model.go b/internal/ui/model.go
+index 3333333..2222222 100644
+--- a/internal/ui/model.go
++++ b/internal/ui/model.go
+@@ -10,4 +10,5 @@ func (m *Model) onKey() {
+ 	a := 1
+ 	b := 3
++	c := 4
+ 	return
+ }
+`
+
+func turnDiffParsed(t *testing.T) review.Diff {
+	t.Helper()
+	d, err := review.ParseDiff(strings.NewReader(turnDiffText))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+// modelWithTurnDiff opens the review column on s1 with sampleDiff as the
+// whole session and turnDiffText as the turn.
+func modelWithTurnDiff(t *testing.T, tr *turnRecorder) (*ui.Model, map[string]*termwrap.Fake) {
+	t.Helper()
+	terms, fakes := fakeTerms(t)
+	rec := &diffRecorder{Diff: sampleDiffParsed(t)}
+	tr.Diff = turnDiffParsed(t)
+	d := baseDeps(twoProjectState(), terms)
+	d.Diff, d.Turn = rec.fn, tr.funcs()
+	m := ui.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	leader(m, key('d'))
+	return m, fakes
+}
+
+func TestModel_tShowsOnlyThisTurn_issue311(t *testing.T) {
+	m, _ := modelWithTurnDiff(t, &turnRecorder{})
+
+	pressAndSettle(m, key('t'))
+	body := m.View().Content
+	if !strings.Contains(body, "this turn") || strings.Contains(body, "fresh") || strings.Contains(body, "b := 2") {
+		t.Errorf("the turn scope does not show only this turn:\n%s", body)
+	}
+
+	pressAndSettle(m, key('t'))
+	body = m.View().Content
+	if strings.Contains(body, "this turn") || !strings.Contains(body, "fresh") {
+		t.Errorf("t again does not return to the whole session:\n%s", body)
+	}
+}
+
+// A narrow column gives up title parts; "this turn" is never one of them,
+// because a turn view that reads as the whole diff is this feature's worst
+// failure.
+func TestModel_thisTurnStaysInTheTitleAtANarrowWidth_issue311(t *testing.T) {
+	m, _ := modelWithTurnDiff(t, &turnRecorder{})
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+
+	pressAndSettle(m, key('t'))
+
+	if !strings.Contains(m.View().Content, "this turn") {
+		t.Errorf("the title lost \"this turn\" at 80 columns:\n%s", m.View().Content)
+	}
+}
+
+func TestModel_noBaselineSaysSo_issue311(t *testing.T) {
+	tr := &turnRecorder{}
+	m, _ := modelWithTurnDiff(t, tr)
+	tr.Diff, tr.DiffErr = review.Diff{}, review.ErrNoTurn
+
+	pressAndSettle(m, key('t'))
+
+	body := m.View().Content
+	if !strings.Contains(body, "no turn recorded yet") || strings.Contains(body, "no changes") {
+		t.Errorf("a missing baseline is not explained:\n%s", body)
+	}
+}
+
+// After a failed snapshot the ref still names the previous turn; showing
+// that diff would present two turns as one.
+func TestModel_aFailedSnapshotShowsInsteadOfTheLastTurn_issue311(t *testing.T) {
+	tr := &turnRecorder{SnapErr: errDiskFull}
+	m, _ := modelWithTurnDiff(t, tr)
+	_, cmd := m.Update(hookPrompt("s1"))
+	settle(m, cmd)
+
+	pressAndSettle(m, key('t'))
+
+	body := m.View().Content
+	if !strings.Contains(body, "could not be taken") || strings.Contains(body, "c := 4") {
+		t.Errorf("a failed baseline did not replace the turn diff:\n%s", body)
+	}
+}
+
+// Outside this turn is not moved - it is elsewhere in the session - so the
+// comment is hidden here, and still counted and sent.
+func TestModel_aCommentOutsideThisTurnIsHiddenNotMoved_issue311(t *testing.T) {
+	m, fakes := modelWithTurnDiff(t, &turnRecorder{})
+	down(m, 3)
+	typeNote(m, "about b")
+
+	pressAndSettle(m, key('t'))
+	body := m.View().Content
+	if strings.Contains(body, "(moved)") || strings.Contains(body, "about b") {
+		t.Errorf("a comment outside this turn is drawn:\n%s", body)
+	}
+
+	press(m, shiftS)
+	if len(fakes["s1"].Sent) != 1 || !strings.Contains(fakes["s1"].Sent[0], "about b") {
+		t.Errorf("S in the turn scope did not send the comment outside it: %q", fakes["s1"].Sent)
+	}
+}
+
+// Review Focus 3: the anchor is content, so a comment written on this
+// turn's line sits on the same line in the whole-session view.
+func TestModel_aCommentWrittenInTheTurnScopeStaysOnItsLine_issue311(t *testing.T) {
+	m, _ := modelWithTurnDiff(t, &turnRecorder{})
+	pressAndSettle(m, key('t'))
+	down(m, 4) // file, hunk, a, b, then +c := 4
+	typeNote(m, "why 4")
+
+	pressAndSettle(m, key('t'))
+
+	body := m.View().Content
+	if strings.Contains(body, "(moved) why 4") || !commentFollows(body, "c := 4", ">> why 4") {
+		t.Errorf("the comment is not under c := 4 in the whole-session view:\n%s", body)
+	}
+}
+
+// commentFollows reports whether the row carrying note is the one right after
+// the row carrying line, in the review column's part of each screen row.
+func commentFollows(body, line, note string) bool {
+	rows := strings.Split(stripSGR(body), "\n")
+	for i := 0; i+1 < len(rows); i++ {
+		if strings.Contains(rows[i], line) && strings.Contains(rows[i+1], note) {
+			return true
+		}
+	}
+	return false
+}
+
+// PruneSent drops a sent comment whose line is gone. Outside this turn is
+// not gone, so a turn load must never prune.
+func TestModel_aTurnLoadNeverPrunesASentComment_issue311(t *testing.T) {
+	m, _ := modelWithTurnDiff(t, &turnRecorder{})
+	down(m, 3)
+	typeNote(m, "why?")
+	press(m, shiftS)
+	refocusColumn(m)
+
+	pressAndSettle(m, key('t'))
+	pressAndSettle(m, key('t'))
+
+	if !strings.Contains(m.View().Content, "(sent") {
+		t.Errorf("the sent comment was pruned by the turn load:\n%s", m.View().Content)
+	}
+}
+
+// Review Focus 2: a turn diff that arrives after the column moved on, or
+// after the scope went back to the whole session, is dropped.
+func TestModel_aLateTurnDiffIsDropped_issue311(t *testing.T) {
+	m, _ := modelWithTurnDiff(t, &turnRecorder{})
+
+	m.Update(ui.TurnLoadedMsg{SessionID: "s1", Diff: turnDiffParsed(t)})
+
+	body := m.View().Content
+	if strings.Contains(body, "this turn") || !strings.Contains(body, "fresh") {
+		t.Errorf("a turn diff replaced the whole-session view:\n%s", body)
+	}
+}
+
+// The column is on s1's turn; a turn diff for another session, answering a
+// load from before the column moved, must not be drawn as s1's.
+func TestModel_aTurnDiffForAnotherSessionIsDropped_issue311(t *testing.T) {
+	m, _ := modelWithTurnDiff(t, &turnRecorder{})
+	pressAndSettle(m, key('t'))
+
+	m.Update(ui.TurnLoadedMsg{SessionID: "s2", Diff: sampleDiffParsed(t)})
+
+	if body := m.View().Content; strings.Contains(body, "fresh") {
+		t.Errorf("s2's turn diff was drawn in s1's column:\n%s", body)
+	}
+}
+
+// Review Focus 4.
+func TestModel_rInTheTurnScopeReloadsTheTurn_issue311(t *testing.T) {
+	tr := &turnRecorder{}
+	m, _ := modelWithTurnDiff(t, tr)
+	pressAndSettle(m, key('t'))
+	before := tr.DiffCalls
+
+	pressAndSettle(m, key('r'))
+
+	if tr.DiffCalls != before+1 {
+		t.Errorf("r loaded the turn %d times, want 1", tr.DiffCalls-before)
+	}
+}
+
+// Review Focus 5: before the turn diff arrives the column says it is
+// reading, never "no changes", which would be a claim.
+func TestModel_theTurnScopeSaysItIsReadingUntilTheDiffArrives_issue311(t *testing.T) {
+	m, _ := modelWithTurnDiff(t, &turnRecorder{})
+
+	press(m, key('t')) // the load is scheduled, not yet run
+
+	body := m.View().Content
+	if !strings.Contains(body, "reading this turn") || strings.Contains(body, "no changes") {
+		t.Errorf("the turn scope claims something before its diff arrived:\n%s", body)
+	}
+}
+
+// A snapshot that lands while the turn view is open reloads it.
+func TestModel_aSnapshotReloadsAnOpenTurnView_issue311(t *testing.T) {
+	tr := &turnRecorder{}
+	m, _ := modelWithTurnDiff(t, tr)
+	pressAndSettle(m, key('t'))
+	before := tr.DiffCalls
+
+	_, cmd := m.Update(hookPrompt("s1"))
+	settle(m, cmd)
+
+	if tr.DiffCalls != before+1 {
+		t.Errorf("the turn view loaded %d times after a snapshot, want 1", tr.DiffCalls-before)
 	}
 }

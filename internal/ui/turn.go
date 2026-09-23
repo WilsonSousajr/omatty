@@ -4,11 +4,13 @@
 package ui
 
 import (
+	"errors"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -47,10 +49,10 @@ func (m *Model) onTurnSnapped(msg TurnSnappedMsg) tea.Cmd {
 	if msg.Err != nil {
 		slog.Warn("taking a turn baseline", "session", msg.SessionID, "err", msg.Err)
 		m.turnErr[msg.SessionID] = msg.Err.Error()
-		return nil
+		return m.loadTurn(msg.SessionID)
 	}
 	delete(m.turnErr, msg.SessionID)
-	return nil
+	return m.loadTurn(msg.SessionID)
 }
 
 // dropTurnCmd deletes an archived session's baseline off the Update
@@ -64,4 +66,36 @@ func (m *Model) dropTurnCmd(sess registry.Session) tea.Cmd {
 		}
 		return nil
 	}
+}
+
+// toggleScope switches the diff between the whole session and this turn,
+// starting from the top: the two are different lists of rows.
+func (m *Model) toggleScope() tea.Cmd {
+	if m.review.Scope == scopeTurn {
+		m.review.Scope = scopeSession
+	} else {
+		m.review.Scope = scopeTurn
+	}
+	m.review.Cursor, m.review.Offset, m.review.ColOffset = 0, 0, 0
+	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = review.Diff{}, nil, false
+	m.rebuildEntries()
+	return m.loadTurn(m.review.SessionID)
+}
+
+// turnNotice is what the turn scope says instead of rows, split into lines
+// short enough for the narrowest column; nil when there are rows to show.
+// isErr says a load failed, as opposed to there being nothing to show yet.
+func (m *Model) turnNotice() (lines []string, isErr bool) {
+	id := m.review.SessionID
+	switch {
+	case m.turnErr[id] != "":
+		return []string{"this turn's baseline", "could not be taken:", m.turnErr[id]}, true
+	case errors.Is(m.review.TurnErr, review.ErrNoTurn):
+		return []string{"no turn recorded yet:", "a baseline is taken", "when you send a prompt"}, false
+	case m.review.TurnErr != nil:
+		return []string{"reading this turn failed:", m.review.TurnErr.Error()}, true
+	case !m.review.TurnReady:
+		return []string{"reading this turn..."}, false
+	}
+	return nil, false
 }
