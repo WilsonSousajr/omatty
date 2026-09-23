@@ -350,3 +350,78 @@ func TestModel_aSnapshotReloadsAnOpenTurnView_issue311(t *testing.T) {
 		t.Errorf("the turn view loaded %d times after a snapshot, want 1", tr.DiffCalls-before)
 	}
 }
+
+// Final review, I1: two turns add a "}" each, and the turn's hunk header
+// counts from its baseline, so it matches nothing in the session diff. A
+// comment on this turn's "}" must reach claude as that line, f.go:5 - before
+// the fix the anchor fell back to the first "+}" and claude was told f.go:3.
+func TestModel_aTurnCommentOnARepeatedLineIsSentAsThatLine_issue311(t *testing.T) {
+	session, err := review.ParseDiff(strings.NewReader("diff --git a/f.go b/f.go\nindex 1111111..2222222 100644\n--- a/f.go\n+++ b/f.go\n@@ -1 +1,5 @@\n package f\n+func a() {\n+}\n+func b() {\n+}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	turn, err := review.ParseDiff(strings.NewReader("diff --git a/f.go b/f.go\nindex 3333333..2222222 100644\n--- a/f.go\n+++ b/f.go\n@@ -1,3 +1,5 @@\n package f\n func a() {\n }\n+func b() {\n+}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	terms, fakes := fakeTerms(t)
+	tr := &turnRecorder{Diff: turn}
+	d := baseDeps(twoProjectState(), terms)
+	d.Diff, d.Turn = (&diffRecorder{Diff: session}).fn, tr.funcs()
+	m := ui.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	leader(m, key('d'))
+	pressAndSettle(m, key('t'))
+
+	down(m, 6) // file, hunk, package, func a, }, func b, then b's "+}"
+	typeNote(m, "why")
+	press(m, shiftS)
+
+	if len(fakes["s1"].Sent) != 1 || !strings.Contains(fakes["s1"].Sent[0], "f.go:5") {
+		t.Errorf("sent %q, want the comment located at f.go:5", fakes["s1"].Sent)
+	}
+}
+
+// Final review, I2: a closed column keeps its content for the reopen (#124),
+// but a prompt moves the baseline, so the cached turn diff is now the last
+// turn's. Reopening must load the new one rather than show the old one
+// labelled "this turn".
+func TestModel_reopeningAfterAPromptLoadsTheNewTurn_issue311(t *testing.T) {
+	tr := &turnRecorder{}
+	m, _ := modelWithTurnDiff(t, tr)
+	pressAndSettle(m, key('t'))
+	leader(m, key('d')) // close; the column keeps its turn view
+	before := tr.DiffCalls
+
+	_, cmd := m.Update(hookPrompt("s1"))
+	settle(m, cmd)
+	leader(m, key('d'))
+
+	if tr.DiffCalls != before+1 {
+		t.Errorf("reopening after a prompt loaded the turn %d times, want 1", tr.DiffCalls-before)
+	}
+}
+
+// Final review, M5 (graded up): with the hook socket unbound (#49) no
+// baseline will ever be taken, and a ref left from an earlier run would be
+// diffed and called "this turn". The turn view says why instead, and loads
+// nothing.
+func TestModel_withHooksDownTheTurnViewSaysSoAndLoadsNothing_issue311(t *testing.T) {
+	terms, _ := fakeTerms(t)
+	tr := &turnRecorder{Diff: turnDiffParsed(t)}
+	d := baseDeps(twoProjectState(), terms)
+	d.Diff, d.Turn, d.HooksDown = (&diffRecorder{Diff: sampleDiffParsed(t)}).fn, tr.funcs(), true
+	m := ui.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	leader(m, key('d'))
+
+	pressAndSettle(m, key('t'))
+
+	body := m.View().Content
+	if !strings.Contains(body, "hooks are not") || strings.Contains(body, "c := 4") {
+		t.Errorf("the turn view does not say hooks are down:\n%s", body)
+	}
+	if tr.DiffCalls != 0 {
+		t.Errorf("loaded the turn %d times with hooks down, want 0", tr.DiffCalls)
+	}
+}

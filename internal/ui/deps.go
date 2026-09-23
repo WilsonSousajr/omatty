@@ -79,6 +79,9 @@ type Deps struct {
 	// Turn reaches a session's turn baseline (#311). Unwired, Snap and Drop
 	// do nothing and Diff says there is no turn - what every test sees.
 	Turn TurnFuncs
+	// HooksDown says the hook socket did not bind (#49), so no turn baseline
+	// will ever be taken; the turn view says so instead of diffing (#311).
+	HooksDown bool
 	// Rename persists a session's new title (#41), and Name reads the first
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc

@@ -271,7 +271,7 @@ func (m *Model) loadDiff(id string) tea.Cmd {
 // loadTurn fetches the turn diff when the column is showing that session's
 // turn, and nothing otherwise.
 func (m *Model) loadTurn(id string) tea.Cmd {
-	if !m.review.Open || m.review.Scope != scopeTurn || id != m.review.SessionID {
+	if !m.review.Open || m.review.Scope != scopeTurn || id != m.review.SessionID || m.hooksDown {
 		return nil
 	}
 	sess, ok := m.session(id)
@@ -323,12 +323,12 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 // rebuildEntries re-places the comments against the current diff and keeps the
 // cursor on a valid row.
 func (m *Model) rebuildEntries() {
-	d := m.shownDiff()
-	placed := review.Place(d, m.commentsFor(m.review.SessionID).All())
+	d, comments := m.shownDiff(), m.commentsFor(m.review.SessionID).All()
+	placed := review.Place(d, comments)
 	if m.review.Scope == scopeTurn {
-		// A comment that does not place on this turn is not moved: it is
-		// elsewhere in the session, still counted and still sent (#311).
-		placed.Orphans, placed.Lost = nil, nil
+		// Through the session diff, by line rather than first match; what
+		// does not place is elsewhere in the session, not moved (#311).
+		placed = review.PlaceIn(m.review.Diff, d, comments)
 	}
 	m.review.Entries = review.Flatten(d, placed)
 	m.contentChanged()

@@ -35,9 +35,13 @@ Decisions taken with the maintainer on 2026-09-23:
   `internal/watcher/transcript.go`), i.e. in the middle of a turn. A snapshot
   triggered by it would advance the baseline mid-turn and drop the turn's
   earlier edits. Only the hook may trigger one.
-- **Invariant 7.** Anchors are `(file, hunk header, content hash, nth)`;
-  `resolve` falls back from the hunk header to content, so a comment resolves
-  against a turn diff exactly as it does against the full one.
+- **Invariant 7.** Anchors are `(file, hunk header, content hash, nth)`. A
+  turn diff's hunk headers count from its baseline and a line the session
+  added can be context in a later turn, so neither the header nor the hash
+  carries across the two diffs, and `resolve`'s fallback to the first line
+  that reads the same would put a comment on another `}`. The two diffs are
+  mapped on what does carry across - path, new-side line number and text -
+  by `review.AnchorFor` and `review.PlaceIn` (corrected by the final review).
 
 ## 1. Capturing the baseline
 

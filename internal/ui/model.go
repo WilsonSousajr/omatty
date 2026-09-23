@@ -92,6 +92,7 @@ type Model struct {
 	// turnErr is the last snapshot's failure, shown instead of a turn diff
 	// that would silently span two turns. Neither is persisted.
 	turn        TurnFuncs
+	hooksDown   bool // the hook socket did not bind (#49): no baseline will come
 	turnPending map[string]bool
 	turnErr     map[string]string
 	// covers is each session's coverage overlay, read when its gate finishes
@@ -184,7 +185,7 @@ func NewModel(deps Deps) *Model {
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
-	m.turn = d.Turn
+	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
 	m.rebind = d.Rebind
 	m.renameBranch = d.RenameBranch

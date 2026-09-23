@@ -49,10 +49,21 @@ func (m *Model) onTurnSnapped(msg TurnSnappedMsg) tea.Cmd {
 	if msg.Err != nil {
 		slog.Warn("taking a turn baseline", "session", msg.SessionID, "err", msg.Err)
 		m.turnErr[msg.SessionID] = msg.Err.Error()
-		return m.loadTurn(msg.SessionID)
+		return m.reloadTurn(msg.SessionID)
 	}
 	delete(m.turnErr, msg.SessionID)
-	return m.loadTurn(msg.SessionID)
+	return m.reloadTurn(msg.SessionID)
+}
+
+// reloadTurn answers a new baseline. An open turn view loads at once; a
+// closed column holding this session's turn view is marked stale, since the
+// turn diff it kept for the reopen (#124) is now the previous turn's and would
+// be shown as this one.
+func (m *Model) reloadTurn(id string) tea.Cmd {
+	if id == m.review.SessionID && !m.review.Open && m.review.Scope == scopeTurn {
+		m.review.Stale = true
+	}
+	return m.loadTurn(id)
 }
 
 // dropTurnCmd deletes an archived session's baseline off the Update
@@ -79,7 +90,9 @@ func (m *Model) toggleScope() tea.Cmd {
 	m.review.Cursor, m.review.Offset, m.review.ColOffset = 0, 0, 0
 	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = review.Diff{}, nil, false
 	m.rebuildEntries()
-	return m.loadTurn(m.review.SessionID)
+	// Both diffs: the turn view places and anchors comments through the
+	// session diff, so that one must be as fresh as the turn.
+	return m.loadDiff(m.review.SessionID)
 }
 
 // turnNotice is what the turn scope says instead of rows, split into lines
@@ -88,6 +101,10 @@ func (m *Model) toggleScope() tea.Cmd {
 func (m *Model) turnNotice() (lines []string, isErr bool) {
 	id := m.review.SessionID
 	switch {
+	case m.hooksDown:
+		// Any ref standing now was left by another run; diffing against it
+		// would call someone else's turn this one (#49).
+		return []string{"hooks are not arriving,", "so no turn baseline", "can be taken: see the log"}, true
 	case m.turnErr[id] != "":
 		return []string{"this turn's baseline", "could not be taken:", m.turnErr[id]}, true
 	case errors.Is(m.review.TurnErr, review.ErrNoTurn):

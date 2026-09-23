@@ -62,6 +62,11 @@ func Start(d WatchDeps, sessions []registry.Session) *Watch {
 	return w
 }
 
+// HooksLive reports whether the hook socket bound. Without it every event
+// comes from the tailer, and nothing that needs a hook - a turn baseline
+// (#311) - will ever happen (#49).
+func (w *Watch) HooksLive() bool { return w.listener != nil }
+
 // Events is the stream the model reads status from.
 func (w *Watch) Events() <-chan Event { return w.events }
 

@@ -194,7 +194,7 @@ func modelFor(
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,
 		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader, Reattached: held,
-		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
+		Events: watch.Events(), HooksDown: !watch.HooksLive(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
 		GateReports: gates.Reports(), GateRun: gates.Start, GateAuto: d.GateAuto,
 		IdleStop: d.IdleStop,
