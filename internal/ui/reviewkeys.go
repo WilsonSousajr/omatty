@@ -12,7 +12,7 @@ import (
 func (m *Model) ReviewCursor() int { return m.review.Cursor }
 
 // PendingComments is how many notes the shown session has queued.
-func (m *Model) PendingComments() int { return m.commentsFor(m.review.SessionID).Len() }
+func (m *Model) PendingComments() int { return m.commentsFor(m.review.SessionID).PendingLen() }
 
 // onReviewKey handles a plain keystroke while the review column has focus.
 // esc and ctrl+c hand focus back to the terminal but keep the column open;
@@ -150,12 +150,14 @@ func (m *Model) deleteComment() {
 	m.rebuildEntries()
 }
 
-// submitReview sends every queued comment as one message (#23, invariant 8)
+// submitReview sends every pending comment as one message (#23, invariant 8)
 // and hands focus back to the terminal so the operator watches claude act on
-// it. The queue is cleared first: a comment that was sent is not pending.
+// it. What it sent stays on its line marked sent rather than vanishing, so the
+// next turn can be read against what was asked (#335).
 func (m *Model) submitReview() tea.Cmd {
 	cs := m.commentsFor(m.review.SessionID)
-	if cs.Len() == 0 {
+	pending := cs.Pending()
+	if len(pending) == 0 {
 		m.lastErr = "no comments to submit; press c on a diff line first"
 		return nil
 	}
@@ -164,8 +166,9 @@ func (m *Model) submitReview() tea.Cmd {
 		m.lastErr = "session " + m.review.SessionID + " has no terminal to send to"
 		return nil
 	}
-	body := review.Compose(m.review.Diff, cs.All())
-	cs.Clear()
+	body := review.Compose(m.review.Diff, pending)
+	cs.MarkSent(m.clock())
+	cs.PruneSent(m.review.Diff) // one sent while already moved has nothing left to mark
 	m.review.Focused = false
 	m.rebuildEntries()
 	return term.SendInput(paste.BracketedPaste(body))

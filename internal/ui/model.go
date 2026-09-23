@@ -83,6 +83,10 @@ type Model struct {
 	// gateRunning is the sessions with a run in flight, so the pane says so
 	// rather than showing the last verdict as if it were current.
 	gateRunning map[string]bool
+	// gateSent is how far S has got with each session's current report, so a
+	// second S warns before sending the same failures again (#335). A new
+	// report replaces the entry's meaning, so onGate deletes it.
+	gateSent map[string]gateSend
 	// covers is each session's coverage overlay, read when its gate finishes
 	// (#254). Display-only like gates and never persisted; coverFailed makes
 	// the warning once per session rather than once per run.
@@ -214,6 +218,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.lane = map[string]activityLane{}
 	m.gates = map[string]gate.Report{}
 	m.gateRunning = map[string]bool{}
+	m.gateSent = map[string]gateSend{}
 	m.covers = map[string]coverage.Profile{}
 	m.coverFailed = map[string]bool{}
 	m.repoStat = map[string]review.Stat{}

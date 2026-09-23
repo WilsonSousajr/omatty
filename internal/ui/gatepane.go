@@ -18,6 +18,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/paste"
+	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
 
 // renderGate draws the column's gate view: one row per step, with the output
@@ -247,21 +248,55 @@ func (m *Model) gateMaxWidth() int {
 // sending, the next thing anyone wants is to watch the session work.
 func (m *Model) submitGate() tea.Cmd {
 	id := m.review.SessionID
+	body, term, ok := m.gateFeedback(id)
+	if !ok || m.holdResend(id) {
+		return nil
+	}
+	m.gateSent[id] = gateSentOnce
+	m.review.Focused = false
+	return term.SendInput(paste.BracketedPaste(body))
+}
+
+// gateFeedback is the message S would send and the terminal it goes to, or
+// false with the reason in the footer.
+func (m *Model) gateFeedback(id string) (string, termwrap.Terminal, bool) {
 	report, ran := m.gates[id]
 	if !ran {
 		m.lastErr = "no gate has run for this session yet"
-		return nil
+		return "", nil, false
 	}
 	body := gate.Compose(report.Results)
 	if body == "" {
 		m.lastErr = "the gate passed; there is nothing to send"
-		return nil
+		return "", nil, false
 	}
 	term := m.terms[id]
 	if term == nil {
 		m.lastErr = "session " + id + " has no terminal to send to"
-		return nil
+		return "", nil, false
 	}
-	m.review.Focused = false
-	return term.SendInput(paste.BracketedPaste(body))
+	return body, term, true
 }
+
+// holdResend is true when this report's failures already went and this S is
+// the first since: it warns instead, and the next S sends (#335).
+func (m *Model) holdResend(id string) bool {
+	if m.gateSent[id] != gateSentOnce {
+		return false
+	}
+	m.gateSent[id] = gateWarned
+	m.lastErr = "these failures were already sent - S again to resend"
+	return true
+}
+
+// gateSend is where S stands with a session's current gate report (#335).
+// The same report can be sent twice on purpose - claude may have lost the
+// thread - but never by a stray second keypress, so the second S warns and
+// the third sends.
+type gateSend int
+
+const (
+	gateUnsent   gateSend = iota // the zero value: this report has not gone
+	gateSentOnce                 // its failures went; the next S warns
+	gateWarned                   // the warning is showing; the next S resends
+)

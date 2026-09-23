@@ -148,13 +148,13 @@ func (m *Model) openConfirm() {
 // live only in memory, so archiving is the one action that loses typed work
 // with no undo, and the confirmation said nothing about it (#40).
 func queuedCommentsNote(c *review.Comments) string {
-	if c == nil || c.Len() == 0 {
+	if c == nil || c.PendingLen() == 0 {
 		return ""
 	}
-	if c.Len() == 1 {
+	if c.PendingLen() == 1 {
 		return "1 unsent review comment will be discarded"
 	}
-	return strconv.Itoa(c.Len()) + " unsent review comments will be discarded"
+	return strconv.Itoa(c.PendingLen()) + " unsent review comments will be discarded"
 }
 
 // onConfirmKey answers the confirmation. Anything that is not an offered key
@@ -288,6 +288,7 @@ func (m *Model) forgetSessionMaps(id string) {
 	delete(m.lane, id)
 	delete(m.gates, id)
 	delete(m.gateRunning, id)
+	delete(m.gateSent, id)
 	delete(m.covers, id)
 	delete(m.coverFailed, id)
 	m.forgetCardMaps(id)
