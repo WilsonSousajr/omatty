@@ -334,7 +334,7 @@ The pane takes the keys while it is open.
 | `d` | delete the comment under the cursor |
 | `r` | reload the diff |
 | `o` | open the preview of this file with the line under the cursor on top |
-| `S` | send every comment to Claude as one message |
+| `S` | send every pending comment to Claude as one message |
 | `esc` | give the keys back to Claude, leaving the pane open |
 
 `esc` and `ctrl+o d` are a round trip: `esc` hands the keys back to Claude with
@@ -348,7 +348,10 @@ itself to the wrong code.
 
 `S` sends the whole batch as a single prompt — `file:line`, the quoted line and
 your note, numbered — so Claude answers them together instead of one at a time.
-Pending comments live in memory: quitting omatty drops them.
+What it sent stays on its line, muted and marked `(sent 14:36)`, so the next
+turn's diff can be read against what you asked; it is never sent again, and it
+goes once its line does. The title's count is what the next `S` would send.
+Comments live in memory: quitting omatty drops them.
 
 ## File tree
 

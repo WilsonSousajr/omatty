@@ -239,6 +239,9 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 	}
 	m.review.Err = ""
 	m.review.Diff = msg.Diff
+	// Only a diff that actually loaded may prune: rebuildEntries also runs
+	// before the first load, against an empty diff every comment misses.
+	m.commentsFor(msg.SessionID).PruneSent(msg.Diff)
 	m.rebuildEntries()
 	m.retouchTree()
 	return nil

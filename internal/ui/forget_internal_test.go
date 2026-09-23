@@ -93,6 +93,7 @@ func filledModel() *Model {
 	m.lane[forgottenID] = activityLane{}
 	m.gates[forgottenID] = gate.Report{}
 	m.gateRunning[forgottenID] = true
+	m.gateSent[forgottenID] = gateSentOnce
 	m.covers[forgottenID] = coverage.Profile{}
 	m.coverFailed[forgottenID] = true
 	m.repoStat[forgottenID] = review.Stat{}

@@ -150,7 +150,7 @@ const (
 // diffTitleParts is the diff title in reading order, each part carrying how
 // readily it is given up.
 func (m *Model) diffTitleParts() []titlePart {
-	comments := m.commentsFor(m.review.SessionID).Len()
+	comments := m.commentsFor(m.review.SessionID).PendingLen()
 	priority := dropComments
 	if comments == 0 {
 		priority = dropFirst
@@ -277,6 +277,9 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 	if cursor {
 		return cursorStyle.Render(text)
 	}
+	if e.Kind == review.EntryComment && !comments[e.Comment].Sent.IsZero() {
+		return mutedStyle.Render(text) // sent: context for this turn, not a to-do (#335)
+	}
 	return entryStyle(e, m.review.Diff).Render(text)
 }
 
@@ -305,6 +308,9 @@ func (m *Model) entryText(e review.Entry, comments []review.Comment) string {
 	case review.EntryHunk:
 		return expandTabs(e.Text)
 	case review.EntryComment:
+		if c := comments[e.Comment]; !c.Sent.IsZero() {
+			return "  >> (sent " + c.Sent.Format("15:04") + ") " + c.Note
+		}
 		return "  >> " + comments[e.Comment].Note
 	case review.EntryOrphan:
 		return "  >> (moved) " + comments[e.Comment].Note
