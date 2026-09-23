@@ -24,6 +24,9 @@ type FakeGit struct {
 	UntrackedOut           []string          // Untracked result
 	FileDiffs              map[string]string // UntrackedDiff result per path
 	Files                  []string          // ListFiles result (#24)
+	SnapshotOut            string            // SnapshotTree result (#311)
+	TurnTree               string            // TurnRef's tree; empty means no baseline
+	DiffTreesOut           string            // DiffTrees result
 	Err                    error             // returned by every method when set
 	// Errs fails one method by name, so a test can reach an error path that
 	// lies behind a call which has to succeed first.
@@ -95,4 +98,24 @@ func (f *FakeGit) RenameBranch(_, old, name string) error {
 // committed to, which is the only one #151 renames.
 func (f *FakeGit) CommitsOnBranch(string, string, string) (int, error) {
 	return f.Commits, f.CommitsErr
+}
+
+func (f *FakeGit) SnapshotTree(dir string) (string, error) {
+	return f.SnapshotOut, f.record("SnapshotTree", dir)
+}
+
+func (f *FakeGit) SetTurnRef(dir, id, tree string) error {
+	return f.record("SetTurnRef", dir, id, tree)
+}
+
+func (f *FakeGit) TurnRef(dir, id string) (string, bool, error) {
+	return f.TurnTree, f.TurnTree != "", f.record("TurnRef", dir, id)
+}
+
+func (f *FakeGit) DeleteTurnRef(dir, id string) error {
+	return f.record("DeleteTurnRef", dir, id)
+}
+
+func (f *FakeGit) DiffTrees(dir, from, to string) (string, error) {
+	return f.DiffTreesOut, f.record("DiffTrees", dir, from, to)
 }
