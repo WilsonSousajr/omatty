@@ -87,6 +87,14 @@ type Model struct {
 	// second S warns before sending the same failures again (#335). A new
 	// report replaces the entry's meaning, so onGate deletes it.
 	gateSent map[string]gateSend
+	// turn reaches the turn baselines (#311). turnPending holds a session
+	// whose snapshot is in flight, so a second prompt inside it starts none;
+	// turnErr is the last snapshot's failure, shown instead of a turn diff
+	// that would silently span two turns. Neither is persisted.
+	turn        TurnFuncs
+	hooksDown   bool // the hook socket did not bind (#49): no baseline will come
+	turnPending map[string]bool
+	turnErr     map[string]string
 	// covers is each session's coverage overlay, read when its gate finishes
 	// (#254). Display-only like gates and never persisted; coverFailed makes
 	// the warning once per session rather than once per run.
@@ -177,6 +185,7 @@ func NewModel(deps Deps) *Model {
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
+	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
 	m.rebind = d.Rebind
 	m.renameBranch = d.RenameBranch
@@ -225,6 +234,14 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
+	return m.withTurnMaps()
+}
+
+// withTurnMaps allocates the turn baseline's two maps (#311). Split from
+// withRuntimeMaps when they took it past the statement limit.
+func (m *Model) withTurnMaps() *Model {
+	m.turnPending = map[string]bool{}
+	m.turnErr = map[string]string{}
 	return m
 }
 
@@ -376,7 +393,23 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	if cmd, handled := m.onNamingMsg(msg); handled {
 		return cmd
 	}
+	if cmd, handled := m.onTurnMsg(msg); handled {
+		return cmd
+	}
 	return m.onPaneMsg(msg)
+}
+
+// onTurnMsg answers the turn baseline's two results: a snapshot taken, and a
+// turn diff loaded (#311). A table of its own, as onNamingMsg is, because the
+// two cases took onDataMsg past the length limit.
+func (m *Model) onTurnMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case TurnLoadedMsg:
+		return m.onTurnLoaded(typed), true
+	case TurnSnappedMsg:
+		return m.onTurnSnapped(typed), true
+	}
+	return nil, false
 }
 
 // onNamingMsg answers what names a session: its first prompt, the model's

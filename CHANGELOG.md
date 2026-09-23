@@ -11,6 +11,24 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+### Added
+
+- **`t` in the review column shows only this turn.** When a prompt is
+  submitted, omatty snapshots the session's working tree as a git tree under
+  `refs/omatty/turn/<session>`, built through a temporary index, so staging,
+  HEAD and the stash are never touched; `t` diffs the tree now against it.
+  Only the prompt hook takes the baseline, never the transcript tailer, which
+  also reports tool results. A failed snapshot is shown instead of a diff that
+  would span two turns; archiving deletes the ref. (#311)
+- **A sent review comment stays on its line**, muted and marked
+  `(sent 14:36)`, is never sent again, and goes once its line does; the gate
+  pane's `S` asks before resending the same failures. (#335)
+
+### Fixed
+
+- The gate pane's rows keep one command column, pending or with a verdict,
+  whatever the length of the step names. (#342)
+
 ## [v0.2.0] — 2026-09-22
 
 M9, M10, M11 and M13, the session lifecycle, and M12's research, built on

@@ -94,6 +94,8 @@ func filledModel() *Model {
 	m.gates[forgottenID] = gate.Report{}
 	m.gateRunning[forgottenID] = true
 	m.gateSent[forgottenID] = gateSentOnce
+	m.turnPending[forgottenID] = true
+	m.turnErr[forgottenID] = "disk full"
 	m.covers[forgottenID] = coverage.Profile{}
 	m.coverFailed[forgottenID] = true
 	m.repoStat[forgottenID] = review.Stat{}

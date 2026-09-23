@@ -45,6 +45,17 @@ type Git interface {
 	// ListFiles lists tracked and untracked files under dir, honouring
 	// .gitignore, sorted (#24).
 	ListFiles(dir string) ([]string, error)
+	// SnapshotTree writes dir's working tree - tracked and untracked files,
+	// honouring .gitignore - as a tree object, without touching HEAD, the
+	// index or the stash (#311).
+	SnapshotTree(dir string) (string, error)
+	// SetTurnRef, TurnRef and DeleteTurnRef keep one session's turn baseline
+	// under refs/omatty/turn/<id> (#311).
+	SetTurnRef(dir, id, tree string) error
+	TurnRef(dir, id string) (string, bool, error)
+	DeleteTurnRef(dir, id string) error
+	// DiffTrees is the unified diff between two trees (#311).
+	DiffTrees(dir, from, to string) (string, error)
 }
 
 // CLI runs the real git binary.
@@ -60,11 +71,20 @@ func NewCLI() *CLI { return &CLI{bin: "git"} }
 // because `git diff --no-index` exits 1 to mean "differences found", which is
 // the answer rather than a failure (#21).
 func (c *CLI) capture(dir string, okExit int, args ...string) (string, error) {
+	return c.captureEnv(dir, okExit, nil, args...)
+}
+
+// captureEnv is capture with extra environment entries, for SnapshotTree,
+// which points git at a temporary index (#311).
+func (c *CLI) captureEnv(dir string, okExit int, env []string, args ...string) (string, error) {
 	if err := checkDir(dir); err != nil {
 		return "", err
 	}
 	cmd := exec.Command(c.bin, args...)
 	cmd.Dir = dir
+	if env != nil {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()

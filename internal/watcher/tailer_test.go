@@ -261,3 +261,20 @@ func TestTailer_NoiseOnlyAppendEmitsNothing_issue66(t *testing.T) {
 		t.Errorf("a noise-only append emitted %+v, want nothing: neither status nor usage changed", got)
 	}
 }
+
+func TestTailer_neverMarksAnEventAsFromAHook_issue311(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	sink := make(chan watcher.Event, 8)
+	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour, watcher.ClaudeAdapter())
+	defer tl.Close()
+	if err := os.WriteFile(path, []byte(promptLine), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tl.Poll()
+
+	for _, ev := range drain(sink) {
+		if ev.Hook {
+			t.Errorf("the tailer marked %+v as a hook event", ev)
+		}
+	}
+}

@@ -333,6 +333,7 @@ The pane takes the keys while it is open.
 | `c` | comment on the line under the cursor |
 | `d` | delete the comment under the cursor |
 | `r` | reload the diff |
+| `t` | switch between the whole session and only this turn |
 | `o` | open the preview of this file with the line under the cursor on top |
 | `S` | send every pending comment to Claude as one message |
 | `esc` | give the keys back to Claude, leaving the pane open |
@@ -345,6 +346,13 @@ Comments are anchored to the *content* of a line, not its number, so they stay
 put while Claude edits the file underneath you. A comment whose line disappears
 floats to the top of its file marked `(moved)` rather than silently attaching
 itself to the wrong code.
+
+`t` narrows the diff to what changed since you last sent the session a
+prompt, and back. omatty takes the baseline when the prompt hook fires, as a
+git tree under `refs/omatty/turn/<session>` built through a temporary index,
+so your staging, HEAD and stash are never touched; archiving the session
+deletes it. Comments work the same in both views: one outside this turn is
+hidden rather than shown as moved, and `S` still sends it.
 
 `S` sends the whole batch as a single prompt — `file:line`, the quoted line and
 your note, numbered — so Claude answers them together instead of one at a time.

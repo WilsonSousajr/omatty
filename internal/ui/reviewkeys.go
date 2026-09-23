@@ -44,6 +44,8 @@ func (m *Model) reviewAction(key string) tea.Cmd {
 		m.deleteComment()
 	case "r":
 		return m.loadDiff(m.review.SessionID)
+	case "t":
+		return m.toggleScope()
 	case "o":
 		return m.openPreviewAtCursor()
 	// Two spellings, because a terminal reporting the shift modifier gives
@@ -106,9 +108,20 @@ func (m *Model) openNote() {
 	}
 	m.review.Note = noteEditor{
 		Active: true,
-		Anchor: review.AnchorAt(m.review.Diff, e.Pos),
-		Quote:  m.review.Diff.LineAt(e.Pos).Text,
+		Anchor: m.anchorAt(e.Pos),
+		Quote:  m.shownDiff().LineAt(e.Pos).Text,
 	}
+}
+
+// anchorAt anchors a note on the shown row. In the turn scope it anchors on
+// the same line of the session diff, which Compose locates against: the
+// turn's own hunk header matches nothing there, and falling back to the
+// first line that reads the same told claude the wrong line (#311).
+func (m *Model) anchorAt(p review.Position) review.Anchor {
+	if m.review.Scope == scopeTurn {
+		return review.AnchorFor(m.review.Diff, m.review.TurnDiff, p)
+	}
+	return review.AnchorAt(m.review.Diff, p)
 }
 
 // onNoteKey edits the note; enter queues it, esc discards it. The keystroke

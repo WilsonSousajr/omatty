@@ -215,7 +215,7 @@ func (l *Listener) decode(conn net.Conn) (Event, bool) {
 	if !ok {
 		return Event{}, false
 	}
-	return Event{SessionID: p.SessionID, Kind: kind, At: l.clock(), Owner: p.OmattySession}, true
+	return Event{SessionID: p.SessionID, Kind: kind, At: l.clock(), Owner: p.OmattySession, Hook: true}, true
 }
 
 // offer sends without blocking. A full sink means the UI is behind; the
