@@ -52,6 +52,10 @@ type Event struct {
 	// from hooks.SessionEnv; empty for the tailer and for a claude omatty did
 	// not launch. SessionID is the conversation, which /clear changes (#316).
 	Owner string
+	// Hook is true on an event the socket listener produced, false on the
+	// tailer's. The tailer's PromptSubmitted also fires on tool results, so a
+	// consumer that needs "a prompt was just submitted" must ask this (#311).
+	Hook bool
 }
 
 // SessionState is what the sidebar shows for a session.
