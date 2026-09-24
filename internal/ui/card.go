@@ -74,11 +74,27 @@ func (m *Model) cardMeta(id string) string {
 	if !ok {
 		return strings.Repeat(" ", metaCols)
 	}
+	left, isPR := m.metaLeft(id, st.Branch)
 	stat := diffstat(st)
-	if stat == "" {
-		return fitLine(st.Branch, metaCols)
+	// A branch is cut to keep the diffstat (#180); a pull request label is
+	// not - "#349 merged" says more about a finished session than its line
+	// counts, so there the diffstat gives way (#310).
+	if stat == "" || (isPR && lipgloss.Width(left)+1+lipgloss.Width(stat) > metaCols) {
+		return fitLine(left, metaCols)
 	}
-	return fitLine(st.Branch, metaCols-lipgloss.Width(stat)-1) + " " + stat
+	return fitLine(left, metaCols-lipgloss.Width(stat)-1) + " " + stat
+}
+
+// metaLeft is the pull request the session's branch has, or the branch.
+func (m *Model) metaLeft(id, branch string) (string, bool) {
+	sess, ok := m.session(id)
+	if !ok {
+		return branch, false
+	}
+	if pr, found := m.prFor(sess); found {
+		return m.prLabel(pr, sess.Project), true
+	}
+	return branch, false
 }
 
 // diffstat is "+12 −3" in the diff colours, "" for a clean tree - never
