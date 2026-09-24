@@ -49,7 +49,7 @@ func TestCLI_ListPRsRunsOneListInTheRepoRoot_issue310(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "pr list --state all --limit 100 --json number,headRefName,state,mergeStateStatus,statusCheckRollup"
+	want := "pr list --state all --limit 100 --json number,headRefName,headRefOid,isCrossRepository,state,mergeStateStatus,statusCheckRollup"
 	line := strings.TrimSpace(string(got))
 	dir, args, _ := strings.Cut(line, "|")
 	if args != want || !sameDir(t, dir, root) {

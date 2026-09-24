@@ -88,3 +88,10 @@ func (c *CLI) DeleteTurnRef(dir, id string) error {
 func (c *CLI) DiffTrees(dir, from, to string) (string, error) {
 	return c.capture(dir, 0, diffArgs(from, to, "--")...)
 }
+
+// Head is the commit dir has checked out. The card compares it with a merged
+// pull request's head, so a reused branch name is not taken for work that
+// already landed (#310).
+func (c *CLI) Head(dir string) (string, error) {
+	return c.run(dir, "rev-parse", "HEAD")
+}

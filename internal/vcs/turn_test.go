@@ -194,3 +194,15 @@ func TestCLI_DeleteTurnRefRemovesItAndToleratesAMissingOne_issue311(t *testing.T
 		t.Errorf("deleting a missing ref = %v, want nil: archive must not fail on it", err)
 	}
 }
+
+// A merged pull request is this session's work only if its head commit is
+// the session's HEAD, so the card needs HEAD (#310 final review).
+func TestCLI_HeadIsTheCheckedOutCommit_issue310(t *testing.T) {
+	dir := newRepo(t)
+
+	got, err := vcs.NewCLI().Head(dir)
+
+	if want := strings.TrimSpace(gitOut(t, dir, "rev-parse", "HEAD")); err != nil || got != want {
+		t.Errorf("Head() = %q, %v; want %q", got, err, want)
+	}
+}

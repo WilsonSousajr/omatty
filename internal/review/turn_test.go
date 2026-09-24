@@ -7,6 +7,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
 
 var turnSess = registry.Session{ID: "s1", Dir: "/wt/s1"}
@@ -75,5 +76,18 @@ func TestSource_DropTurnDeletesFromTheProjectRoot_issue311(t *testing.T) {
 	}
 	if got := strings.Join(git.Calls, " "); got != "DeleteTurnRef(/p/omatty,s1)" {
 		t.Errorf("calls = %s, want DeleteTurnRef(/p/omatty,s1)", got)
+	}
+}
+
+// The card decides whether a merged pull request is this work by its head
+// commit, so the stat it already polls carries HEAD (#310 final review).
+func TestSource_StatCarriesTheHeadCommit_issue310(t *testing.T) {
+	g := &FakeGit{Branch: "parser-fix", MergeBaseOut: "abc123", HeadOut: "def456",
+		ShortstatOut: vcs.Shortstat{Files: 1, Added: 2, Removed: 1}}
+
+	st, err := review.NewSource(g).Stat(registry.Session{ID: "s1", Dir: "/wt/s1", Branch: "parser-fix", Base: "main"}, "/p")
+
+	if err != nil || st.Head != "def456" {
+		t.Errorf("Stat() = %+v, %v; want Head def456", st, err)
 	}
 }

@@ -102,6 +102,7 @@ type Model struct {
 	prPending   map[string]bool
 	prFailed    map[string]bool
 	prOff       map[string]bool
+	prAsked     map[string]time.Time // when each project was last asked: the gap
 	ghMissing   bool
 	turnPending map[string]bool
 	turnErr     map[string]string

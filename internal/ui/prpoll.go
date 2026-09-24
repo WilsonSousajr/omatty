@@ -40,6 +40,11 @@ type PRTickMsg time.Time
 // operator's own GitHub rate limit.
 const prEvery = time.Minute
 
+// prMinGap is the least time between two calls for one project, whatever
+// asks - a turn ending, focus returning, the tick. It holds the cost to what
+// the README promises (#310 final review).
+const prMinGap = 30 * time.Second
+
 func schedulePRTick() tea.Cmd {
 	return tea.Tick(prEvery, func(t time.Time) tea.Msg { return PRTickMsg(t) })
 }
@@ -78,7 +83,11 @@ func (m *Model) pollProjectPRs(project string) tea.Cmd {
 	if m.ghMissing || m.prPending[project] || m.prOff[project] {
 		return nil
 	}
-	m.prPending[project] = true
+	now := m.clock()
+	if last, asked := m.prAsked[project]; asked && now.Sub(last) < prMinGap {
+		return nil
+	}
+	m.prPending[project], m.prAsked[project] = true, now
 	root, list := m.projectRoot(project), m.prList
 	return func() tea.Msg {
 		prs, err := list(root)
@@ -86,10 +95,11 @@ func (m *Model) pollProjectPRs(project string) tea.Cmd {
 	}
 }
 
-// refreshPRs polls a session's project when it comes to rest, the moment a
-// push - and so a new CI run - is likeliest (refreshStat's rule).
+// refreshPRs polls a session's project when a turn finishes, the moment a
+// push - and so a new CI run - is likeliest. Not on waiting: a permission
+// prompt changes nothing on GitHub, and there can be many (final review).
 func (m *Model) refreshPRs(id string, before, after watcher.Status) tea.Cmd {
-	if !m.hasFocus || before == after || (after != watcher.StatusDone && after != watcher.StatusWaiting) {
+	if !m.hasFocus || before == after || after != watcher.StatusDone {
 		return nil
 	}
 	sess, ok := m.session(id)
@@ -119,10 +129,11 @@ func (m *Model) onPRs(msg PRsLoadedMsg) tea.Cmd {
 func (m *Model) prFailure(project string, err error) {
 	switch {
 	case errors.Is(err, forge.ErrNoGH):
-		m.ghMissing = true
-		slog.Info("gh is not on PATH; cards will not show pull requests")
+		m.loseGH()
 	case errors.Is(err, forge.ErrNotGitHub):
 		m.prOff[project] = true
+		delete(m.prs, project)
+		delete(m.prFailed, project)
 		slog.Info("project is not on GitHub; its cards will not show pull requests", "project", project)
 	default:
 		if !m.prFailed[project] {
@@ -132,6 +143,17 @@ func (m *Model) prFailure(project string, err error) {
 	}
 }
 
+// loseGH stops every poll and sends every card back to its branch: a verdict
+// nothing will refresh must not stand as current for the rest of the run.
+func (m *Model) loseGH() {
+	if !m.ghMissing {
+		slog.Info("gh is not on PATH; cards will not show pull requests")
+	}
+	m.ghMissing = true
+	clear(m.prs)
+	clear(m.prFailed)
+}
+
 // withPRMaps allocates the pull request state (#310). Keyed by project, so
 // archive leaves it alone (skipSessionMaps) and forgetProject clears it.
 func (m *Model) withPRMaps() *Model {
@@ -139,5 +161,6 @@ func (m *Model) withPRMaps() *Model {
 	m.prPending = map[string]bool{}
 	m.prFailed = map[string]bool{}
 	m.prOff = map[string]bool{}
+	m.prAsked = map[string]time.Time{}
 	return m
 }

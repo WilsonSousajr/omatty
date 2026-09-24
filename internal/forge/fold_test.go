@@ -88,3 +88,24 @@ func TestFold_MalformedJSONIsAnError_issue310(t *testing.T) {
 		t.Errorf("error = %v, want one naming forge", err)
 	}
 }
+
+// Final review: STALE is GitHub's mark for a check that never finished; it
+// must not read as passing.
+func TestFold_AStaleCheckIsNotPassing_issue310(t *testing.T) {
+	if got := foldOne(t, pr("OPEN", "CLEAN", run("COMPLETED", "STALE"))).CI; got == forge.CIPassing {
+		t.Errorf("CI = %v for a stale check, want it not passing", got)
+	}
+}
+
+// Final review: a fork's pull request is someone else's branch that happens to
+// share a name, and a merged pull request is only this work if its head commit
+// is - so the fold carries both facts for the card to decide on.
+func TestFold_CarriesForkAndHeadCommit_issue310(t *testing.T) {
+	prs, err := forge.Fold([]byte(`[{"number":812,"headRefName":"main","state":"OPEN","isCrossRepository":true,"headRefOid":"abc123","statusCheckRollup":[]}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !prs[0].Fork || prs[0].Head != "abc123" {
+		t.Errorf("PR = %+v, want Fork and Head abc123", prs[0])
+	}
+}

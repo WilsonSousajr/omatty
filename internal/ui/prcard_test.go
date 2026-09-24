@@ -30,7 +30,7 @@ func modelWithCard(t *testing.T, s1Branch string, prs ...forge.PR) *ui.Model {
 	terms, _ := fakeTerms(t)
 	m := ui.NewModel(baseDeps(worktreeState(), terms))
 	m.SetRepoStat("s1", review.Stat{Branch: s1Branch, Added: 12, Removed: 3})
-	m.SetRepoStat("s2", review.Stat{Branch: "parser-fix", Added: 12, Removed: 3})
+	m.SetRepoStat("s2", review.Stat{Branch: "parser-fix", Added: 12, Removed: 3, Head: "h1"})
 	m.Update(ui.PRsLoadedMsg{Project: "omatty", PRs: prs})
 	return m
 }
@@ -56,8 +56,8 @@ func TestCard_lineTwoNamesThePullRequestAndItsCI_issue310(t *testing.T) {
 		{"conflict", []forge.PR{conflicted}, "#349 ⚠    +12 −3"},
 		{"failing outranks conflict", []forge.PR{failingAndConflicted}, "#349 ✗    +12 −3"},
 		{"no checks", []forge.PR{open(349, "parser-fix", forge.CINone)}, "#349      +12 −3"},
-		{"merged gives the diffstat way", []forge.PR{{Number: 349, Branch: "parser-fix", State: forge.Merged}}, "#349 merged     "},
-		{"closed", []forge.PR{{Number: 349, Branch: "parser-fix", State: forge.Closed}}, "#349 closed     "},
+		{"merged gives the diffstat way", []forge.PR{{Number: 349, Branch: "parser-fix", State: forge.Merged, Head: "h1"}}, "#349 merged     "},
+		{"closed", []forge.PR{{Number: 349, Branch: "parser-fix", State: forge.Closed, Head: "h1"}}, "#349 closed     "},
 		{"another branch's PR", []forge.PR{open(7, "other", forge.CIPassing)}, "parser-fi +12 −3"},
 	} {
 		m := modelWithCard(t, "main", tt.prs...)
@@ -70,7 +70,7 @@ func TestCard_lineTwoNamesThePullRequestAndItsCI_issue310(t *testing.T) {
 // Review Focus 1: a branch reused across pull requests shows the newest.
 func TestCard_theNewestPullRequestForABranchWins_issue310(t *testing.T) {
 	m := modelWithCard(t, "main",
-		forge.PR{Number: 12, Branch: "parser-fix", State: forge.Closed},
+		forge.PR{Number: 12, Branch: "parser-fix", State: forge.Closed, Head: "h1"},
 		open(349, "parser-fix", forge.CIPassing))
 
 	if got := cardMiddle(t, m, "s2"); got != "#349 ✓    +12 −3" {
@@ -101,5 +101,33 @@ func TestCard_aFailedPollMarksThePullRequestUnknown_issue310(t *testing.T) {
 
 	if got := cardMiddle(t, m, "s2"); got != "#349 ?    +12 −3" {
 		t.Errorf("line two middle = %q, want #349 ?", got)
+	}
+}
+
+// Final review, 1: a fork's pull request is someone else's branch that shares
+// a name - a contributor's "main", or a common slug - never this session's.
+func TestCard_aForkPullRequestIsNeverThisSessions_issue310(t *testing.T) {
+	fork := func(branch string) forge.PR {
+		pr := open(812, branch, forge.CIFailing)
+		pr.Fork = true
+		return pr
+	}
+	m := modelWithCard(t, "main", fork("main"), fork("parser-fix"))
+
+	if got := cardMiddle(t, m, "s1"); got != "main      +12 −3" {
+		t.Errorf("main checkout: line two middle = %q, want the branch", got)
+	}
+	if got := cardMiddle(t, m, "s2"); got != "parser-fi +12 −3" {
+		t.Errorf("worktree: line two middle = %q, want the branch", got)
+	}
+}
+
+// Final review, 2: a merged or closed pull request whose head is not this
+// checkout's HEAD was an earlier use of a reused branch name, not this work.
+func TestCard_aFinishedPullRequestOnAnotherCommitIsNotThisWork_issue310(t *testing.T) {
+	old := forge.PR{Number: 240, Branch: "parser-fix", State: forge.Merged, Head: "old"}
+
+	if got := cardMiddle(t, modelWithCard(t, "main", old), "s2"); got != "parser-fi +12 −3" {
+		t.Errorf("line two middle = %q, want the branch, not the old #240", got)
 	}
 }

@@ -70,4 +70,5 @@ func (m *Model) forgetProject(name string) {
 	delete(m.prPending, name)
 	delete(m.prFailed, name)
 	delete(m.prOff, name)
+	delete(m.prAsked, name)
 }

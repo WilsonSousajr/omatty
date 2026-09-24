@@ -22,7 +22,11 @@ type FakePRs struct {
 	Lists map[string][]forge.PR
 	Errs  map[string]error
 	Asked []string
+	Now   time.Time // the model's clock, so a test can step past the poll gap
 }
+
+// later moves the clock past the least gap between two polls of a project.
+func (f *FakePRs) later() { f.Now = f.Now.Add(time.Minute) }
 
 func (f *FakePRs) List(root string) ([]forge.PR, error) {
 	f.Asked = append(f.Asked, root)
@@ -38,9 +42,10 @@ func (f *FakePRs) asked() string {
 func modelWithPRs(t *testing.T) (*ui.Model, *FakePRs) {
 	t.Helper()
 	terms, _ := fakeTerms(t)
-	f := &FakePRs{Lists: map[string][]forge.PR{}, Errs: map[string]error{}}
+	f := &FakePRs{Lists: map[string][]forge.PR{}, Errs: map[string]error{}, Now: fixedNow}
 	d := baseDeps(twoProjectState(), terms)
 	d.PRs = f.List
+	d.Clock = func() time.Time { return f.Now }
 	return ui.NewModel(d), f
 }
 
@@ -115,6 +120,7 @@ func TestModel_withoutGhNothingIsAskedAgain_issue310(t *testing.T) {
 	f.Errs["/p/omatty"], f.Errs["/p/api-svc"] = forge.ErrNoGH, forge.ErrNoGH
 	deliver(m, m.PollPRs())
 	f.Asked = nil
+	f.later()
 
 	deliver(m, m.PollPRs())
 	_, cmd := m.Update(tea.FocusMsg{})
@@ -133,6 +139,7 @@ func TestModel_aProjectNotOnGitHubStopsAlone_issue310(t *testing.T) {
 	f.Errs["/p/omatty"] = fmt.Errorf("forge: no git remotes found: %w", forge.ErrNotGitHub)
 	deliver(m, m.PollPRs())
 	f.Asked = nil
+	f.later()
 
 	deliver(m, m.PollPRs())
 
@@ -153,7 +160,9 @@ func TestModel_aFailedPRPollKeepsTheLastListAndWarnsOnce_issue310(t *testing.T) 
 	deliver(m, m.PollPRs())
 	f.Errs["/p/omatty"] = errors.New("HTTP 401: Bad credentials")
 
+	f.later()
 	deliver(m, m.PollPRs())
+	f.later()
 	deliver(m, m.PollPRs())
 
 	if prs := m.PRsOf("omatty"); len(prs) != 1 || !m.PRFailed("omatty") {
@@ -163,8 +172,76 @@ func TestModel_aFailedPRPollKeepsTheLastListAndWarnsOnce_issue310(t *testing.T) 
 		t.Errorf("logged %d warnings over two failed polls, want 1", n)
 	}
 	f.Errs["/p/omatty"] = nil
+	f.later()
 	deliver(m, m.PollPRs())
 	if m.PRFailed("omatty") {
 		t.Error("a successful poll did not clear the failure")
+	}
+}
+
+// Final review, 3: the rate the README promises. A permission prompt is
+// "waiting" and is not a moment CI changes; only a finished turn polls.
+func TestModel_aPermissionPromptDoesNotPollPRs_issue310(t *testing.T) {
+	m, f := modelWithPRs(t)
+
+	_, cmd := m.Update(ui.StatusMsg{SessionID: "s3", Kind: watcher.PermissionRequested, At: time.Now()})
+	settle(m, cmd)
+
+	if len(f.Asked) != 0 {
+		t.Errorf("a permission prompt polled %v", f.Asked)
+	}
+}
+
+// Final review, 3: turns ending and focus returning in quick succession ask
+// a project at most once in the gap; after it, they ask again.
+func TestModel_aProjectIsAskedAtMostOnceInTheGap_issue310(t *testing.T) {
+	m, f := modelWithPRs(t)
+	deliver(m, m.PollPRs())
+	f.Asked = nil
+
+	_, cmd := m.Update(ui.StatusMsg{SessionID: "s3", Kind: watcher.TurnEnded, At: time.Now()})
+	settle(m, cmd)
+	_, cmd = m.Update(tea.FocusMsg{})
+	deliver(m, cmd)
+	if len(f.Asked) != 0 {
+		t.Fatalf("asked %v within the gap after the last poll", f.Asked)
+	}
+
+	f.later()
+	_, cmd = m.Update(tea.FocusMsg{})
+	deliver(m, cmd)
+	if got := f.asked(); got != "/p/api-svc /p/omatty" {
+		t.Errorf("after the gap, focus asked %q, want every project", got)
+	}
+}
+
+// Final review, 10: a turn ending while blurred spends no request either.
+func TestModel_aTurnEndingWhileBlurredDoesNotPollPRs_issue310(t *testing.T) {
+	m, f := modelWithPRs(t)
+	m.Update(tea.BlurMsg{})
+
+	_, cmd := m.Update(ui.StatusMsg{SessionID: "s3", Kind: watcher.TurnEnded, At: time.Now()})
+	settle(m, cmd)
+
+	if len(f.Asked) != 0 {
+		t.Errorf("a turn ending while blurred polled %v", f.Asked)
+	}
+}
+
+// Final review, 4: once gh is gone, or a project stops mapping to GitHub, the
+// last verdict must not stay on the card as current for the rest of the run.
+func TestModel_losingGhOrGitHubDropsTheLastVerdict_issue310(t *testing.T) {
+	m, f := modelWithPRs(t)
+	f.Lists["/p/omatty"] = []forge.PR{{Number: 7, Branch: "feat-x"}}
+	f.Lists["/p/api-svc"] = []forge.PR{{Number: 8, Branch: "feat-y"}}
+	deliver(m, m.PollPRs())
+
+	m.Update(ui.PRsLoadedMsg{Project: "api-svc", Err: fmt.Errorf("gone: %w", forge.ErrNotGitHub)})
+	if len(m.PRsOf("api-svc")) != 0 || m.PRFailed("api-svc") {
+		t.Errorf("api-svc kept %+v (failed %v) after it stopped mapping to GitHub", m.PRsOf("api-svc"), m.PRFailed("api-svc"))
+	}
+	m.Update(ui.PRsLoadedMsg{Project: "omatty", Err: forge.ErrNoGH})
+	if len(m.PRsOf("omatty")) != 0 {
+		t.Errorf("omatty kept %+v after gh went missing", m.PRsOf("omatty"))
 	}
 }

@@ -25,7 +25,7 @@ var notGitHub = []string{
 }
 
 // prFields is exactly what Fold reads.
-const prFields = "number,headRefName,state,mergeStateStatus,statusCheckRollup"
+const prFields = "number,headRefName,headRefOid,isCrossRepository,state,mergeStateStatus,statusCheckRollup"
 
 // CLI runs the gh binary.
 //

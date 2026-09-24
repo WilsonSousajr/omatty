@@ -12,12 +12,14 @@ func TestForgetProject_clearsItsPullRequestState_issue310(t *testing.T) {
 	m := filledModel()
 	m.prs["omatty"] = []forge.PR{{Number: 7}}
 	m.prPending["omatty"], m.prFailed["omatty"], m.prOff["omatty"] = true, true, true
+	m.prAsked["omatty"] = m.clock()
 
 	m.forgetProject("omatty")
 
 	for name, held := range map[string]bool{
 		"prs": m.prs["omatty"] != nil, "prPending": m.prPending["omatty"],
 		"prFailed": m.prFailed["omatty"], "prOff": m.prOff["omatty"],
+		"prAsked": !m.prAsked["omatty"].IsZero(),
 	} {
 		if held {
 			t.Errorf("%s still holds the forgotten project", name)

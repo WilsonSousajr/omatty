@@ -39,13 +39,17 @@ type PR struct {
 	Branch   string // the head branch, matched against a session's
 	State    PRState
 	CI       CIState
-	Conflict bool // DIRTY or BEHIND: it cannot merge as it stands
+	Conflict bool   // DIRTY or BEHIND: it cannot merge as it stands
+	Fork     bool   // opened from another repository: its branch name is not ours
+	Head     string // the head commit, which says whether a merged PR is this work
 }
 
 // ghPR is one element of `gh pr list --json` with the fields ListPRs asks for.
 type ghPR struct {
 	Number            int     `json:"number"`
 	HeadRefName       string  `json:"headRefName"`
+	HeadRefOid        string  `json:"headRefOid"`
+	IsCrossRepository bool    `json:"isCrossRepository"`
 	State             string  `json:"state"`
 	MergeStateStatus  string  `json:"mergeStateStatus"`
 	StatusCheckRollup []check `json:"statusCheckRollup"`
@@ -76,6 +80,8 @@ func Fold(raw []byte) ([]PR, error) {
 			State:    stateOf(p.State),
 			CI:       rollup(p.StatusCheckRollup),
 			Conflict: p.MergeStateStatus == "DIRTY" || p.MergeStateStatus == "BEHIND",
+			Fork:     p.IsCrossRepository,
+			Head:     p.HeadRefOid,
 		}
 	}
 	return out, nil
@@ -127,5 +133,6 @@ func running(c check) bool {
 	if c.Typename == "StatusContext" {
 		return c.State == "PENDING" || c.State == "EXPECTED"
 	}
-	return c.Status != "COMPLETED"
+	// STALE is GitHub closing a check that never finished (final review).
+	return c.Status != "COMPLETED" || c.Conclusion == "STALE"
 }

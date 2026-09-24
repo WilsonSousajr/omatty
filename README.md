@@ -431,9 +431,12 @@ one mark for it, read through your own `gh`:
 
 omatty makes one `gh pr list` call per project, when omatty regains focus, when
 a session finishes a turn, and every minute while it has focus - never while it
-is in the background. Without `gh`, or for a repository that is not on GitHub,
-the card shows the branch as before and says so once in the log. A session on
-the main checkout shows open pull requests only.
+is in the background, and never more than once in thirty seconds for one
+project. Without `gh`, or for a repository that is not on GitHub, the card shows
+the branch as before and says so once in the log. A pull request from a fork is
+never taken for the session's, whatever its branch is called; a session on the
+main checkout shows open pull requests only, and a merged or closed one shows
+only while the checkout is still at its head commit.
 
 When a session starts waiting on you or finishes a turn while omatty is in the
 background, you get a desktop notification. On macOS you may need to allow

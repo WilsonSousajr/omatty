@@ -17,8 +17,10 @@ for each milestone and what was deliberately cut.
   request on GitHub, line two names it with one mark for its CI - `#349 ✓`,
   `◍` running, `✗` failing, `⚠` conflict or behind, `merged`, `closed`, and `?`
   when the last read failed rather than the old verdict. One `gh pr list` per
-  project, on focus, at the end of a turn and every minute while focused, never
-  in the background; `internal/forge` is the one package that runs `gh`.
+  project, on focus, at the end of a turn and every minute while focused, at
+  most once in thirty seconds and never in the background; `internal/forge` is
+  the one package that runs `gh`. A fork's pull request is never matched, and a
+  finished one only while the checkout is at its head commit.
   Without `gh`, or off GitHub, the card is as before. (#310)
 - **`t` in the review column shows only this turn.** When a prompt is
   submitted, omatty snapshots the session's working tree as a git tree under
