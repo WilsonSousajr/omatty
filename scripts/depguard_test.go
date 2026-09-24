@@ -19,7 +19,7 @@ import (
 // only thing that would say so. internal/termwrap earns its place by naming
 // *exec.Cmd in a signature without ever constructing one - a distinction
 // depguard cannot draw.
-var execAllowed = []string{"detach", "gate", "golist", "notify", "supervisor", "termwrap", "vcs"}
+var execAllowed = []string{"detach", "forge", "gate", "golist", "notify", "supervisor", "termwrap", "vcs"}
 
 // Regression, issue #260: invariant 4 fences bubbleterm inside internal/termwrap,
 // and AGENTS.md:68 said internal/ui was the only package importing bubbletea.
@@ -114,6 +114,26 @@ func TestNoGitOutsideVcs(t *testing.T) {
 		if line, found := codeLineNaming(string(b), `"git"`); found {
 			t.Errorf(`%s names "git": %s`+"\n"+
 				"invariant 4 routes the git CLI through internal/vcs alone", path, line)
+		}
+	}
+}
+
+// The gh CLI's twin of the rule above (#310): internal/forge owns gh, so a
+// second package naming it would be a second, unreviewed reader of the forge.
+func TestNoGhOutsideForge(t *testing.T) {
+	root := repoRoot(t)
+
+	for _, path := range productionFiles(t, root) {
+		if strings.HasPrefix(path, filepath.Join("internal", "forge")) {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(root, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if line, found := codeLineNaming(string(b), `"gh"`); found {
+			t.Errorf(`%s names "gh": %s`+"\n"+
+				"the gh CLI is reached through internal/forge alone", path, line)
 		}
 	}
 }

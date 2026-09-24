@@ -57,6 +57,7 @@ internal/
 ├── registry/       projects + sessions + state.json.
 ├── agent/          the agent seam (#46): a command template plus a status adapter.
 ├── vcs/            OUR interface over the git CLI (invariant 4).
+├── forge/          OUR interface over the gh CLI: pull requests and CI, read-only (#310).
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
 ├── detach/         [M6] OUR interface over the dtach CLI (invariant 4).
@@ -190,10 +191,11 @@ not in the gate.
   CLI, `internal/highlight` owns chroma, `internal/review` owns go-gitdiff. No
   other package may import them. Enforced by `depguard` in `.golangci.yml`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
-  from `detach`, `gate`, `golist`, `notify`, `supervisor`, `termwrap` and
-  `vcs`, and nowhere else in production code. `termwrap` is on that list because it names
+  from `detach`, `forge`, `gate`, `golist`, `notify`, `supervisor`,
+  `termwrap` and `vcs`, and nowhere else in production code. `termwrap` is on that list because it names
   `*exec.Cmd` in a signature without ever constructing one - a distinction
-  depguard cannot draw. Adding an eighth package is a decision, so
+  depguard cannot draw. `forge` joined for #310 as omatty's one reader of the
+  forge, through `gh`. Adding a ninth package is a decision, so
   `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
   in both `.golangci.yml` and here.
 - **Depend in the direction of stability.** For every edge A -> B,
