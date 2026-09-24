@@ -44,8 +44,9 @@ func sessionMaps(m *Model) map[string]reflect.Value {
 }
 
 // skipSessionMaps names the string-keyed Model maps that are NOT keyed by a
-// session id, and so are none of archive's business. Empty today.
-var skipSessionMaps = map[string]bool{}
+// session id, and so are none of archive's business: the pull request state
+// is keyed by project (#310).
+var skipSessionMaps = map[string]bool{"prs": true, "prPending": true, "prFailed": true, "prOff": true}
 
 // mapsHolding is the names of the session maps that still hold id, sorted so
 // a failure reads the same way twice.

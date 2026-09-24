@@ -82,6 +82,9 @@ type Deps struct {
 	// HooksDown says the hook socket did not bind (#49), so no turn baseline
 	// will ever be taken; the turn view says so instead of diffing (#311).
 	HooksDown bool
+	// PRs lists a project's pull requests for its cards (#310). Unwired, it
+	// says gh is missing, which stops every poll: what every test sees.
+	PRs PRListFunc
 	// Rename persists a session's new title (#41), and Name reads the first
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
@@ -163,6 +166,9 @@ func (d Deps) withReviewDefaults() Deps {
 // withTurnDefaults fills the turn baseline's calls (#311): unwired, Snap and
 // Drop do nothing and Diff says there is no turn, which is what a test sees.
 func (d Deps) withTurnDefaults() Deps {
+	if d.PRs == nil {
+		d.PRs = noPRs
+	}
 	if d.Turn.Snap == nil {
 		d.Turn.Snap = func(registry.Session) error { return nil }
 	}

@@ -66,4 +66,8 @@ func (m *Model) forgetProject(name string) {
 		}
 	}
 	m.state.Projects = kept
+	delete(m.prs, name) // the project's pull requests (#310)
+	delete(m.prPending, name)
+	delete(m.prFailed, name)
+	delete(m.prOff, name)
 }

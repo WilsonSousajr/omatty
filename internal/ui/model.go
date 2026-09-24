@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/coverage"
+	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/notify"
@@ -91,8 +92,17 @@ type Model struct {
 	// whose snapshot is in flight, so a second prompt inside it starts none;
 	// turnErr is the last snapshot's failure, shown instead of a turn diff
 	// that would silently span two turns. Neither is persisted.
-	turn        TurnFuncs
-	hooksDown   bool // the hook socket did not bind (#49): no baseline will come
+	turn      TurnFuncs
+	hooksDown bool // the hook socket did not bind (#49): no baseline will come
+	// prs is each project's pull requests (#310), keyed by project name like
+	// prPending (a call in flight), prFailed (the last call failed) and prOff
+	// (gh cannot map it to GitHub). ghMissing stops every poll. None persisted.
+	prList      PRListFunc
+	prs         map[string][]forge.PR
+	prPending   map[string]bool
+	prFailed    map[string]bool
+	prOff       map[string]bool
+	ghMissing   bool
 	turnPending map[string]bool
 	turnErr     map[string]string
 	// covers is each session's coverage overlay, read when its gate finishes
@@ -186,6 +196,7 @@ func NewModel(deps Deps) *Model {
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
+	m.prList = d.PRs
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
 	m.rebind = d.Rebind
 	m.renameBranch = d.RenameBranch
@@ -234,7 +245,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
-	return m.withTurnMaps()
+	return m.withTurnMaps().withPRMaps()
 }
 
 // withTurnMaps allocates the turn baseline's two maps (#311). Split from
@@ -293,7 +304,7 @@ func (m *Model) Init() tea.Cmd {
 	}
 	// The first stat poll runs at start rather than a tick later, so a card
 	// names its branch before the operator has read the screen (#180).
-	cmds = append(cmds, scheduleTick(), m.onStatTick(), m.scheduleSweep())
+	cmds = append(cmds, scheduleTick(), m.onStatTick(), m.onPRTick(), m.scheduleSweep())
 	return tea.Batch(cmds...)
 }
 
@@ -341,6 +352,8 @@ func (m *Model) routeMsg(msg tea.Msg) tea.Cmd {
 		return scheduleTick()
 	case StatTickMsg:
 		return m.onStatTick()
+	case PRTickMsg:
+		return m.onPRTick()
 	case SweepTickMsg:
 		return m.onSweepTick()
 	default:
@@ -478,6 +491,8 @@ func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
 		return m.relaunch(typed.Session)
 	case RepoStatMsg:
 		return m.onRepoStat(typed)
+	case PRsLoadedMsg:
+		return m.onPRs(typed)
 	}
 	return m.onWindowFocus(msg)
 }
@@ -490,7 +505,7 @@ func (m *Model) onWindowFocus(msg tea.Msg) tea.Cmd {
 		m.hasFocus = true
 		// Catch up on whatever changed while the poll was gated off, rather
 		// than leaving stale cards up for the rest of the ten-second period.
-		return m.pollAll()
+		return tea.Batch(m.pollAll(), m.pollPRs())
 	case tea.BlurMsg:
 		m.hasFocus = false
 		return nil

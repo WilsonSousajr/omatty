@@ -16,6 +16,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/discover"
+	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
@@ -90,6 +91,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Diff:    src.Load,
 		Stat:    src.Stat,
 		Turn:    ui.TurnFuncs{Snap: src.SnapTurn, Diff: src.LoadTurn, Drop: src.DropTurn},
+		PRs:     forge.NewCLI().ListPRs,
 		Files:   git.ListFiles,
 	}
 	return withStoreDeps(withTableDeps(deps, env.Cfg), store, home, git)
