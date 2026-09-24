@@ -1170,6 +1170,12 @@ one argued from principle alone:
 | A board driving the agents | `vibe-kanban`, and a camp three times the size of the terminal camp | Two sources of truth. The board is GitHub project 13. |
 | Mobile companions, cloud sessions, account sync | Orca, Nimbalyst | Hidden context only the tool can see is a regression. |
 
+**Reading a pull request's state is not "cloud, accounts, sync"** (#310).
+omatty runs the operator's own `gh`, read-only, holds no token of its own, makes
+one call per project and none while it is in the background. It writes nothing
+to the forge: acting on a pull request - pushing, opening, merging - is a
+separate decision (#331), taken when it is proposed, not by this one.
+
 One idea found in the field is **not** refused, only unanswered: **forking a
 session's conversation** (`fleet`'s `f`). Invariant 9 asks the first question —
 what is the copy's uuid, and which transcript does it claim? `fleet` #142 and

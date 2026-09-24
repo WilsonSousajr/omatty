@@ -1,0 +1,9 @@
+#!/bin/sh
+# Stands in for the real gh in the #310 smoke test. Never touches the network:
+# it prints the JSON file OMATTY_FAKE_GH_JSON names, or fails with
+# OMATTY_FAKE_GH_ERR on stderr the way gh does.
+if [ -n "$OMATTY_FAKE_GH_ERR" ]; then
+  echo "$OMATTY_FAKE_GH_ERR" >&2
+  exit 1
+fi
+cat "$OMATTY_FAKE_GH_JSON"
