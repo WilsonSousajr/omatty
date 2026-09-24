@@ -56,6 +56,8 @@ type Git interface {
 	DeleteTurnRef(dir, id string) error
 	// DiffTrees is the unified diff between two trees (#311).
 	DiffTrees(dir, from, to string) (string, error)
+	// Head is the commit dir has checked out (#310).
+	Head(dir string) (string, error)
 }
 
 // CLI runs the real git binary.

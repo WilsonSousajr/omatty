@@ -69,6 +69,8 @@ func (f *FakeGit) DeleteTurnRef(string, string) error { return nil }
 
 func (f *FakeGit) DiffTrees(string, string, string) (string, error) { return "", nil }
 
+func (f *FakeGit) Head(string) (string, error) { return "", nil }
+
 func (f *FakeGit) AddWorktree(repoRoot, dir, branch, base string) error {
 	if f.AddErr != nil {
 		return fmt.Errorf("FakeGit: refusing to add worktree %q on %q: %w", dir, branch, f.AddErr)

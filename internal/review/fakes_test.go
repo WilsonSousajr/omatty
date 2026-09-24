@@ -27,6 +27,7 @@ type FakeGit struct {
 	SnapshotOut            string            // SnapshotTree result (#311)
 	TurnTree               string            // TurnRef's tree; empty means no baseline
 	DiffTreesOut           string            // DiffTrees result
+	HeadOut                string            // Head result (#310)
 	Err                    error             // returned by every method when set
 	// Errs fails one method by name, so a test can reach an error path that
 	// lies behind a call which has to succeed first.
@@ -118,4 +119,8 @@ func (f *FakeGit) DeleteTurnRef(dir, id string) error {
 
 func (f *FakeGit) DiffTrees(dir, from, to string) (string, error) {
 	return f.DiffTreesOut, f.record("DiffTrees", dir, from, to)
+}
+
+func (f *FakeGit) Head(dir string) (string, error) {
+	return f.HeadOut, f.record("Head", dir)
 }

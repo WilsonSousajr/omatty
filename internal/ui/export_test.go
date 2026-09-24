@@ -4,6 +4,7 @@ import (
 	"image/color"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
@@ -229,3 +230,9 @@ func (m *Model) SessionBranch(id string) string {
 	}
 	return sess.Branch
 }
+
+// PollPRs is one PR tick without the tick that re-arms it, PRsOf what the
+// model holds for a project and PRFailed whether its last poll failed (#310).
+func (m *Model) PollPRs() tea.Cmd                { return m.pollPRs() }
+func (m *Model) PRsOf(project string) []forge.PR { return m.prs[project] }
+func (m *Model) PRFailed(project string) bool    { return m.prFailed[project] }

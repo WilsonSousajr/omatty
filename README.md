@@ -415,6 +415,29 @@ is holding.
 | `+` | turn finished |
 | `∅` | claude exited (`ctrl+o r` restarts it) |
 
+A card's second line names the session's branch and its diffstat. Once that
+branch has a pull request on GitHub, the branch becomes the pull request and
+one mark for it, read through your own `gh`:
+
+| Line two | Meaning |
+|---|---|
+| `#349 ✓` | checks passing |
+| `#349 ◍` | checks still running |
+| `#349 ✗` | a check failed |
+| `#349 ⚠` | conflicts, or behind its base |
+| `#349` | no checks |
+| `#349 merged` / `#349 closed` | the pull request is done |
+| `#349 ?` | the last read failed; the old verdict is not shown as current |
+
+omatty makes one `gh pr list` call per project, when omatty regains focus, when
+a session finishes a turn, and every minute while it has focus - never while it
+is in the background, and never more than once in thirty seconds for one
+project. Without `gh`, or for a repository that is not on GitHub, the card shows
+the branch as before and says so once in the log. A pull request from a fork is
+never taken for the session's, whatever its branch is called; a session on the
+main checkout shows open pull requests only, and a merged or closed one shows
+only while the checkout is still at its head commit.
+
 When a session starts waiting on you or finishes a turn while omatty is in the
 background, you get a desktop notification. On macOS you may need to allow
 notifications from your terminal app in System Settings once.
