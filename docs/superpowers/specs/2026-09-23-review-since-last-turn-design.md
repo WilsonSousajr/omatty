@@ -79,10 +79,23 @@ so (§2); it never falls back to a wrong one.
   sides are trees built with `add -A`, new files arrive as additions and no
   separate untracked pass is needed.
 
-**Known limits.** The race above. A repository with a large untracked but
-unignored tree pays for `git add -A` on every prompt, as `git status` already
-does. `git push --mirror` would publish `refs/omatty/*`; an ordinary push does
-not.
+**Known limits.** The race above. `git push --mirror` would publish
+`refs/omatty/*`; an ordinary push does not. And the snapshot costs more than
+`git status` does (#354):
+
+- `git status` does not hash untracked content, but `add -A` into the
+  temporary index does. That happens on every snapshot **and** on every turn
+  view load (`r`, `t`, and the done/waiting refreshes), because `LoadTurn`
+  snapshots the working tree as well. The temporary index is discarded after
+  each use, so untracked files never benefit from its stat cache: a large
+  untracked-but-unignored tree is hashed in full each time.
+- `add -A` runs clean filters, so a repository using git-lfs pays for them too.
+- One unreadable or vanishing file fails the whole snapshot, and the turn view
+  then shows the failure rather than a partial turn.
+
+Keeping the temporary index between loads would recover the stat cache for
+untracked files. That is a follow-up if the cost shows up in practice, not
+part of this design.
 
 ## 2. The review side
 
@@ -128,10 +141,23 @@ counted in the title and still sent by `S`.
 its markers work unchanged on a turn diff: what this turn added that no test
 covers.
 
-**Notices.** With no ref: `no turn recorded yet - the baseline is taken when
-you send a prompt`. With a failed snapshot (§3): `the baseline for this turn
-could not be taken: <err>`. Both are drawn as notices in the column, not in
-the error style.
+**Notices.** The turn scope says why it has no rows instead of showing none,
+and a failure looks like one (#353). The two neutral notices are muted:
+
+- No ref yet: `no turn recorded yet: a baseline is taken when you send a
+  prompt`.
+- A load in flight: `reading this turn...`.
+
+The three failures use the error style:
+
+- The hook socket did not bind (#49): `hooks are not arriving, so no turn
+  baseline can be taken: see the log`. Any ref standing then was left by
+  another run, and diffing against it would call someone else's turn this one.
+- A failed snapshot (§3): `this turn's baseline could not be taken:`.
+- A failed load: `reading this turn failed:`.
+
+Each failure is followed by git's own words and `full error in the log`,
+wrapped to the column rather than cut at its edge (#351).
 
 ## 3. Lifecycle, failure, tests
 
