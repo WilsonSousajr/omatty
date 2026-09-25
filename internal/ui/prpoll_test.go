@@ -45,6 +45,11 @@ func modelWithPRs(t *testing.T) (*ui.Model, *FakePRs) {
 	f := &FakePRs{Lists: map[string][]forge.PR{}, Errs: map[string]error{}, Now: fixedNow}
 	d := baseDeps(twoProjectState(), terms)
 	d.PRs = f.List
+	// The issue list is wired to an empty answer rather than left unwired: its
+	// default reports gh missing, and gh missing is a fact about the machine
+	// that stops both lists (#394), so an unwired one would silence the poll
+	// under test here.
+	d.Issues = func(string) ([]forge.Issue, error) { return nil, nil }
 	d.Clock = func() time.Time { return f.Now }
 	return ui.NewModel(d), f
 }
