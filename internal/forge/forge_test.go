@@ -54,7 +54,7 @@ func TestCLI_ListPRsRunsItsListsInTheRepoRoot_issue310(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
-		"pr list --state open --limit 100 --json number,headRefName,headRefOid,isCrossRepository,state,mergeStateStatus,statusCheckRollup",
+		"pr list --state open --limit 100 --json number,title,headRefName,headRefOid,isCrossRepository,state,isDraft,updatedAt,mergeStateStatus,statusCheckRollup",
 		"pr list --state closed --limit 30 --json number,headRefName,headRefOid,isCrossRepository,state",
 	}
 	lines := strings.Split(strings.TrimSpace(string(got)), "\n")
