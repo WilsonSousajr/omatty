@@ -106,6 +106,10 @@ type Model struct {
 	prFailed     map[string]bool
 	prAsked      map[string]time.Time
 	issueList    IssueListFunc
+	itemFuncs    ForgeItemFuncs
+	items        map[itemKey]forge.Detail
+	itemPending  map[itemKey]bool
+	itemFailed   map[itemKey]bool
 	issues       map[string][]forge.Issue
 	issuePending map[string]bool
 	issueFailed  map[string]bool
@@ -215,7 +219,7 @@ func NewModel(deps Deps) *Model {
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
-	m.prList, m.issueList = d.PRs, d.Issues
+	m.prList, m.issueList, m.itemFuncs = d.PRs, d.Issues, d.Item
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
 	m.rebind = d.Rebind
 	m.renameBranch = d.RenameBranch
@@ -264,7 +268,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
-	return m.withTurnMaps().withPRMaps().withIssueMaps()
+	return m.withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
 }
 
 // withTurnMaps allocates the turn baseline's two maps (#311). Split from
@@ -513,6 +517,9 @@ func (m *Model) onPaneMsg(msg tea.Msg) tea.Cmd {
 // onSessionMsg is the third table: the messages that change which sessions
 // exist, or which process is behind one.
 func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
+	if cmd, ok := m.onForgeMsg(msg); ok {
+		return cmd
+	}
 	switch typed := msg.(type) {
 	case ProjectsProposedMsg:
 		return m.onProjectsProposed(typed)
@@ -522,12 +529,23 @@ func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
 		return m.relaunch(typed.Session)
 	case RepoStatMsg:
 		return m.onRepoStat(typed)
-	case PRsLoadedMsg:
-		return m.onPRs(typed)
-	case IssuesLoadedMsg:
-		return m.onIssues(typed)
 	}
 	return m.onWindowFocus(msg)
+}
+
+// onForgeMsg is what the three gh-backed reads answer with (#310, #394, #397),
+// split out of onSessionMsg when the third pushed it past the statement limit -
+// and they belong together: one forge, three reads.
+func (m *Model) onForgeMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case PRsLoadedMsg:
+		return m.onPRs(typed), true
+	case IssuesLoadedMsg:
+		return m.onIssues(typed), true
+	case ItemLoadedMsg:
+		return m.onItem(typed), true
+	}
+	return nil, false
 }
 
 // onWindowFocus records whether omatty itself has the operator's attention,

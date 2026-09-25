@@ -1,12 +1,13 @@
 #!/bin/sh
-# Stands in for the real gh in the #310 and #396 smoke tests. Never touches the
-# network: it prints the JSON for the list it was asked for, or fails with
+# Stands in for the real gh in the #310, #396 and #397 smoke tests. Never touches
+# the network: it prints the JSON for the call it was asked for, or fails with
 # OMATTY_FAKE_GH_ERR on stderr the way gh does.
 #
 #   OMATTY_FAKE_GH_JSON         `gh pr list --state open`
 #   OMATTY_FAKE_GH_CLOSED_JSON  `gh pr list --state closed` - the merged and
 #                               closed window, empty when unset
 #   OMATTY_FAKE_GH_ISSUES_JSON  `gh issue list` (#396)
+#   OMATTY_FAKE_GH_ITEM_JSON    `gh issue view N` / `gh pr view N` (#397)
 #
 # Answering by state matters: one file for both pull request calls puts every
 # open pull request in the list twice, which the #396 smoke run showed as a
@@ -14,6 +15,10 @@
 if [ -n "$OMATTY_FAKE_GH_ERR" ]; then
   echo "$OMATTY_FAKE_GH_ERR" >&2
   exit 1
+fi
+if [ "$2" = "view" ]; then
+  cat "${OMATTY_FAKE_GH_ITEM_JSON:-/dev/null}"
+  exit 0
 fi
 if [ "$1" = "issue" ]; then
   cat "${OMATTY_FAKE_GH_ISSUES_JSON:-/dev/null}"

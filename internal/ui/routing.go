@@ -89,6 +89,8 @@ func (m *Model) onPaneKey(key string) tea.Cmd {
 		return m.onGateKey(key)
 	case ViewTracker:
 		return m.onTrackerKey(key)
+	case ViewTrackerItem:
+		return m.onTrackerItemKey(key)
 	default:
 		return m.onReviewKey(key)
 	}
