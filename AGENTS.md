@@ -188,8 +188,10 @@ not in the gate.
   no global singletons, no `init()` side effects.
 - **Wrap third-party libraries behind a thin interface this project owns.**
   `internal/termwrap` owns bubbleterm and the PTY, `internal/vcs` owns the git
-  CLI, `internal/highlight` owns chroma, `internal/review` owns go-gitdiff. No
-  other package may import them. Enforced by `depguard` in `.golangci.yml`.
+  CLI, `internal/forge` owns the gh CLI, `internal/highlight` owns chroma,
+  `internal/review` owns go-gitdiff. No other package may import them.
+  Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
+  string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
   from `detach`, `forge`, `gate`, `golist`, `notify`, `supervisor`,
   `termwrap` and `vcs`, and nowhere else in production code. `termwrap` is on that list because it names
@@ -235,7 +237,9 @@ not in the gate.
    Enforced by `depguard` in `.golangci.yml` (#260) - but only half of it can
    be. bubbleterm is an import, so a rule can fence it. git is a *string
    literal* handed to `exec`, which no import rule can see, so that half is
-   `TestNoGitOutsideVcs` in `scripts/depguard_test.go`.
+   `TestNoGitOutsideVcs` in `scripts/depguard_test.go`. The gh CLI follows
+   the same rule for the same reason: `internal/forge` owns it (#310), and
+   `TestNoGhOutsideForge` is its fence.
 
    depguard can only ever fail in one direction: it catches an import that
    breaks a rule, never a rule that has quietly stopped describing the code.
