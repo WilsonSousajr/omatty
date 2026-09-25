@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/paths"
@@ -82,6 +83,29 @@ func (c *Creator) addWorktree(sess *Session, p Project) error {
 			dir, sess.Branch, base, err)
 	}
 	sess.Dir, sess.Base, sess.Worktree = dir, recordedBase(base), true
+	return c.carry(p, dir)
+}
+
+// carry copies the project's gitignored files into the worktree just created,
+// before the session is registered and so before claude can start in it -
+// whatever runs next must be able to rely on them (#309).
+//
+// A failure takes the worktree with it. Leaving a half-populated one
+// registered would hand claude a directory the operator did not choose, and
+// create's contract is that a failure leaves st untouched. The removal's own
+// error is logged rather than returned: the carry failure is the one worth
+// reporting, and hiding it behind a cleanup error would bury the cause.
+func (c *Creator) carry(p Project, dir string) error {
+	if len(p.Carry) == 0 {
+		return nil
+	}
+	if err := CarryInto(dir, p.Root, p.Carry); err != nil {
+		if rmErr := c.git.RemoveWorktree(p.Root, dir); rmErr != nil {
+			slog.Error("removing a worktree whose carry failed",
+				"project", p.Name, "worktree", dir, "err", rmErr)
+		}
+		return err
+	}
 	return nil
 }
 

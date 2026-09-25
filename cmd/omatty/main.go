@@ -13,6 +13,7 @@
 //	omatty gate <project> --detect    print the proposal without writing it
 //	omatty gate <project> --set       write the proposal without asking
 //	omatty gate <project> --clear     forget the gate
+//	omatty carry <project> [path...]  files every new worktree of it carries
 //	omatty hook                       forward a claude hook event (internal)
 //	omatty --version                  print the release this binary was built from
 //

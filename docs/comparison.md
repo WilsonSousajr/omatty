@@ -87,7 +87,6 @@ The list that makes the rest of the page worth reading.
 
 | | Who | What omatty lacks |
 |---|---|---|
-| A worktree you can actually run | ccmanager (`.worktreeinclude`), fleet (`.fleet.json`) | Carrying gitignored files — `.env`, local certs — into a new worktree. omatty creates the worktree and stops. **The most-requested missing feature in the whole field**, and omatty has no answer. |
 | PR and CI state | fleet | omatty shows the local gate verdict and nothing about the remote one. |
 | Review scoped to *since when* | Orca (#11840, open) | omatty shows everything a session changed; there is no "changes this turn". |
 | Breadth of agents | ccmanager (8 CLIs), claude-squad (`--program`) | omatty has Claude Code, and Codex half-spiked (#152). |

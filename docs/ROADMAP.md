@@ -1037,6 +1037,18 @@ and the research deliberately stops before deciding their shape:
   M9 made the gate the product: a gate step that fails because `.env` is
   missing is the gate being wrong about the code, and a red card the operator
   learns to ignore is worse than no card.
+
+  **Built** as `omatty carry <project> <path>...`, with the list in
+  `state.json` as `Project.Carry` beside `Project.Gate`. The design question
+  the issue owed an answer to is settled against the two competitors: they put
+  the list in a repository file (`.worktreeinclude`, `.fleet.json`), omatty
+  keeps it per project in `state.json`, because that is how every other
+  per-project setting here works, the empty value is derivable so `Version`
+  stays 1 (invariant 9), and a clone must not get to choose which files are
+  copied off the operator's disk. The cost, named rather than hidden: the list
+  is not shared with a team. The copy runs before the session is registered,
+  so anything that starts next can rely on the files - the ordering ccmanager
+  arrived at deliberately.
 - **#310 PR and CI state on the session card.** The field asks for the remote
   verdict (Orca #18484, #18485, #18487; `fleet` ships it). omatty has the local
   one. They are complements, and this is verification rather than
