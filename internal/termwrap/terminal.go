@@ -40,6 +40,10 @@ type Terminal interface {
 	// A terminal that cannot produce them returns nil, which the caller
 	// takes as "never" rather than blocking on it (#212).
 	ClipboardWrites() <-chan ClipboardWrite
+	// Text is the pane's own cells for a stream selection, so a drag copies
+	// the session pane without the sidebar and review column that share its
+	// screen rows (#360).
+	Text(x0, y0, x1, y1 int) string
 	Close() error
 }
 

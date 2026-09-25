@@ -161,8 +161,11 @@ type Model struct {
 	// mouseReleased is true while the host terminal owns the pointer, so it
 	// can make a selection of its own (#217). Display-only, never persisted.
 	mouseReleased bool
-	width         int
-	height        int
+	// sel is the drag in progress over the session pane, which a release
+	// copies to the host clipboard (#360).
+	sel    paneSelection
+	width  int
+	height int
 	// idleStop and activeAt are the idle sweep (#319): its threshold, zero
 	// when off, and when omatty last started or the operator last typed into
 	// each session - the floors under the transcript's own last turn.

@@ -234,7 +234,8 @@ func (m *Model) renderTerminal(w, h int) string {
 	}
 	if term := m.focusedTerminal(); term != nil {
 		// h rows, not h-1: the title is in the header row (#128, #174).
-		return fitBlock(strings.Split(term.View(), "\n"), w, h)
+		rows := m.highlightSelection(strings.Split(term.View(), "\n"), w)
+		return fitBlock(rows, w, h)
 	}
 	if row, ok := m.sidebar.Selected(); ok {
 		return fitBlock(m.stoppedLines(row.Session.Title), w, h)

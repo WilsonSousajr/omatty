@@ -194,7 +194,18 @@ that session. A click on a row of the review column puts the cursor there and
 gives the column the keys, and a click on the `×` at the right end of the
 column's rule closes it. The column's rule reads `─ review ─────×` so it is
 told apart from a diff Claude draws inside its own pane, which is Claude's to
-open and close. Clicks inside the pane go to Claude.
+open and close.
+
+A drag inside a session pane selects that pane's text and copies it on release.
+The run is highlighted while the button is down, and it is clipped to the pane:
+the sidebar and the review column share those screen rows, and the host
+terminal's own selection takes every column on them, so a copy that wrapped a
+line used to arrive with their text mixed in (#360). Two limits are worth
+knowing. A line Claude wrapped for you arrives with a newline in it, because
+the emulator does not record where a soft wrap happened. And only what is on
+screen can be selected, because the pane has no scrollback of its own.
+`shift`/`opt`+drag still hands the drag to your terminal, which is how you
+select *across* omatty's panes rather than inside one.
 
 All of that costs the one thing a terminal normally does with a pointer:
 while omatty is asking the host for mouse events, the host will not make a
