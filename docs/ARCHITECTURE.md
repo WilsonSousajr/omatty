@@ -68,6 +68,26 @@ ctrl+o d -> ui -> DiffFunc (cmd wiring) -> vcs.CLI (git) -> review.ParseDiff
 ctrl+o S -> review.Compose -> "\x1b[200~ ... \x1b[201~\r" -> PTY -> claude
 ```
 
+**The tracker.** `ctrl+o i` turns the review column into the project's tracker:
+its open issues and open pull requests, read through `internal/forge`, which is
+the one place `gh` is run. Three calls, all on the operator's own
+authentication, and none of them while omatty is in the background: two
+`gh pr list` for the pull requests every minute (#310, #358), one
+`gh issue list` for the issues every five, and one `gh <kind> view` for the one
+item `enter` opens. Nothing is stored — the rows are derived at render time from
+the last poll, so `state.json` gains nothing and invariant 9 is untouched — and
+omatty writes nothing to the forge. `n` on an issue goes the other way, through
+the same `CreateFunc` the new-session prompt uses, and `a` types the item's
+reference into a session's composer as a bracketed paste with no carriage return
+(invariant 8).
+
+```
+ctrl+o i -> ui -> IssueListFunc/PRListFunc (cmd wiring) -> forge.CLI (gh) -> forge.Fold*
+enter    -> ui -> ItemFunc                              -> forge.CLI (gh) -> forge.FoldDetail
+n        -> ui -> CreateFunc -> registry.Creator -> vcs.CLI (git worktree add -b)
+a        -> paste.BracketedText("issue #399 ") -> PTY -> claude's composer, unsent
+```
+
 **Wiring.** `cmd/omatty` parses flags, builds every dependency - the launcher,
 the terminal factory, the registry store, the typed functions that reach git
 and the store on `ui`'s behalf - and calls `ui.Run`. It holds no logic
@@ -93,6 +113,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
 | `internal/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
 | `internal/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. |
+| `internal/forge` | omatty's only route to the `gh` CLI: a project's pull requests, its open issues, one item in full, and `gh browse`. Read-only on the forge (#310, #394, #397). |
 | `internal/gate` | A project's own verification commands, run in a session's directory. Verdicts come from exit status only (invariant 12). |
 | `internal/highlight` | omatty's only route to the syntax highlighter (chroma), with omatty's own colour style (#197). |
 | `internal/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
@@ -236,7 +257,7 @@ nothing depends on.
 
 | Package | Ca | Ce | I |
 |---|---|---|---|
-| `internal/ui` | 0 | 13 | 1.00 |
+| `internal/ui` | 0 | 14 | 1.00 |
 | `internal/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
 | `internal/supervisor` | 1 | 5 | 0.83 |
 | `internal/review` | 1 | 3 | 0.75 |
@@ -244,14 +265,16 @@ nothing depends on.
 | `internal/detach`, `watcher` | 1–3 | 1–3 | 0.50 |
 | `internal/registry` | 4 | 3 | 0.43 |
 | `internal/paths` | 6 | 0 | 0.00 |
-| `internal/gate`, `golist`, `hooks`, `termwrap`, `vcs`, `fuzzy` | 1–2 | 0 | 0.00 |
+| `internal/forge`, `gate`, `golist`, `hooks`, `termwrap`, `vcs`, `fuzzy` | 1–2 | 0 | 0.00 |
 | `internal/coverage` | 2 | 0 | 0.00 |
 | `internal/highlight`, `keys`, `notify`, `paste` | 1 | 0 | 0.00 |
 
 The chain reads as a clean monotonic descent —
 `cmd → ui → supervisor → agent → watcher → registry → {gate, paths, vcs}` — so
-the Stable Dependencies Principle holds with **0 violations over 36 edges**, the
-tightest being `watcher → registry` at **+0.071**.
+the Stable Dependencies Principle holds with **0 violations over 38 edges**, the
+tightest being `watcher → registry` at **+0.071**. `internal/forge` is a stable
+leaf like `vcs`: `ui` is its only importer, which is what keeps `gh` inside one
+package we own.
 
 **That is a gate, not an observation** (#269). It landed report-only on purpose:
 `I` is a ratio of small integers and moves in jumps — `internal/config` is

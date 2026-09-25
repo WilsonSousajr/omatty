@@ -217,3 +217,16 @@ func TestTrackerItem_ATruncatedItemSaysSo_issue397(t *testing.T) {
 		t.Errorf("a truncated item does not say so:\n%s", body)
 	}
 }
+
+// The item view has its own footer. Without one it fell through to the tree's,
+// which offers `o diff` and `enter` for things this view does not have - found by
+// the M14 smoke run, not by a test.
+func TestTrackerItem_TheFooterIsItsOwn_issue397(t *testing.T) {
+	m, _ := itemModel(t)
+	pressDeliver(m, special(tea.KeyEnter))
+
+	footer := frameLines(m)[len(frameLines(m))-1]
+	if !strings.Contains(footer, "scroll") || strings.Contains(footer, "o diff") {
+		t.Errorf("footer = %q, want the item's own keys and not the tree's", footer)
+	}
+}

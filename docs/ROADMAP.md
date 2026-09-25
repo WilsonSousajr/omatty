@@ -32,6 +32,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. Released in v0.2.0. |
 | M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. Of what it produced, #310 and #311 are built and released in v0.3.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379); what is open is the milestone's open issues on the board, not a count here. |
 | M13 | Memory and idle CPU | **Done.** PR #314, merged 2026-09-22. Released in v0.2.0. |
+| M14 | The Tracker | **Built** 2026-09-25 as PRs #400-#406, one per issue #393-#399. See the M14 section. |
 | — | **Released** | **v0.2.0**, 2026-09-22. M9-M11, M13 and the session lifecycle promoted to `main` (#328). See "Releases". |
 | — | **Released** | **v0.3.0**, 2026-09-25. M12's verification core (#311, #310, #335, #342), the release pipeline (#327) and the MIT license (#362). See "Releases". |
 
@@ -1179,6 +1180,108 @@ its blast radius to `internal/termwrap` when it happens.
 
 ---
 
+## M14 - The Tracker
+
+**Delivers:** the question every session starts from, answered without leaving
+the window. `ctrl+o i` shows a project's open issues and open pull requests,
+`enter` reads one in full, and `n` turns the one you picked into a session named
+and branched after it.
+
+**Why here.** M12 gave a card its pull request and its CI (#310). The rest of
+the forge was still a browser tab: how many issues are open, what they are
+about, which one to start next. That is the last daily-friction item left that
+does not need a new subsystem - `internal/forge` already owns `gh`, the review
+column already has four faces, and the sidebar already has a row per project
+doing nothing but naming it.
+
+**Why it is not the planning board this roadmap refuses.** "A planning board
+inside the TUI" and "a board driving the agents" are both refused under "Not on
+the roadmap", and both are argued from *two sources of truth*. M14 stores
+nothing: no issue state, no `state.json` field, no reconciliation. The rows are
+derived at render time from the last poll and are gone when omatty exits, which
+is the same standing a card's pull request has had since #310. It is a **window
+onto GitHub's board**, not a second one, and the distinction is exactly the one
+#310 already won for pull requests: reading the forge with the operator's own
+`gh`, on their own authentication, holding no token and syncing nothing.
+
+Two things keep that honest, and both are refusals:
+
+- **No forge writes.** No create, no comment, no close, no label, no assign.
+  Those are the ones that would need a board of their own to make sense, and
+  they are out. The keys that act - `n`, `a`, `b` - act on *this machine*: a
+  worktree, a composer, a browser.
+- **No prompt is ever sent.** `a` pastes the item's reference with no carriage
+  return (invariant 8), so the turn is the operator's to start. `n` hands over
+  the keyboard and types nothing. There is still no mode in which omatty works
+  while nobody is reading.
+
+**What it is, in seven slices**, one issue and one PR each:
+
+- **#393 `forge.ListIssues` (PR #400).** `Issue` and `FoldIssues`; one
+  `gh issue list --state open --limit 100` call per project, #358's rule applied
+  to the other list. `openFields` gains `title`, `isDraft` and `updatedAt` -
+  cheap fields on a call already being made. Both lists share one runner and one
+  context, so #356's bound stays "an answer inside thirty seconds" rather than
+  thirty per half. Plus `testdata/forgeprobe`, the `dtachprobe`/`gateprobe`
+  argument applied to this seam: the tests fold recorded JSON, which proves the
+  fold and nothing about gh.
+- **#394 the poll (PR #401).** `internal/ui/issuepoll.go`, every registered
+  project and not only those holding a session, on a five-minute tick where
+  `prEvery` is one - CI changes in minutes, an issue list in days. Everything
+  the two polls share goes through one `mayAsk`, which is also what keeps `dupl`
+  quiet and what stops them drifting apart. `prOff` became `notGitHub`: it now
+  gates two lists.
+- **#395 the counts (PR #402).** `13i 2p` on each project's sidebar header,
+  right-aligned and muted. Unknown is never drawn as zero - no gh, not GitHub,
+  not yet polled leaves the header byte-for-byte as it was - and the counts come
+  off before the name does, fifteen cells being what #155 settled still
+  identifies a row.
+- **#396 the view (PR #403).** `ViewTracker`, the fifth face of the review
+  column. Its opener is deliberately not `toggleView`, which returns early with
+  no session selected: this view belongs to a project, so it opens on one with
+  no sessions at all (#158). Its state is keyed by project, so following the
+  sidebar between two sessions of one project keeps the list and the cursor.
+- **#397 the item (PR #404).** `forge.ViewIssue`/`ViewPR` and
+  `ViewTrackerItem`, the list's child in `keptView`. One call on `enter`, cached
+  until `r`, bounded at 64 KiB with whole comments dropped rather than cut, and
+  every line wrapped to the column.
+- **#398 working from it (PR #405).** `n`, `a`, `b`. The branch is passed at
+  creation because `git worktree add -b` bakes it in (#151), and slugged because
+  an issue title is untrusted text on its way to a ref and a path (#127).
+- **#399 the filter and the docs (PR #406).** `/` over the number, the title and
+  the labels through `internal/fuzzy`; the marker never leaves the title (#285).
+  README's key table and "Issues and pull requests" section, this section, and
+  `internal/forge` in `docs/ARCHITECTURE.md`'s package table, where #310 had
+  never added it.
+
+**Three things worth remembering from building it:**
+
+- **The real-PTY run found two defects no unit test could.** The rule between
+  the two lists panned away with the rows, leaving them merged with nothing to
+  say where the issues stopped - it is a label, so it fits its own column now,
+  the way a diff's file header does (#291). And `testdata/fake-gh` answered both
+  `gh pr list` calls from one file, so every open pull request was listed twice
+  and every count doubled. Rule 2 earning its place for the fourth milestone
+  running.
+- **A shared fact belongs to both lists, a preference to neither.** `gh` missing
+  and a checkout that is not on GitHub are facts about the machine and the
+  checkout, so either poll finding one stops both; what is in flight and when it
+  was last asked are each list's own. Getting that split wrong silenced a poll
+  under test, which is how it was found.
+- **Wrapping catches its own bugs.** The truncation notice went in unwrapped and
+  was cut at the column edge in a view where every other line wraps. In a wrapped
+  view, an unwrapped line reads as a rendering bug - which is the useful part: it
+  shows.
+
+**Done when:** `ctrl+o i` answers "how many, and what are they about" for every
+registered project without leaving the window, and `n` on an issue puts you in a
+session named after it. Both verified in a real PTY at 120x32 and 80x24, plus a
+project holding no sessions.
+
+**Deliberately out:** every forge write (above); closed issues, which are
+history the forge already keeps; search across repositories; and a `[forge]`
+config section - the poll is zero-config, as #310's is.
+
 ## Not on the roadmap
 
 Considered and cut, so they do not creep back in through the side door.
@@ -1196,7 +1299,7 @@ for a stated reason rather than by omission.
 | A spec or plan approval gate before work may start | A spec precise enough to generate correct code is already a program, just written in prose — and the spec-code contract breaks at the first hotfix. Plans stay optional artifacts you may write; never a state the UI makes you pass through. |
 | Unattended task queues, scheduled runs, PR or chat subscriptions | A session runs because a person started it. There is no mode in which omatty works while nobody is reading. |
 | Cloud, accounts, sync | A project's accumulated knowledge is `AGENTS.md` and whatever memory tooling you use — on disk, in the repo, read by the agent *and* by you. Hidden context that only the tool can see is a regression, not a feature. |
-| A planning board inside the TUI | The board is GitHub project 13. A second one inside omatty means two sources of truth and a reconciliation problem nobody asked for. |
+| A planning board inside the TUI | The board is GitHub project 13. A second one inside omatty means two sources of truth and a reconciliation problem nobody asked for. M14's tracker is a *window* onto that board - it stores nothing and writes nothing - which is the distinction #310 already won for pull requests; see the M14 section. |
 | Agent-to-agent messaging | Same reason as the coordinator. If two sessions need to agree on something, that is a conversation for the person watching both of them. |
 
 **Each of these now has a live example, found by M12's research** (2026-09-18).
@@ -1208,7 +1311,7 @@ one argued from principle alone:
 | Auto-accepting prompts | `claude-squad`'s `-y/--autoyes` (its #222, #151), and `ccmanager`'s experimental AI auto-approval | It bypasses Claude Code's own confirmations. `ccmanager`'s README argues against `claude-squad`'s version by name — "not recommended for safe operation" — which is a competitor making omatty's case. |
 | Agents dispatching to each other | `fleet skill install` — an Agent Skill teaching agents `fleet wt` and `fleet send` | Well made, opt-in, and exactly the thing above. The option was available and taken by someone else; the reason for declining has not changed. |
 | Agent runs triggered by CI | Orca #10131, "auto-run agents when PR checks fail" | One step past #233's auto-run, which gates a session when its turn ends and *sends nothing*. That step is where a verification tool becomes an orchestrator. |
-| A board driving the agents | `vibe-kanban`, and a camp three times the size of the terminal camp | Two sources of truth. The board is GitHub project 13. |
+| A board driving the agents | `vibe-kanban`, and a camp three times the size of the terminal camp | Two sources of truth. The board is GitHub project 13. Reading that board inside omatty is not driving anything: M14 shows it and acts only on the keypress in front of you, and it cannot write to it at all. |
 | Mobile companions, cloud sessions, account sync | Orca, Nimbalyst | Hidden context only the tool can see is a regression. |
 | Merging when the checks go green | GitHub's own auto-merge, and every CI service with a merge queue | The same step as Orca #10131 one row up, arrived at from the other side: it acts because a check changed, with nobody reading. #331's ship key merges only what is *already* green, on a keypress, and refuses otherwise. Auto-merge is a real feature and a reasonable thing to want - it belongs on the forge, which has it, not inside a tool whose whole claim is that it only ever acts while you are watching. |
 
