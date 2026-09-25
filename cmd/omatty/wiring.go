@@ -102,6 +102,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 func withForgeDeps(deps ui.RunDeps) ui.RunDeps {
 	gh := forge.NewCLI()
 	deps.PRs, deps.Issues = gh.ListPRs, gh.ListIssues
+	deps.Item = ui.ForgeItemFuncs{Issue: gh.ViewIssue, PR: gh.ViewPR}
 	return deps
 }
 

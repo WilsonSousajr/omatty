@@ -28,6 +28,11 @@ type trackerList struct {
 	Project string
 	Cursor  int
 	Offset  int
+	// The open item (#397): which row is being read in full, and how far down it
+	// is scrolled. Only meaningful while the view is ViewTrackerItem.
+	ItemPR     bool
+	ItemNumber int
+	ItemOffset int
 }
 
 // trackerKind is what a drawn row is.
@@ -61,7 +66,7 @@ func (m *Model) TrackerCursor() int { return m.review.Tracker.Cursor }
 // last poll would be up to five minutes stale on the keypress that asked for
 // it, which is renderGate's argument for running the gate on open (#231).
 func (m *Model) toggleTracker() tea.Cmd {
-	if m.review.Open && m.review.View == ViewTracker {
+	if m.review.Open && keptView(m.review.View) == ViewTracker {
 		return m.closeColumn()
 	}
 	project := m.sidebar.CursorProject()
@@ -104,6 +109,8 @@ func (m *Model) onTrackerKey(key string) tea.Cmd {
 		m.review.Focused = false
 	case "r":
 		return m.readTracker(m.review.Tracker.Project)
+	case "enter":
+		return m.openItemAtCursor()
 	default:
 		m.panKey(key)
 	}

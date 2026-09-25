@@ -87,6 +87,9 @@ type Deps struct {
 	// which stops every poll: what every test sees.
 	PRs    PRListFunc
 	Issues IssueListFunc
+	// Item reads one issue or pull request in full, on the keypress that opens
+	// it (#397). Unwired, it says gh is missing.
+	Item ForgeItemFuncs
 	// Rename persists a session's new title (#41), and Name reads the first
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
@@ -174,6 +177,12 @@ func (d Deps) withPRDefaults() Deps {
 	}
 	if d.Issues == nil {
 		d.Issues = noIssues
+	}
+	if d.Item.Issue == nil {
+		d.Item.Issue = noItem
+	}
+	if d.Item.PR == nil {
+		d.Item.PR = noItem
 	}
 	return d
 }

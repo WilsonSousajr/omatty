@@ -52,6 +52,7 @@ const (
 	ViewPreview
 	ViewGate
 	ViewTracker
+	ViewTrackerItem
 )
 
 // focusTarget is which pane receives a key the router sends "to the terminal":
@@ -377,10 +378,15 @@ func (m *Model) followSession() tea.Cmd {
 	return tea.Batch(m.loadDiff(id), m.loadFiles(id))
 }
 
-// keptView is the view a column carries to another session.
+// keptView is the view a column carries to another session, and the view its
+// own leader key toggles: a child view degrades to its parent, so ctrl+o f over
+// a preview and ctrl+o i over an item both close the column (#124, #397).
 func keptView(v ReviewView) ReviewView {
-	if v == ViewPreview {
+	switch v {
+	case ViewPreview:
 		return ViewTree
+	case ViewTrackerItem:
+		return ViewTracker
 	}
 	return v
 }
