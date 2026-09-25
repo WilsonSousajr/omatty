@@ -444,10 +444,11 @@ one mark for it, read through your own `gh`:
 | `#349 merged` / `#349 closed` | the pull request is done |
 | `#349 ?` | the last read failed; the old verdict is not shown as current |
 
-omatty makes one `gh pr list` call per project, when omatty regains focus, when
-a session finishes a turn, and every minute while it has focus - never while it
-is in the background, and never more than once in thirty seconds for one
-project. Without `gh`, or for a repository that is not on GitHub, the card shows
+omatty reads each project's pull requests with two `gh pr list` calls - the
+open ones, then the thirty most recently finished - when omatty regains focus,
+when a session finishes a turn, and every minute while it has focus - never
+while it is in the background, never more than once in thirty seconds for one
+project, and never for longer than thirty seconds. Without `gh`, or for a repository that is not on GitHub, the card shows
 the branch as before and says so once in the log. A pull request from a fork is
 never taken for the session's, whatever its branch is called; a session on the
 main checkout shows open pull requests only, and a merged or closed one shows
