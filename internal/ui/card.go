@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
 
@@ -74,27 +76,67 @@ func (m *Model) cardMeta(id string) string {
 	if !ok {
 		return strings.Repeat(" ", metaCols)
 	}
-	left, isPR := m.metaLeft(id, st.Branch)
+	left, kind := m.metaLeft(id, st.Branch)
 	stat := diffstat(st)
-	// A branch is cut to keep the diffstat (#180); a pull request label is
-	// not - "#349 merged" says more about a finished session than its line
-	// counts, so there the diffstat gives way (#310).
-	if stat == "" || (isPR && lipgloss.Width(left)+1+lipgloss.Width(stat) > metaCols) {
+	if kind != metaBranch && lipgloss.Width(left)+1+lipgloss.Width(stat) > metaCols {
+		left, stat = squeezePR(left, kind, st)
+	}
+	if stat == "" {
 		return fitLine(left, metaCols)
 	}
 	return fitLine(left, metaCols-lipgloss.Width(stat)-1) + " " + stat
 }
 
+// metaKind is what line two's left side names, which decides what gives way
+// when it and the diffstat do not both fit.
+type metaKind int
+
+const (
+	metaBranch     metaKind = iota // cut to keep the diffstat (#180)
+	metaOpenPR                     // keeps its CI mark, and the diffstat its place (#357)
+	metaFinishedPR                 // "#349 merged": the diffstat gives way (#310)
+)
+
+// squeezePR fits a pull request label beside the diffstat. A finished one
+// wins outright - "#349 merged" says more about a finished session than its
+// line counts (#310). An open one is an active card, where the counts matter:
+// the label drops the space before its mark, and the diffstat sheds whole
+// parts rather than being cut mid-number, which would read as a different
+// count. The label, and so the CI verdict, is never cut (#357).
+func squeezePR(label string, kind metaKind, st review.Stat) (string, string) {
+	if kind == metaFinishedPR {
+		return label, ""
+	}
+	label = strings.Replace(label, " ", "", 1)
+	return label, diffstatWithin(st, metaCols-lipgloss.Width(label)-1)
+}
+
+// diffstatWithin is the diffstat in at most w cells: whole, then the added
+// count alone, then nothing.
+func diffstatWithin(st review.Stat, w int) string {
+	if full := diffstat(st); lipgloss.Width(full) <= w {
+		return full
+	}
+	if added := addedStyle.Render("+" + KString(st.Added)); lipgloss.Width(added) <= w {
+		return added
+	}
+	return ""
+}
+
 // metaLeft is the pull request the session's branch has, or the branch.
-func (m *Model) metaLeft(id, branch string) (string, bool) {
+func (m *Model) metaLeft(id, branch string) (string, metaKind) {
 	sess, ok := m.session(id)
 	if !ok {
-		return branch, false
+		return branch, metaBranch
 	}
-	if pr, found := m.prFor(sess); found {
-		return m.prLabel(pr, sess.Project), true
+	pr, found := m.prFor(sess)
+	switch {
+	case !found:
+		return branch, metaBranch
+	case pr.State == forge.Open:
+		return m.prLabel(pr, sess.Project), metaOpenPR
 	}
-	return branch, false
+	return m.prLabel(pr, sess.Project), metaFinishedPR
 }
 
 // diffstat is "+12 −3" in the diff colours, "" for a clean tree - never
