@@ -87,6 +87,8 @@ func (m *Model) onPaneKey(key string) tea.Cmd {
 		return m.onPreviewKey(key)
 	case ViewGate:
 		return m.onGateKey(key)
+	case ViewTracker:
+		return m.onTrackerKey(key)
 	default:
 		return m.onReviewKey(key)
 	}
@@ -176,19 +178,33 @@ func (m *Model) paneCommand(key string) tea.Cmd {
 	if cmd, ok := m.lifecycleCommand(key); ok {
 		return cmd
 	}
+	if cmd, ok := m.columnCommand(key); ok {
+		return cmd
+	}
 	switch key {
-	case "d":
-		return m.toggleView(ViewDiff)
-	case "f":
-		return m.toggleView(ViewTree)
-	case "g":
-		return m.toggleView(ViewGate)
 	case "m":
 		return m.toggleMouse()
 	case "q":
 		return tea.Quit
 	}
 	return m.modalCommand(key)
+}
+
+// columnCommand is the four keys that open, switch or close the review column.
+// Split off paneCommand when the tracker pushed it past the statement limit,
+// and the four belong together: one column, four faces (#396).
+func (m *Model) columnCommand(key string) (tea.Cmd, bool) {
+	switch key {
+	case "d":
+		return m.toggleView(ViewDiff), true
+	case "f":
+		return m.toggleView(ViewTree), true
+	case "g":
+		return m.toggleView(ViewGate), true
+	case "i":
+		return m.toggleTracker(), true
+	}
+	return nil, false
 }
 
 // lifecycleCommand is the two keys that end the focused session's process:

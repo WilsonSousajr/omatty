@@ -73,6 +73,12 @@ func gateFooterLine(leader string) string {
 	return "j/k move  enter output  S send  esc back  " + leader + " ? keys"
 }
 
+// trackerFooterLine is the tracker's keys (#396). r rather than enter, because
+// what enter opens is #397's.
+func trackerFooterLine(leader string) string {
+	return "j/k move  h/l pan  r read again  esc back  " + leader + " ? keys"
+}
+
 // emptyTreeHint is the tree's empty state: a repository that listed
 // successfully and holds nothing, which is not a listing still in flight (#131).
 const emptyTreeHint = "no files - the repository is empty; press r to list again"
@@ -337,6 +343,8 @@ func (m *Model) footerKeys() string {
 		return reviewFooterLine(m.leader)
 	case ViewGate:
 		return gateFooterLine(m.leader)
+	case ViewTracker:
+		return trackerFooterLine(m.leader)
 	}
 	return treeFooterLine(m.leader)
 }
