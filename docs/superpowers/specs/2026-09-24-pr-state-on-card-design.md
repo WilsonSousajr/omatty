@@ -16,7 +16,7 @@ Decisions already taken with the user:
 | Decision | Choice |
 |---|---|
 | Card placement | Once a PR exists, **line 2's branch becomes `#349` + one CI mark**; no PR → branch as today; line 3 stays the local gate |
-| Data source | **One `gh pr list` per registered project per poll**, matched to sessions by branch — never per-PR calls (they tripped GitHub's secondary rate limit here before) |
+| Data source | **One `gh pr list` per registered project per poll** (two since #358: open, then recently finished), matched to sessions by branch — never per-PR calls (they tripped GitHub's secondary rate limit here before) |
 
 ## 1. Reading PR state — `internal/forge`
 
@@ -26,7 +26,13 @@ Decisions already taken with the user:
   package is a decision"), and `TestDepguard_ExecAllowlistMatchesReality`.
 - `forge.CLI.ListPRs(repoRoot) ([]PR, error)` runs, in the project root:
   `gh pr list --state all --limit 100 --json number,headRefName,state,mergeStateStatus,statusCheckRollup`
-  (fields verified against gh 2.87.3 on this repo). gh resolves the repo from
+  (fields verified against gh 2.87.3 on this repo).
+  **Superseded by #358:** `--state all` orders by creation, and an open PR older
+  than the newest hundred dropped off its card. It is now two calls in one
+  30 s bound (#356): `--state open --limit 100` with every field Fold reads
+  (`number,headRefName,headRefOid,isCrossRepository,state,mergeStateStatus,statusCheckRollup`),
+  then `--state closed --limit 30` without the two check fields - gh's
+  "closed" includes merged, and a finished card shows no CI mark. gh resolves the repo from
   the remote and uses the user's own auth; omatty stores nothing.
 - `PR{Number int; Branch string; State PRState; CI CIState; Conflict bool}`,
   folded from the JSON by a pure function:
@@ -55,7 +61,8 @@ Decisions already taken with the user:
      **never while blurred** (the `m.hasFocus` gate `pollAll` already uses, #314);
   4. boot, once.
 - **One call in flight per project** (`prPending[project]`), as `statPending` does
-  per session. Cost: one GraphQL call per project per minute while focused.
+  per session. Cost: one GraphQL call per project per minute while focused
+  (two since #358; the second carries no check rollup).
 - **Matching** a session to a PR, at render time, derived not stored (invariant 9):
   the session's current branch is `m.repoStat[id].Branch` (the stat poll's
   `CurrentBranch`); the PR is the **highest-numbered** one whose `headRefName`
@@ -75,6 +82,10 @@ Decisions already taken with the user:
   amber for added/removed/comment): open PR by precedence **✗ failing > ⚠
   conflict/behind > ◍ running > ✓ passing**, no checks → `#349` alone;
   `#349 merged`, `#349 closed` (the diffstat then gives way if it must).
+  An open PR's label is never cut: when it and the diffstat do not both fit -
+  `#1234 ✓` beside `+312 −1.2k` - the label drops the space before its mark,
+  then the diffstat sheds whole parts, `+312 −1.2k` to `+312` to nothing,
+  never a number cut mid-way (#357).
 - **Unknown is never passing** (Orca #18484): if the project's last poll failed
   while a PR was known, the mark is `?` until a poll succeeds.
 - **Degradation**, as quiet as `internal/detach` without dtach: `ErrNoGH` → stop

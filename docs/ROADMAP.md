@@ -30,7 +30,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. Released in v0.2.0. |
 | M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. Released in v0.2.0. |
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. Released in v0.2.0. |
-| M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. Of what it produced, #310 and #311 are built and released in v0.3.0; #309 is open. |
+| M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. Of what it produced, #310 and #311 are built and released in v0.3.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379); what is open is the milestone's open issues on the board, not a count here. |
 | M13 | Memory and idle CPU | **Done.** PR #314, merged 2026-09-22. Released in v0.2.0. |
 | — | **Released** | **v0.2.0**, 2026-09-22. M9-M11, M13 and the session lifecycle promoted to `main` (#328). See "Releases". |
 | — | **Released** | **v0.3.0**, 2026-09-25. M12's verification core (#311, #310, #335, #342), the release pipeline (#327) and the MIT license (#362). See "Releases". |
@@ -132,10 +132,15 @@ message. Browse the session's worktree and preview the files it touched.
   tree, `*` marks a file the diff changed, `enter` folds a directory or
   previews a file, bounded at 256 KiB.
 
-**Deliberately out:** asking Claude to self-review, commit/push/PR from
-omatty, running N sessions on one task and comparing, broadcasting a prompt.
-All considered; all cut. Review stays a person reading a diff and commenting.
-Shipping stays in git.
+**Deliberately out:** asking Claude to self-review, running N sessions on one
+task and comparing, broadcasting a prompt. All considered; all cut. Review
+stays a person reading a diff and commenting.
+
+Commit, push and PR from omatty were cut here too, and that is **superseded**:
+the decision was reserved for #331 when #310 landed, and taken on 2026-09-25
+under "Acting on a pull request" below. M3's reason - that shipping is git's
+job and not a review pane's - still holds for M3, which had no gate verdict to
+act on and no remote verdict to read. What changed is that both now exist.
 
 **Done when:** you review a two-file change, leave three comments, press
 `[S]`, and Claude receives them as one message and acts on all three; and
@@ -680,8 +685,10 @@ that says whether work in it is sound, and the sessions running against it.
 omatty runs that gate in a session's own directory, shows the verdict on the
 session's card, and sends the failures back into the session that caused them.
 
-**Why this and not something else.** v0.1.0 shipped into a field of roughly a
-hundred and fifty agent orchestrators, and every one of them optimises the same
+**Why this and not something else.** v0.1.0 shipped into a field of hundreds
+of agent orchestrators (sized in `docs/research/2026-landscape.md` §2, probed
+2026-09-18: 184 to 1,300 repositories depending on the query, none filtered
+for a maintained tool; #340), and every one of them optimises the same
 variable: how much agent-work can be in flight at once. omatty bets on the
 other one - how fast a person can tell whether what came back is any good - and
 that bet had already decided M3's review loop and everything the roadmap
@@ -1035,6 +1042,18 @@ and the research deliberately stops before deciding their shape:
   M9 made the gate the product: a gate step that fails because `.env` is
   missing is the gate being wrong about the code, and a red card the operator
   learns to ignore is worse than no card.
+
+  **Built** as `omatty carry <project> <path>...`, with the list in
+  `state.json` as `Project.Carry` beside `Project.Gate`. The design question
+  the issue owed an answer to is settled against the two competitors: they put
+  the list in a repository file (`.worktreeinclude`, `.fleet.json`), omatty
+  keeps it per project in `state.json`, because that is how every other
+  per-project setting here works, the empty value is derivable so `Version`
+  stays 1 (invariant 9), and a clone must not get to choose which files are
+  copied off the operator's disk. The cost, named rather than hidden: the list
+  is not shared with a team. The copy runs before the session is registered,
+  so anything that starts next can rely on the files - the ordering ccmanager
+  arrived at deliberately.
 - **#310 PR and CI state on the session card.** The field asks for the remote
   verdict (Orca #18484, #18485, #18487; `fleet` ships it). omatty has the local
   one. They are complements, and this is verification rather than
@@ -1047,13 +1066,28 @@ and the research deliberately stops before deciding their shape:
   session changed, so a reviewer re-reads three turns on the third turn. This
   is the only gap the pass found *in the thesis itself*.
 
+**Taken back** (2026-09-25, #379). The P1/P2 list was first cut here as
+real, small, and none of it the reason to open the tool. Two of its items
+then shipped anyway - a comment that knows it was sent (#335) and Homebrew
+(#327) - and the rest was filed with M12's label while this section still
+argued against it. Rather than keep a milestone whose roadmap refuses its own
+issues, M12 took them back:
+
+- **#336** scrollback survives a dtach reattach (#191's remainder).
+- **#337** per-file reviewed, and changed since reviewed.
+- **#338** generated files collapsed in the review tree.
+- **#339** several comments per line, and comments on part of a line.
+- **#331** ship a green session from its card, **#332** lead time and
+  first-pass gate rate, **#334** revert a session to the start of its last
+  turn, and **#333** an LLM audit as a gate step - each built on the
+  verification core v0.3.0 shipped (#310's remote verdict, #311's per-turn
+  baseline, the gate).
+
+They are still not the reason to open the tool. They are what the reason
+needs once it is there, and `prior-art-findings.md` keeps their priorities.
+
 **Deliberately cut:**
 
-- **Everything else on the P1/P2 list** - a comment that knows it was sent,
-  scrollback after a reattach (#191), per-file reviewed marks, generated-file
-  suppression, sub-line comments, Homebrew. Real, small, and none of them is
-  the reason to open the tool. They stay in `prior-art-findings.md` with their
-  priorities so the next pass does not rediscover them.
 - **Widening the agent seam to match `ccmanager`'s eight.** #152 stays the
   scope. `ccmanager`'s #82 and #107 are what each added profile costs: an
   escape-key bug per agent.
@@ -1176,12 +1210,36 @@ one argued from principle alone:
 | Agent runs triggered by CI | Orca #10131, "auto-run agents when PR checks fail" | One step past #233's auto-run, which gates a session when its turn ends and *sends nothing*. That step is where a verification tool becomes an orchestrator. |
 | A board driving the agents | `vibe-kanban`, and a camp three times the size of the terminal camp | Two sources of truth. The board is GitHub project 13. |
 | Mobile companions, cloud sessions, account sync | Orca, Nimbalyst | Hidden context only the tool can see is a regression. |
+| Merging when the checks go green | GitHub's own auto-merge, and every CI service with a merge queue | The same step as Orca #10131 one row up, arrived at from the other side: it acts because a check changed, with nobody reading. #331's ship key merges only what is *already* green, on a keypress, and refuses otherwise. Auto-merge is a real feature and a reasonable thing to want - it belongs on the forge, which has it, not inside a tool whose whole claim is that it only ever acts while you are watching. |
 
 **Reading a pull request's state is not "cloud, accounts, sync"** (#310).
 omatty runs the operator's own `gh`, read-only, holds no token of its own, makes
 one call per project and none while it is in the background. It writes nothing
 to the forge: acting on a pull request - pushing, opening, merging - is a
-separate decision (#331), taken when it is proposed, not by this one.
+separate decision (#331), taken when it is proposed, not by this one. It has
+since been proposed, and the paragraph below takes it.
+
+**Acting on a pull request: decided 2026-09-25 (#331).** It is accepted,
+bounded to what a person asks for while reading:
+
+- **Push the branch and open the pull request**, and **merge one whose local
+  *and* remote verdicts are already green**. Otherwise do nothing and say which
+  of the two is missing.
+- **One keypress, one session, every time.** That is the same shape as `S`
+  sending the gate's failures back, and it is the criterion this section
+  actually applies - not whether the forge is touched, but whether omatty acts
+  while nobody is reading.
+- **Never** merging when checks *go* green, which is the row added to the table
+  above. Never a force-push, never a branch deletion.
+- **Never into a protected branch.** AGENTS.md makes `main` moveable only by a
+  promotion pull request: "This applies to the repository owner too - that is
+  the point of it." A ship key that could merge into `main` would route around
+  omatty's own release gate, so the base is the project's base branch
+  (`develop` here), and a protected target is a refusal like any other.
+
+Using the operator's existing `git` remote and `gh` auth is not "cloud,
+accounts, sync" - there is no account, no token and no sync. It is the
+credential the operator already uses by hand, on a keypress they pressed.
 
 One idea found in the field is **not** refused, only unanswered: **forking a
 session's conversation** (`fleet`'s `f`). Invariant 9 asks the first question —
@@ -1197,7 +1255,10 @@ faster pair.
 ### Also cut
 
 - Claude self-reviewing its own diff
-- Commit / push / PR from inside omatty
+- ~~Commit / push / PR from inside omatty~~ - **accepted 2026-09-25**, bounded,
+  as "Acting on a pull request" above sets out. Listed here from M1 until then.
+  Its dangerous half, merging when checks go green, is refused by name in the
+  orchestrator table and did not come with it.
 - Running N sessions on one task and comparing the results
 - Broadcasting one prompt to several sessions
 - SSH / remote sessions

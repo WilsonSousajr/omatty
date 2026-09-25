@@ -29,12 +29,33 @@ type settings struct {
 //
 //	content, _ := hooks.Render("/Users/w/go/bin/omatty", watcher.HookEventNames())
 func Render(binPath string, eventNames []string) ([]byte, error) {
-	h := hookCommand{Type: "command", Command: shellQuote(binPath) + " hook", Timeout: 5}
+	h := hookCommand{Type: "command", Command: hookLine(binPath), Timeout: 5}
 	events := make(map[string][]group, len(eventNames))
 	for _, name := range eventNames {
 		events[name] = []group{{Hooks: []hookCommand{h}}}
 	}
 	return json.MarshalIndent(settings{Hooks: events}, "", "  ")
+}
+
+// hookLine is the shell command claude runs for one event, written so that a
+// binary which is no longer there is also a silent success.
+//
+// Invariant 11 says a hook must never block or fail claude, and `omatty hook`
+// keeps that once it runs. The command around it did not. claude reads
+// --settings once, at startup, so a session keeps the absolute path of the
+// omatty that launched it for as long as it lives; reinstalling elsewhere
+// (go install -> brew, a brew upgrade to a new Cellar path, go clean) removes
+// that file. `sh` then exited 127 with "No such file or directory" on stderr
+// for every hook event, and claude showed it on every tool call in every
+// running session (#380).
+//
+// `|| true` makes the exit 0. `2>/dev/null` is what silences sh's own message,
+// and it costs nothing: invariant 11 already requires `omatty hook` to write
+// nothing to stdout or stderr in every case - socket missing, connection
+// refused, malformed JSON - so there is no diagnostic here to lose. claude's
+// stdin payload simply goes unread, which is the same as it was when sh failed.
+func hookLine(binPath string) string {
+	return shellQuote(binPath) + " hook 2>/dev/null || true"
 }
 
 // shellQuote wraps s in single quotes for a POSIX shell, escaping any single

@@ -80,7 +80,8 @@ var leaderKeys = []keyHelp{
 // else (#217).
 var claudeKeys = []keyHelp{
 	{"pgup / pgdn", "scroll the transcript"},
-	{"shift/opt+drag", "select text yourself (your terminal picks the modifier)"},
+	{"drag in a pane", "copies that pane's text, clipped to it"},
+	{"shift/opt+drag", "select across omatty's own panes (your terminal picks the modifier)"},
 	{"claude's copy", "reaches your clipboard on its own"},
 	{"paste", "goes to this pane as pasted text; it does not submit"},
 }

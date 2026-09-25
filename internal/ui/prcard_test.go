@@ -131,3 +131,32 @@ func TestCard_aFinishedPullRequestOnAnotherCommitIsNotThisWork_issue310(t *testi
 		t.Errorf("line two middle = %q, want the branch, not the old #240", got)
 	}
 }
+
+// An open pull request keeps its diffstat (#357). The give-way #310 wrote was
+// meant for "merged" and "closed", where the label says more than the line
+// counts; on an active card a four-digit number and a large diffstat used to
+// hide the stat entirely. Now the label drops the space before its mark, then
+// the stat sheds whole parts - never a number cut mid-way, which would read
+// as a different count - and the CI verdict is never cut.
+func TestCard_anOpenFourDigitPullRequestKeepsItsDiffstat_issue357(t *testing.T) {
+	passing := []forge.PR{open(1234, "parser-fix", forge.CIPassing)}
+	merged := []forge.PR{{Number: 1234, Branch: "parser-fix", State: forge.Merged, Head: "h1"}}
+	for _, tt := range []struct {
+		name           string
+		prs            []forge.PR
+		added, removed int
+		want           string
+	}{
+		{"both fit as they are", passing, 12, 3, "#1234 ✓   +12 −3"},
+		{"exactly sixteen", passing, 312, 12, "#1234 ✓ +312 −12"},
+		{"the issue's case: the gap goes, then the removed half", passing, 312, 1200, "#1234✓      +312"},
+		{"the widest diffstat", passing, 1200, 1200, "#1234✓     +1.2k"},
+		{"merged still gives the diffstat way", merged, 12, 3, "#1234 merged    "},
+	} {
+		m := modelWithCard(t, "main", tt.prs...)
+		m.SetRepoStat("s2", review.Stat{Branch: "parser-fix", Added: tt.added, Removed: tt.removed, Head: "h1"})
+		if got := cardMiddle(t, m, "s2"); got != tt.want {
+			t.Errorf("%s: line two middle = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}

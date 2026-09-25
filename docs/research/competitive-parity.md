@@ -64,24 +64,35 @@ than `README.md` implies.
 Where "better" is not true today. From `prior-art-findings.md`, restated as
 what a migrating user would lose:
 
-- **A worktree that can actually run the project.** ccmanager's
-  `.worktreeinclude` and fleet's `.fleet.json` carry gitignored files into a
-  new worktree. omatty does not. A user coming from either **loses a feature
-  they use every day**, and it is the first thing they will notice.
-- **PR and CI state.** fleet shows it on the row. omatty shows nothing remote.
+- ~~**A worktree that can actually run the project.**~~ Closed by #309:
+  `omatty carry` copies a project's gitignored paths into every new worktree,
+  before claude starts in it. ccmanager's `.worktreeinclude` and fleet's
+  `.fleet.json` keep the list in the repository; omatty keeps it per project
+  in `state.json`, so a clone cannot choose what is copied off your disk. The
+  cost of that choice is that the list is not shared with a team.
+- ~~**PR and CI state.**~~ Closed by #310, released in v0.3.0: `internal/forge`
+  reads the pull request and its checks through `gh`, and the session card
+  carries the verdict. fleet shows it on the row; omatty shows it on the card.
 - **Breadth of agents.** ccmanager supports eight agent CLIs; claude-squad is
   agent-agnostic through one `--program` flag. omatty has claude and a
   half-spiked Codex (#152).
 - **Windows.** ccmanager runs there. omatty does not, and neither does
   claude-squad (#275).
-- **Distribution.** Homebrew and a one-line installer for claude-squad; nothing
-  for omatty.
-- **Scrollback after a reattach** (#191), **a scratch shell** (fleet's terminal
-  drawer), **session forking** (fleet), **a comment that knows it was sent**
-  (Orca's `sentAt`), **review scoped to "since my last read"** (Orca #11840).
+- **Distribution**, partly closed. v0.3.0 shipped a Homebrew cask and four
+  release archives with checksums (#327, #361), so "nothing for omatty" is no
+  longer true. What claude-squad still has and omatty does not is a one-line
+  installer, and neither a Linux package (apt, AUR, nix).
+- **Scrollback after a reattach** (#191's remainder, open as #336), **a scratch
+  shell** (fleet's terminal drawer), **session forking** (fleet), and **review
+  scoped to "since my last read"** (Orca #11840, open as #337 — #311 shipped
+  scoping by *time*, which is a different question from scoping by what you
+  have read).
+- ~~**A comment that knows it was sent**~~ (Orca's `sentAt`). Closed by #335,
+  released in v0.3.0.
 
-Five of those eleven are things a competitor's user relies on. That is the
-honest shape of the bar.
+No count of what is left is written here on purpose. One was, and it was stale
+within days: this list is read against the board, which is where the open
+issues actually live.
 
 ## Did omatty copy without improving?
 

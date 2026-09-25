@@ -120,7 +120,7 @@ func TestModel_aSentCommentWhoseLineIsGoneIsDropped_issue335(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Diff: edited})
+	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Seq: m.DiffSeq(), Diff: edited})
 
 	body := m.View().Content
 	if strings.Contains(body, "sent b") {

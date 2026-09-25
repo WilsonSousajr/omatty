@@ -236,3 +236,10 @@ func (m *Model) SessionBranch(id string) string {
 func (m *Model) PollPRs() tea.Cmd                { return m.pollPRs() }
 func (m *Model) PRsOf(project string) []forge.PR { return m.prs[project] }
 func (m *Model) PRFailed(project string) bool    { return m.prFailed[project] }
+
+// DiffSeq and TurnSeq are the latest load's numbers, so a test that hands in
+// a loaded diff of its own stamps it as the answer to that load (#352).
+func (m *Model) DiffSeq() uint64 { return m.diffSeq }
+
+// TurnSeq is DiffSeq for the turn diff.
+func (m *Model) TurnSeq() uint64 { return m.turnSeq }

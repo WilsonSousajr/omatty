@@ -34,10 +34,14 @@ func fakeGH(t *testing.T, out, errOut string, code int) (bin, calls string) {
 	return bin, calls
 }
 
-// One call per project, in its root, asking for exactly the fields Fold
-// reads - so gh resolves the repository from the checkout's own remote.
-func TestCLI_ListPRsRunsOneListInTheRepoRoot_issue310(t *testing.T) {
-	bin, calls := fakeGH(t, `[{"number":7,"headRefName":"feat-x","state":"OPEN","mergeStateStatus":"CLEAN","statusCheckRollup":[]}]`, "", 0)
+// Two calls per project, both in its root, each asking for exactly the
+// fields Fold reads - so gh resolves the repository from the checkout's own
+// remote. Until #358 this was one `--state all` call; the open set is now
+// asked for whole, and the finished window without the checks it never shows.
+func TestCLI_ListPRsRunsItsListsInTheRepoRoot_issue310(t *testing.T) {
+	bin, calls := ghByState{Answers: map[string]string{
+		"open": `[{"number":7,"headRefName":"feat-x","state":"OPEN","mergeStateStatus":"CLEAN","statusCheckRollup":[]}]`,
+	}}.install(t)
 	root := t.TempDir()
 
 	prs, err := forge.NewCLIWithBin(bin).ListPRs(root)
@@ -49,11 +53,19 @@ func TestCLI_ListPRsRunsOneListInTheRepoRoot_issue310(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "pr list --state all --limit 100 --json number,headRefName,headRefOid,isCrossRepository,state,mergeStateStatus,statusCheckRollup"
-	line := strings.TrimSpace(string(got))
-	dir, args, _ := strings.Cut(line, "|")
-	if args != want || !sameDir(t, dir, root) {
-		t.Errorf("gh was called as %q in %s, want %q in %s", args, dir, want, root)
+	want := []string{
+		"pr list --state open --limit 100 --json number,headRefName,headRefOid,isCrossRepository,state,mergeStateStatus,statusCheckRollup",
+		"pr list --state closed --limit 30 --json number,headRefName,headRefOid,isCrossRepository,state",
+	}
+	lines := strings.Split(strings.TrimSpace(string(got)), "\n")
+	if len(lines) != len(want) {
+		t.Fatalf("gh was called %d times, want %d:\n%s", len(lines), len(want), got)
+	}
+	for i, line := range lines {
+		dir, args, _ := strings.Cut(line, "|")
+		if args != want[i] || !sameDir(t, dir, root) {
+			t.Errorf("call %d was %q in %s, want %q in %s", i, args, dir, want[i], root)
+		}
 	}
 }
 

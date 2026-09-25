@@ -71,7 +71,8 @@ ctrl+o S -> review.Compose -> "\x1b[200~ ... \x1b[201~\r" -> PTY -> claude
 **Wiring.** `cmd/omatty` parses flags, builds every dependency - the launcher,
 the terminal factory, the registry store, the typed functions that reach git
 and the store on `ui`'s behalf - and calls `ui.Run`. It holds no logic
-(invariant 10). Subcommands (`add`, `rm`, `new`, `discover`, `adopt`) call
+(invariant 10). Subcommands (`add`, `rm`, `new`, `discover`, `adopt`, `gate`,
+`carry`) call
 `registry` and `discover` directly and print plain text; the TUI is the only
 thing that ever owns stdout.
 
@@ -99,7 +100,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
 | `internal/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
 | `internal/paths` | Every filesystem location omatty reads or writes. Pure; takes `home` explicitly so tests never touch the real one. |
-| `internal/registry` | Projects, sessions, `state.json`, and the commands that edit them (add, remove, rename, adopt, create). |
+| `internal/registry` | Projects, sessions, `state.json`, and the commands that edit them (add, remove, rename, adopt, create, gate, carry). Creating a worktree also carries the project's gitignored paths into it, before the session is registered (#309). |
 | `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |
 | `internal/supervisor` | The `claude` process behind each session: fresh start vs resume, the PTY, the holder. |
 | `internal/termwrap` | omatty's only route to the terminal emulator (bubbleterm). |
@@ -125,6 +126,14 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
    must match Claude's own directory transform character for character - #60
    was a path with a space the old mapping missed, which left the tailer
    blind and every restart starting a fresh session instead of resuming.
+
+   `termwrap.Text` reads that grid, and does not breach this. The invariant
+   forbids *inferring session state* from a rendering, because the JSONL
+   already reports it exactly. Copying the cells a drag selected is not an
+   inference about anything: the text is the product, nothing derived from it
+   reaches `watcher`, and no status is read off it (#360). The test of the
+   rule is whether a wrong answer would mislead omatty about a session - a
+   clipboard cannot.
 
 3. **omatty never writes `~/.claude/settings.json`.** Hooks are injected
    per-process with `--settings ~/.omatty/hooks.json`. Zero footprint is a

@@ -22,6 +22,7 @@ type DiffLoadedMsg struct {
 	SessionID string
 	Diff      review.Diff
 	Err       error
+	Seq       uint64 // the load that asked; only the latest is drawn (#352)
 }
 
 // ListFilesFunc lists a worktree's files. Injected like DiffFunc so ui never
@@ -131,6 +132,7 @@ type TurnLoadedMsg struct {
 	SessionID string
 	Diff      review.Diff
 	Err       error
+	Seq       uint64 // the load that asked; only the latest is drawn (#352)
 }
 
 // shownDiff is the diff the rows are drawn from and indexed into. PruneSent,
@@ -254,10 +256,11 @@ func (m *Model) loadFullDiff(id string) tea.Cmd {
 	if !ok {
 		return nil
 	}
-	root, load := m.projectRoot(sess.Project), m.diff
+	m.diffSeq++
+	root, load, seq := m.projectRoot(sess.Project), m.diff, m.diffSeq
 	return func() tea.Msg {
 		d, err := load(sess, root)
-		return DiffLoadedMsg{SessionID: id, Diff: d, Err: err}
+		return DiffLoadedMsg{SessionID: id, Diff: d, Err: err, Seq: seq}
 	}
 }
 
@@ -278,17 +281,18 @@ func (m *Model) loadTurn(id string) tea.Cmd {
 	if !ok {
 		return nil
 	}
-	root, load := m.projectRoot(sess.Project), m.turn.Diff
+	m.turnSeq++
+	root, load, seq := m.projectRoot(sess.Project), m.turn.Diff, m.turnSeq
 	return func() tea.Msg {
 		d, err := load(sess, root)
-		return TurnLoadedMsg{SessionID: id, Diff: d, Err: err}
+		return TurnLoadedMsg{SessionID: id, Diff: d, Err: err, Seq: seq}
 	}
 }
 
 // onTurnLoaded paints a turn diff, unless the column moved on or went back
 // to the whole session while git ran.
 func (m *Model) onTurnLoaded(msg TurnLoadedMsg) tea.Cmd {
-	if !m.review.Open || msg.SessionID != m.review.SessionID || m.review.Scope != scopeTurn {
+	if !m.review.Open || msg.SessionID != m.review.SessionID || m.review.Scope != scopeTurn || msg.Seq != m.turnSeq {
 		return nil
 	}
 	if msg.Err != nil && !errors.Is(msg.Err, review.ErrNoTurn) {
@@ -302,12 +306,12 @@ func (m *Model) onTurnLoaded(msg TurnLoadedMsg) tea.Cmd {
 // onDiffLoaded paints a freshly loaded diff, unless the pane closed or moved
 // to another session while git was running.
 func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
-	if !m.review.Open || msg.SessionID != m.review.SessionID {
+	if !m.review.Open || msg.SessionID != m.review.SessionID || msg.Seq != m.diffSeq {
 		return nil
 	}
 	if msg.Err != nil {
 		slog.Warn("loading diff", "session", msg.SessionID, "err", msg.Err)
-		m.review.Err = msg.Err.Error()
+		m.review.Err = causeOf(msg.Err)
 		return nil
 	}
 	m.review.Err = ""

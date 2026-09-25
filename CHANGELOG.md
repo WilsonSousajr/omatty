@@ -11,6 +11,107 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.4.0] — 2026-09-25
+
+A worktree you can actually run, a pane you can copy out of, and a hook that
+survives being reinstalled. M12's close-out: the P1/P2 work it had cut, taken
+back (#379), plus the defects v0.3.0's own release surfaced.
+
+The headline is #309. A worktree is a clean checkout, so nothing git ignores is
+in it - `.env`, local certificates, generated config - and a gate step that
+fails for that reason is the gate being wrong about the code. `omatty carry`
+names those paths once per project and every worktree created afterwards gets
+them, before claude starts in it.
+
+A minor bump, per the pre-1.0 rule: `state.json` gains one optional key
+(`Project.Carry`) whose nil value means "carry nothing", so no migration and
+`Version` stays 1. A new subcommand, `omatty carry`, and a new gesture inside a
+pane. Nothing existing was renamed or removed.
+
+### Added
+
+- **`omatty carry <project> <path>...` - the files a new worktree needs.**
+  Paths are relative to the main checkout; directories are copied recursively,
+  modes are preserved so an executable still runs, and a symlink is copied as a
+  link rather than followed. A file the worktree already has is left alone,
+  because git checked that one out. A listed path that is not there yet is
+  skipped with a note instead of failing the session, and a carry that does
+  fail takes the worktree with it. The list lives in `state.json`, per project,
+  not in the repository - a clone does not get to choose which of your files
+  are copied. The cost of that choice, stated rather than hidden: the list is
+  not shared with a team. (#309)
+- **A drag inside a session pane copies that pane.** The run is highlighted
+  while the button is held and clipped to the pane, and `shift`/`option`+drag
+  still hands the selection to your terminal for selecting across omatty's own
+  panes. (#360)
+
+### Fixed
+
+- **Selecting text across a line break copied the sidebar and file tree with
+  it.** The selection was the host terminal's, and the host sees one grid of
+  columns and rows - omatty draws the sidebar, the pane and the review column
+  on the same rows, so anything that wrapped took all three. Only a
+  single-line selection was ever clean. omatty now answers the drag itself.
+  (#360)
+- **Reinstalling omatty broke every session that was already running.** claude
+  reads its hooks file once, at startup, so a session holds the path of the
+  binary that launched it for as long as it lives; moving that binary - `go
+  install` to Homebrew, a `brew upgrade` to a new Cellar path, `go clean` -
+  made every hook event fail with `No such file or directory`, on every tool
+  call. An invariant 11 break: a hook must never fail claude. (#380)
+- **The gate scored a stale coverage profile**, reporting a covered function at
+  0% and a C.R.A.P. of 30. Adding a test changes coverage without changing any
+  source file, and the staleness guard only compared the profile against
+  source. A confident wrong number that reads exactly like a real finding.
+  (#385)
+- `S` during a gate run sent the *previous* run's failures back into the
+  session. It now says the run is in flight and sends nothing. (#345)
+- A turn snapshot finishing after its session was archived recreated the ref
+  the archive had just removed. (#350)
+- Turn-view failure notices cut off the cause; they now show what git said,
+  wrapped. (#351)
+- An out-of-order turn load could paint a two-turn diff over a newer one. Loads
+  are numbered and a late answer is dropped. (#352)
+- A stalled `gh` left the previous pull-request verdict on the card instead of
+  reporting that the read failed. (#356)
+- A four-digit pull request number hid the card's diffstat. (#357)
+- An open pull request older than a repository's newest hundred dropped off its
+  card. (#358)
+- A release's notes reached the GitHub release again; GoReleaser's changelog
+  pipe had been switched off. (#367)
+- `docs/comparison.md` listed three capabilities as missing that v0.3.0 had
+  shipped - #310's pull-request state, #311's per-turn review scope and #335's
+  sent comments. A page that undersells is as wrong as one that oversells.
+  (#384)
+
+### Changed
+
+- **Acting on a pull request is decided, and written down.** omatty may push a
+  branch, open its pull request, and merge one whose local *and* remote
+  verdicts are already green - one keypress, one session, after a person read
+  the verdict. Merging when checks *go* green is refused by name, beside the
+  CI-triggered agent runs it resembles: it acts because a check changed, with
+  nobody reading. A protected branch is never a merge target, so a ship key
+  cannot route around omatty's own release gate. The build is #331; this is the
+  boundary it asked for. (#331, #379)
+- `docs/ROADMAP.md` sources M9's claim about the size of the field, and records
+  what M12 took back. (#340, #379)
+- The #311 design note matches the code it describes. (#353, #354)
+- `#310`'s follow-ups: pull requests default on, invariant 4 names `gh`, and a
+  path guard. (#359)
+
+### Known limitations
+
+- `brew install` prints `Calling postflight is deprecated`. The install works
+  and the binary runs; GoReleaser cannot yet emit Homebrew's replacement
+  stanza, and the fix is blocked on goreleaser#6873. (#369)
+- The agent seam still has one profile, claude. Codex is a follow-up. (#152)
+- Scrollback is not preserved across a detach and reattach. (#336)
+- A wrapped line copied out of a pane arrives with a newline in it: the
+  emulator does not record where a soft wrap happened. Only what is on screen
+  can be selected. (#360)
+- Homebrew installs the cask on macOS; on Linux, use the release archive.
+
 ## [v0.3.0] — 2026-09-25
 
 M12's verification core - review scoped to the last turn, a session's pull
@@ -333,7 +434,8 @@ after its issue:
 - The agent seam has one profile, claude. Codex is a follow-up. (#152)
 - Scrollback is not preserved across a detach and reattach.
 
-[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.4.0...HEAD
+[v0.4.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.4.0
 [v0.3.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.1.0

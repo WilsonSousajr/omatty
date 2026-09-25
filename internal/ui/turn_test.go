@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/vcs"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -23,12 +25,14 @@ type turnRecorder struct {
 	DiffErr   error
 	DiffCalls int
 	Dropped   [][2]string // id, projectRoot
+	Events    []string    // "snap <id>" and "drop <id>", in the order they ran
 }
 
 func (r *turnRecorder) funcs() ui.TurnFuncs {
 	return ui.TurnFuncs{
 		Snap: func(s registry.Session) error {
 			r.Snapped = append(r.Snapped, s.ID)
+			r.Events = append(r.Events, "snap "+s.ID)
 			return r.SnapErr
 		},
 		Diff: func(registry.Session, string) (review.Diff, error) {
@@ -37,6 +41,7 @@ func (r *turnRecorder) funcs() ui.TurnFuncs {
 		},
 		Drop: func(s registry.Session, root string) error {
 			r.Dropped = append(r.Dropped, [2]string{s.ID, root})
+			r.Events = append(r.Events, "drop "+s.ID)
 			return nil
 		},
 	}
@@ -117,6 +122,64 @@ func TestModel_archiveDropsTheTurnBaseline_issue311(t *testing.T) {
 
 	if len(tr.Dropped) != 1 || tr.Dropped[0] != [2]string{"s1", "/p/omatty"} {
 		t.Errorf("dropped = %v, want [[s1 /p/omatty]]", tr.Dropped)
+	}
+}
+
+// A snapshot in flight when its session is archived used to recreate the ref
+// archive had just deleted, for a session that no longer exists, and nothing
+// ever removed it (#350). Only a directory that survives the archive can do
+// this - a main checkout, as s1 is here - and there is deliberately no boot
+// sweep, since two omatty HOMEs can share one repository. So a success that
+// lands for a forgotten session drops its baseline again.
+func TestModel_aSnapshotLandingAfterArchiveIsDroppedAgain_issue350(t *testing.T) {
+	tr := &turnRecorder{}
+	r := &recordArchive{}
+	terms, _ := fakeTerms(t)
+	st := worktreeState()
+	r.State = st
+	d := baseDeps(st, terms)
+	d.Archive, d.TailStop, d.RemoveWorktree = r.archive, r.stopTail, r.removeWorktree
+	d.Turn = tr.funcs()
+	m := ui.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	_, inFlight := m.Update(hookPrompt("s1")) // the snapshot, not yet run
+	openArchive(t, m, "s1")
+	pressAndSettle(m, key('y'))
+
+	settle(m, inFlight) // it lands after the archive's drop
+
+	want := []string{"drop s1", "snap s1", "drop s1"}
+	if strings.Join(tr.Events, ", ") != strings.Join(want, ", ") {
+		t.Errorf("events = %v, want %v: the late snapshot's ref must be dropped after it", tr.Events, want)
+	}
+	if last := tr.Dropped[len(tr.Dropped)-1]; last != [2]string{"s1", "/p/omatty"} {
+		t.Errorf("the second drop was %v, want [s1 /p/omatty]", last)
+	}
+}
+
+// A load answered out of order does not paint over a newer one (#352). A turn
+// load started before a new baseline, but answered after the reload that
+// baseline triggers, painted a diff spanning two turns until the next reload;
+// the whole-session diff had the same race. Each load is numbered, and only
+// the latest answer is drawn.
+func TestModel_anOlderLoadAnsweredLastIsDropped_issue352(t *testing.T) {
+	tr := &turnRecorder{}
+	m, _ := modelWithTurnDiff(t, tr)
+	pressAndSettle(m, key('t'))
+	_, older := m.Update(key('r'))
+	_, newer := m.Update(key('r'))
+
+	tr.Diff = turnDiffParsed(t) // the newer load sees this turn alone
+	newerAnswers := drainCmd(newer)
+	tr.Diff = sampleDiffParsed(t) // the older one saw two turns' changes
+	olderAnswers := drainCmd(older)
+	for _, msg := range append(newerAnswers, olderAnswers...) {
+		m.Update(msg)
+	}
+
+	body := m.View().Content
+	if strings.Contains(body, "new.txt") || !strings.Contains(body, "c := 4") {
+		t.Errorf("the older answer, delivered last, painted over the newer:\n%s", body)
 	}
 }
 
@@ -219,6 +282,57 @@ func TestModel_aFailedSnapshotShowsInsteadOfTheLastTurn_issue311(t *testing.T) {
 	}
 }
 
+// A failed snapshot's notice shows what git objected to (#351). The error
+// arrives wrapped twice - review's context, then vcs's command line and path -
+// and one row cut it at the column edge long before git's own words. Its
+// innermost error is only "exit status 128", so the notice shows git's stderr,
+// every line of it, wrapped to the 27-column review column, and points at the
+// log for the rest.
+func TestModel_aFailedSnapshotShowsWhatGitSaid_issue351(t *testing.T) {
+	dir := "/Users/someone/projects/a-rather-long-repository-name"
+	gitErr := &vcs.CommandError{
+		Args:   []string{"add", "-A"},
+		Dir:    dir,
+		Stderr: "error: open(\"secret.pem\"): Permission denied\nfatal: adding files failed",
+		Err:    errors.New("exit status 128"),
+	}
+	tr := &turnRecorder{SnapErr: fmt.Errorf("review: snapshotting session s1 in %q: %w", dir, gitErr)}
+	m, _ := modelWithTurnDiff(t, tr)
+	_, cmd := m.Update(hookPrompt("s1"))
+	settle(m, cmd)
+
+	pressAndSettle(m, key('t'))
+
+	body := stripSGR(m.View().Content)
+	for _, want := range []string{"Permission denied", "fatal: adding files failed", "full error in the log"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the notice does not show %q:\n%s", want, body)
+		}
+	}
+}
+
+// The whole-session diff's failure had the same weakness (#351): one row, cut
+// at the column edge, before git's words. It now shows the same way the turn
+// notices do.
+func TestModel_aFailedDiffLoadShowsWhatGitSaid_issue351(t *testing.T) {
+	m, _, rec := modelWithDiff(t)
+	rec.Err = fmt.Errorf("review: diffing session s1 against main: %w", &vcs.CommandError{
+		Args:   []string{"diff", "main"},
+		Dir:    "/Users/someone/projects/a-rather-long-repository-name",
+		Stderr: "fatal: bad revision 'main'",
+		Err:    errors.New("exit status 128"),
+	})
+
+	leader(m, key('d'))
+
+	body := stripSGR(m.View().Content)
+	for _, want := range []string{"bad revision 'main'", "full error in the log"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the failed diff does not show %q:\n%s", want, body)
+		}
+	}
+}
+
 // Outside this turn is not moved - it is elsewhere in the session - so the
 // comment is hidden here, and still counted and sent.
 func TestModel_aCommentOutsideThisTurnIsHiddenNotMoved_issue311(t *testing.T) {
@@ -288,7 +402,7 @@ func TestModel_aTurnLoadNeverPrunesASentComment_issue311(t *testing.T) {
 func TestModel_aLateTurnDiffIsDropped_issue311(t *testing.T) {
 	m, _ := modelWithTurnDiff(t, &turnRecorder{})
 
-	m.Update(ui.TurnLoadedMsg{SessionID: "s1", Diff: turnDiffParsed(t)})
+	m.Update(ui.TurnLoadedMsg{SessionID: "s1", Seq: m.TurnSeq(), Diff: turnDiffParsed(t)})
 
 	body := m.View().Content
 	if strings.Contains(body, "this turn") || !strings.Contains(body, "fresh") {
@@ -302,7 +416,7 @@ func TestModel_aTurnDiffForAnotherSessionIsDropped_issue311(t *testing.T) {
 	m, _ := modelWithTurnDiff(t, &turnRecorder{})
 	pressAndSettle(m, key('t'))
 
-	m.Update(ui.TurnLoadedMsg{SessionID: "s2", Diff: sampleDiffParsed(t)})
+	m.Update(ui.TurnLoadedMsg{SessionID: "s2", Seq: m.TurnSeq(), Diff: sampleDiffParsed(t)})
 
 	if body := m.View().Content; strings.Contains(body, "fresh") {
 		t.Errorf("s2's turn diff was drawn in s1's column:\n%s", body)

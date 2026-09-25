@@ -35,11 +35,23 @@ func dispatch(cmd string, args []string, home string, cfg config.Config, store *
 		return discoverProjects(store, home, os.Stdin)
 	case "adopt":
 		return adoptSessions(store, home, vcs.NewCLI(), args, os.Stdin)
+	default:
+		return dispatchSettings(cmd, args, store)
+	}
+}
+
+// dispatchSettings runs the per-project settings subcommands, and owns the
+// unknown-command error. Split from dispatch to keep each inside funlen: they
+// share a shape - resolve a project, then show, set or clear one field of it.
+func dispatchSettings(cmd string, args []string, store *registry.Store) error {
+	switch cmd {
 	case "gate":
 		return gateCommand(store, args, os.Stdin)
+	case "carry":
+		return carryCommand(store, args)
 	default:
 		return fmt.Errorf(
-			"unknown command %q (want add, rm, new, discover, adopt, gate, --version, or no argument)", cmd)
+			"unknown command %q (want add, rm, new, discover, adopt, gate, carry, --version, or no argument)", cmd)
 	}
 }
 

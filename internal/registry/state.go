@@ -22,6 +22,14 @@ type Project struct {
 	// Never written as an empty array. A project with no gate omits the key,
 	// so the file stays readable and a review diff stays quiet.
 	Gate []gate.Step `json:"gate,omitempty"`
+	// Carry is the gitignored paths copied into every new worktree of this
+	// project - .env, local certificates, generated config (#309).
+	//
+	// Nil carries nothing, which is the same argument Gate makes above: the
+	// empty value is derivable, so a file written before this needs no
+	// migration and Version stays 1 (invariant 9). Each path is relative to
+	// Root; anything absolute or climbing out of it is refused when it runs.
+	Carry []string `json:"carry,omitempty"`
 }
 
 // Session is one Claude Code process in one directory.

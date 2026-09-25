@@ -105,7 +105,7 @@ type Model struct {
 	prAsked     map[string]time.Time // when each project was last asked: the gap
 	ghMissing   bool
 	turnPending map[string]bool
-	turnErr     map[string]string
+	turnErr     map[string]error
 	// covers is each session's coverage overlay, read when its gate finishes
 	// (#254). Display-only like gates and never persisted; coverFailed makes
 	// the warning once per session rather than once per run.
@@ -148,7 +148,14 @@ type Model struct {
 	// scanToken numbers discovery scans so a stale result cannot overwrite a
 	// newer picker (#91).
 	scanToken int
-	lastErr   string
+	// diffSeq and turnSeq number the diff loads, so an answer that arrives
+	// after a newer load's cannot paint over it (#352). On the model, not the
+	// pane: the pane is rebuilt when the session changes, and a per-pane count
+	// restarting at zero could match an old load after A, B, A. Two, because
+	// loadDiff starts both at once.
+	diffSeq uint64
+	turnSeq uint64
+	lastErr string
 	// stop ends an archived session's held claude (#43).
 	stop StopFunc
 	// notice is the startup line, cleared by the first keypress the way
@@ -161,8 +168,11 @@ type Model struct {
 	// mouseReleased is true while the host terminal owns the pointer, so it
 	// can make a selection of its own (#217). Display-only, never persisted.
 	mouseReleased bool
-	width         int
-	height        int
+	// sel is the drag in progress over the session pane, which a release
+	// copies to the host clipboard (#360).
+	sel    paneSelection
+	width  int
+	height int
 	// idleStop and activeAt are the idle sweep (#319): its threshold, zero
 	// when off, and when omatty last started or the operator last typed into
 	// each session - the floors under the transcript's own last turn.
@@ -253,7 +263,7 @@ func (m *Model) withRuntimeMaps() *Model {
 // withRuntimeMaps when they took it past the statement limit.
 func (m *Model) withTurnMaps() *Model {
 	m.turnPending = map[string]bool{}
-	m.turnErr = map[string]string{}
+	m.turnErr = map[string]error{}
 	return m
 }
 

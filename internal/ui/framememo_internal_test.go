@@ -58,6 +58,10 @@ func freshFrame(m *Model) string {
 // A message type added later that changes the frame and is not covered here
 // is exactly what this cannot catch, which is why the memo is invalidated by
 // default and kept only on the one path proven not to touch model state.
+// paneX and paneY are a cell the session pane draws, in window coordinates.
+func paneX() int { x, _ := PaneOrigin(); return x + 2 }
+func paneY() int { _, y := PaneOrigin(); return y + 1 }
+
 func TestFrame_MemoMatchesAFreshFrameAfterEveryMessage(t *testing.T) {
 	for _, tt := range []struct {
 		name string
@@ -81,6 +85,12 @@ func TestFrame_MemoMatchesAFreshFrameAfterEveryMessage(t *testing.T) {
 		{"focus", tea.FocusMsg{}},
 		{"blur", tea.BlurMsg{}},
 		{"emulator traffic", unknownMsg{}},
+		// A drag paints a reverse-video run into the pane, so press, motion
+		// and release each change the frame and each must invalidate the
+		// memo (#360).
+		{"mouse press", tea.MouseClickMsg{X: paneX(), Y: paneY(), Button: tea.MouseLeft}},
+		{"mouse motion", tea.MouseMotionMsg{X: paneX() + 3, Y: paneY(), Button: tea.MouseLeft}},
+		{"mouse release", tea.MouseReleaseMsg{X: paneX() + 3, Y: paneY(), Button: tea.MouseLeft}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			m, _ := memoModel()

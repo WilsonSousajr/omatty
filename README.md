@@ -42,12 +42,14 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.3.0**, 2026-09-25 — the first release you can install without Go:
-`brew install WilsonSousajr/tap/omatty` on macOS, or a release archive on
-Linux. It adds M12's verification core to v0.2.0's gate: `t` narrows the review
-to what changed since your last prompt, a session's card names its pull request
-and CI, and review comments you sent stay on their lines. `CHANGELOG.md` has
-the whole list.
+**v0.4.0**, 2026-09-25 — a worktree you can actually run, a pane you can copy
+out of, and a hook that survives being reinstalled. `omatty carry` names the
+gitignored files a project needs — `.env`, local certificates — and every new
+worktree gets them before claude starts in it, so a gate step fails because the
+code is wrong rather than because `.env` was missing. A drag inside a session
+pane now copies that pane instead of the sidebar along with it. Install with
+`brew install WilsonSousajr/tap/omatty` on macOS or a release archive on Linux;
+`CHANGELOG.md` has the whole list.
 
 | Milestone | Delivers |
 |---|---|
@@ -62,6 +64,7 @@ the whole list.
 | **M9** The Gate | A project carries the check line that says whether work in it is sound. omatty runs it per session, shows the verdict on the card, and sends the failures back into the session. |
 | **M10** Coverage on the diff | Of the lines a session added, the ones no test covers, marked in the diff with a count per file — and a word on the title when a change brought no tests with it. |
 | **M11** The Harness | Nothing an operator sees: invariant 4's import boundaries, module hygiene, per-function C.R.A.P. and the package dependency structure become steps of this repository's gate that fail. |
+| **M12** The Field | What the rest of the field ships and why omatty declines most of it, researched at code level; then the verification core that came out of it — review scoped to the last turn, a session's pull request and CI on its card, and the files a new worktree needs. |
 | **M13** Memory and idle CPU | Idle CPU cut by about 55%, and a per-session leak on archive fixed. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
@@ -123,9 +126,23 @@ omatty new my-app main                # a session on the main checkout
 omatty new my-app parser-fix parser-fix   # a session on a fresh worktree
 omatty gate my-app                    # show the gate, or propose one and confirm
 omatty gate my-app --detect           # print the proposal, write nothing
+omatty carry my-app .env certs        # files every new worktree of it carries
+omatty carry my-app                   # show that list
 omatty                                # run the TUI
 omatty --version                      # which build is this
 ```
+
+`omatty carry` is what makes a fresh worktree able to run the project. A
+worktree is a clean checkout, so nothing git ignores is in it: `.env`, local
+certificates, generated config. Name those paths once per project and every
+worktree omatty creates afterwards gets a copy, before Claude starts in it —
+so a gate step fails because the code is wrong, not because `.env` was
+missing. Paths are relative to the main checkout; directories are copied
+recursively, modes are preserved, symlinks are copied as links, a file the
+worktree already has is left alone, and a path that is not there yet is
+skipped with a note rather than treated as an error. The list lives in
+`~/.omatty/state.json`, per project, not in the repository — a clone does not
+get to choose which of your files are copied.
 
 `omatty discover` reads Claude Code's own transcript store and offers the
 repositories you have actually used it in, most recent first — the ones still
@@ -194,7 +211,18 @@ that session. A click on a row of the review column puts the cursor there and
 gives the column the keys, and a click on the `×` at the right end of the
 column's rule closes it. The column's rule reads `─ review ─────×` so it is
 told apart from a diff Claude draws inside its own pane, which is Claude's to
-open and close. Clicks inside the pane go to Claude.
+open and close.
+
+A drag inside a session pane selects that pane's text and copies it on release.
+The run is highlighted while the button is down, and it is clipped to the pane:
+the sidebar and the review column share those screen rows, and the host
+terminal's own selection takes every column on them, so a copy that wrapped a
+line used to arrive with their text mixed in (#360). Two limits are worth
+knowing. A line Claude wrapped for you arrives with a newline in it, because
+the emulator does not record where a soft wrap happened. And only what is on
+screen can be selected, because the pane has no scrollback of its own.
+`shift`/`opt`+drag still hands the drag to your terminal, which is how you
+select *across* omatty's panes rather than inside one.
 
 All of that costs the one thing a terminal normally does with a pointer:
 while omatty is asking the host for mouse events, the host will not make a
@@ -444,10 +472,11 @@ one mark for it, read through your own `gh`:
 | `#349 merged` / `#349 closed` | the pull request is done |
 | `#349 ?` | the last read failed; the old verdict is not shown as current |
 
-omatty makes one `gh pr list` call per project, when omatty regains focus, when
-a session finishes a turn, and every minute while it has focus - never while it
-is in the background, and never more than once in thirty seconds for one
-project. Without `gh`, or for a repository that is not on GitHub, the card shows
+omatty reads each project's pull requests with two `gh pr list` calls - the
+open ones, then the thirty most recently finished - when omatty regains focus,
+when a session finishes a turn, and every minute while it has focus - never
+while it is in the background, never more than once in thirty seconds for one
+project, and never for longer than thirty seconds. Without `gh`, or for a repository that is not on GitHub, the card shows
 the branch as before and says so once in the log. A pull request from a fork is
 never taken for the session's, whatever its branch is called; a session on the
 main checkout shows open pull requests only, and a merged or closed one shows

@@ -91,8 +91,7 @@ func (c *CLI) captureEnv(dir string, okExit int, env []string, args ...string) (
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil && !exitedWith(err, okExit) {
-		return "", fmt.Errorf("vcs: `git %s` in %q failed: %s: %w",
-			strings.Join(args, " "), dir, strings.TrimSpace(stderr.String()), err)
+		return "", &CommandError{Args: args, Dir: dir, Stderr: strings.TrimSpace(stderr.String()), Err: err}
 	}
 	return string(out), nil
 }

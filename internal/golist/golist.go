@@ -35,8 +35,20 @@ type Package struct {
 	Dir string
 	// GoFiles are the non-test .go files this platform compiles, without a
 	// directory. Test files arrive in separate fields go list keeps apart, so
-	// there is nothing here to filter out.
+	// there is nothing here to filter out - see TestGoFiles below for why
+	// those fields still have to be carried.
 	GoFiles []string
+	// TestGoFiles and XTestGoFiles are the package's own test files and its
+	// _test package's, without a directory.
+	//
+	// Carried because a test file changes coverage without changing any line
+	// of source, so a staleness check that compares a profile against GoFiles
+	// alone stays quiet and then scores the old profile - reporting a covered
+	// function at 0%, which reads exactly like a real finding (#385). The
+	// external list is the one that bit: #309's tests were
+	// `package registry_test`, which go list reports here and nowhere else.
+	TestGoFiles  []string
+	XTestGoFiles []string
 	// IgnoredGoFiles are the .go files a build constraint excluded here.
 	// internal/gate/procgroup_other.go is //go:build !unix and so is in this
 	// list on both CI runners. Carried only so a report can say how many files

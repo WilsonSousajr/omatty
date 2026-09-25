@@ -37,6 +37,9 @@ type Fake struct {
 	// write on it to stand in for a child that ran printf (#212). Left nil,
 	// a Fake reports no clipboard at all, which is the common case.
 	Clips chan ClipboardWrite
+	// Grid is what Text reads, one rune per cell, top row first. A test sets
+	// it to stand in for a pane's cells (#360).
+	Grid []string
 
 	view    string
 	focused bool

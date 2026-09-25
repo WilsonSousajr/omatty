@@ -57,7 +57,12 @@ func (m *Model) onMouse(msg tea.MouseMsg) tea.Cmd {
 	case tea.MouseWheelMsg:
 		return m.scrollPane(typed)
 	case tea.MouseClickMsg:
+		m.startSelection(typed)
 		return m.click(typed)
+	case tea.MouseMotionMsg:
+		m.extendSelection(typed)
+	case tea.MouseReleaseMsg:
+		return m.finishSelection(typed)
 	}
 	return nil
 }

@@ -104,7 +104,7 @@ func TestNoGitOutsideVcs(t *testing.T) {
 	root := repoRoot(t)
 
 	for _, path := range productionFiles(t, root) {
-		if strings.HasPrefix(path, filepath.Join("internal", "vcs")) {
+		if inPackage(path, "vcs") {
 			continue
 		}
 		b, err := os.ReadFile(filepath.Join(root, path))
@@ -118,13 +118,20 @@ func TestNoGitOutsideVcs(t *testing.T) {
 	}
 }
 
+// inPackage is whether path, relative to the repository root, is a file of
+// internal/<pkg>. The separator is appended after the join, which strips a
+// trailing one, so internal/forgex is not internal/forge (#359).
+func inPackage(path, pkg string) bool {
+	return strings.HasPrefix(path, filepath.Join("internal", pkg)+string(filepath.Separator))
+}
+
 // The gh CLI's twin of the rule above (#310): internal/forge owns gh, so a
 // second package naming it would be a second, unreviewed reader of the forge.
 func TestNoGhOutsideForge(t *testing.T) {
 	root := repoRoot(t)
 
 	for _, path := range productionFiles(t, root) {
-		if strings.HasPrefix(path, filepath.Join("internal", "forge")) {
+		if inPackage(path, "forge") {
 			continue
 		}
 		b, err := os.ReadFile(filepath.Join(root, path))
@@ -281,4 +288,24 @@ func negatedInternal(line string) (string, bool) {
 // leadingSpaces counts a line's indentation.
 func leadingSpaces(line string) int {
 	return len(line) - len(strings.TrimLeft(line, " "))
+}
+
+// The exemption is the package's directory, not a name prefix (#359):
+// strings.HasPrefix on "internal/forge" also exempted a future
+// "internal/forgex", which would then name gh unseen. filepath.Join strips a
+// trailing separator, so the separator is appended after it.
+func TestInPackage_isTheDirectoryNotANamePrefix_issue359(t *testing.T) {
+	for _, tt := range []struct {
+		path, pkg string
+		want      bool
+	}{
+		{filepath.Join("internal", "forge", "forge.go"), "forge", true},
+		{filepath.Join("internal", "forgex", "x.go"), "forge", false},
+		{filepath.Join("internal", "vcs", "git.go"), "vcs", true},
+		{filepath.Join("internal", "vcsx", "x.go"), "vcs", false},
+	} {
+		if got := inPackage(tt.path, tt.pkg); got != tt.want {
+			t.Errorf("inPackage(%q, %q) = %v, want %v", tt.path, tt.pkg, got, tt.want)
+		}
+	}
 }

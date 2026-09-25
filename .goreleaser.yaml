@@ -34,10 +34,11 @@ archives:
 checksum:
   name_template: checksums.txt
 
-# The notes come from scripts/release-notes.sh via --release-notes; the
-# generated changelog would only repeat commit subjects.
-changelog:
-  disable: true
+# The notes come from scripts/release-notes.sh via --release-notes, which
+# release.yml always passes, so GoReleaser's generated changelog is never what
+# a release publishes. The changelog pipe must stay enabled all the same: it is
+# the pipe that reads --release-notes, and `disable: true` published v0.3.0
+# with an empty body (#367, guarded by scripts/release_notes_test.go).
 
 release:
   github:

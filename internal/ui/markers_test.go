@@ -40,7 +40,7 @@ func TestModel_TreeRowsCarryTheKindOfChange_issue196(t *testing.T) {
 	}
 	lineWith(t, view, "M ▾ internal/")
 
-	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Diff: deletedAndRenamed()})
+	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Seq: m.DiffSeq(), Diff: deletedAndRenamed()})
 
 	view = m.View().Content
 	if row := lineWith(t, view, "R render.go"); !strings.Contains(row, sgrAmber) {
@@ -57,7 +57,7 @@ func TestModel_TreeRowsCarryTheKindOfChange_issue196(t *testing.T) {
 func TestModel_ADeletedFileIsARowAndEnterOnItDoesNotError_issue196(t *testing.T) {
 	m, _, lister, reader := modelWithTree(t)
 	leader(m, key('f'))
-	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Diff: deletedAndRenamed()})
+	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Seq: m.DiffSeq(), Diff: deletedAndRenamed()})
 	_, cmd := m.Update(ui.FilesLoadedMsg{SessionID: "s1", Paths: lister.Paths})
 	deliver(m, cmd)
 
