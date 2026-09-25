@@ -90,6 +90,9 @@ type Deps struct {
 	// Item reads one issue or pull request in full, on the keypress that opens
 	// it (#397). Unwired, it says gh is missing.
 	Item ForgeItemFuncs
+	// Browse opens one item in the operator's browser (#398). Unwired, it names
+	// the missing wiring.
+	Browse BrowseFunc
 	// Rename persists a session's new title (#41), and Name reads the first
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
@@ -183,6 +186,9 @@ func (d Deps) withPRDefaults() Deps {
 	}
 	if d.Item.PR == nil {
 		d.Item.PR = noItem
+	}
+	if d.Browse == nil {
+		d.Browse = noBrowse
 	}
 	return d
 }

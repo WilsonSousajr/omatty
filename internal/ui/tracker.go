@@ -112,9 +112,19 @@ func (m *Model) onTrackerKey(key string) tea.Cmd {
 	case "enter":
 		return m.openItemAtCursor()
 	default:
-		m.panKey(key)
+		return m.trackerDefault(key)
 	}
 	return nil
+}
+
+// trackerDefault is the pan keys and the three that act on a row (#398), in that
+// order: h/l/0 are the column's and every view answers them the same way.
+func (m *Model) trackerDefault(key string) tea.Cmd {
+	if m.panKey(key) {
+		return nil
+	}
+	cmd, _ := m.trackerAction(key)
+	return cmd
 }
 
 // moveTrackerCursor walks the rows, skipping the rule: it is a label, not an
