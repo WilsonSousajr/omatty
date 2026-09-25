@@ -157,6 +157,32 @@ func TestModel_aSnapshotLandingAfterArchiveIsDroppedAgain_issue350(t *testing.T)
 	}
 }
 
+// A load answered out of order does not paint over a newer one (#352). A turn
+// load started before a new baseline, but answered after the reload that
+// baseline triggers, painted a diff spanning two turns until the next reload;
+// the whole-session diff had the same race. Each load is numbered, and only
+// the latest answer is drawn.
+func TestModel_anOlderLoadAnsweredLastIsDropped_issue352(t *testing.T) {
+	tr := &turnRecorder{}
+	m, _ := modelWithTurnDiff(t, tr)
+	pressAndSettle(m, key('t'))
+	_, older := m.Update(key('r'))
+	_, newer := m.Update(key('r'))
+
+	tr.Diff = turnDiffParsed(t) // the newer load sees this turn alone
+	newerAnswers := drainCmd(newer)
+	tr.Diff = sampleDiffParsed(t) // the older one saw two turns' changes
+	olderAnswers := drainCmd(older)
+	for _, msg := range append(newerAnswers, olderAnswers...) {
+		m.Update(msg)
+	}
+
+	body := m.View().Content
+	if strings.Contains(body, "new.txt") || !strings.Contains(body, "c := 4") {
+		t.Errorf("the older answer, delivered last, painted over the newer:\n%s", body)
+	}
+}
+
 var errDiskFull = errors.New("disk full")
 
 // turnDiffText is what one turn did on top of sampleDiff's first file: it
@@ -376,7 +402,7 @@ func TestModel_aTurnLoadNeverPrunesASentComment_issue311(t *testing.T) {
 func TestModel_aLateTurnDiffIsDropped_issue311(t *testing.T) {
 	m, _ := modelWithTurnDiff(t, &turnRecorder{})
 
-	m.Update(ui.TurnLoadedMsg{SessionID: "s1", Diff: turnDiffParsed(t)})
+	m.Update(ui.TurnLoadedMsg{SessionID: "s1", Seq: m.TurnSeq(), Diff: turnDiffParsed(t)})
 
 	body := m.View().Content
 	if strings.Contains(body, "this turn") || !strings.Contains(body, "fresh") {
@@ -390,7 +416,7 @@ func TestModel_aTurnDiffForAnotherSessionIsDropped_issue311(t *testing.T) {
 	m, _ := modelWithTurnDiff(t, &turnRecorder{})
 	pressAndSettle(m, key('t'))
 
-	m.Update(ui.TurnLoadedMsg{SessionID: "s2", Diff: sampleDiffParsed(t)})
+	m.Update(ui.TurnLoadedMsg{SessionID: "s2", Seq: m.TurnSeq(), Diff: sampleDiffParsed(t)})
 
 	if body := m.View().Content; strings.Contains(body, "fresh") {
 		t.Errorf("s2's turn diff was drawn in s1's column:\n%s", body)

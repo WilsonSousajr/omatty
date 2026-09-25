@@ -183,7 +183,7 @@ func TestModel_StaleDiffLoadIsDropped_issue21(t *testing.T) {
 	leader(m, key('d'))
 	leader(m, key('d'))
 
-	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Diff: sampleDiffParsed(t)})
+	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Seq: m.DiffSeq(), Diff: sampleDiffParsed(t)})
 
 	if m.ReviewOpen() || strings.Contains(m.View().Content, "internal/ui/model.go") {
 		t.Error("a stale DiffLoadedMsg reopened or repainted the review")
