@@ -101,6 +101,7 @@ var reviewKeys = []keyHelp{
 	{"o", "jump between a diff line and the file at that line, both ways"},
 	{"c", "comment on the line under the cursor"},
 	{"S", "submit the queued comments"},
+	{"t", "diff: the whole session, or only this turn"},
 	{"esc", "leave the column"},
 }
 

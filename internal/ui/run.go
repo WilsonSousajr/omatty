@@ -114,6 +114,10 @@ type RunDeps struct {
 	Files ListFilesFunc
 	// Stat reads a session's branch and diffstat for its card (#180).
 	Stat RepoStatFunc
+	// Turn reaches a session's turn baseline (#311).
+	Turn TurnFuncs
+	// PRs lists a project's pull requests for its cards (#310).
+	PRs PRListFunc
 	// Rename persists a session's new title (#41); Name reads the first prompt
 	// that titles a session created without one (#127).
 	Rename RenameFunc
@@ -187,12 +191,12 @@ func modelFor(
 ) *Model {
 	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
-		Diff: d.Diff, Files: d.Files, Stat: d.Stat, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
+		Diff: d.Diff, Files: d.Files, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,
 		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader, Reattached: held,
-		Events: watch.Events(), Clock: time.Now, Notifier: notify.New(),
+		Events: watch.Events(), HooksDown: !watch.HooksLive(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
 		GateReports: gates.Reports(), GateRun: gates.Start, GateAuto: d.GateAuto,
 		IdleStop: d.IdleStop,

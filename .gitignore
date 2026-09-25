@@ -9,3 +9,6 @@ cover.out
 # cannot collide with a package directory, and the artefact lands wherever it
 # was built (#320).
 *.test
+
+# GoReleaser output (#327).
+/dist/

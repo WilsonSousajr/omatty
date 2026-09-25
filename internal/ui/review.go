@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -70,6 +71,14 @@ type ReviewPane struct {
 	View      ReviewView
 	Diff      review.Diff
 	Entries   []review.Entry
+	// Scope is the whole session or this turn (#311). TurnDiff is what the
+	// turn scope draws, TurnErr its last load's error (ErrNoTurn is a notice,
+	// not a failure), and TurnReady whether a load has answered since the
+	// scope was entered - until it has, the column says it is reading.
+	Scope     reviewScope
+	TurnDiff  review.Diff
+	TurnErr   error
+	TurnReady bool
 	Cursor    int
 	Offset    int // first visible entry
 	Err       string
@@ -106,6 +115,32 @@ type ReviewPane struct {
 	// Widest memoizes the current view's widest row for the horizontal clamp
 	// (#133).
 	Widest widthCache
+}
+
+// reviewScope is how much of the session the diff view shows (#311).
+type reviewScope int
+
+const (
+	scopeSession reviewScope = iota // everything the session changed
+	scopeTurn                       // what changed since this turn began
+)
+
+// TurnLoadedMsg carries a loaded turn diff into Update. Exported so tests
+// can send one.
+type TurnLoadedMsg struct {
+	SessionID string
+	Diff      review.Diff
+	Err       error
+}
+
+// shownDiff is the diff the rows are drawn from and indexed into. PruneSent,
+// Compose and the tree's markers keep m.review.Diff, the whole session, on
+// purpose (#311).
+func (m *Model) shownDiff() review.Diff {
+	if m.review.Scope == scopeTurn {
+		return m.review.TurnDiff
+	}
+	return m.review.Diff
 }
 
 // filterLine is the tree's live filter: / opens it, typing narrows the
@@ -212,9 +247,9 @@ func (m *Model) closeColumn() tea.Cmd {
 	return m.resizeSelected()
 }
 
-// loadDiff fetches the diff off the Update goroutine: git on a large tree
-// takes long enough to stall the frame.
-func (m *Model) loadDiff(id string) tea.Cmd {
+// loadFullDiff fetches the whole-session diff off the Update goroutine: git on
+// a large tree takes long enough to stall the frame.
+func (m *Model) loadFullDiff(id string) tea.Cmd {
 	sess, ok := m.session(id)
 	if !ok {
 		return nil
@@ -224,6 +259,44 @@ func (m *Model) loadDiff(id string) tea.Cmd {
 		d, err := load(sess, root)
 		return DiffLoadedMsg{SessionID: id, Diff: d, Err: err}
 	}
+}
+
+// loadDiff reloads what the column shows: always the whole session, which
+// the tree's markers and PruneSent read, and the turn as well while the turn
+// scope is on, so it refreshes on every trigger the full diff has.
+func (m *Model) loadDiff(id string) tea.Cmd {
+	return tea.Batch(m.loadFullDiff(id), m.loadTurn(id))
+}
+
+// loadTurn fetches the turn diff when the column is showing that session's
+// turn, and nothing otherwise.
+func (m *Model) loadTurn(id string) tea.Cmd {
+	if !m.review.Open || m.review.Scope != scopeTurn || id != m.review.SessionID || m.hooksDown {
+		return nil
+	}
+	sess, ok := m.session(id)
+	if !ok {
+		return nil
+	}
+	root, load := m.projectRoot(sess.Project), m.turn.Diff
+	return func() tea.Msg {
+		d, err := load(sess, root)
+		return TurnLoadedMsg{SessionID: id, Diff: d, Err: err}
+	}
+}
+
+// onTurnLoaded paints a turn diff, unless the column moved on or went back
+// to the whole session while git ran.
+func (m *Model) onTurnLoaded(msg TurnLoadedMsg) tea.Cmd {
+	if !m.review.Open || msg.SessionID != m.review.SessionID || m.review.Scope != scopeTurn {
+		return nil
+	}
+	if msg.Err != nil && !errors.Is(msg.Err, review.ErrNoTurn) {
+		slog.Warn("loading a turn diff", "session", msg.SessionID, "err", msg.Err)
+	}
+	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = msg.Diff, msg.Err, true
+	m.rebuildEntries()
+	return nil
 }
 
 // onDiffLoaded paints a freshly loaded diff, unless the pane closed or moved
@@ -239,6 +312,9 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 	}
 	m.review.Err = ""
 	m.review.Diff = msg.Diff
+	// Only a diff that actually loaded may prune: rebuildEntries also runs
+	// before the first load, against an empty diff every comment misses.
+	m.commentsFor(msg.SessionID).PruneSent(msg.Diff)
 	m.rebuildEntries()
 	m.retouchTree()
 	return nil
@@ -247,8 +323,14 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 // rebuildEntries re-places the comments against the current diff and keeps the
 // cursor on a valid row.
 func (m *Model) rebuildEntries() {
-	placed := review.Place(m.review.Diff, m.commentsFor(m.review.SessionID).All())
-	m.review.Entries = review.Flatten(m.review.Diff, placed)
+	d, comments := m.shownDiff(), m.commentsFor(m.review.SessionID).All()
+	placed := review.Place(d, comments)
+	if m.review.Scope == scopeTurn {
+		// Through the session diff, by line rather than first match; what
+		// does not place is elsewhere in the session, not moved (#311).
+		placed = review.PlaceIn(m.review.Diff, d, comments)
+	}
+	m.review.Entries = review.Flatten(d, placed)
 	m.contentChanged()
 	if m.review.Cursor >= len(m.review.Entries) {
 		m.review.Cursor = max(len(m.review.Entries)-1, 0)

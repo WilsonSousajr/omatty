@@ -148,13 +148,13 @@ func (m *Model) openConfirm() {
 // live only in memory, so archiving is the one action that loses typed work
 // with no undo, and the confirmation said nothing about it (#40).
 func queuedCommentsNote(c *review.Comments) string {
-	if c == nil || c.Len() == 0 {
+	if c == nil || c.PendingLen() == 0 {
 		return ""
 	}
-	if c.Len() == 1 {
+	if c.PendingLen() == 1 {
 		return "1 unsent review comment will be discarded"
 	}
-	return strconv.Itoa(c.Len()) + " unsent review comments will be discarded"
+	return strconv.Itoa(c.PendingLen()) + " unsent review comments will be discarded"
 }
 
 // onConfirmKey answers the confirmation. Anything that is not an offered key
@@ -235,7 +235,7 @@ func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd 
 	// under a detach holder the process outlives the PTY on purpose, which is
 	// what makes quitting safe. Archiving is the one place omatty means to end
 	// it, so it is the one place that says so (#43).
-	cmds := []tea.Cmd{m.stopSessionCmd(sess, nil), m.resizeSelected(), m.followSession()}
+	cmds := []tea.Cmd{m.stopSessionCmd(sess, nil), m.resizeSelected(), m.followSession(), m.dropTurnCmd(sess)}
 	if removeWorktree && sess.Worktree {
 		cmds = append(cmds, m.removeWorktreeCmd(sess))
 	}
@@ -288,6 +288,7 @@ func (m *Model) forgetSessionMaps(id string) {
 	delete(m.lane, id)
 	delete(m.gates, id)
 	delete(m.gateRunning, id)
+	delete(m.gateSent, id)
 	delete(m.covers, id)
 	delete(m.coverFailed, id)
 	m.forgetCardMaps(id)
@@ -303,7 +304,9 @@ func (m *Model) forgetCardMaps(id string) {
 	delete(m.statFailed, id)
 	delete(m.filesPending, id)
 	delete(m.reattached, id)
-	delete(m.activeAt, id) // the idle sweep's floor (#319)
+	delete(m.activeAt, id)    // the idle sweep's floor (#319)
+	delete(m.turnPending, id) // the turn baseline's bookkeeping (#311)
+	delete(m.turnErr, id)
 }
 
 // WorktreeRemovedMsg carries the outcome of a worktree removal into Update.

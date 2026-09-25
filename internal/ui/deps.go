@@ -33,6 +33,16 @@ type StartFunc func(sess registry.Session, w, h int) (termwrap.Terminal, error)
 // is what every test's Deps gets.
 type RepoStatFunc func(sess registry.Session, projectRoot string) (review.Stat, error)
 
+// TurnFuncs are the three calls #311 makes on a session's turn baseline,
+// injected because ui may not touch git (invariant 4). Snap records the
+// baseline as a prompt is submitted, Diff loads what changed since it, and
+// Drop deletes it when the session is archived.
+type TurnFuncs struct {
+	Snap func(sess registry.Session) error
+	Diff DiffFunc
+	Drop func(sess registry.Session, projectRoot string) error
+}
+
 // Deps is everything a Model needs. Constructor injection, so no field is
 // set after the fact and no method needs a nil guard (issue #76). The zero
 // value of an optional field means: no status stream, the wall clock, a
@@ -66,6 +76,15 @@ type Deps struct {
 	// Stat reads a session's branch and diffstat for its card; nil means no
 	// git to ask (#180).
 	Stat RepoStatFunc
+	// Turn reaches a session's turn baseline (#311). Unwired, Snap and Drop
+	// do nothing and Diff says there is no turn - what every test sees.
+	Turn TurnFuncs
+	// HooksDown says the hook socket did not bind (#49), so no turn baseline
+	// will ever be taken; the turn view says so instead of diffing (#311).
+	HooksDown bool
+	// PRs lists a project's pull requests for its cards (#310). Unwired, it
+	// says gh is missing, which stops every poll: what every test sees.
+	PRs PRListFunc
 	// Rename persists a session's new title (#41), and Name reads the first
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
@@ -125,7 +144,7 @@ func (d Deps) withDefaults() Deps {
 	if d.Leader == "" {
 		d.Leader = DefaultLeader
 	}
-	return d.withReviewDefaults().withLifecycleDefaults()
+	return d.withReviewDefaults().withTurnDefaults().withLifecycleDefaults()
 }
 
 // withReviewDefaults fills the review column's three readers (#21, #24).
@@ -140,6 +159,24 @@ func (d Deps) withReviewDefaults() Deps {
 	// rather than an error: only a test replaces it (#24).
 	if d.Preview == nil {
 		d.Preview = review.ReadPreview
+	}
+	return d
+}
+
+// withTurnDefaults fills the turn baseline's calls (#311): unwired, Snap and
+// Drop do nothing and Diff says there is no turn, which is what a test sees.
+func (d Deps) withTurnDefaults() Deps {
+	if d.PRs == nil {
+		d.PRs = noPRs
+	}
+	if d.Turn.Snap == nil {
+		d.Turn.Snap = func(registry.Session) error { return nil }
+	}
+	if d.Turn.Diff == nil {
+		d.Turn.Diff = func(registry.Session, string) (review.Diff, error) { return review.Diff{}, review.ErrNoTurn }
+	}
+	if d.Turn.Drop == nil {
+		d.Turn.Drop = func(registry.Session, string) error { return nil }
 	}
 	return d
 }

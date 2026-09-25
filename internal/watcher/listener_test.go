@@ -333,3 +333,27 @@ func TestListen_CarriesTheOwningSession_issue316(t *testing.T) {
 		t.Fatal("no event emitted for a cleared session")
 	}
 }
+
+// Only a hook knows a prompt was just submitted; the tailer reports
+// PromptSubmitted for tool results too. The UI snapshots a turn baseline on
+// the first and must never on the second (#311).
+func TestListen_marksItsEventsAsFromAHook_issue311(t *testing.T) {
+	path := filepath.Join(shortDir(t), "s")
+	sink := make(chan watcher.Event, 1)
+	l, err := watcher.Listen(path, sink, time.Now, watcher.ClaudeAdapter())
+	if err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+	defer func() { _ = l.Close() }()
+
+	dial(t, path, `{"session_id":"abc","hook_event_name":"UserPromptSubmit"}`)
+
+	select {
+	case ev := <-sink:
+		if !ev.Hook || ev.Kind != watcher.PromptSubmitted {
+			t.Errorf("event = %+v, want a PromptSubmitted marked Hook", ev)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no event emitted")
+	}
+}

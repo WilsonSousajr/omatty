@@ -57,6 +57,20 @@ func (f *FakeGit) UntrackedDiff(string, string) (string, error) { return "", nil
 
 func (f *FakeGit) ListFiles(string) ([]string, error) { return nil, nil }
 
+// The turn baseline (#311) is never reached from registry; these only keep
+// FakeGit a vcs.Git.
+func (f *FakeGit) SnapshotTree(string) (string, error) { return "", nil }
+
+func (f *FakeGit) SetTurnRef(string, string, string) error { return nil }
+
+func (f *FakeGit) TurnRef(string, string) (string, bool, error) { return "", false, nil }
+
+func (f *FakeGit) DeleteTurnRef(string, string) error { return nil }
+
+func (f *FakeGit) DiffTrees(string, string, string) (string, error) { return "", nil }
+
+func (f *FakeGit) Head(string) (string, error) { return "", nil }
+
 func (f *FakeGit) AddWorktree(repoRoot, dir, branch, base string) error {
 	if f.AddErr != nil {
 		return fmt.Errorf("FakeGit: refusing to add worktree %q on %q: %w", dir, branch, f.AddErr)

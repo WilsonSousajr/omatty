@@ -73,6 +73,9 @@ func (s *Source) baseCommit(sess registry.Session, projectRoot string) (string, 
 type Stat struct {
 	Branch         string
 	Added, Removed int
+	// Head is the checked-out commit, empty when it could not be read; the
+	// card matches a merged pull request against it (#310).
+	Head string
 }
 
 // Stat reads sess's branch and shortstat through baseCommit, so the base
@@ -92,7 +95,10 @@ func (s *Source) Stat(sess registry.Session, projectRoot string) (Stat, error) {
 	if err != nil {
 		return Stat{}, fmt.Errorf("review: shortstat of session %s against %s: %w", sess.ID, ref, err)
 	}
-	return Stat{Branch: branch, Added: short.Added, Removed: short.Removed}, nil
+	// A HEAD that will not read costs only the merged-PR match, so it is not
+	// worth failing the whole card over.
+	head, _ := s.git.Head(sess.Dir)
+	return Stat{Branch: branch, Added: short.Added, Removed: short.Removed, Head: head}, nil
 }
 
 // untrackedDiffs renders every untracked file as an all-additions diff, so a

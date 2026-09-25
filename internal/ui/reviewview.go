@@ -150,17 +150,22 @@ const (
 // diffTitleParts is the diff title in reading order, each part carrying how
 // readily it is given up.
 func (m *Model) diffTitleParts() []titlePart {
-	comments := m.commentsFor(m.review.SessionID).Len()
+	comments := m.commentsFor(m.review.SessionID).PendingLen()
 	priority := dropComments
 	if comments == 0 {
 		priority = dropFirst
 	}
-	parts := []titlePart{
-		{text: "diff", priority: keepAlways},
-		{text: fmt.Sprintf("%d files", len(m.review.Diff.Files)), priority: dropFiles},
-		{text: fmt.Sprintf("%d comments", comments), priority: priority},
+	d := m.shownDiff()
+	parts := []titlePart{{text: "diff", priority: keepAlways}}
+	if m.review.Scope == scopeTurn {
+		// keepFlag, as ⚠ no tests: a turn view that reads as the whole diff
+		// is this feature's worst failure (#311).
+		parts = append(parts, titlePart{text: "this turn", priority: keepFlag})
 	}
-	if note := pairingNote(m.review.Diff); note != "" {
+	parts = append(parts,
+		titlePart{text: fmt.Sprintf("%d files", len(d.Files)), priority: dropFiles},
+		titlePart{text: fmt.Sprintf("%d comments", comments), priority: priority})
+	if note := pairingNote(d); note != "" {
 		parts = append(parts, titlePart{text: note, priority: keepFlag})
 	}
 	return parts
@@ -246,8 +251,13 @@ func (m *Model) reviewBody(w, rows int) []string {
 	if m.review.Err != "" {
 		return []string{errorStyle.Render(fitLine(m.review.Err, w))}
 	}
+	if m.review.Scope == scopeTurn {
+		if lines, isErr := m.turnNotice(); lines != nil {
+			return noticeLines(lines, isErr, w)
+		}
+	}
 	if len(m.review.Entries) == 0 {
-		return []string{mutedStyle.Render("no changes")}
+		return []string{mutedStyle.Render(m.noChanges())}
 	}
 	if !m.review.Note.Active {
 		return m.renderEntries(w, rows)
@@ -277,7 +287,10 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 	if cursor {
 		return cursorStyle.Render(text)
 	}
-	return entryStyle(e, m.review.Diff).Render(text)
+	if e.Kind == review.EntryComment && !comments[e.Comment].Sent.IsZero() {
+		return mutedStyle.Render(text) // sent: context for this turn, not a to-do (#335)
+	}
+	return entryStyle(e, m.shownDiff()).Render(text)
 }
 
 // fitRow draws one row into the column. A file header fits itself and stays
@@ -290,7 +303,7 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 func (m *Model) fitRow(e review.Entry, comments []review.Comment, w int) string {
 	if e.Kind == review.EntryFile {
 		fi := e.Pos.File
-		return fitLine(fileHeading(m.review.Diff.Files[fi], m.uncoveredNote(fi), w), w)
+		return fitLine(fileHeading(m.shownDiff().Files[fi], m.uncoveredNote(fi), w), w)
 	}
 	return m.fitContent(m.entryText(e, comments), w)
 }
@@ -305,6 +318,9 @@ func (m *Model) entryText(e review.Entry, comments []review.Comment) string {
 	case review.EntryHunk:
 		return expandTabs(e.Text)
 	case review.EntryComment:
+		if c := comments[e.Comment]; !c.Sent.IsZero() {
+			return "  >> (sent " + c.Sent.Format("15:04") + ") " + c.Note
+		}
 		return "  >> " + comments[e.Comment].Note
 	case review.EntryOrphan:
 		return "  >> (moved) " + comments[e.Comment].Note
@@ -324,7 +340,7 @@ func (m *Model) linePrefix(e review.Entry) string {
 	if m.uncovered(e) {
 		return uncoveredMark
 	}
-	return signPrefix(m.review.Diff.LineAt(e.Pos).Kind)
+	return signPrefix(m.shownDiff().LineAt(e.Pos).Kind)
 }
 
 // uncoveredMark is what an added line no test covers draws instead of its +.
@@ -342,11 +358,11 @@ func (m *Model) uncovered(e review.Entry) bool {
 	if e.Kind != review.EntryLine {
 		return false
 	}
-	line := m.review.Diff.LineAt(e.Pos)
+	line := m.shownDiff().LineAt(e.Pos)
 	if line.Kind != review.LineAdded {
 		return false
 	}
-	covered, known := m.overlay().Files[m.review.Diff.Files[e.Pos.File].Path].Lines[line.NewNo]
+	covered, known := m.overlay().Files[m.shownDiff().Files[e.Pos.File].Path].Lines[line.NewNo]
 	return known && !covered
 }
 
@@ -375,12 +391,12 @@ func signPrefix(k review.LineKind) string {
 // nothing at all when there is nothing to report - a note on every file would
 // be decoration rather than a finding.
 func (m *Model) uncoveredNote(fi int) string {
-	lines := m.overlay().Files[m.review.Diff.Files[fi].Path].Lines
+	lines := m.overlay().Files[m.shownDiff().Files[fi].Path].Lines
 	if len(lines) == 0 {
 		return ""
 	}
 	n := 0
-	for _, h := range m.review.Diff.Files[fi].Hunks {
+	for _, h := range m.shownDiff().Files[fi].Hunks {
 		n += uncoveredInHunk(h, lines)
 	}
 	if n == 0 {
@@ -399,4 +415,24 @@ func uncoveredInHunk(h review.Hunk, lines map[int]bool) int {
 		}
 	}
 	return n
+}
+
+// noChanges is the empty diff's line, which says which diff was empty.
+func (m *Model) noChanges() string {
+	if m.review.Scope == scopeTurn {
+		return "no changes this turn"
+	}
+	return "no changes"
+}
+
+func noticeLines(lines []string, isErr bool, w int) []string {
+	style := mutedStyle
+	if isErr {
+		style = errorStyle
+	}
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		out[i] = style.Render(fitLine(l, w))
+	}
+	return out
 }

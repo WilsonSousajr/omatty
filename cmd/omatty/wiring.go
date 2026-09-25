@@ -16,6 +16,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/discover"
+	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
@@ -76,6 +77,7 @@ type tuiEnv struct {
 func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps {
 	home, hooksFile, w, h := env.Home, env.HooksFile, env.Width, env.Height
 	git, holder := vcs.NewCLI(), env.Holder
+	src := review.NewSource(git)
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
 		Stop:    holder.Stop,
@@ -86,8 +88,10 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Create:  sessionCreator(env.Cfg, store),
 		Leader:  env.Cfg.Leader,
 		Name:    sessionNamer(home),
-		Diff:    review.NewSource(git).Load,
-		Stat:    review.NewSource(git).Stat,
+		Diff:    src.Load,
+		Stat:    src.Stat,
+		Turn:    ui.TurnFuncs{Snap: src.SnapTurn, Diff: src.LoadTurn, Drop: src.DropTurn},
+		PRs:     forge.NewCLI().ListPRs,
 		Files:   git.ListFiles,
 	}
 	return withStoreDeps(withTableDeps(deps, env.Cfg), store, home, git)

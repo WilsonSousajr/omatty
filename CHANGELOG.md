@@ -11,6 +11,59 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.3.0] — 2026-09-25
+
+M12's verification core - review scoped to the last turn, a session's pull
+request on its card, sent comments that stay put - and the first release the
+pipeline builds: binaries for macOS and Linux, checksums and a Homebrew cask,
+so installing omatty no longer needs Go (#364).
+
+A minor bump, per the pre-1.0 rule: the review column gains the `t` key and the
+card gains the pull request; `state.json` and `config.toml` are unchanged.
+
+### Added
+
+- **omatty is MIT-licensed** (`LICENSE`), and the release archives carry the
+  license beside the README and changelog. (#362)
+- **A tag is a release.** Pushing a `v*` tag re-runs the whole gate and then
+  publishes, through GoReleaser: binaries for macOS and Linux on amd64 and
+  arm64, `checksums.txt`, a Homebrew cask (`brew install
+  WilsonSousajr/tap/omatty`), and the GitHub release with the tag's own
+  changelog section as its notes. Installing no longer needs Go. Every pull
+  request checks the release configuration and builds it as a snapshot. (#327)
+- **A session's pull request on its card.** Once a session's branch has a pull
+  request on GitHub, line two names it with one mark for its CI - `#349 ✓`,
+  `◍` running, `✗` failing, `⚠` conflict or behind, `merged`, `closed`, and `?`
+  when the last read failed rather than the old verdict. One `gh pr list` per
+  project, on focus, at the end of a turn and every minute while focused, at
+  most once in thirty seconds and never in the background; `internal/forge` is
+  the one package that runs `gh`. A fork's pull request is never matched, and a
+  finished one only while the checkout is at its head commit.
+  Without `gh`, or off GitHub, the card is as before. (#310)
+- **`t` in the review column shows only this turn.** When a prompt is
+  submitted, omatty snapshots the session's working tree as a git tree under
+  `refs/omatty/turn/<session>`, built through a temporary index, so staging,
+  HEAD and the stash are never touched; `t` diffs the tree now against it.
+  Only the prompt hook takes the baseline, never the transcript tailer, which
+  also reports tool results. A failed snapshot is shown instead of a diff that
+  would span two turns; archiving deletes the ref. (#311)
+- **A sent review comment stays on its line**, muted and marked
+  `(sent 14:36)`, is never sent again, and goes once its line does; the gate
+  pane's `S` asks before resending the same failures. (#335)
+
+### Fixed
+
+- The gate pane's rows keep one command column, pending or with a verdict,
+  whatever the length of the step names. (#342)
+
+### Known limitations
+
+- The agent seam still has one profile, claude. Codex is a follow-up. (#152)
+- Scrollback is not preserved across a detach and reattach. (#336)
+- Homebrew installs the cask on macOS; on Linux, use the release archive.
+- A card reads the newest 100 pull requests of its repository, so an open one
+  older than that shows the branch. (#358)
+
 ## [v0.2.0] — 2026-09-22
 
 M9, M10, M11 and M13, the session lifecycle, and M12's research, built on
@@ -280,6 +333,7 @@ after its issue:
 - The agent seam has one profile, claude. Codex is a follow-up. (#152)
 - Scrollback is not preserved across a detach and reattach.
 
-[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.1.0

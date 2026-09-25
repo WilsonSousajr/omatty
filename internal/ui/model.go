@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/coverage"
+	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/notify"
@@ -83,6 +84,28 @@ type Model struct {
 	// gateRunning is the sessions with a run in flight, so the pane says so
 	// rather than showing the last verdict as if it were current.
 	gateRunning map[string]bool
+	// gateSent is how far S has got with each session's current report, so a
+	// second S warns before sending the same failures again (#335). A new
+	// report replaces the entry's meaning, so onGate deletes it.
+	gateSent map[string]gateSend
+	// turn reaches the turn baselines (#311). turnPending holds a session
+	// whose snapshot is in flight, so a second prompt inside it starts none;
+	// turnErr is the last snapshot's failure, shown instead of a turn diff
+	// that would silently span two turns. Neither is persisted.
+	turn      TurnFuncs
+	hooksDown bool // the hook socket did not bind (#49): no baseline will come
+	// prs is each project's pull requests (#310), keyed by project name like
+	// prPending (a call in flight), prFailed (the last call failed) and prOff
+	// (gh cannot map it to GitHub). ghMissing stops every poll. None persisted.
+	prList      PRListFunc
+	prs         map[string][]forge.PR
+	prPending   map[string]bool
+	prFailed    map[string]bool
+	prOff       map[string]bool
+	prAsked     map[string]time.Time // when each project was last asked: the gap
+	ghMissing   bool
+	turnPending map[string]bool
+	turnErr     map[string]string
 	// covers is each session's coverage overlay, read when its gate finishes
 	// (#254). Display-only like gates and never persisted; coverFailed makes
 	// the warning once per session rather than once per run.
@@ -173,6 +196,8 @@ func NewModel(deps Deps) *Model {
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
+	m.turn, m.hooksDown = d.Turn, d.HooksDown
+	m.prList = d.PRs
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
 	m.rebind = d.Rebind
 	m.renameBranch = d.RenameBranch
@@ -214,12 +239,21 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.lane = map[string]activityLane{}
 	m.gates = map[string]gate.Report{}
 	m.gateRunning = map[string]bool{}
+	m.gateSent = map[string]gateSend{}
 	m.covers = map[string]coverage.Profile{}
 	m.coverFailed = map[string]bool{}
 	m.repoStat = map[string]review.Stat{}
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
+	return m.withTurnMaps().withPRMaps()
+}
+
+// withTurnMaps allocates the turn baseline's two maps (#311). Split from
+// withRuntimeMaps when they took it past the statement limit.
+func (m *Model) withTurnMaps() *Model {
+	m.turnPending = map[string]bool{}
+	m.turnErr = map[string]string{}
 	return m
 }
 
@@ -271,7 +305,7 @@ func (m *Model) Init() tea.Cmd {
 	}
 	// The first stat poll runs at start rather than a tick later, so a card
 	// names its branch before the operator has read the screen (#180).
-	cmds = append(cmds, scheduleTick(), m.onStatTick(), m.scheduleSweep())
+	cmds = append(cmds, scheduleTick(), m.onStatTick(), m.onPRTick(), m.scheduleSweep())
 	return tea.Batch(cmds...)
 }
 
@@ -319,6 +353,8 @@ func (m *Model) routeMsg(msg tea.Msg) tea.Cmd {
 		return scheduleTick()
 	case StatTickMsg:
 		return m.onStatTick()
+	case PRTickMsg:
+		return m.onPRTick()
 	case SweepTickMsg:
 		return m.onSweepTick()
 	default:
@@ -371,7 +407,23 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	if cmd, handled := m.onNamingMsg(msg); handled {
 		return cmd
 	}
+	if cmd, handled := m.onTurnMsg(msg); handled {
+		return cmd
+	}
 	return m.onPaneMsg(msg)
+}
+
+// onTurnMsg answers the turn baseline's two results: a snapshot taken, and a
+// turn diff loaded (#311). A table of its own, as onNamingMsg is, because the
+// two cases took onDataMsg past the length limit.
+func (m *Model) onTurnMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case TurnLoadedMsg:
+		return m.onTurnLoaded(typed), true
+	case TurnSnappedMsg:
+		return m.onTurnSnapped(typed), true
+	}
+	return nil, false
 }
 
 // onNamingMsg answers what names a session: its first prompt, the model's
@@ -440,6 +492,8 @@ func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
 		return m.relaunch(typed.Session)
 	case RepoStatMsg:
 		return m.onRepoStat(typed)
+	case PRsLoadedMsg:
+		return m.onPRs(typed)
 	}
 	return m.onWindowFocus(msg)
 }
@@ -452,7 +506,7 @@ func (m *Model) onWindowFocus(msg tea.Msg) tea.Cmd {
 		m.hasFocus = true
 		// Catch up on whatever changed while the poll was gated off, rather
 		// than leaving stale cards up for the rest of the ten-second period.
-		return m.pollAll()
+		return tea.Batch(m.pollAll(), m.pollPRs())
 	case tea.BlurMsg:
 		m.hasFocus = false
 		return nil

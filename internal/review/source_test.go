@@ -22,7 +22,7 @@ func TestSource_StatCountsTrackedChangesAgainstTheSameBaseAsLoad_issue180(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "CurrentBranch(/wt/parser-fix) MergeBase(/wt/parser-fix,develop) Shortstat(/wt/parser-fix,abc123)"
+	want := "CurrentBranch(/wt/parser-fix) MergeBase(/wt/parser-fix,develop) Shortstat(/wt/parser-fix,abc123) Head(/wt/parser-fix)"
 	if calls(g) != want {
 		t.Errorf("calls = %s\nwant  %s", calls(g), want)
 	}

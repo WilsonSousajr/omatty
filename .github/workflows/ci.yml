@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # release.yml runs this whole gate again on a v* tag before publishing (#327).
+  workflow_call:
 
 env:
   # Pinned so CI and the local gate run the identical linter (AGENTS.md).
@@ -17,6 +19,9 @@ env:
   # nothing on 1.26.8, so the same gate passed here and failed locally (#261).
   # Keep in step with go.mod; scripts/hygiene_test.go asserts they match.
   GO_VERSION: "1.26.8"
+  # Equal to release.yml's, so a pull request checks the release configuration
+  # with the GoReleaser a tag will publish with (#327).
+  GORELEASER_VERSION: v2.18.2
 
 jobs:
   gate:
@@ -60,3 +65,28 @@ jobs:
         run: ./scripts/check-crap.sh 12
       - name: build
         run: go build ./...
+
+  # The release configuration, checked and built as a snapshot on every pull
+  # request so a broken .goreleaser.yaml fails here rather than on a tag.
+  # Nothing is published: --skip=publish, and no token is given (#327).
+  release-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: release config
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: ${{ env.GORELEASER_VERSION }}
+          args: check
+      - name: release snapshot
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: ${{ env.GORELEASER_VERSION }}
+          args: release --snapshot --clean --skip=publish

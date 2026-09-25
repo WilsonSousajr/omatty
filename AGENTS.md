@@ -53,13 +53,20 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
 ├── paths/          every filesystem location omatty reads or writes. Pure.
+├── config/         ~/.omatty/config.toml; every key optional. The only TOML importer.
 ├── registry/       projects + sessions + state.json.
+├── agent/          the agent seam (#46): a command template plus a status adapter.
 ├── vcs/            OUR interface over the git CLI (invariant 4).
+├── forge/          OUR interface over the gh CLI: pull requests and CI, read-only (#310).
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
 ├── detach/         [M6] OUR interface over the dtach CLI (invariant 4).
 ├── keys/           modal key router. Pure state machine (invariant 1).
+├── hooks/          the --settings hooks file, and the `omatty hook` command (invariant 11).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
+├── notify/         desktop notifications for a session needing attention.
+├── discover/       proposes repositories to register, from claude's transcript store (#91).
+├── fuzzy/          subsequence ranking for the session switcher and project picker. Pure.
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
 ├── paste/          bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── highlight/      [M5] OUR interface over chroma (invariant 4 in spirit).
@@ -68,7 +75,6 @@ internal/
 ├── golist/         [M11] OUR interface over `go list` (invariant 4 in spirit).
 ├── crap/           [M11] per-function complexity x coverage -> a C.R.A.P. score.
 ├── depgraph/       [M11] the internal import graph -> Ca, Ce, instability, SDP.
-├── coverage/       [M10] a coverage profile -> per-line verdicts.
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
@@ -82,8 +88,7 @@ One responsibility per package, typed APIs, no circular dependencies.
 `internal/ui` and `internal/termwrap` are the only packages that import
 bubbletea. termwrap is a real exception, not an oversight: bubbleterm is itself
 a bubbletea component, so `termwrap.Terminal` returns `tea.Cmd` and cannot avoid
-the import. Enforced by `depguard`, not asked for (#260) - this file claimed for
-nine milestones that `ui` was the only one, and nothing noticed otherwise.
+the import. Enforced by `depguard`, not asked for (#260).
 
 ## Build and test commands
 
@@ -106,9 +111,8 @@ Install the scanner with the version `ci.yml` pins:
 `go install golang.org/x/vuln/cmd/govulncheck@v1.8.0`.
 
 `govulncheck` reports against the *toolchain doing the analysis*, not against
-`go.mod`, which is why the Go version is pinned exactly. On go1.26.5 it found
-GO-2026-6088 reachable through `internal/highlight`; on go1.26.8 it finds
-nothing. The same gate passed on CI and failed locally, and nothing said why.
+`go.mod`, which is why the Go version is pinned exactly: on a different patch
+release the same gate can pass on CI and fail locally with no visible cause.
 
 Tests never invoke the real `claude` binary or the network. `testdata/fake-claude`
 emits scripted ANSI and JSONL and stands in for it everywhere.
@@ -152,14 +156,10 @@ not in the gate.
 - **C.R.A.P. under 12.** `CC² × (1 − coverage)³ + CC`, scored per function by
   `./scripts/check-crap.sh`. `gocyclo` bounds branches and `gocognit` bounds how
   hard they are to read; neither notices that the branchiest function in the
-  file is the one no test reaches. A repo-wide coverage total does not notice
-  either - the gate was green at 90% while `watcher.PromptText`, an exported
-  function, had nothing testing it at all (#262). The canonical threshold is 30
-  and is unreachable here: at the `gocyclo` cap of 10 and this repo's 90%
-  coverage floor the worst possible score is 10.1. It shipped at 15, the lowest
-  value green at the time, and moved to 12 once those two functions were tested
-  (#267) - a ratchet, and the direction it moves in is the only one. Raise
-  coverage or split the function; do not raise the limit.
+  file is the one no test reaches, and neither does a repo-wide coverage total
+  (#262). The canonical threshold of 30 is unreachable under this repo's
+  `gocyclo` cap and coverage floor, so the limit is a ratchet that only moves
+  down (#267). Raise coverage or split the function; do not raise the limit.
 - **Early returns.** Maximum 2 levels of indentation inside a function. Nesting
   is what `gocognit` charges for (threshold 15), so this rule is checked, not
   merely asked for: a function that nests instead of returning early scores far
@@ -191,10 +191,11 @@ not in the gate.
   CLI, `internal/highlight` owns chroma, `internal/review` owns go-gitdiff. No
   other package may import them. Enforced by `depguard` in `.golangci.yml`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
-  from `detach`, `gate`, `golist`, `notify`, `supervisor`, `termwrap` and
-  `vcs`, and nowhere else in production code. `termwrap` is on that list because it names
+  from `detach`, `forge`, `gate`, `golist`, `notify`, `supervisor`,
+  `termwrap` and `vcs`, and nowhere else in production code. `termwrap` is on that list because it names
   `*exec.Cmd` in a signature without ever constructing one - a distinction
-  depguard cannot draw. Adding a seventh package is a decision, so
+  depguard cannot draw. `forge` joined for #310 as omatty's one reader of the
+  forge, through `gh`. Adding a ninth package is a decision, so
   `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
   in both `.golangci.yml` and here.
 - **Depend in the direction of stability.** For every edge A -> B,
@@ -202,11 +203,10 @@ not in the gate.
   module-internal imports. A package many things depend on must not reach up to
   one built to change, or everything below it is pinned by something that moves.
   `./scripts/check-deps.sh` prints the table and the tightest margin, and a
-  violation **fails the run** (#269). The repo obeys this with a margin of
-  +0.071 that has not moved across eight merges, and the number is printed on
-  every run because instability is a ratio of small integers and moves in
-  jumps - which is why the rule was measured for a fortnight before it was
-  enforced. The table is in `docs/ARCHITECTURE.md`, with the
+  violation **fails the run** (#269). Read the margin, not just the pass:
+  instability is a ratio of small integers and moves in jumps, so one new
+  import can take a comfortable margin to a failure. The table is in
+  `docs/ARCHITECTURE.md`, with the
   paragraph on why distance from the main sequence is deliberately not measured.
 - Before adding a dependency, check the project does not already have the
   capability.
@@ -361,16 +361,15 @@ message and explain why the behaviour it asserted was never correct.
   - Type: `feat` `fix` `docs` `test` `refactor` `perf` `chore` `build` `ci` —
     the same set as the commit-message types, so a `feat`-labelled issue
     produces `feat(#N):` commits.
-  - Milestone: `M1` `M2` `M3` `M4` `M5` `M6` `M7` `M8` `M9` `M10` `M11`. Every
+  - Milestone: `M<n>`, one per section of `docs/ROADMAP.md`. Every
     open issue carries one, including a bug found against an already-shipped
     milestone - it takes the milestone it will be fixed in, not the one that
     introduced it. Work a milestone deferred keeps that milestone's label and
     waits in Backlog: the label says where the work belongs, the column says
     whether anyone is on it, and the two answer different questions.
-  - Area: `area:paths` `area:registry` `area:vcs` `area:termwrap`
-    `area:supervisor` `area:keys` `area:ui` `area:cmd` `area:hooks`
-    `area:watcher` `area:notify` `area:discover` `area:gate` `area:review`
-    `area:coverage`.
+  - Area: `area:<package>` per package touched, plus `area:cmd` and
+    `area:docs`; `gh label list` is the current set. A milestone or package
+    with no label yet gets one created, not skipped.
   - Flags: `invariant` (changing this touches a cross-cutting invariant —
     argue it explicitly, never assume it is safe), `regression` (needs a test
     that fails before the fix), `blocked`.
@@ -409,7 +408,12 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
   release and its issues, and `README.md`'s Status section, since that is the
   first thing a stranger reads on `main`.
 - **After the merge**, tag the merge commit `vMAJOR.MINOR.PATCH` and push the
-  tag. Semantic versioning; below 1.0 the `ctrl+o` key table,
+  tag. The tag is the release (#327): `.github/workflows/release.yml` runs the
+  whole gate again on it and, only if that passes, GoReleaser builds the four
+  binaries, checksums, the Homebrew cask in `WilsonSousajr/homebrew-tap`, and
+  the GitHub release with the tag's own `CHANGELOG.md` section as its notes
+  (`scripts/release-notes.sh`). A tag the changelog does not describe fails
+  before anything publishes. Nothing is created by hand. Semantic versioning; below 1.0 the `ctrl+o` key table,
   `~/.omatty/config.toml` keys and the `state.json` schema are explicitly not
   frozen, so a breaking change to any of them is a minor bump, not a major.
 - **`main` is protected:** a pull request is required, both `gate` checks must
@@ -420,7 +424,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
 ## Documentation map
 
-- `docs/ROADMAP.md` — milestones M1-M11, what is in each and why, what was
+- `docs/ROADMAP.md` — every milestone, what is in each and why, what was
   deliberately cut, and how a release reaches `main`. Read it before
   proposing a feature.
 - `docs/superpowers/specs/2026-09-01-omatty-design.md` — the design this repo

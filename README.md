@@ -42,12 +42,12 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.2.0**, 2026-09-22 — the first release with the gate. It adds **M9 — The
-Gate**, **M10 — Coverage on the diff**, **M11 — The Harness** and **M13 —
-Memory and idle CPU** to v0.1.0's eight milestones, plus the session
-lifecycle: `ctrl+o s` stops a session without forgetting it, boot starts only
-what `dtach` is still holding, and `[sessions] idle_stop` can stop what has
-gone quiet. `CHANGELOG.md` has the whole list.
+**v0.3.0**, 2026-09-25 — the first release you can install without Go:
+`brew install WilsonSousajr/tap/omatty` on macOS, or a release archive on
+Linux. It adds M12's verification core to v0.2.0's gate: `t` narrows the review
+to what changed since your last prompt, a session's card names its pull request
+and CI, and review comments you sent stay on their lines. `CHANGELOG.md` has
+the whole list.
 
 | Milestone | Delivers |
 |---|---|
@@ -71,15 +71,30 @@ not yet frozen. `docs/ROADMAP.md` has the reasoning and what was cut;
 
 ## Install
 
+On macOS, with Homebrew:
+
+```bash
+brew install WilsonSousajr/tap/omatty
+```
+
+On Linux, or anywhere without Homebrew, take the archive for your platform
+(darwin or linux, amd64 or arm64) from the
+[latest release](https://github.com/WilsonSousajr/omatty/releases/latest),
+check it against `checksums.txt`, and put `omatty` on your PATH. No Go needed
+either way.
+
+From source, with Go 1.26:
+
 ```bash
 go install github.com/WilsonSousajr/omatty/cmd/omatty@latest
 ```
 
-Or `@v0.2.0` for the release rather than the tip of `main`. From a clone,
-`go install ./cmd/omatty` does the same thing.
+Or `@vX.Y.Z` for a given release rather than the tip of `main`; from a clone,
+`go install ./cmd/omatty` does the same thing, with `$(go env GOPATH)/bin` on
+your PATH.
 
-Requires Go 1.26, `git`, and `claude` on your PATH, with `$(go env GOPATH)/bin`
-on your PATH too. `omatty --version` says which build you ended up with.
+Every way needs `git` and `claude` on your PATH. `omatty --version` says which
+build you ended up with.
 
 Optionally, `dtach`:
 
@@ -333,8 +348,9 @@ The pane takes the keys while it is open.
 | `c` | comment on the line under the cursor |
 | `d` | delete the comment under the cursor |
 | `r` | reload the diff |
+| `t` | switch between the whole session and only this turn |
 | `o` | open the preview of this file with the line under the cursor on top |
-| `S` | send every comment to Claude as one message |
+| `S` | send every pending comment to Claude as one message |
 | `esc` | give the keys back to Claude, leaving the pane open |
 
 `esc` and `ctrl+o d` are a round trip: `esc` hands the keys back to Claude with
@@ -346,9 +362,19 @@ put while Claude edits the file underneath you. A comment whose line disappears
 floats to the top of its file marked `(moved)` rather than silently attaching
 itself to the wrong code.
 
+`t` narrows the diff to what changed since you last sent the session a
+prompt, and back. omatty takes the baseline when the prompt hook fires, as a
+git tree under `refs/omatty/turn/<session>` built through a temporary index,
+so your staging, HEAD and stash are never touched; archiving the session
+deletes it. Comments work the same in both views: one outside this turn is
+hidden rather than shown as moved, and `S` still sends it.
+
 `S` sends the whole batch as a single prompt — `file:line`, the quoted line and
 your note, numbered — so Claude answers them together instead of one at a time.
-Pending comments live in memory: quitting omatty drops them.
+What it sent stays on its line, muted and marked `(sent 14:36)`, so the next
+turn's diff can be read against what you asked; it is never sent again, and it
+goes once its line does. The title's count is what the next `S` would send.
+Comments live in memory: quitting omatty drops them.
 
 ## File tree
 
@@ -404,6 +430,29 @@ is holding.
 | `+` | turn finished |
 | `∅` | claude exited (`ctrl+o r` restarts it) |
 
+A card's second line names the session's branch and its diffstat. Once that
+branch has a pull request on GitHub, the branch becomes the pull request and
+one mark for it, read through your own `gh`:
+
+| Line two | Meaning |
+|---|---|
+| `#349 ✓` | checks passing |
+| `#349 ◍` | checks still running |
+| `#349 ✗` | a check failed |
+| `#349 ⚠` | conflicts, or behind its base |
+| `#349` | no checks |
+| `#349 merged` / `#349 closed` | the pull request is done |
+| `#349 ?` | the last read failed; the old verdict is not shown as current |
+
+omatty makes one `gh pr list` call per project, when omatty regains focus, when
+a session finishes a turn, and every minute while it has focus - never while it
+is in the background, and never more than once in thirty seconds for one
+project. Without `gh`, or for a repository that is not on GitHub, the card shows
+the branch as before and says so once in the log. A pull request from a fork is
+never taken for the session's, whatever its branch is called; a session on the
+main checkout shows open pull requests only, and a merged or closed one shows
+only while the checkout is still at its head commit.
+
 When a session starts waiting on you or finishes a turn while omatty is in the
 background, you get a desktop notification. On macOS you may need to allow
 notifications from your terminal app in System Settings once.
@@ -419,3 +468,7 @@ State lives in `~/.omatty/state.json`, worktrees in `~/.omatty/wt/`, logs in
 
 Read [`AGENTS.md`](AGENTS.md). It is the canonical instruction file for both
 people and coding agents.
+
+## License
+
+MIT - see [`LICENSE`](LICENSE).

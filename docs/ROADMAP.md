@@ -30,9 +30,10 @@ not only the coverage gate. See "Rules" at the end for why.
 | M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. Released in v0.2.0. |
 | M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. Released in v0.2.0. |
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. Released in v0.2.0. |
-| M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. What it found is below; what it produced is #309-#311. |
+| M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. Of what it produced, #310 and #311 are built and released in v0.3.0; #309 is open. |
 | M13 | Memory and idle CPU | **Done.** PR #314, merged 2026-09-22. Released in v0.2.0. |
 | — | **Released** | **v0.2.0**, 2026-09-22. M9-M11, M13 and the session lifecycle promoted to `main` (#328). See "Releases". |
+| — | **Released** | **v0.3.0**, 2026-09-25. M12's verification core (#311, #310, #335, #342), the release pipeline (#327) and the MIT license (#362). See "Releases". |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -951,7 +952,12 @@ rule 2, and inventing a separate release checklist would only be a second
 thing to let rot.
 
 **Before the merge** the PR updates `CHANGELOG.md` and README's Status
-section. **After it** the merge commit is tagged `vMAJOR.MINOR.PATCH`.
+section. **After it** the merge commit is tagged `vMAJOR.MINOR.PATCH`, and the
+tag is the release: `release.yml` re-runs the gate on it, then GoReleaser
+publishes binaries, checksums, the Homebrew cask and the notes from the tag's
+own CHANGELOG section (#327). A pull request already checks the release
+configuration and builds it as a snapshot, so a tag cannot be the first thing
+to find it broken.
 
 Below 1.0 the `ctrl+o` key table, `~/.omatty/config.toml` keys and the
 `state.json` schema are explicitly not frozen; the embedded terminal library
@@ -963,6 +969,7 @@ in a hurry to make it.
 |---|---|---|
 | v0.1.0 | 2026-09-10 | M1-M8, all eight milestones. 307 commits. (#134) |
 | v0.2.0 | 2026-09-22 | M9, M10, M11, M13, the session lifecycle (#316-#319, #321) and M12's research. 122 commits. (#328) |
+| v0.3.0 | 2026-09-25 | M12's verification core (#311, #310, #335, #342), the release pipeline (#327), the MIT license (#362). The first release built by `release.yml`. (#364) |
 
 ## M12 - The Field
 
@@ -1169,6 +1176,12 @@ one argued from principle alone:
 | Agent runs triggered by CI | Orca #10131, "auto-run agents when PR checks fail" | One step past #233's auto-run, which gates a session when its turn ends and *sends nothing*. That step is where a verification tool becomes an orchestrator. |
 | A board driving the agents | `vibe-kanban`, and a camp three times the size of the terminal camp | Two sources of truth. The board is GitHub project 13. |
 | Mobile companions, cloud sessions, account sync | Orca, Nimbalyst | Hidden context only the tool can see is a regression. |
+
+**Reading a pull request's state is not "cloud, accounts, sync"** (#310).
+omatty runs the operator's own `gh`, read-only, holds no token of its own, makes
+one call per project and none while it is in the background. It writes nothing
+to the forge: acting on a pull request - pushing, opening, merging - is a
+separate decision (#331), taken when it is proposed, not by this one.
 
 One idea found in the field is **not** refused, only unanswered: **forking a
 session's conversation** (`fleet`'s `f`). Invariant 9 asks the first question —

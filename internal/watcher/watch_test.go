@@ -197,3 +197,20 @@ func TestWatch_AddTailsTheReboundConversation_issue316(t *testing.T) {
 		t.Fatal("the pre-clear tailer is still running")
 	}
 }
+
+// The UI needs to know when hooks will never arrive: a turn baseline is only
+// ever taken by one, so without them the turn view must say so rather than
+// diff against a baseline left from another run (#311, #49).
+func TestWatch_HooksLiveSaysWhetherTheSocketBound_issue311(t *testing.T) {
+	live := Start(claudeDeps(shortHome(t)), nil)
+	defer live.Close()
+	if !live.HooksLive() {
+		t.Error("HooksLive() = false with a bound socket")
+	}
+
+	dead := Start(claudeDeps(filepath.Join(shortHome(t), "no", "such", "home")), nil)
+	defer dead.Close()
+	if dead.HooksLive() {
+		t.Error("HooksLive() = true when the socket could not bind")
+	}
+}

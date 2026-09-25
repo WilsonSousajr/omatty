@@ -18,6 +18,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/paste"
+	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
 
 // renderGate draws the column's gate view: one row per step, with the output
@@ -57,8 +58,10 @@ func (m *Model) pendingGateLines(id string) []string {
 		head = "running the gate..."
 	}
 	lines := []string{head, ""}
-	for _, step := range m.gateFor(id) {
-		lines = append(lines, "  · "+step.Name+"    $ "+step.Run)
+	steps := m.gateFor(id)
+	w := nameWidth(steps)
+	for _, step := range steps {
+		lines = append(lines, stepRow("  ", "·", step, w, ""))
 	}
 	return lines
 }
@@ -79,9 +82,14 @@ func (m *Model) noGateLines() []string {
 
 // gateLines is every step, each followed by its output when folded open.
 func (m *Model) gateLines(report gate.Report) []string {
+	steps := make([]gate.Step, len(report.Results))
+	for i, result := range report.Results {
+		steps[i] = result.Step
+	}
+	w := nameWidth(steps)
 	var lines []string
 	for i, result := range report.Results {
-		lines = append(lines, m.gateStepLine(i, result))
+		lines = append(lines, m.gateStepLine(i, result, w))
 		if m.review.GateOpen[i] {
 			lines = append(lines, indent(result.Output)...)
 		}
@@ -91,13 +99,29 @@ func (m *Model) gateLines(report gate.Report) []string {
 
 // gateStepLine is one step's row: the cursor, its mark, its name and the
 // command it ran, so the pane says what was actually executed.
-func (m *Model) gateStepLine(i int, result gate.StepResult) string {
+func (m *Model) gateStepLine(i int, result gate.StepResult, nameW int) string {
 	cursor := "  "
 	if i == m.review.GateCursor {
 		cursor = "▸ "
 	}
-	return fmt.Sprintf("%s%s %-6s %-6s $ %s",
-		cursor, verdictMark[result.Verdict], result.Step.Name, elapsed(result), result.Step.Run)
+	return stepRow(cursor, verdictMark[result.Verdict], result.Step, nameW, elapsed(result))
+}
+
+// stepRow lays out one step for both the pending and the verdict view, so the
+// command starts in the same column in each and a row does not shift when its
+// verdict replaces the pending mark (#342). took is blank while pending.
+func stepRow(cursor, mark string, step gate.Step, nameW int, took string) string {
+	return fmt.Sprintf("%s%s %-*s %-6s $ %s", cursor, mark, nameW, step.Name, took, step.Run)
+}
+
+// nameWidth is the widest step name, and never less than six, so "fmt" and
+// "coverage" in one gate still share a command column (#342).
+func nameWidth(steps []gate.Step) int {
+	w := 6
+	for _, step := range steps {
+		w = max(w, len([]rune(step.Name)))
+	}
+	return w
 }
 
 // elapsed is how long a step took, blank for one that never ran.
@@ -224,21 +248,55 @@ func (m *Model) gateMaxWidth() int {
 // sending, the next thing anyone wants is to watch the session work.
 func (m *Model) submitGate() tea.Cmd {
 	id := m.review.SessionID
+	body, term, ok := m.gateFeedback(id)
+	if !ok || m.holdResend(id) {
+		return nil
+	}
+	m.gateSent[id] = gateSentOnce
+	m.review.Focused = false
+	return term.SendInput(paste.BracketedPaste(body))
+}
+
+// gateFeedback is the message S would send and the terminal it goes to, or
+// false with the reason in the footer.
+func (m *Model) gateFeedback(id string) (string, termwrap.Terminal, bool) {
 	report, ran := m.gates[id]
 	if !ran {
 		m.lastErr = "no gate has run for this session yet"
-		return nil
+		return "", nil, false
 	}
 	body := gate.Compose(report.Results)
 	if body == "" {
 		m.lastErr = "the gate passed; there is nothing to send"
-		return nil
+		return "", nil, false
 	}
 	term := m.terms[id]
 	if term == nil {
 		m.lastErr = "session " + id + " has no terminal to send to"
-		return nil
+		return "", nil, false
 	}
-	m.review.Focused = false
-	return term.SendInput(paste.BracketedPaste(body))
+	return body, term, true
 }
+
+// holdResend is true when this report's failures already went and this S is
+// the first since: it warns instead, and the next S sends (#335).
+func (m *Model) holdResend(id string) bool {
+	if m.gateSent[id] != gateSentOnce {
+		return false
+	}
+	m.gateSent[id] = gateWarned
+	m.lastErr = "these failures were already sent - S again to resend"
+	return true
+}
+
+// gateSend is where S stands with a session's current gate report (#335).
+// The same report can be sent twice on purpose - claude may have lost the
+// thread - but never by a stray second keypress, so the second S warns and
+// the third sends.
+type gateSend int
+
+const (
+	gateUnsent   gateSend = iota // the zero value: this report has not gone
+	gateSentOnce                 // its failures went; the next S warns
+	gateWarned                   // the warning is showing; the next S resends
+)
