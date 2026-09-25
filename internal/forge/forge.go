@@ -2,10 +2,12 @@ package forge
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // ErrNoGH is ListPRs' answer when gh is not installed: nothing to ask, and
@@ -30,10 +32,18 @@ const prFields = "number,headRefName,headRefOid,isCrossRepository,state,mergeSta
 // CLI runs the gh binary.
 //
 //	prs, err := forge.NewCLI().ListPRs("/p/omatty")
-type CLI struct{ bin string }
+type CLI struct {
+	bin     string
+	timeout time.Duration
+}
+
+// listTimeout bounds one gh call. A stalled gh - a laptop waking, a network
+// that changed under it - otherwise holds the project's poll until TCP gives
+// up, minutes later, with the card still showing the last verdict (#356).
+const listTimeout = 30 * time.Second
 
 // NewCLI returns a CLI that invokes "gh" from PATH.
-func NewCLI() *CLI { return &CLI{bin: "gh"} }
+func NewCLI() *CLI { return &CLI{bin: "gh", timeout: listTimeout} }
 
 // ListPRs is the repository's most recent hundred pull requests, of every
 // state, in one call: a card with ten sessions in one repository costs one
@@ -44,11 +54,19 @@ func (c *CLI) ListPRs(repoRoot string) ([]PR, error) {
 	if _, err := exec.LookPath(c.bin); err != nil {
 		return nil, ErrNoGH
 	}
-	cmd := exec.Command(c.bin, "pr", "list", "--state", "all", "--limit", "100", "--json", prFields)
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, c.bin, "pr", "list", "--state", "all", "--limit", "100", "--json", prFields)
 	cmd.Dir = repoRoot
+	// A grandchild holding stdout must not outlive the kill (#356), the same
+	// reason supervisor's naming call sets it.
+	cmd.WaitDelay = time.Second
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("forge: gh pr list in %q gave no answer in %v: %w", repoRoot, c.timeout, ctx.Err())
+	}
 	if err != nil {
 		return nil, classify(repoRoot, strings.TrimSpace(stderr.String()), err)
 	}
