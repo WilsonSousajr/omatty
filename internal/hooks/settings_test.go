@@ -45,17 +45,31 @@ func TestRender_RegistersEveryStatusEvent_issue17(t *testing.T) {
 	}
 }
 
+// wantCommand is the whole line claude runs, written out literally rather than
+// built the way Render builds it: a test that composes its own expectation
+// from the same pieces asserts the code against itself and would follow any
+// change silently.
+//
+// The trailing guard is #380's: a binary that has been reinstalled elsewhere
+// is gone from a running session's --settings, and without the guard sh exited
+// 127 onto stderr for every hook event. What #17 and #56 won is still asserted
+// here - the path is absolute and quoted, and the timeout is 5.
+const wantCommand = "'/Users/w/go/bin/omatty' hook 2>/dev/null || true"
+
 func checkHook(t *testing.T, event, typ, command string, timeout int) {
 	t.Helper()
-	if typ != "command" || command != "'/Users/w/go/bin/omatty' hook" || timeout != 5 {
-		t.Errorf("event %q hook = {%q %q %d}, want command \"'/Users/w/go/bin/omatty' hook\" timeout 5",
-			event, typ, command, timeout)
+	if typ != "command" || command != wantCommand || timeout != 5 {
+		t.Errorf("event %q hook = {%q %q %d}, want command %q timeout 5",
+			event, typ, command, timeout, wantCommand)
 	}
 }
 
 func TestRender_UsesTheAbsoluteBinaryPath_issue17(t *testing.T) {
 	out, _ := hooks.Render("/opt/homebrew/bin/omatty", statusEvents)
-	if !strings.Contains(string(out), `"'/opt/homebrew/bin/omatty' hook"`) {
+	// Not anchored on the JSON string's closing quote: #380 appended a guard
+	// after `hook`, and what this test is about is the path being absolute and
+	// quoted, which is still exactly what it asserts.
+	if !strings.Contains(string(out), `'/opt/homebrew/bin/omatty' hook`) {
 		t.Errorf("Render did not use the absolute binary path:\n%s", out)
 	}
 }
@@ -80,7 +94,8 @@ func TestRender_QuotesTheBinaryPathForTheShell_issue56(t *testing.T) {
 	}
 
 	got := parsed.Hooks["Stop"][0].Hooks[0].Command
-	want := `'/Users/w/My Tools/it'\''s $HOME/omatty' hook`
+	// The path is still one quoted argument; #380's guard follows it.
+	want := `'/Users/w/My Tools/it'\''s $HOME/omatty' hook 2>/dev/null || true`
 	if got != want {
 		t.Errorf("command = %q, want %q", got, want)
 	}
