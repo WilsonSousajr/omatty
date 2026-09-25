@@ -132,10 +132,15 @@ message. Browse the session's worktree and preview the files it touched.
   tree, `*` marks a file the diff changed, `enter` folds a directory or
   previews a file, bounded at 256 KiB.
 
-**Deliberately out:** asking Claude to self-review, commit/push/PR from
-omatty, running N sessions on one task and comparing, broadcasting a prompt.
-All considered; all cut. Review stays a person reading a diff and commenting.
-Shipping stays in git.
+**Deliberately out:** asking Claude to self-review, running N sessions on one
+task and comparing, broadcasting a prompt. All considered; all cut. Review
+stays a person reading a diff and commenting.
+
+Commit, push and PR from omatty were cut here too, and that is **superseded**:
+the decision was reserved for #331 when #310 landed, and taken on 2026-09-25
+under "Acting on a pull request" below. M3's reason - that shipping is git's
+job and not a review pane's - still holds for M3, which had no gate verdict to
+act on and no remote verdict to read. What changed is that both now exist.
 
 **Done when:** you review a two-file change, leave three comments, press
 `[S]`, and Claude receives them as one message and acts on all three; and
@@ -1205,12 +1210,36 @@ one argued from principle alone:
 | Agent runs triggered by CI | Orca #10131, "auto-run agents when PR checks fail" | One step past #233's auto-run, which gates a session when its turn ends and *sends nothing*. That step is where a verification tool becomes an orchestrator. |
 | A board driving the agents | `vibe-kanban`, and a camp three times the size of the terminal camp | Two sources of truth. The board is GitHub project 13. |
 | Mobile companions, cloud sessions, account sync | Orca, Nimbalyst | Hidden context only the tool can see is a regression. |
+| Merging when the checks go green | GitHub's own auto-merge, and every CI service with a merge queue | The same step as Orca #10131 one row up, arrived at from the other side: it acts because a check changed, with nobody reading. #331's ship key merges only what is *already* green, on a keypress, and refuses otherwise. Auto-merge is a real feature and a reasonable thing to want - it belongs on the forge, which has it, not inside a tool whose whole claim is that it only ever acts while you are watching. |
 
 **Reading a pull request's state is not "cloud, accounts, sync"** (#310).
 omatty runs the operator's own `gh`, read-only, holds no token of its own, makes
 one call per project and none while it is in the background. It writes nothing
 to the forge: acting on a pull request - pushing, opening, merging - is a
-separate decision (#331), taken when it is proposed, not by this one.
+separate decision (#331), taken when it is proposed, not by this one. It has
+since been proposed, and the paragraph below takes it.
+
+**Acting on a pull request: decided 2026-09-25 (#331).** It is accepted,
+bounded to what a person asks for while reading:
+
+- **Push the branch and open the pull request**, and **merge one whose local
+  *and* remote verdicts are already green**. Otherwise do nothing and say which
+  of the two is missing.
+- **One keypress, one session, every time.** That is the same shape as `S`
+  sending the gate's failures back, and it is the criterion this section
+  actually applies - not whether the forge is touched, but whether omatty acts
+  while nobody is reading.
+- **Never** merging when checks *go* green, which is the row added to the table
+  above. Never a force-push, never a branch deletion.
+- **Never into a protected branch.** AGENTS.md makes `main` moveable only by a
+  promotion pull request: "This applies to the repository owner too - that is
+  the point of it." A ship key that could merge into `main` would route around
+  omatty's own release gate, so the base is the project's base branch
+  (`develop` here), and a protected target is a refusal like any other.
+
+Using the operator's existing `git` remote and `gh` auth is not "cloud,
+accounts, sync" - there is no account, no token and no sync. It is the
+credential the operator already uses by hand, on a keypress they pressed.
 
 One idea found in the field is **not** refused, only unanswered: **forking a
 session's conversation** (`fleet`'s `f`). Invariant 9 asks the first question —
@@ -1226,7 +1255,10 @@ faster pair.
 ### Also cut
 
 - Claude self-reviewing its own diff
-- Commit / push / PR from inside omatty
+- ~~Commit / push / PR from inside omatty~~ - **accepted 2026-09-25**, bounded,
+  as "Acting on a pull request" above sets out. Listed here from M1 until then.
+  Its dangerous half, merging when checks go green, is refused by name in the
+  orchestrator table and did not come with it.
 - Running N sessions on one task and comparing the results
 - Broadcasting one prompt to several sessions
 - SSH / remote sessions
