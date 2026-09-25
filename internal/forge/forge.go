@@ -26,12 +26,15 @@ var notGitHub = []string{
 	"not a git repository",
 }
 
-// openFields is everything Fold reads: an open pull request's card shows
-// its CI and whether it can merge.
-const openFields = "number,headRefName,headRefOid,isCrossRepository,state,mergeStateStatus,statusCheckRollup"
+// openFields is everything Fold reads: an open pull request's card shows its
+// CI and whether it can merge, and the tracker's row shows its title, whether
+// it is a draft, and its age (#393). All three are cheap fields on a call
+// already being made; statusCheckRollup stays the only expensive one.
+const openFields = "number,title,headRefName,headRefOid,isCrossRepository,state,isDraft,updatedAt,mergeStateStatus,statusCheckRollup"
 
 // finishedFields leaves the checks out: a merged or closed card shows no CI
-// mark, and the rollup is the expensive part of the answer (#358).
+// mark, and the rollup is the expensive part of the answer (#358). It leaves
+// the tracker's three out too, because the tracker lists only what is open.
 const finishedFields = "number,headRefName,headRefOid,isCrossRepository,state"
 
 // finishedWindow is how many recently finished pull requests are read. A
@@ -65,10 +68,10 @@ func NewCLI() *CLI { return &CLI{bin: "gh", timeout: listTimeout} }
 // repoRoot's remote and uses the operator's own authentication; omatty holds
 // nothing.
 func (c *CLI) ListPRs(repoRoot string) ([]PR, error) {
-	if _, err := exec.LookPath(c.bin); err != nil {
-		return nil, ErrNoGH
+	ctx, cancel, err := c.bounded()
+	if err != nil {
+		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 	open, err := c.list(ctx, repoRoot, "open", "100", openFields)
 	if err != nil {
@@ -81,9 +84,51 @@ func (c *CLI) ListPRs(repoRoot string) ([]PR, error) {
 	return append(open, finished...), nil
 }
 
+// ListIssues is the repository's open issues: one call for the whole project,
+// #358's rule applied to the other list. Closed issues are not read at all -
+// the tracker answers "what is open", and a closed one is history the forge
+// already keeps.
+//
+//	issues, err := forge.NewCLI().ListIssues("/p/omatty")
+func (c *CLI) ListIssues(repoRoot string) ([]Issue, error) {
+	ctx, cancel, err := c.bounded()
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	out, err := c.run(ctx, repoRoot, "issue", "list", "--state", "open", "--limit", issueWindow, "--json", issueFields)
+	if err != nil {
+		return nil, err
+	}
+	return FoldIssues(out)
+}
+
+// bounded refuses when gh is not installed and otherwise returns the context
+// one exported call is given. One context per call and not per gh invocation:
+// ListPRs makes two, and the promise is an answer inside thirty seconds, not
+// thirty seconds for each half of it (#356).
+func (c *CLI) bounded() (context.Context, context.CancelFunc, error) {
+	if _, err := exec.LookPath(c.bin); err != nil {
+		return nil, nil, ErrNoGH
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	return ctx, cancel, nil
+}
+
 // list is one `gh pr list` in repoRoot. gh's "closed" includes merged.
 func (c *CLI) list(ctx context.Context, repoRoot, state, limit, fields string) ([]PR, error) {
-	cmd := exec.CommandContext(ctx, c.bin, "pr", "list", "--state", state, "--limit", limit, "--json", fields)
+	out, err := c.run(ctx, repoRoot, "pr", "list", "--state", state, "--limit", limit, "--json", fields)
+	if err != nil {
+		return nil, err
+	}
+	return Fold(out)
+}
+
+// run is one gh invocation in repoRoot, and the only place this package starts
+// a process. Both lists share it so neither can drift from the other's
+// bounding, classification or diagnostics.
+func (c *CLI) run(ctx context.Context, repoRoot string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, c.bin, args...)
 	cmd.Dir = repoRoot
 	// A grandchild holding stdout must not outlive the kill (#356), the same
 	// reason supervisor's naming call sets it.
@@ -92,21 +137,31 @@ func (c *CLI) list(ctx context.Context, repoRoot, state, limit, fields string) (
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if ctx.Err() != nil {
-		return nil, fmt.Errorf("forge: gh pr list in %q gave no answer in %v: %w", repoRoot, c.timeout, ctx.Err())
+		return nil, fmt.Errorf("forge: gh %s in %q gave no answer in %v: %w", called(args), repoRoot, c.timeout, ctx.Err())
 	}
 	if err != nil {
-		return nil, classify(repoRoot, strings.TrimSpace(stderr.String()), err)
+		return nil, classify(repoRoot, called(args), strings.TrimSpace(stderr.String()), err)
 	}
-	return Fold(out)
+	return out, nil
+}
+
+// called names the call for a message - "pr list", "issue list" - so a failure
+// sends its reader to the right subcommand now that two lists share one runner
+// (#393).
+func called(args []string) string {
+	if len(args) < 2 {
+		return strings.Join(args, " ")
+	}
+	return args[0] + " " + args[1]
 }
 
 // classify names a checkout that is not on GitHub, and carries gh's own
 // words for anything else.
-func classify(repoRoot, stderr string, err error) error {
+func classify(repoRoot, call, stderr string, err error) error {
 	for _, s := range notGitHub {
 		if strings.Contains(stderr, s) {
 			return fmt.Errorf("forge: %s: %w", stderr, ErrNotGitHub)
 		}
 	}
-	return fmt.Errorf("forge: gh pr list in %q: %s: %w", repoRoot, stderr, err)
+	return fmt.Errorf("forge: gh %s in %q: %s: %w", call, repoRoot, stderr, err)
 }

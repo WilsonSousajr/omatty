@@ -10,6 +10,7 @@ package forge
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // PRState is where a pull request stands.
@@ -33,26 +34,33 @@ const (
 	CIFailing                // at least one check failed
 )
 
-// PR is one pull request as a session card needs it.
+// PR is one pull request as a session card needs it, and as the tracker's list
+// draws it (#393).
 type PR struct {
 	Number   int
+	Title    string // empty on a finished one: only the open set is asked for it
 	Branch   string // the head branch, matched against a session's
 	State    PRState
 	CI       CIState
 	Conflict bool   // DIRTY or BEHIND: it cannot merge as it stands
 	Fork     bool   // opened from another repository: its branch name is not ours
 	Head     string // the head commit, which says whether a merged PR is this work
+	Draft    bool   // opened as a draft: not ready to be read as work offered
+	Updated  time.Time
 }
 
 // ghPR is one element of `gh pr list --json` with the fields ListPRs asks for.
 type ghPR struct {
-	Number            int     `json:"number"`
-	HeadRefName       string  `json:"headRefName"`
-	HeadRefOid        string  `json:"headRefOid"`
-	IsCrossRepository bool    `json:"isCrossRepository"`
-	State             string  `json:"state"`
-	MergeStateStatus  string  `json:"mergeStateStatus"`
-	StatusCheckRollup []check `json:"statusCheckRollup"`
+	Number            int       `json:"number"`
+	Title             string    `json:"title"`
+	HeadRefName       string    `json:"headRefName"`
+	HeadRefOid        string    `json:"headRefOid"`
+	IsCrossRepository bool      `json:"isCrossRepository"`
+	State             string    `json:"state"`
+	MergeStateStatus  string    `json:"mergeStateStatus"`
+	StatusCheckRollup []check   `json:"statusCheckRollup"`
+	IsDraft           bool      `json:"isDraft"`
+	UpdatedAt         time.Time `json:"updatedAt"`
 }
 
 // check is a CheckRun (status, conclusion) or a StatusContext (state); the
@@ -76,12 +84,15 @@ func Fold(raw []byte) ([]PR, error) {
 	for i, p := range in {
 		out[i] = PR{
 			Number:   p.Number,
+			Title:    p.Title,
 			Branch:   p.HeadRefName,
 			State:    stateOf(p.State),
 			CI:       rollup(p.StatusCheckRollup),
 			Conflict: p.MergeStateStatus == "DIRTY" || p.MergeStateStatus == "BEHIND",
 			Fork:     p.IsCrossRepository,
 			Head:     p.HeadRefOid,
+			Draft:    p.IsDraft,
+			Updated:  p.UpdatedAt,
 		}
 	}
 	return out, nil

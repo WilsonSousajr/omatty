@@ -3,6 +3,7 @@ package forge_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/forge"
 )
@@ -107,5 +108,22 @@ func TestFold_CarriesForkAndHeadCommit_issue310(t *testing.T) {
 	}
 	if !prs[0].Fork || prs[0].Head != "abc123" {
 		t.Errorf("PR = %+v, want Fork and Head abc123", prs[0])
+	}
+}
+
+// The tracker lists open pull requests beside open issues, so a row needs a
+// title, whether it is a draft, and an age. The card never needed any of them
+// (#310), so the open field set carried none (#393).
+func TestFold_CarriesTitleDraftAndAge_issue393(t *testing.T) {
+	got := foldOne(t, `{"number":392,"title":"chore(#390): prepare v0.4.0","headRefName":"chore/390","state":"OPEN","isDraft":true,"updatedAt":"2026-09-25T19:39:36Z"}`)
+
+	if got.Title != "chore(#390): prepare v0.4.0" {
+		t.Errorf("Title = %q, want the pull request's title", got.Title)
+	}
+	if !got.Draft {
+		t.Error("Draft = false, want true for a draft pull request")
+	}
+	if want := time.Date(2026, 9, 25, 19, 39, 36, 0, time.UTC); !got.Updated.Equal(want) {
+		t.Errorf("Updated = %v, want %v", got.Updated, want)
 	}
 }
