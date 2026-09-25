@@ -128,10 +128,23 @@ counted in the title and still sent by `S`.
 its markers work unchanged on a turn diff: what this turn added that no test
 covers.
 
-**Notices.** With no ref: `no turn recorded yet - the baseline is taken when
-you send a prompt`. With a failed snapshot (§3): `the baseline for this turn
-could not be taken: <err>`. Both are drawn as notices in the column, not in
-the error style.
+**Notices.** The turn scope says why it has no rows instead of showing none,
+and a failure looks like one (#353). The two neutral notices are muted:
+
+- No ref yet: `no turn recorded yet: a baseline is taken when you send a
+  prompt`.
+- A load in flight: `reading this turn...`.
+
+The three failures use the error style:
+
+- The hook socket did not bind (#49): `hooks are not arriving, so no turn
+  baseline can be taken: see the log`. Any ref standing then was left by
+  another run, and diffing against it would call someone else's turn this one.
+- A failed snapshot (§3): `this turn's baseline could not be taken:`.
+- A failed load: `reading this turn failed:`.
+
+Each failure is followed by git's own words and `full error in the log`,
+wrapped to the column rather than cut at its edge (#351).
 
 ## 3. Lifecycle, failure, tests
 
