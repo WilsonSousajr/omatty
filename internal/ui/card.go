@@ -51,12 +51,22 @@ func (m *Model) renderRow(row Row, now time.Time) []string {
 	}
 }
 
-// renderHeaderRow is a project's one line: the rail column, then the name in
-// muted. The rail is drawn only on an empty project the cursor rests on, the
-// one header that can be selected (#158).
+// renderHeaderRow is a project's one line: the rail column, the name in muted,
+// then its open counts right-aligned (#395). The rail is drawn only on an empty
+// project the cursor rests on, the one header that can be selected (#158).
+//
+// A project with nothing known keeps the old single-budget line rather than a
+// name one cell shorter beside an empty count: "exactly as it was" is what
+// unknown counts promise.
 func (m *Model) renderHeaderRow(project string) string {
 	p, ok := m.sidebar.SelectedHeader()
-	return m.rail(ok && p == project) + mutedStyle.Render(fitLine(project, cardCols-1))
+	rail := m.rail(ok && p == project)
+	counts := m.forgeCounts(project)
+	if counts == "" {
+		return rail + mutedStyle.Render(fitLine(project, cardCols-1))
+	}
+	name := fitLine(project, cardCols-1-1-lipgloss.Width(counts))
+	return rail + mutedStyle.Render(name+" "+counts)
 }
 
 // cardTop is line one past the rail: the glyph, the title, the age.
