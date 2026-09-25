@@ -11,6 +11,16 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.3.0] — 2026-09-25
+
+M12's verification core - review scoped to the last turn, a session's pull
+request on its card, sent comments that stay put - and the first release the
+pipeline builds: binaries for macOS and Linux, checksums and a Homebrew cask,
+so installing omatty no longer needs Go (#364).
+
+A minor bump, per the pre-1.0 rule: the review column gains the `t` key and the
+card gains the pull request; `state.json` and `config.toml` are unchanged.
+
 ### Added
 
 - **omatty is MIT-licensed** (`LICENSE`), and the release archives carry the
@@ -45,6 +55,14 @@ for each milestone and what was deliberately cut.
 
 - The gate pane's rows keep one command column, pending or with a verdict,
   whatever the length of the step names. (#342)
+
+### Known limitations
+
+- The agent seam still has one profile, claude. Codex is a follow-up. (#152)
+- Scrollback is not preserved across a detach and reattach. (#336)
+- Homebrew installs the cask on macOS; on Linux, use the release archive.
+- A card reads the newest 100 pull requests of its repository, so an open one
+  older than that shows the branch. (#358)
 
 ## [v0.2.0] — 2026-09-22
 
@@ -315,6 +333,7 @@ after its issue:
 - The agent seam has one profile, claude. Codex is a follow-up. (#152)
 - Scrollback is not preserved across a detach and reattach.
 
-[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.1.0

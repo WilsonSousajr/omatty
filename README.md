@@ -42,12 +42,12 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.2.0**, 2026-09-22 — the first release with the gate. It adds **M9 — The
-Gate**, **M10 — Coverage on the diff**, **M11 — The Harness** and **M13 —
-Memory and idle CPU** to v0.1.0's eight milestones, plus the session
-lifecycle: `ctrl+o s` stops a session without forgetting it, boot starts only
-what `dtach` is still holding, and `[sessions] idle_stop` can stop what has
-gone quiet. `CHANGELOG.md` has the whole list.
+**v0.3.0**, 2026-09-25 — the first release you can install without Go:
+`brew install WilsonSousajr/tap/omatty` on macOS, or a release archive on
+Linux. It adds M12's verification core to v0.2.0's gate: `t` narrows the review
+to what changed since your last prompt, a session's card names its pull request
+and CI, and review comments you sent stay on their lines. `CHANGELOG.md` has
+the whole list.
 
 | Milestone | Delivers |
 |---|---|
