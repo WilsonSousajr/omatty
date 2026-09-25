@@ -55,6 +55,7 @@ var leaderKeys = []keyHelp{
 	{"d", "open or close the diff pane"},
 	{"f", "open or close the file tree"},
 	{"g", "open or close the gate pane"},
+	{"i", "open or close this project's issues and pull requests"},
 	{"m", "hand the mouse back to your terminal, or take it back"},
 	{"?", "this list"},
 	{"q", "quit"},

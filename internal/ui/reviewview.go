@@ -30,6 +30,8 @@ func (m *Model) renderReview(w, h int) string {
 		lines = m.renderPreview(w, h)
 	case ViewGate:
 		lines = m.renderGate(w, h)
+	case ViewTracker:
+		lines = m.renderTracker(w, h)
 	default:
 		lines = m.reviewBody(w, h)
 	}
@@ -61,6 +63,8 @@ func (m *Model) viewTitle(budget int) string {
 		return previewTitle(m.review.Preview.Path, budget)
 	case ViewGate:
 		return "gate · " + m.sessionTitle(m.review.SessionID)
+	case ViewTracker:
+		return m.trackerTitle(budget)
 	}
 	return joinTitle(m.diffTitleParts(), budget)
 }

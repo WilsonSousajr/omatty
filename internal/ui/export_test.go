@@ -249,6 +249,9 @@ func (m *Model) IssuesFailed(project string) bool      { return m.issueFailed[pr
 // with four-digit counts cannot be built out of a fixture.
 func FitCounts(parts []string) string { return fitCounts(parts) }
 
+// TrackerRowCount is how many rows the tracker draws, the rule included (#396).
+func (m *Model) TrackerRowCount() int { return len(m.trackerRows()) }
+
 // DiffSeq and TurnSeq are the latest load's numbers, so a test that hands in
 // a loaded diff of its own stamps it as the answer to that load (#352).
 func (m *Model) DiffSeq() uint64 { return m.diffSeq }
