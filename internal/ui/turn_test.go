@@ -23,12 +23,14 @@ type turnRecorder struct {
 	DiffErr   error
 	DiffCalls int
 	Dropped   [][2]string // id, projectRoot
+	Events    []string    // "snap <id>" and "drop <id>", in the order they ran
 }
 
 func (r *turnRecorder) funcs() ui.TurnFuncs {
 	return ui.TurnFuncs{
 		Snap: func(s registry.Session) error {
 			r.Snapped = append(r.Snapped, s.ID)
+			r.Events = append(r.Events, "snap "+s.ID)
 			return r.SnapErr
 		},
 		Diff: func(registry.Session, string) (review.Diff, error) {
@@ -37,6 +39,7 @@ func (r *turnRecorder) funcs() ui.TurnFuncs {
 		},
 		Drop: func(s registry.Session, root string) error {
 			r.Dropped = append(r.Dropped, [2]string{s.ID, root})
+			r.Events = append(r.Events, "drop "+s.ID)
 			return nil
 		},
 	}
@@ -117,6 +120,38 @@ func TestModel_archiveDropsTheTurnBaseline_issue311(t *testing.T) {
 
 	if len(tr.Dropped) != 1 || tr.Dropped[0] != [2]string{"s1", "/p/omatty"} {
 		t.Errorf("dropped = %v, want [[s1 /p/omatty]]", tr.Dropped)
+	}
+}
+
+// A snapshot in flight when its session is archived used to recreate the ref
+// archive had just deleted, for a session that no longer exists, and nothing
+// ever removed it (#350). Only a directory that survives the archive can do
+// this - a main checkout, as s1 is here - and there is deliberately no boot
+// sweep, since two omatty HOMEs can share one repository. So a success that
+// lands for a forgotten session drops its baseline again.
+func TestModel_aSnapshotLandingAfterArchiveIsDroppedAgain_issue350(t *testing.T) {
+	tr := &turnRecorder{}
+	r := &recordArchive{}
+	terms, _ := fakeTerms(t)
+	st := worktreeState()
+	r.State = st
+	d := baseDeps(st, terms)
+	d.Archive, d.TailStop, d.RemoveWorktree = r.archive, r.stopTail, r.removeWorktree
+	d.Turn = tr.funcs()
+	m := ui.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	_, inFlight := m.Update(hookPrompt("s1")) // the snapshot, not yet run
+	openArchive(t, m, "s1")
+	pressAndSettle(m, key('y'))
+
+	settle(m, inFlight) // it lands after the archive's drop
+
+	want := []string{"drop s1", "snap s1", "drop s1"}
+	if strings.Join(tr.Events, ", ") != strings.Join(want, ", ") {
+		t.Errorf("events = %v, want %v: the late snapshot's ref must be dropped after it", tr.Events, want)
+	}
+	if last := tr.Dropped[len(tr.Dropped)-1]; last != [2]string{"s1", "/p/omatty"} {
+		t.Errorf("the second drop was %v, want [s1 /p/omatty]", last)
 	}
 }
 

@@ -19,6 +19,11 @@ import (
 type TurnSnappedMsg struct {
 	SessionID string
 	Err       error
+	// Session and Root are the session and its project root as the snapshot
+	// began. A snapshot that lands after its session was archived has only
+	// these to drop the ref it just made (#350).
+	Session registry.Session
+	Root    string
 }
 
 // maybeSnapTurn records the session's working tree as a turn begins. Only
@@ -34,8 +39,10 @@ func (m *Model) maybeSnapTurn(e watcher.Event) tea.Cmd {
 		return nil
 	}
 	m.turnPending[sess.ID] = true
-	snap := m.turn.Snap
-	return func() tea.Msg { return TurnSnappedMsg{SessionID: sess.ID, Err: snap(sess)} }
+	snap, root := m.turn.Snap, m.projectRoot(sess.Project)
+	return func() tea.Msg {
+		return TurnSnappedMsg{SessionID: sess.ID, Err: snap(sess), Session: sess, Root: root}
+	}
 }
 
 // onTurnSnapped settles a snapshot. A failure is kept until the next success:
@@ -44,7 +51,7 @@ func (m *Model) maybeSnapTurn(e watcher.Event) tea.Cmd {
 func (m *Model) onTurnSnapped(msg TurnSnappedMsg) tea.Cmd {
 	delete(m.turnPending, msg.SessionID)
 	if !m.knownSession(msg.SessionID) {
-		return nil
+		return m.dropLateTurn(msg)
 	}
 	if msg.Err != nil {
 		slog.Warn("taking a turn baseline", "session", msg.SessionID, "err", msg.Err)
@@ -70,7 +77,25 @@ func (m *Model) reloadTurn(id string) tea.Cmd {
 // goroutine. A failure is logged and nothing more: the archive has happened,
 // and a stray ref costs a few objects, not correctness.
 func (m *Model) dropTurnCmd(sess registry.Session) tea.Cmd {
-	root, drop := m.projectRoot(sess.Project), m.turn.Drop
+	return m.dropTurn(sess, m.projectRoot(sess.Project))
+}
+
+// dropLateTurn answers a snapshot that finished after its session was
+// archived. Archive's drop may already have run, and this snapshot's
+// SetTurnRef then recreated the ref for a session nothing will ever drop
+// again - there is deliberately no boot sweep, since two omatty HOMEs can
+// share a repository (#350). A failed snapshot made no ref, and a project
+// removed since has no root to drop it in.
+func (m *Model) dropLateTurn(msg TurnSnappedMsg) tea.Cmd {
+	if msg.Err != nil || msg.Root == "" {
+		return nil
+	}
+	return m.dropTurn(msg.Session, msg.Root)
+}
+
+// dropTurn deletes sess's baseline in root off the Update goroutine.
+func (m *Model) dropTurn(sess registry.Session, root string) tea.Cmd {
+	drop := m.turn.Drop
 	return func() tea.Msg {
 		if err := drop(sess, root); err != nil {
 			slog.Warn("deleting a turn baseline", "session", sess.ID, "err", err)
