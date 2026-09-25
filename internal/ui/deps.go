@@ -144,7 +144,7 @@ func (d Deps) withDefaults() Deps {
 	if d.Leader == "" {
 		d.Leader = DefaultLeader
 	}
-	return d.withReviewDefaults().withTurnDefaults().withLifecycleDefaults()
+	return d.withReviewDefaults().withTurnDefaults().withPRDefaults().withLifecycleDefaults()
 }
 
 // withReviewDefaults fills the review column's three readers (#21, #24).
@@ -163,12 +163,19 @@ func (d Deps) withReviewDefaults() Deps {
 	return d
 }
 
-// withTurnDefaults fills the turn baseline's calls (#311): unwired, Snap and
-// Drop do nothing and Diff says there is no turn, which is what a test sees.
-func (d Deps) withTurnDefaults() Deps {
+// withPRDefaults fills the pull request reader (#310): unwired, a project has
+// no pull requests, which is what a test sees and what a machine without gh
+// would show anyway.
+func (d Deps) withPRDefaults() Deps {
 	if d.PRs == nil {
 		d.PRs = noPRs
 	}
+	return d
+}
+
+// withTurnDefaults fills the turn baseline's calls (#311): unwired, Snap and
+// Drop do nothing and Diff says there is no turn, which is what a test sees.
+func (d Deps) withTurnDefaults() Deps {
 	if d.Turn.Snap == nil {
 		d.Turn.Snap = func(registry.Session) error { return nil }
 	}
