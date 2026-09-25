@@ -107,6 +107,7 @@ type Model struct {
 	prAsked      map[string]time.Time
 	issueList    IssueListFunc
 	itemFuncs    ForgeItemFuncs
+	browse       BrowseFunc
 	items        map[itemKey]forge.Detail
 	itemPending  map[itemKey]bool
 	itemFailed   map[itemKey]bool
@@ -219,7 +220,7 @@ func NewModel(deps Deps) *Model {
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
-	m.prList, m.issueList, m.itemFuncs = d.PRs, d.Issues, d.Item
+	m.prList, m.issueList, m.itemFuncs, m.browse = d.PRs, d.Issues, d.Item, d.Browse
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
 	m.rebind = d.Rebind
 	m.renameBranch = d.RenameBranch
@@ -544,6 +545,8 @@ func (m *Model) onForgeMsg(msg tea.Msg) (tea.Cmd, bool) {
 		return m.onIssues(typed), true
 	case ItemLoadedMsg:
 		return m.onItem(typed), true
+	case BrowsedMsg:
+		return m.onBrowsed(typed), true
 	}
 	return nil, false
 }

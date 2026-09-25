@@ -127,3 +127,21 @@ func bound(s string, budget int) (string, int) {
 	}
 	return s[:budget], 0
 }
+
+// Browse opens one issue or pull request in the operator's own browser, through
+// their own gh: `gh browse <number>` in repoRoot, which resolves either kind.
+//
+// Read-only on the forge - it writes nothing and opens a page the operator asked
+// for - and it is here rather than behind an `open`/`xdg-open` of its own because
+// gh is already this package's business (invariant 4 in spirit).
+//
+//	err := forge.NewCLI().Browse("/p/omatty", 399)
+func (c *CLI) Browse(repoRoot string, number int) error {
+	ctx, cancel, err := c.bounded()
+	if err != nil {
+		return err
+	}
+	defer cancel()
+	_, err = c.run(ctx, repoRoot, "browse", strconv.Itoa(number))
+	return err
+}

@@ -120,8 +120,10 @@ type RunDeps struct {
 	// open issues for the tracker (#394).
 	PRs    PRListFunc
 	Issues IssueListFunc
-	// Item reads one issue or pull request in full (#397).
-	Item ForgeItemFuncs
+	// Item reads one issue or pull request in full (#397), and Browse opens one
+	// in the operator's browser (#398).
+	Item   ForgeItemFuncs
+	Browse BrowseFunc
 	// Rename persists a session's new title (#41); Name reads the first prompt
 	// that titles a session created without one (#127).
 	Rename RenameFunc
@@ -195,7 +197,7 @@ func modelFor(
 ) *Model {
 	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
-		Diff: d.Diff, Files: d.Files, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Issues: d.Issues, Item: d.Item, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
+		Diff: d.Diff, Files: d.Files, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Issues: d.Issues, Item: d.Item, Browse: d.Browse, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,

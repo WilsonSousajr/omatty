@@ -1,7 +1,9 @@
 package forge_test
 
 import (
+	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -120,5 +122,34 @@ func TestFoldDetail_DropsCommentsPastTheBound_issue397(t *testing.T) {
 func TestFoldDetail_MalformedJSONIsAnError_issue397(t *testing.T) {
 	if _, err := forge.FoldDetail([]byte("{oops")); err == nil {
 		t.Error("FoldDetail() error = nil, want one")
+	}
+}
+
+// b on a row opens the item in the operator's own browser, through their own
+// gh: one call in the repository's root, and the number is all gh needs to
+// resolve either kind (#398).
+func TestCLI_BrowseRunsGhBrowseInTheRepoRoot_issue398(t *testing.T) {
+	bin, calls := fakeGH(t, "", "", 0)
+	root := t.TempDir()
+
+	if err := forge.NewCLIWithBin(bin).Browse(root, 399); err != nil {
+		t.Fatalf("Browse() error = %v", err)
+	}
+
+	out, err := os.ReadFile(calls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, args, _ := strings.Cut(strings.TrimSpace(string(out)), "|")
+	if args != "browse 399" || !sameDir(t, dir, root) {
+		t.Errorf("call was %q in %s, want %q in %s", args, dir, "browse 399", root)
+	}
+}
+
+func TestCLI_BrowseWithoutGhIsErrNoGH_issue398(t *testing.T) {
+	err := forge.NewCLIWithBin(filepath.Join(t.TempDir(), "no-such-gh")).Browse(t.TempDir(), 1)
+
+	if !errors.Is(err, forge.ErrNoGH) {
+		t.Errorf("error = %v, want ErrNoGH", err)
 	}
 }

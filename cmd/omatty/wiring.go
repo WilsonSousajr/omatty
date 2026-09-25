@@ -103,6 +103,7 @@ func withForgeDeps(deps ui.RunDeps) ui.RunDeps {
 	gh := forge.NewCLI()
 	deps.PRs, deps.Issues = gh.ListPRs, gh.ListIssues
 	deps.Item = ui.ForgeItemFuncs{Issue: gh.ViewIssue, PR: gh.ViewPR}
+	deps.Browse = gh.Browse
 	return deps
 }
 

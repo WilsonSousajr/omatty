@@ -140,7 +140,7 @@ func (m *Model) onTrackerItemKey(key string) tea.Cmd {
 	case "r":
 		return m.readItem(m.itemKeyAtCursor(), true)
 	default:
-		m.panKey(key)
+		return m.trackerDefault(key)
 	}
 	return nil
 }
