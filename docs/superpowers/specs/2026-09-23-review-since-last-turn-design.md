@@ -79,10 +79,23 @@ so (§2); it never falls back to a wrong one.
   sides are trees built with `add -A`, new files arrive as additions and no
   separate untracked pass is needed.
 
-**Known limits.** The race above. A repository with a large untracked but
-unignored tree pays for `git add -A` on every prompt, as `git status` already
-does. `git push --mirror` would publish `refs/omatty/*`; an ordinary push does
-not.
+**Known limits.** The race above. `git push --mirror` would publish
+`refs/omatty/*`; an ordinary push does not. And the snapshot costs more than
+`git status` does (#354):
+
+- `git status` does not hash untracked content, but `add -A` into the
+  temporary index does. That happens on every snapshot **and** on every turn
+  view load (`r`, `t`, and the done/waiting refreshes), because `LoadTurn`
+  snapshots the working tree as well. The temporary index is discarded after
+  each use, so untracked files never benefit from its stat cache: a large
+  untracked-but-unignored tree is hashed in full each time.
+- `add -A` runs clean filters, so a repository using git-lfs pays for them too.
+- One unreadable or vanishing file fails the whole snapshot, and the turn view
+  then shows the failure rather than a partial turn.
+
+Keeping the temporary index between loads would recover the stat cache for
+untracked files. That is a follow-up if the cost shows up in practice, not
+part of this design.
 
 ## 2. The review side
 
