@@ -260,9 +260,8 @@ func (m *Model) submitGate() tea.Cmd {
 // gateFeedback is the message S would send and the terminal it goes to, or
 // false with the reason in the footer.
 func (m *Model) gateFeedback(id string) (string, termwrap.Terminal, bool) {
-	report, ran := m.gates[id]
-	if !ran {
-		m.lastErr = "no gate has run for this session yet"
+	report, ok := m.sendableReport(id)
+	if !ok {
 		return "", nil, false
 	}
 	body := gate.Compose(report.Results)
@@ -276,6 +275,23 @@ func (m *Model) gateFeedback(id string) (string, termwrap.Terminal, bool) {
 		return "", nil, false
 	}
 	return body, term, true
+}
+
+// sendableReport is the report S may compose from, or false with the reason
+// in the footer.
+func (m *Model) sendableReport(id string) (gate.Report, bool) {
+	// Until a run in flight lands, m.gates still holds the previous report: a
+	// verdict about code that may have changed since, which the pane itself
+	// refuses to show (#345).
+	if m.gateRunning[id] {
+		m.lastErr = "the gate is running - S sends its failures once it finishes"
+		return gate.Report{}, false
+	}
+	report, ran := m.gates[id]
+	if !ran {
+		m.lastErr = "no gate has run for this session yet"
+	}
+	return report, ran
 }
 
 // holdResend is true when this report's failures already went and this S is

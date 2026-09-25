@@ -4,7 +4,11 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -144,4 +148,31 @@ func TestModel_gateFooterOffersSubmit_issue232(t *testing.T) {
 		t.Errorf("the gate footer does not offer the send key:\n%s", m.View().Content)
 	}
 	_ = ui.SidebarWidth
+}
+
+// S while a gate run is in flight sends nothing. Opening the pane starts a
+// fresh run, and until it lands m.gates still holds the previous report: code
+// that may have changed since, and a verdict the pane itself refuses to show.
+// A report that was never sent went out stale on the first S, with no warning.
+func TestModel_SDuringAGateRunSendsNothing_issue345(t *testing.T) {
+	st := registry.State{
+		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty", Gate: []gate.Step{{Name: "test", Run: "go test ./..."}}}},
+		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty", Branch: "main"}},
+	}
+	terms := fakeTermsFor(st)
+	deps := baseDeps(st, terms)
+	deps.GateRun = (&recordGateRun{}).Run
+	m := ui.NewModel(deps)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.SetGateReport("s1", failingReport())
+	leader(m, key('g')) // starts a run that the recorder never finishes
+
+	press(m, key('S'))
+
+	if sent := terms["s1"].(*termwrap.Fake).Sent; len(sent) != 0 {
+		t.Fatalf("S during a run sent the previous run's failures: %q", sent)
+	}
+	if body := m.View().Content; !strings.Contains(body, "the gate is running") {
+		t.Errorf("S during a run does not say why nothing was sent:\n%s", body)
+	}
 }
