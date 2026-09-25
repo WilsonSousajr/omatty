@@ -126,6 +126,14 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
    was a path with a space the old mapping missed, which left the tailer
    blind and every restart starting a fresh session instead of resuming.
 
+   `termwrap.Text` reads that grid, and does not breach this. The invariant
+   forbids *inferring session state* from a rendering, because the JSONL
+   already reports it exactly. Copying the cells a drag selected is not an
+   inference about anything: the text is the product, nothing derived from it
+   reaches `watcher`, and no status is read off it (#360). The test of the
+   rule is whether a wrong answer would mislead omatty about a session - a
+   clipboard cannot.
+
 3. **omatty never writes `~/.claude/settings.json`.** Hooks are injected
    per-process with `--settings ~/.omatty/hooks.json`. Zero footprint is a
    feature: uninstalling omatty leaves Claude exactly as it was, and two

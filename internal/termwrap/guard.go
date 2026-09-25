@@ -116,6 +116,14 @@ func (g *Guard) Repaint() (cmd tea.Cmd) {
 	return cmd
 }
 
+// Text reads the wrapped terminal's cells for a selection (#360). Guarded
+// like every other method: a panic here would be raised from View's own
+// frame, where it would take the app down rather than one session (#112).
+func (g *Guard) Text(x0, y0, x1, y1 int) (text string) {
+	g.guarded("while reading its text", func() { text = g.Terminal.Text(x0, y0, x1, y1) })
+	return text
+}
+
 // Focus gives the wrapped terminal the keyboard.
 func (g *Guard) Focus() { g.guarded("while focusing", func() { g.Terminal.Focus() }) }
 
