@@ -87,12 +87,11 @@ The list that makes the rest of the page worth reading.
 
 | | Who | What omatty lacks |
 |---|---|---|
-| PR and CI state | fleet | omatty shows the local gate verdict and nothing about the remote one. |
-| Review scoped to *since when* | Orca (#11840, open) | omatty shows everything a session changed; there is no "changes this turn". |
-| Breadth of agents | ccmanager (8 CLIs), claude-squad (`--program`) | omatty has Claude Code, and Codex half-spiked (#152). |
-| Windows | ccmanager | omatty is Unix-only. |
-| Distribution | claude-squad (Homebrew, one-line install) | omatty has neither. |
-| Scrollback after a reattach | Orca | Lost; #191 repainted the pane, persisting the grid is still open. |
+| Breadth of agents | ccmanager (8 CLIs), claude-squad (`--program`) | The agent seam exists (#46) and carries one profile. A second is open as #152. |
+| Windows | ccmanager | omatty is Unix-only; the release builds darwin and linux only. |
+| Installing without Homebrew or Go | claude-squad (one-line installer) | omatty has a Homebrew cask and release archives, but no `curl \| sh` and no Linux package (apt, AUR, nix). |
+| Review scoped to *what you have read* | Orca (`isReviewed`, `changedSinceReview`) | omatty scopes by time — what changed since the turn began (#311) — not by which files you have already read. Open as #337. |
+| Scrollback after a reattach | Orca | Lost. #191 repainted the pane; persisting the grid is open as #336. |
 | Diff rendering | lazygit, delta, difftastic | They are better at this, by a wide margin. |
 
 ## Is this just lazygit and a CI badge?
