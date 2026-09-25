@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/vcs"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -251,6 +253,57 @@ func TestModel_aFailedSnapshotShowsInsteadOfTheLastTurn_issue311(t *testing.T) {
 	body := m.View().Content
 	if !strings.Contains(body, "could not be taken") || strings.Contains(body, "c := 4") {
 		t.Errorf("a failed baseline did not replace the turn diff:\n%s", body)
+	}
+}
+
+// A failed snapshot's notice shows what git objected to (#351). The error
+// arrives wrapped twice - review's context, then vcs's command line and path -
+// and one row cut it at the column edge long before git's own words. Its
+// innermost error is only "exit status 128", so the notice shows git's stderr,
+// every line of it, wrapped to the 27-column review column, and points at the
+// log for the rest.
+func TestModel_aFailedSnapshotShowsWhatGitSaid_issue351(t *testing.T) {
+	dir := "/Users/someone/projects/a-rather-long-repository-name"
+	gitErr := &vcs.CommandError{
+		Args:   []string{"add", "-A"},
+		Dir:    dir,
+		Stderr: "error: open(\"secret.pem\"): Permission denied\nfatal: adding files failed",
+		Err:    errors.New("exit status 128"),
+	}
+	tr := &turnRecorder{SnapErr: fmt.Errorf("review: snapshotting session s1 in %q: %w", dir, gitErr)}
+	m, _ := modelWithTurnDiff(t, tr)
+	_, cmd := m.Update(hookPrompt("s1"))
+	settle(m, cmd)
+
+	pressAndSettle(m, key('t'))
+
+	body := stripSGR(m.View().Content)
+	for _, want := range []string{"Permission denied", "fatal: adding files failed", "full error in the log"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the notice does not show %q:\n%s", want, body)
+		}
+	}
+}
+
+// The whole-session diff's failure had the same weakness (#351): one row, cut
+// at the column edge, before git's words. It now shows the same way the turn
+// notices do.
+func TestModel_aFailedDiffLoadShowsWhatGitSaid_issue351(t *testing.T) {
+	m, _, rec := modelWithDiff(t)
+	rec.Err = fmt.Errorf("review: diffing session s1 against main: %w", &vcs.CommandError{
+		Args:   []string{"diff", "main"},
+		Dir:    "/Users/someone/projects/a-rather-long-repository-name",
+		Stderr: "fatal: bad revision 'main'",
+		Err:    errors.New("exit status 128"),
+	})
+
+	leader(m, key('d'))
+
+	body := stripSGR(m.View().Content)
+	for _, want := range []string{"bad revision 'main'", "full error in the log"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the failed diff does not show %q:\n%s", want, body)
+		}
 	}
 }
 

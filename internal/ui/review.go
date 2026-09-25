@@ -307,7 +307,7 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 	}
 	if msg.Err != nil {
 		slog.Warn("loading diff", "session", msg.SessionID, "err", msg.Err)
-		m.review.Err = msg.Err.Error()
+		m.review.Err = causeOf(msg.Err)
 		return nil
 	}
 	m.review.Err = ""
