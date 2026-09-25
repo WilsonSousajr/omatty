@@ -191,7 +191,7 @@ func TestModel_ADiffArrivingAfterTheListingStillMarksTheTree_issue24(t *testing.
 	leader(m, key('f'))
 
 	m.Update(ui.FilesLoadedMsg{SessionID: "s1", Paths: []string{"internal/ui/model.go", "new.txt"}})
-	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Diff: sampleDiffParsed(t)})
+	m.Update(ui.DiffLoadedMsg{SessionID: "s1", Seq: m.DiffSeq(), Diff: sampleDiffParsed(t)})
 
 	lineWith(t, m.View().Content, "M model.go")
 }

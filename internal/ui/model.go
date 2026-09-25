@@ -148,7 +148,14 @@ type Model struct {
 	// scanToken numbers discovery scans so a stale result cannot overwrite a
 	// newer picker (#91).
 	scanToken int
-	lastErr   string
+	// diffSeq and turnSeq number the diff loads, so an answer that arrives
+	// after a newer load's cannot paint over it (#352). On the model, not the
+	// pane: the pane is rebuilt when the session changes, and a per-pane count
+	// restarting at zero could match an old load after A, B, A. Two, because
+	// loadDiff starts both at once.
+	diffSeq uint64
+	turnSeq uint64
+	lastErr string
 	// stop ends an archived session's held claude (#43).
 	stop StopFunc
 	// notice is the startup line, cleared by the first keypress the way
