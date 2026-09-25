@@ -408,7 +408,12 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
   release and its issues, and `README.md`'s Status section, since that is the
   first thing a stranger reads on `main`.
 - **After the merge**, tag the merge commit `vMAJOR.MINOR.PATCH` and push the
-  tag. Semantic versioning; below 1.0 the `ctrl+o` key table,
+  tag. The tag is the release (#327): `.github/workflows/release.yml` runs the
+  whole gate again on it and, only if that passes, GoReleaser builds the four
+  binaries, checksums, the Homebrew cask in `WilsonSousajr/homebrew-tap`, and
+  the GitHub release with the tag's own `CHANGELOG.md` section as its notes
+  (`scripts/release-notes.sh`). A tag the changelog does not describe fails
+  before anything publishes. Nothing is created by hand. Semantic versioning; below 1.0 the `ctrl+o` key table,
   `~/.omatty/config.toml` keys and the `state.json` schema are explicitly not
   frozen, so a breaking change to any of them is a minor bump, not a major.
 - **`main` is protected:** a pull request is required, both `gate` checks must

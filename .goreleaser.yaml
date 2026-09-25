@@ -1,0 +1,65 @@
+# GoReleaser configuration (#327). A v* tag runs .github/workflows/release.yml:
+# the gate first, then this - four binaries, checksums, the release notes from
+# CHANGELOG.md's own section, and a Homebrew cask in WilsonSousajr/homebrew-tap.
+# ci.yml checks this file and builds a snapshot from it on every pull request,
+# so a broken configuration fails a PR rather than a release.
+version: 2
+
+project_name: omatty
+
+builds:
+  - id: omatty
+    main: ./cmd/omatty
+    binary: omatty
+    env:
+      # Nothing in omatty needs cgo, so one Linux runner builds every target.
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    # {{.Tag}} keeps the leading v: `omatty --version` prints "omatty v0.3.0",
+    # the same string a `go install ...@v0.3.0` build reports (#134).
+    ldflags:
+      - -s -w -X main.version={{.Tag}}
+
+archives:
+  - id: omatty
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: checksums.txt
+
+# The notes come from scripts/release-notes.sh via --release-notes; the
+# generated changelog would only repeat commit subjects.
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: WilsonSousajr
+    name: omatty
+
+homebrew_casks:
+  - name: omatty
+    homepage: https://github.com/WilsonSousajr/omatty
+    description: "Terminal ADE: multiple projects and parallel Claude Code sessions in one TUI"
+    binaries: [omatty]
+    repository:
+      owner: WilsonSousajr
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    hooks:
+      post:
+        # The binary is not signed; without this Gatekeeper refuses to run a
+        # freshly installed copy.
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/omatty"]
+          end

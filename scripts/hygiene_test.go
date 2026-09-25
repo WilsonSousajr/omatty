@@ -103,3 +103,46 @@ func ciWorkflow(t *testing.T) string {
 	}
 	return string(b)
 }
+
+// GoReleaser is pinned for the reason golangci-lint and govulncheck are, and
+// the pull request that checks the release configuration must run the same
+// GoReleaser the tag will (#327).
+func TestCI_PinsGoReleaser_issue327(t *testing.T) {
+	pin := regexp.MustCompile(`GORELEASER_VERSION:\s*"?(v[0-9]+\.[0-9]+\.[0-9]+)"?`)
+	release := releaseWorkflow(t)
+	ci := pin.FindStringSubmatch(ciWorkflow(t))
+	rel := pin.FindStringSubmatch(release)
+	if ci == nil || rel == nil {
+		t.Fatalf("GORELEASER_VERSION is not pinned to an exact vX.Y.Z in both ci.yml (%v) and release.yml (%v)", ci, rel)
+	}
+	if ci[1] != rel[1] {
+		t.Errorf("ci.yml checks the release config with GoReleaser %s but release.yml publishes with %s", ci[1], rel[1])
+	}
+}
+
+// A tag must not publish anything the gate has not passed, nor anything the
+// changelog does not describe; and a broken release configuration must fail
+// a pull request, not a tag (#327).
+func TestCI_TheReleaseRunsBehindTheGateAndTheChangelog_issue327(t *testing.T) {
+	release := releaseWorkflow(t)
+	for _, want := range []string{"uses: ./.github/workflows/ci.yml", "needs: gate", "scripts/release-notes.sh", "--release-notes"} {
+		if !strings.Contains(release, want) {
+			t.Errorf("release.yml lacks %q", want)
+		}
+	}
+	ci := ciWorkflow(t)
+	for _, want := range []string{"workflow_call:", "args: check", "--snapshot"} {
+		if !strings.Contains(ci, want) {
+			t.Errorf("ci.yml lacks %q", want)
+		}
+	}
+}
+
+func releaseWorkflow(t *testing.T) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), ".github", "workflows", "release.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}

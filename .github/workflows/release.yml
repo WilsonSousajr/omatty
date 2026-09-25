@@ -1,0 +1,45 @@
+name: release
+# A v* tag is a release (#327): the whole gate runs again on the tagged commit,
+# and only then does GoReleaser build and publish - four binaries, checksums,
+# notes from CHANGELOG.md's own section, and the Homebrew cask. Tagging stays
+# the maintainer's decision (AGENTS.md "Branches and releases").
+on:
+  push:
+    tags: ['v*']
+
+env:
+  # Pinned, and equal to ci.yml's, which checks the release configuration on
+  # every pull request with the same GoReleaser (scripts/hygiene_test.go).
+  GORELEASER_VERSION: v2.18.2
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # Outside the checkout: GoReleaser refuses a dirty tree. A tag the
+      # changelog does not describe fails here, before anything publishes.
+      - name: release notes
+        run: ./scripts/release-notes.sh "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: ${{ env.GORELEASER_VERSION }}
+          args: release --clean --release-notes ${{ runner.temp }}/notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
