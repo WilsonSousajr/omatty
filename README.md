@@ -181,6 +181,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o d` | open or close the diff pane |
 | `ctrl+o f` | open or close the file tree |
 | `ctrl+o g` | open or close the gate pane, and run the gate |
+| `ctrl+o i` | open or close this project's issues and pull requests |
 | `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o s` | stop the selected session's claude, keeping the session; `enter` resumes it |
@@ -439,6 +440,60 @@ The listing is tracked plus untracked files with `.gitignore` honoured — what
 `git` thinks the worktree contains, not what is on disk. A preview reads at most
 256 KiB and says so when it stops; a binary file says it is binary rather than
 spraying the pane.
+
+## Issues and pull requests
+
+`ctrl+o i` turns the same column into the project's tracker: its open issues,
+then its open pull requests under a rule, each row naming the number, one label
+or the pull request's CI mark, the title and how long since it last moved. The
+counts are in the title, and on every project's header in the sidebar - `13i 2p`
+- so "how many are open" needs no keypress at all.
+
+```
+ projects · 2              │ omatty ▎ review loop · develop  │ tracker · omatty · 13 issues · 2 prs
+───────────────────────────┼─────────────────────────────────┼─ review ──────────────────────────×
+ omatty              13i 2p│                                 │#399  feat      filter the tracker
+▎● review loop             │                                 │#397  feat      read one issue or p
+▎  399-filter-the-t        │                                 │#315            Upstream: 4 MiB par
+ other-app             4i 1p                                 │── pull requests ──────────────────
+                           │                                 │#405  ✓         work from an issue
+```
+
+It is the one view that belongs to a project rather than a session, so it works
+on a project you have registered and never started a session in - which is when
+its issues matter most.
+
+| Key | Action |
+|---|---|
+| `j` / `k` | move through the list, or scroll an open item |
+| `enter` | read the item under the cursor: its body and its comments |
+| `/` | filter by number, title or label as you type; `enter` keeps it, `esc` clears it |
+| `n` | start a worktree session named and branched from the issue |
+| `a` | type the item's reference into the selected session's prompt, unsent |
+| `b` | open the item in your browser |
+| `r` | read both lists again now |
+| `h` / `l` / `0` | pan along a row too wide for the column |
+| `esc` | from an item back to the list; from the list, lift the filter, then back to Claude |
+
+`n` is the point of showing you issues at all: it creates the worktree, names
+the branch after the issue (`399-filter-the-tracker`) and titles the session
+`#399 …`, then hands you the keyboard so the next thing you type is a prompt.
+`a` is the smaller version for a session you already have: it pastes
+`issue #399 ` into the composer **and stops** - no carriage return, so nothing
+is sent until you send it. omatty never submits a turn on your behalf.
+
+Everything here is read through your own `gh`, with your own authentication,
+and omatty writes nothing to the forge: there is no create, no comment, no
+close. The board stays GitHub's; this is a window onto it.
+
+The cost, on top of the two `gh pr list` calls the cards already make: one
+`gh issue list` per project every five minutes, one more when you open the
+tracker or press `r`, and one `gh issue view` or `gh pr view` for an item you
+open, cached until you press `r` on it. Nothing at all while omatty is in the
+background, never more than once in thirty seconds for one project, and nothing
+after `gh` is found missing. An item is read to 64 KiB and says so if there was
+more. Without `gh`, or for a repository that is not on GitHub, the column says
+which and the sidebar headers stay as they were.
 
 ## Session status
 

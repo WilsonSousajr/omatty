@@ -76,7 +76,7 @@ func gateFooterLine(leader string) string {
 // trackerFooterLine is the tracker's keys (#396). r rather than enter, because
 // what enter opens is #397's.
 func trackerFooterLine(leader string) string {
-	return "j/k move  enter read  n session  a attach  b browser  esc back  " + leader + " ? keys"
+	return "j/k move  enter read  / filter  n session  a attach  b browser  esc back  " + leader + " ? keys"
 }
 
 // emptyTreeHint is the tree's empty state: a repository that listed

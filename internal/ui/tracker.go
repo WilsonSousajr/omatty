@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/fuzzy"
+
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
@@ -100,21 +102,37 @@ func (m *Model) readTracker(project string) tea.Cmd {
 // walk, r to read again, esc to leave - so the column's five faces do not each
 // need learning.
 func (m *Model) onTrackerKey(key string) tea.Cmd {
+	if m.trackerCursorKey(key) {
+		return nil
+	}
+	switch key {
+	case "r":
+		return m.readTracker(m.review.Tracker.Project)
+	case "enter":
+		return m.openItemAtCursor()
+	}
+	return m.trackerDefault(key)
+}
+
+// trackerCursorKey is the keys that only move or leave, reporting whether key
+// was one. Split off onTrackerKey when the filter pushed it past the statement
+// limit; the four are what the list does without touching the forge.
+func (m *Model) trackerCursorKey(key string) bool {
 	switch key {
 	case "j", "down":
 		m.moveTrackerCursor(1)
 	case "k", "up":
 		m.moveTrackerCursor(-1)
-	case "esc", "ctrl+c":
+	case "esc":
+		m.leaveTracker()
+	case "ctrl+c":
 		m.review.Focused = false
-	case "r":
-		return m.readTracker(m.review.Tracker.Project)
-	case "enter":
-		return m.openItemAtCursor()
+	case "/":
+		m.review.Filter.Active = true
 	default:
-		return m.trackerDefault(key)
+		return false
 	}
-	return nil
+	return true
 }
 
 // trackerDefault is the pan keys and the three that act on a row (#398), in that
@@ -127,6 +145,24 @@ func (m *Model) trackerDefault(key string) tea.Cmd {
 	return cmd
 }
 
+// leaveTracker is esc in the list: a kept filter is lifted first, so the
+// operator sees the narrowing go before the column does (#198's rule).
+func (m *Model) leaveTracker() {
+	if m.review.Filter.Query != "" {
+		m.setTrackerFilter("")
+		return
+	}
+	m.review.Focused = false
+}
+
+// setTrackerFilter applies query and re-clamps the cursor and the pan, since the
+// visible set changed under both (#133).
+func (m *Model) setTrackerFilter(query string) {
+	m.review.Filter.Query = query
+	m.contentChanged()
+	m.moveTrackerCursor(0)
+}
+
 // moveTrackerCursor walks the rows, skipping the rule: it is a label, not an
 // item, and a cursor resting on it would have nothing to act on.
 func (m *Model) moveTrackerCursor(delta int) {
@@ -135,6 +171,7 @@ func (m *Model) moveTrackerCursor(delta int) {
 		return
 	}
 	next := min(max(m.review.Tracker.Cursor+delta, 0), len(rows)-1)
+	// A narrowed list can be shorter than where the cursor stood (#399).
 	if rows[next].Kind == rowRule {
 		next = min(max(next+delta, 0), len(rows)-1)
 	}
@@ -149,34 +186,56 @@ func (m *Model) trackerRows() []trackerRow {
 	project := m.review.Tracker.Project
 	rows := make([]trackerRow, 0, len(m.issues[project]))
 	for _, is := range m.issues[project] {
-		rows = append(rows, trackerRow{
+		row := trackerRow{
 			Kind: rowIssue, Number: is.Number, Label: firstLabel(is.Labels),
 			Title: is.Title, Updated: is.Updated,
-		})
+		}
+		if m.matchesFilter(row, is.Labels) {
+			rows = append(rows, row)
+		}
 	}
 	prs := m.openPRs(project)
 	if len(prs) == 0 {
 		return rows
 	}
+	// The rule goes with its list: one with nothing under it says a list is
+	// there when it is not (#399).
 	if len(rows) > 0 {
 		rows = append(rows, trackerRow{Kind: rowRule, Title: "pull requests"})
 	}
 	return append(rows, prs...)
 }
 
-// openPRs is the project's open pull requests as rows. Only the open ones: the
-// map holds the finished for the card that says "merged" (#310), and the tracker
-// answers what is open.
+// matchesFilter reports whether a row survives the filter line. The haystack is
+// what the row shows - its number, its title and its labels - because a filter
+// over text the operator cannot see is a filter they cannot predict. All of the
+// labels, not just the drawn one: `M14` is how a milestone is asked for.
+func (m *Model) matchesFilter(row trackerRow, labels []string) bool {
+	query := m.review.Filter.Query
+	if query == "" || m.review.View == ViewDiff {
+		return true
+	}
+	hay := strconv.Itoa(row.Number) + " " + row.Title + " " + strings.Join(labels, " ")
+	_, ok := fuzzy.Match(query, hay)
+	return ok
+}
+
+// openPRs is the project's open pull requests as rows, narrowed by the filter.
+// Only the open ones: the map holds the finished for the card that says "merged"
+// (#310), and the tracker answers what is open.
 func (m *Model) openPRs(project string) []trackerRow {
 	var rows []trackerRow
 	for _, pr := range m.prs[project] {
 		if pr.State != forge.Open {
 			continue
 		}
-		rows = append(rows, trackerRow{
+		row := trackerRow{
 			Kind: rowPR, Number: pr.Number, Label: prMark(pr),
 			Title: pr.Title, Updated: pr.Updated,
-		})
+		}
+		if m.matchesFilter(row, nil) {
+			rows = append(rows, row)
+		}
 	}
 	return rows
 }
@@ -212,6 +271,12 @@ func (m *Model) trackerTitleParts() []titlePart {
 	if n, polled := m.openPRCount(project); polled {
 		parts = append(parts, titlePart{text: plural(n, "pr"), priority: dropFirst})
 	}
+	if q := m.review.Filter.Query; q != "" {
+		// keepAlways, not keepFlag: a filtered list is short *because* a filter
+		// is in force, and a dropped marker leaves it indistinguishable from a
+		// complete one (#285).
+		parts = append(parts, titlePart{text: "/" + q, priority: keepAlways})
+	}
 	if m.issueFailed[project] || m.prFailed[project] {
 		// keepFlag, as the card's "?" is: a stale list shown as current is this
 		// view's worst failure (Orca #18484).
@@ -236,14 +301,14 @@ func plural(n int, noun string) string {
 // wrapped onto a row the cursor would then have to account for.
 func (m *Model) renderTracker(_, h int) []string {
 	if note := m.trackerNote(); note != nil {
-		return note
+		return m.withFilterLine(note, reviewContentWidth(m.width), h)
 	}
 	rows := m.trackerRows()
 	lines := make([]string, 0, len(rows))
 	for i, r := range rows {
 		lines = append(lines, m.trackerLine(r, i == m.review.Tracker.Cursor))
 	}
-	return window(lines, m.review.Tracker.Offset, h)
+	return m.withFilterLine(window(lines, m.review.Tracker.Offset, h), reviewContentWidth(m.width), h)
 }
 
 // trackerNote is the "nothing to show" state, or nil when there are rows. Each
@@ -260,6 +325,8 @@ func (m *Model) trackerNote() []string {
 		return []string{"this project is not on GitHub."}
 	case !issuesPolled && !prsPolled:
 		return []string{"reading " + project + "'s issues and pull requests..."}
+	case len(m.trackerRows()) == 0 && m.review.Filter.Query != "":
+		return []string{"nothing here matches /" + m.review.Filter.Query}
 	case len(m.trackerRows()) == 0:
 		return []string{"nothing open in " + project + "."}
 	}
