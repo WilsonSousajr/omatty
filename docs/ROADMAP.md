@@ -30,7 +30,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. Released in v0.2.0. |
 | M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. Released in v0.2.0. |
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. Released in v0.2.0. |
-| M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. Of what it produced, #310 and #311 are built and released in v0.3.0; #309 is open. |
+| M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. Of what it produced, #310 and #311 are built and released in v0.3.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379); what is open is the milestone's open issues on the board, not a count here. |
 | M13 | Memory and idle CPU | **Done.** PR #314, merged 2026-09-22. Released in v0.2.0. |
 | — | **Released** | **v0.2.0**, 2026-09-22. M9-M11, M13 and the session lifecycle promoted to `main` (#328). See "Releases". |
 | — | **Released** | **v0.3.0**, 2026-09-25. M12's verification core (#311, #310, #335, #342), the release pipeline (#327) and the MIT license (#362). See "Releases". |
@@ -1049,13 +1049,28 @@ and the research deliberately stops before deciding their shape:
   session changed, so a reviewer re-reads three turns on the third turn. This
   is the only gap the pass found *in the thesis itself*.
 
+**Taken back** (2026-09-25, #379). The P1/P2 list was first cut here as
+real, small, and none of it the reason to open the tool. Two of its items
+then shipped anyway - a comment that knows it was sent (#335) and Homebrew
+(#327) - and the rest was filed with M12's label while this section still
+argued against it. Rather than keep a milestone whose roadmap refuses its own
+issues, M12 took them back:
+
+- **#336** scrollback survives a dtach reattach (#191's remainder).
+- **#337** per-file reviewed, and changed since reviewed.
+- **#338** generated files collapsed in the review tree.
+- **#339** several comments per line, and comments on part of a line.
+- **#331** ship a green session from its card, **#332** lead time and
+  first-pass gate rate, **#334** revert a session to the start of its last
+  turn, and **#333** an LLM audit as a gate step - each built on the
+  verification core v0.3.0 shipped (#310's remote verdict, #311's per-turn
+  baseline, the gate).
+
+They are still not the reason to open the tool. They are what the reason
+needs once it is there, and `prior-art-findings.md` keeps their priorities.
+
 **Deliberately cut:**
 
-- **Everything else on the P1/P2 list** - a comment that knows it was sent,
-  scrollback after a reattach (#191), per-file reviewed marks, generated-file
-  suppression, sub-line comments, Homebrew. Real, small, and none of them is
-  the reason to open the tool. They stay in `prior-art-findings.md` with their
-  priorities so the next pass does not rediscover them.
 - **Widening the agent seam to match `ccmanager`'s eight.** #152 stays the
   scope. `ccmanager`'s #82 and #107 are what each added profile costs: an
   escape-key bug per agent.
