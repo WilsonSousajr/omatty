@@ -75,6 +75,10 @@ Decisions already taken with the user:
   amber for added/removed/comment): open PR by precedence **✗ failing > ⚠
   conflict/behind > ◍ running > ✓ passing**, no checks → `#349` alone;
   `#349 merged`, `#349 closed` (the diffstat then gives way if it must).
+  An open PR's label is never cut: when it and the diffstat do not both fit -
+  `#1234 ✓` beside `+312 −1.2k` - the label drops the space before its mark,
+  then the diffstat sheds whole parts, `+312 −1.2k` to `+312` to nothing,
+  never a number cut mid-way (#357).
 - **Unknown is never passing** (Orca #18484): if the project's last poll failed
   while a PR was known, the mark is `?` until a poll succeeds.
 - **Degradation**, as quiet as `internal/detach` without dtach: `ErrNoGH` → stop
