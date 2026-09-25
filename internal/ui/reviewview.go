@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/WilsonSousajr/omatty/internal/coverage"
 	"github.com/WilsonSousajr/omatty/internal/review"
@@ -249,7 +250,7 @@ func (m *Model) filterMarker() string {
 // editor beneath them.
 func (m *Model) reviewBody(w, rows int) []string {
 	if m.review.Err != "" {
-		return []string{errorStyle.Render(fitLine(m.review.Err, w))}
+		return noticeLines([]string{"loading the diff failed:", m.review.Err, logHint}, true, w)
 	}
 	if m.review.Scope == scopeTurn {
 		if lines, isErr := m.turnNotice(); lines != nil {
@@ -425,14 +426,19 @@ func (m *Model) noChanges() string {
 	return "no changes"
 }
 
+// noticeLines draws a notice wrapped to the column rather than cut at its
+// edge: a cut line lost the part of an error that says what went wrong
+// (#351), and git's stderr can be several lines of its own.
 func noticeLines(lines []string, isErr bool, w int) []string {
 	style := mutedStyle
 	if isErr {
 		style = errorStyle
 	}
-	out := make([]string, len(lines))
-	for i, l := range lines {
-		out[i] = style.Render(fitLine(l, w))
+	var out []string
+	for _, l := range lines {
+		for _, part := range strings.Split(ansi.Wrap(l, w, " "), "\n") {
+			out = append(out, style.Render(fitLine(part, w)))
+		}
 	}
 	return out
 }

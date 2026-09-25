@@ -48,7 +48,7 @@ func (m *Model) onTurnSnapped(msg TurnSnappedMsg) tea.Cmd {
 	}
 	if msg.Err != nil {
 		slog.Warn("taking a turn baseline", "session", msg.SessionID, "err", msg.Err)
-		m.turnErr[msg.SessionID] = msg.Err.Error()
+		m.turnErr[msg.SessionID] = msg.Err
 		return m.reloadTurn(msg.SessionID)
 	}
 	delete(m.turnErr, msg.SessionID)
@@ -105,12 +105,12 @@ func (m *Model) turnNotice() (lines []string, isErr bool) {
 		// Any ref standing now was left by another run; diffing against it
 		// would call someone else's turn this one (#49).
 		return []string{"hooks are not arriving,", "so no turn baseline", "can be taken: see the log"}, true
-	case m.turnErr[id] != "":
-		return []string{"this turn's baseline", "could not be taken:", m.turnErr[id]}, true
+	case m.turnErr[id] != nil:
+		return []string{"this turn's baseline", "could not be taken:", causeOf(m.turnErr[id]), logHint}, true
 	case errors.Is(m.review.TurnErr, review.ErrNoTurn):
 		return []string{"no turn recorded yet:", "a baseline is taken", "when you send a prompt"}, false
 	case m.review.TurnErr != nil:
-		return []string{"reading this turn failed:", m.review.TurnErr.Error()}, true
+		return []string{"reading this turn failed:", causeOf(m.review.TurnErr), logHint}, true
 	case !m.review.TurnReady:
 		return []string{"reading this turn..."}, false
 	}

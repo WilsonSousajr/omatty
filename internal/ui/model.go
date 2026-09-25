@@ -105,7 +105,7 @@ type Model struct {
 	prAsked     map[string]time.Time // when each project was last asked: the gap
 	ghMissing   bool
 	turnPending map[string]bool
-	turnErr     map[string]string
+	turnErr     map[string]error
 	// covers is each session's coverage overlay, read when its gate finishes
 	// (#254). Display-only like gates and never persisted; coverFailed makes
 	// the warning once per session rather than once per run.
@@ -253,7 +253,7 @@ func (m *Model) withRuntimeMaps() *Model {
 // withRuntimeMaps when they took it past the statement limit.
 func (m *Model) withTurnMaps() *Model {
 	m.turnPending = map[string]bool{}
-	m.turnErr = map[string]string{}
+	m.turnErr = map[string]error{}
 	return m
 }
 
