@@ -42,12 +42,14 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.3.0**, 2026-09-25 — the first release you can install without Go:
-`brew install WilsonSousajr/tap/omatty` on macOS, or a release archive on
-Linux. It adds M12's verification core to v0.2.0's gate: `t` narrows the review
-to what changed since your last prompt, a session's card names its pull request
-and CI, and review comments you sent stay on their lines. `CHANGELOG.md` has
-the whole list.
+**v0.4.0**, 2026-09-25 — a worktree you can actually run, a pane you can copy
+out of, and a hook that survives being reinstalled. `omatty carry` names the
+gitignored files a project needs — `.env`, local certificates — and every new
+worktree gets them before claude starts in it, so a gate step fails because the
+code is wrong rather than because `.env` was missing. A drag inside a session
+pane now copies that pane instead of the sidebar along with it. Install with
+`brew install WilsonSousajr/tap/omatty` on macOS or a release archive on Linux;
+`CHANGELOG.md` has the whole list.
 
 | Milestone | Delivers |
 |---|---|
@@ -62,6 +64,7 @@ the whole list.
 | **M9** The Gate | A project carries the check line that says whether work in it is sound. omatty runs it per session, shows the verdict on the card, and sends the failures back into the session. |
 | **M10** Coverage on the diff | Of the lines a session added, the ones no test covers, marked in the diff with a count per file — and a word on the title when a change brought no tests with it. |
 | **M11** The Harness | Nothing an operator sees: invariant 4's import boundaries, module hygiene, per-function C.R.A.P. and the package dependency structure become steps of this repository's gate that fail. |
+| **M12** The Field | What the rest of the field ships and why omatty declines most of it, researched at code level; then the verification core that came out of it — review scoped to the last turn, a session's pull request and CI on its card, and the files a new worktree needs. |
 | **M13** Memory and idle CPU | Idle CPU cut by about 55%, and a per-session leak on archive fixed. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
