@@ -4,6 +4,7 @@
 package scripts_test
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -62,5 +63,28 @@ func TestReleaseNotes_AnUndescribedVersionFails_issue327(t *testing.T) {
 	}
 	if strings.TrimSpace(notes) != "" {
 		t.Errorf("printed %q for an undescribed version; want nothing on stdout", notes)
+	}
+}
+
+// Regression, issue #367: v0.3.0 was published with an empty body. release.yml
+// passed --release-notes, but .goreleaser.yaml set `changelog: disable: true`,
+// and GoReleaser then skips its whole changelog pipe - which is the pipe that
+// reads --release-notes. A snapshot skips that pipe too, so the pull-request
+// check could not see it; this test is what can.
+func TestGoReleaser_NeverDisablesTheChangelogPipe_issue367(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), ".goreleaser.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := string(b)
+	if i := strings.Index(cfg, "\nchangelog:"); i >= 0 {
+		block := cfg[i+1:]
+		if end := strings.Index(block[1:], "\n\n"); end >= 0 {
+			block = block[:end+1]
+		}
+		if strings.Contains(block, "disable: true") || strings.Contains(block, "disable: \"true\"") {
+			t.Errorf(".goreleaser.yaml disables the changelog pipe, which drops --release-notes; "+
+				"a release would publish with an empty body:\n%s", block)
+		}
 	}
 }
