@@ -13,6 +13,8 @@ for each milestone and what was deliberately cut.
 
 ### Added
 
+- **omatty is MIT-licensed** (`LICENSE`), and the release archives carry the
+  license beside the README and changelog. (#362)
 - **A tag is a release.** Pushing a `v*` tag re-runs the whole gate and then
   publishes, through GoReleaser: binaries for macOS and Linux on amd64 and
   arm64, `checksums.txt`, a Homebrew cask (`brew install
