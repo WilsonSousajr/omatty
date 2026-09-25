@@ -680,8 +680,10 @@ that says whether work in it is sound, and the sessions running against it.
 omatty runs that gate in a session's own directory, shows the verdict on the
 session's card, and sends the failures back into the session that caused them.
 
-**Why this and not something else.** v0.1.0 shipped into a field of roughly a
-hundred and fifty agent orchestrators, and every one of them optimises the same
+**Why this and not something else.** v0.1.0 shipped into a field of hundreds
+of agent orchestrators (sized in `docs/research/2026-landscape.md` §2, probed
+2026-09-18: 184 to 1,300 repositories depending on the query, none filtered
+for a maintained tool; #340), and every one of them optimises the same
 variable: how much agent-work can be in flight at once. omatty bets on the
 other one - how fast a person can tell whether what came back is any good - and
 that bet had already decided M3's review loop and everything the roadmap
