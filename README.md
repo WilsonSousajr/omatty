@@ -468,3 +468,7 @@ State lives in `~/.omatty/state.json`, worktrees in `~/.omatty/wt/`, logs in
 
 Read [`AGENTS.md`](AGENTS.md). It is the canonical instruction file for both
 people and coding agents.
+
+## License
+
+MIT - see [`LICENSE`](LICENSE).
