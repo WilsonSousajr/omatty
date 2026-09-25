@@ -13,6 +13,12 @@ for each milestone and what was deliberately cut.
 
 ### Added
 
+- **A tag is a release.** Pushing a `v*` tag re-runs the whole gate and then
+  publishes, through GoReleaser: binaries for macOS and Linux on amd64 and
+  arm64, `checksums.txt`, a Homebrew cask (`brew install
+  WilsonSousajr/tap/omatty`), and the GitHub release with the tag's own
+  changelog section as its notes. Installing no longer needs Go. Every pull
+  request checks the release configuration and builds it as a snapshot. (#327)
 - **A session's pull request on its card.** Once a session's branch has a pull
   request on GitHub, line two names it with one mark for its CI - `#349 ✓`,
   `◍` running, `✗` failing, `⚠` conflict or behind, `merged`, `closed`, and `?`

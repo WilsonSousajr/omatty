@@ -951,7 +951,12 @@ rule 2, and inventing a separate release checklist would only be a second
 thing to let rot.
 
 **Before the merge** the PR updates `CHANGELOG.md` and README's Status
-section. **After it** the merge commit is tagged `vMAJOR.MINOR.PATCH`.
+section. **After it** the merge commit is tagged `vMAJOR.MINOR.PATCH`, and the
+tag is the release: `release.yml` re-runs the gate on it, then GoReleaser
+publishes binaries, checksums, the Homebrew cask and the notes from the tag's
+own CHANGELOG section (#327). A pull request already checks the release
+configuration and builds it as a snapshot, so a tag cannot be the first thing
+to find it broken.
 
 Below 1.0 the `ctrl+o` key table, `~/.omatty/config.toml` keys and the
 `state.json` schema are explicitly not frozen; the embedded terminal library

@@ -71,15 +71,30 @@ not yet frozen. `docs/ROADMAP.md` has the reasoning and what was cut;
 
 ## Install
 
+On macOS, with Homebrew:
+
+```bash
+brew install WilsonSousajr/tap/omatty
+```
+
+On Linux, or anywhere without Homebrew, take the archive for your platform
+(darwin or linux, amd64 or arm64) from the
+[latest release](https://github.com/WilsonSousajr/omatty/releases/latest),
+check it against `checksums.txt`, and put `omatty` on your PATH. No Go needed
+either way.
+
+From source, with Go 1.26:
+
 ```bash
 go install github.com/WilsonSousajr/omatty/cmd/omatty@latest
 ```
 
-Or `@v0.2.0` for the release rather than the tip of `main`. From a clone,
-`go install ./cmd/omatty` does the same thing.
+Or `@vX.Y.Z` for a given release rather than the tip of `main`; from a clone,
+`go install ./cmd/omatty` does the same thing, with `$(go env GOPATH)/bin` on
+your PATH.
 
-Requires Go 1.26, `git`, and `claude` on your PATH, with `$(go env GOPATH)/bin`
-on your PATH too. `omatty --version` says which build you ended up with.
+Every way needs `git` and `claude` on your PATH. `omatty --version` says which
+build you ended up with.
 
 Optionally, `dtach`:
 
