@@ -123,9 +123,23 @@ omatty new my-app main                # a session on the main checkout
 omatty new my-app parser-fix parser-fix   # a session on a fresh worktree
 omatty gate my-app                    # show the gate, or propose one and confirm
 omatty gate my-app --detect           # print the proposal, write nothing
+omatty carry my-app .env certs        # files every new worktree of it carries
+omatty carry my-app                   # show that list
 omatty                                # run the TUI
 omatty --version                      # which build is this
 ```
+
+`omatty carry` is what makes a fresh worktree able to run the project. A
+worktree is a clean checkout, so nothing git ignores is in it: `.env`, local
+certificates, generated config. Name those paths once per project and every
+worktree omatty creates afterwards gets a copy, before Claude starts in it —
+so a gate step fails because the code is wrong, not because `.env` was
+missing. Paths are relative to the main checkout; directories are copied
+recursively, modes are preserved, symlinks are copied as links, a file the
+worktree already has is left alone, and a path that is not there yet is
+skipped with a note rather than treated as an error. The list lives in
+`~/.omatty/state.json`, per project, not in the repository — a clone does not
+get to choose which of your files are copied.
 
 `omatty discover` reads Claude Code's own transcript store and offers the
 repositories you have actually used it in, most recent first — the ones still

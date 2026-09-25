@@ -64,10 +64,12 @@ than `README.md` implies.
 Where "better" is not true today. From `prior-art-findings.md`, restated as
 what a migrating user would lose:
 
-- **A worktree that can actually run the project.** ccmanager's
-  `.worktreeinclude` and fleet's `.fleet.json` carry gitignored files into a
-  new worktree. omatty does not. A user coming from either **loses a feature
-  they use every day**, and it is the first thing they will notice.
+- ~~**A worktree that can actually run the project.**~~ Closed by #309:
+  `omatty carry` copies a project's gitignored paths into every new worktree,
+  before claude starts in it. ccmanager's `.worktreeinclude` and fleet's
+  `.fleet.json` keep the list in the repository; omatty keeps it per project
+  in `state.json`, so a clone cannot choose what is copied off your disk. The
+  cost of that choice is that the list is not shared with a team.
 - **PR and CI state.** fleet shows it on the row. omatty shows nothing remote.
 - **Breadth of agents.** ccmanager supports eight agent CLIs; claude-squad is
   agent-agnostic through one `--program` flag. omatty has claude and a
