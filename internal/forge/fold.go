@@ -104,8 +104,8 @@ func Fold(raw []byte) ([]PR, error) {
 func foldOne(p ghPR) PR {
 	return PR{
 		Number:   p.Number,
-		Title:    p.Title,
-		Branch:   p.HeadRefName,
+		Title:    cleanLine(p.Title), // #483
+		Branch:   cleanLine(p.HeadRefName),
 		State:    stateOf(p.State),
 		CI:       rollup(p.StatusCheckRollup),
 		Conflict: p.MergeStateStatus == "DIRTY" || p.MergeStateStatus == "BEHIND",
