@@ -296,13 +296,13 @@ func (m *Model) reviewBody(w, rows int) []string {
 // recomputed here rather than trusted, because a resize can shrink rows after
 // the cursor last moved.
 func (m *Model) renderEntries(w, rows int) []string {
-	off := ScrollOffset(m.review.Cursor, m.review.Offset, rows)
+	off := ScrollOffset(m.review.DiffList.Cursor, m.review.DiffList.Offset, rows)
 	end := min(off+rows, len(m.review.Entries))
 	comments := m.commentsFor(m.review.SessionID).All()
 	out := make([]string, 0, rows)
 	for i := off; i < end; i++ {
 		e := m.review.Entries[i]
-		out = append(out, m.renderEntry(e, i == m.review.Cursor, w, comments))
+		out = append(out, m.renderEntry(e, i == m.review.DiffList.Cursor, w, comments))
 	}
 	return out
 }

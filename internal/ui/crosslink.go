@@ -56,8 +56,8 @@ func (m *Model) openDiffAtPreview() tea.Cmd {
 		m.lastErr = m.review.Preview.Path + " is not in this diff"
 		return nil
 	}
-	m.review.View, m.review.ColOffset, m.review.Cursor = ViewDiff, 0, target
-	m.review.Offset = ScrollOffset(target, m.review.Offset, m.reviewRows())
+	m.review.View, m.review.ColOffset, m.review.DiffList.Cursor = ViewDiff, 0, target
+	m.review.DiffList.Offset = ScrollOffset(target, m.review.DiffList.Offset, m.reviewRows())
 	m.contentChanged()
 	return nil
 }

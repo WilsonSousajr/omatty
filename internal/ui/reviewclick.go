@@ -73,9 +73,9 @@ func (m *Model) reviewRowDelta(winY int) (int, bool) {
 func (m *Model) reviewCursorState() (cursor, offset, count int) {
 	switch m.review.View {
 	case ViewDiff:
-		return m.review.Cursor, m.review.Offset, len(m.review.Entries)
+		return m.review.DiffList.Cursor, m.review.DiffList.Offset, len(m.review.Entries)
 	case ViewTree:
-		return m.review.TreeCursor, m.review.TreeOffset, len(m.treeRows())
+		return m.review.Files.Cursor, m.review.Files.Offset, len(m.treeRows())
 	}
 	return 0, 0, 0
 }
