@@ -101,6 +101,7 @@ var reviewKeys = []keyHelp{
 	{"/", "filter the tree as you type; enter keeps it, esc clears it"},
 	{"a", "attach the tree row or previewed file to the prompt as @path"},
 	{"v", "tree: mark the file read; ✓ stays until its diff changes, then ~"},
+	{"g", "tree: show the generated files it folded away, or fold them again"},
 	{"o", "jump between a diff line and the file at that line, both ways"},
 	{"c", "comment on the line under the cursor"},
 	{"S", "submit the queued comments"},

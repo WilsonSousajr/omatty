@@ -414,6 +414,15 @@ deleted, `R` renamed - in the colour the diff gives that state, and a directory
 holding one reads as `M`, so you can see the shape of a change before reading
 it. A deleted file keeps its row, in red, until the next listing without it.
 
+Files nobody wrote are **folded out of the listing**: lockfiles, protobuf
+output, `build/`, `dist/`, `coverage/`, `vendor/`, `node_modules/`, and anything
+the repository's own `.gitattributes` marks `linguist-generated`. A lockfile does
+not belong in the queue beside source, and a generated file has no test and never
+will - so the coverage markers leave it alone too, rather than making it look
+worse than it is. The title says how many are folded (`⊞3`) and `g` brings them
+back: they are folded, not hidden. Detection is the repository's declaration
+first, then the name, then the Go `// Code generated ... DO NOT EDIT.` header.
+
 `v` marks the file under the cursor as read. It keeps a `✓` and goes quiet
 until its diff changes, at which point it reads `~` - changed since you read
 it. On a long session that is the difference between reviewing the turn and
@@ -435,6 +444,7 @@ when it already shows that view.
 | `/` | filter the tree as you type; `enter` keeps the filter, `esc` clears it |
 | `a` | attach the row, or the previewed file, to the prompt as `@path` and go back to typing |
 | `v` | mark the file read: `✓` while its diff is unchanged, `~` once the session changes it again |
+| `g` | show the generated files the tree folded away, or fold them again |
 | `o` | from a preview, jump to the diff at that line; from a diff line, `o` opens the preview there |
 | `esc` | from a preview back to the tree; from the tree, lift the filter, then back to Claude |
 

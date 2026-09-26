@@ -73,6 +73,11 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
+	// Generated reports which of a session's files nobody wrote, so the tree
+	// can fold them and the coverage markers can leave them alone (#338).
+	// Unwired, nothing is generated - which is what every tree looked like
+	// before this and is the safe direction to be wrong in.
+	Generated GeneratedFunc
 	// Stat reads a session's branch and diffstat for its card; nil means no
 	// git to ask (#180).
 	Stat RepoStatFunc
@@ -167,6 +172,9 @@ func (d Deps) withReviewDefaults() Deps {
 	// rather than an error: only a test replaces it (#24).
 	if d.Preview == nil {
 		d.Preview = review.ReadPreview
+	}
+	if d.Generated == nil {
+		d.Generated = noGenerated
 	}
 	return d
 }
@@ -289,3 +297,9 @@ func (d Deps) withDiscoveryDefaults() Deps {
 // model takes a function rather than the Runner itself (invariant: the UI
 // holds no concurrency of its own).
 type GateRunFunc func(sessionID, dir string, steps []gate.Step)
+
+// noGenerated is the unwired Generated: nothing is generated, so every file
+// stays in the tree and every coverage marker stands. Wrong in the safe
+// direction - a file shown is a file the operator can judge, where a file
+// folded away by a broken detection is one they never see.
+func noGenerated(registry.Session, []string) (map[string]bool, error) { return nil, nil }
