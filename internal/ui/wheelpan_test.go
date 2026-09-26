@@ -230,7 +230,7 @@ func TestModel_theTreeFooterNamesThePanKeys_issue125(t *testing.T) {
 // the preview too, and said nothing about the wheel at all.
 func TestModel_helpNamesTheSidewaysWheel_issue125(t *testing.T) {
 	m, _ := modelWithFakes(t)
-	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: helpFitsHeight}) // the whole keymap
 	press(m, ctrl('o'))
 	press(m, key('?'))
 

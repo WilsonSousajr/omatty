@@ -65,7 +65,10 @@ func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T)
 // configured root, for the TUI and the CLI alike (#44).
 func TestCreatorOpts_ComeFromTheConfig_issue44(t *testing.T) {
 	cfg := config.Config{WorktreeRoot: "/vol/wt", BaseBranch: "develop"}
-	if got := creatorOpts(cfg); got != (registry.CreatorOpts{WorktreeRoot: "/vol/wt", BaseBranch: "develop"}) {
-		t.Errorf("creatorOpts() = %+v", got)
+
+	got := creatorOpts(cfg)
+
+	if got.WorktreeRoot != "/vol/wt" || got.BaseBranch != "develop" {
+		t.Errorf("creatorOpts() = %+v, want /vol/wt forked from develop", got)
 	}
 }

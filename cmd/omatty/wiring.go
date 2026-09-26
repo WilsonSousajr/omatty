@@ -71,6 +71,34 @@ type tuiEnv struct {
 	Height int
 }
 
+// turnFuncs is everything the review column does with a turn baseline: take
+// one, diff against it, count what would be discarded, put it back, and drop it
+// when the session is archived (#311, #334). Grouped here so tuiDeps stays a
+// list of assignments rather than a nested literal.
+func turnFuncs(src *review.Source) ui.TurnFuncs {
+	return ui.TurnFuncs{
+		Snap:   src.SnapTurn,
+		Diff:   src.LoadTurn,
+		Drop:   src.DropTurn,
+		Revert: src.RevertTurn,
+		Count:  src.TurnFileCount,
+	}
+}
+
+// shipFuncs is #331's push, open and merge: git for the worktree and the push,
+// gh for the pull request. omatty's first write to the forge, and it happens only
+// on a keypress, on one session, after a person has read the verdict.
+func shipFuncs(src *review.Source, git *vcs.CLI) ui.ShipFuncs {
+	gh := forge.NewCLI()
+	return ui.ShipFuncs{
+		Shippable:       src.Shippable,
+		Push:            git.Push,
+		CreatePR:        gh.CreatePR,
+		MergePR:         gh.MergePR,
+		BranchProtected: gh.BranchProtected,
+	}
+}
+
 // tuiDeps wires the TUI's dependencies: the launcher, the terminal factory,
 // and the typed functions that reach git and the registry on ui's behalf,
 // because ui may do neither itself (invariants 4 and 10).
@@ -80,18 +108,19 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 	src := review.NewSource(git)
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
-		Stop:    holder.Stop,
-		Notice:  holder.Notice(),
-		Launch:  supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
-		Agent:   env.Agent,
-		Factory: termwrap.Start,
-		Create:  sessionCreator(env.Cfg, store),
-		Leader:  env.Cfg.Leader,
-		Name:    sessionNamer(home),
-		Diff:    src.Load,
-		Stat:    src.Stat,
-		Turn:    ui.TurnFuncs{Snap: src.SnapTurn, Diff: src.LoadTurn, Drop: src.DropTurn},
-		Files:   git.ListFiles,
+		Stop:      holder.Stop,
+		Notice:    holder.Notice(),
+		Launch:    supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
+		Agent:     env.Agent,
+		Factory:   termwrap.Start,
+		Create:    sessionCreator(env.Cfg, store),
+		Leader:    env.Cfg.Leader,
+		Name:      sessionNamer(home),
+		Diff:      src.Load,
+		Stat:      src.Stat,
+		Turn:      turnFuncs(src),
+		Files:     git.ListFiles,
+		Generated: src.Generated, Ship: shipFuncs(src, git),
 	}
 	return withStoreDeps(withTableDeps(withForgeDeps(deps), env.Cfg), store, home, git)
 }
@@ -116,6 +145,7 @@ func withTableDeps(deps ui.RunDeps, cfg config.Config) ui.RunDeps {
 	deps.GateParallel, deps.GateAuto = cfg.Gate.MaxParallel, cfg.Gate.Auto
 	deps.LazyStart = cfg.Sessions.LazyStart
 	deps.IdleStop = time.Duration(cfg.Sessions.IdleStop)
+	deps.NerdIcons = cfg.UI.Icons == config.IconsNerd
 	return deps
 }
 
@@ -155,7 +185,15 @@ func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui
 	deps.Archive = sessionArchiver(store)
 	deps.RemoveWorktree = git.RemoveWorktree
 	deps.RemoveProject = projectRemover(store)
+	deps.Tally = gateTallier(store)
 	return deps
+}
+
+// gateTallier adapts registry.TallyGateRun to ui.TallyFunc (#332).
+func gateTallier(store *registry.Store) ui.TallyFunc {
+	return func(project string, passed bool) error {
+		return registry.TallyGateRun(store, project, passed)
+	}
 }
 
 // projectRemover adapts registry.RemoveProject to ui.RemoveProjectFunc (#159).

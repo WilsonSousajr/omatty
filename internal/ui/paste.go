@@ -29,7 +29,7 @@ func (m *Model) onPaste(msg tea.PasteMsg) tea.Cmd {
 	case focusNote:
 		m.review.Note.Buffer = editPaste(m.review.Note.Buffer, msg.Content)
 	case focusFilter:
-		m.setTreeFilter(editPaste(m.review.Filter.Query, msg.Content))
+		m.setViewFilter(editPaste(m.activeFilter().Query, msg.Content))
 	case focusTerminal:
 		// A stopped pane is focused with no terminal behind it, and drops
 		// the paste as the review column does (#318).

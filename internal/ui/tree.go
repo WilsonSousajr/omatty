@@ -79,9 +79,10 @@ func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
 	} else {
 		m.relistUnderCursor(msg.Paths)
 	}
+	m.applyGenerated() // fold with whatever was detected before this listing
 	m.contentChanged()
 	m.moveTreeCursor(0)
-	return nil
+	return m.detectGenerated(msg.SessionID)
 }
 
 // relistUnderCursor replaces the listing and keeps the cursor on the path it
@@ -92,13 +93,13 @@ func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
 func (m *Model) relistUnderCursor(paths []string) {
 	rows := m.treeRows()
 	path := ""
-	if m.review.TreeCursor < len(rows) {
-		path = rows[m.review.TreeCursor].Path
+	if m.review.Files.Cursor < len(rows) {
+		path = rows[m.review.Files.Cursor].Path
 	}
 	m.review.Tree.Relist(paths, m.changes())
 	for i, n := range m.treeRows() {
 		if n.Path == path {
-			m.review.TreeCursor = i
+			m.review.Files.Cursor = i
 			return
 		}
 	}
@@ -125,6 +126,17 @@ func (m *Model) retouchTree() {
 	}
 }
 
+// classifyAfterDiff re-runs the generated detection once a diff has landed: the
+// diff names files the listing does not - a deleted one is in the diff and gone
+// from the worktree - and the coverage markers it suppresses are the diff's own
+// (#338).
+func (m *Model) classifyAfterDiff(id string) tea.Cmd {
+	if m.review.Tree == nil && len(m.review.Diff.Files) == 0 {
+		return nil
+	}
+	return m.detectGenerated(id)
+}
+
 // treeRows is the visible listing, empty until it has been loaded.
 func (m *Model) treeRows() []review.TreeNode {
 	if m.review.Tree == nil {
@@ -136,22 +148,16 @@ func (m *Model) treeRows() []review.TreeNode {
 // moveTreeCursor moves the cursor by delta and scrolls to keep it on screen.
 // A delta of 0 re-clamps it after the listing under it changed.
 func (m *Model) moveTreeCursor(delta int) {
-	n := len(m.treeRows())
-	if n == 0 {
-		m.review.TreeCursor, m.review.TreeOffset = 0, 0
-		return
-	}
-	m.review.TreeCursor = min(max(m.review.TreeCursor+delta, 0), n-1)
-	m.review.TreeOffset = ScrollOffset(m.review.TreeCursor, m.review.TreeOffset, m.reviewRows())
+	m.review.Files.move(delta, len(m.treeRows()), m.reviewRows())
 }
 
 // openTreeNode collapses or expands a directory, or previews a file.
 func (m *Model) openTreeNode() tea.Cmd {
 	rows := m.treeRows()
-	if m.review.TreeCursor >= len(rows) {
+	if m.review.Files.Cursor >= len(rows) {
 		return nil
 	}
-	n := rows[m.review.TreeCursor]
+	n := rows[m.review.Files.Cursor]
 	switch {
 	case n.IsDir:
 		m.review.Tree.Toggle(n.Path)

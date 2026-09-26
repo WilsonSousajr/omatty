@@ -83,10 +83,11 @@ what a migrating user would lose:
   longer true. What claude-squad still has and omatty does not is a one-line
   installer, and neither a Linux package (apt, AUR, nix).
 - **Scrollback after a reattach** (#191's remainder, open as #336), **a scratch
-  shell** (fleet's terminal drawer), **session forking** (fleet), and **review
-  scoped to "since my last read"** (Orca #11840, open as #337 — #311 shipped
-  scoping by *time*, which is a different question from scoping by what you
-  have read).
+  shell** (fleet's terminal drawer), and **session forking** (fleet).
+- ~~**Review scoped to "since my last read"**~~ (Orca #11840). Closed by #337,
+  released in v0.6.0: `v` marks a file read and it says `~` once its diff
+  changes. #311 had shipped scoping by *time*, which is a different question
+  from scoping by what you have read, and both now exist.
 - ~~**A comment that knows it was sent**~~ (Orca's `sentAt`). Closed by #335,
   released in v0.3.0.
 

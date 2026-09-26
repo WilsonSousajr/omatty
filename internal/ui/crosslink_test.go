@@ -97,8 +97,7 @@ func TestModel_ORoundTripsBetweenTheDiffAndThePreview_issue200(t *testing.T) {
 func TestModel_OInAPreviewOpenedFromTheTreeLandsOnTheFileHeader_issue200(t *testing.T) {
 	m, _ := modelWithLinks(t)
 	leader(m, key('f'))
-	press(m, key('j')) // ui/
-	press(m, key('j')) // model.go
+	press(m, key('j')) // model.go, under the compacted internal/ui/ row (#430)
 	pressAndSettle(m, special(tea.KeyEnter))
 	if m.ReviewView() != ui.ViewPreview {
 		t.Fatalf("view = %v, want the preview of model.go", m.ReviewView())

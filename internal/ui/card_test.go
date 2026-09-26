@@ -12,9 +12,10 @@ import (
 )
 
 // Line one: rail, glyph, space, 18 columns of title, space, the age in four,
-// a blank. Line two: rail, two spaces, 16 columns for the branch and the
-// diffstat, a space, the six-cell lane, a blank. Line three: rail, two
-// spaces, the 23-cell gate strip, a blank (#230). All 27 cells.
+// a blank. Line two: rail, two spaces, 23 columns for the branch and the
+// diffstat, a blank - the six-cell lane that shared it went with #410. Line
+// three: rail, two spaces, the 23-cell gate strip, a blank (#230). All 27
+// cells.
 //
 // The third line was added by M9. What this test asserted before was correct
 // for M8; the card is three lines now by the decision on #230, and the height
@@ -33,7 +34,7 @@ func TestCard_HasTheSpecsColumns_issue176(t *testing.T) {
 	if want := "▎✓ main" + strings.Repeat(" ", 14) + "   4m "; one != want {
 		t.Errorf("line one = %q\nwant       %q", one, want)
 	}
-	if want := "▎  " + strings.Repeat(" ", 16) + " " + "     ▂" + " "; two != want {
+	if want := "▎  " + strings.Repeat(" ", ui.MetaCols()) + " "; two != want {
 		t.Errorf("line two = %q\nwant       %q", two, want)
 	}
 	// No gate has run, so the strip is blank - it must read as nothing, not

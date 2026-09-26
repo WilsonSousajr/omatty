@@ -195,7 +195,7 @@ func (s *Sidebar) selectIndex(i int) bool {
 }
 
 // cardLines is how many lines a session draws: the glyph, title and age, then
-// the branch, diffstat and lane (#176), then the gate strip (#230). A header
+// the branch and diffstat (#176), then the gate strip (#230). A header
 // draws one.
 //
 // Three whether or not a gate has run, so it stays a constant. rowHeight feeds

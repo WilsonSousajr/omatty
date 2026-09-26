@@ -34,12 +34,12 @@ func TestModel_AAttachesTheSelectedFileAsAPathReference_issue199(t *testing.T) {
 // A directory row attaches as @dir/, so claude reads it as a directory.
 func TestModel_AOnADirectoryAttachesItWithATrailingSlash_issue199(t *testing.T) {
 	m, fakes, _, _ := modelWithTree(t)
-	leader(m, key('f')) // cursor on internal/ (#194)
+	leader(m, key('f')) // cursor on internal/ui/, one compacted row since #430 (#194)
 
 	pressAndSettle(m, key('a'))
 
-	if got := strings.Join(fakes["s1"].Sent, "|"); got != "\x1b[200~@internal/ \x1b[201~" {
-		t.Errorf("sent %q, want @internal/ bracketed", got)
+	if got := strings.Join(fakes["s1"].Sent, "|"); got != "\x1b[200~@internal/ui/ \x1b[201~" {
+		t.Errorf("sent %q, want @internal/ui/ bracketed", got)
 	}
 }
 
@@ -92,7 +92,8 @@ func TestModel_TheAttachKeyIsDocumented_issue199(t *testing.T) {
 		t.Errorf("treeFooter does not name the attach key: %q", got)
 	}
 	m, _, _, _ := modelWithTree(t)
-	m.Update(tea.WindowSizeMsg{Width: 160, Height: 50})
+	// The whole keymap, which outgrew 50 rows once #331 and #424 added keys.
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: helpFitsHeight})
 	leader(m, key('?'))
 	lineWith(t, m.View().Content, "@path")
 }

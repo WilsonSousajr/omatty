@@ -65,12 +65,12 @@ func FoldIssues(raw []byte) ([]Issue, error) {
 	for i, is := range in {
 		out[i] = Issue{
 			Number:   is.Number,
-			Title:    is.Title,
+			Title:    cleanLine(is.Title), // #483, as every field an author controls
 			Labels:   labelNames(is.Labels),
-			Assignee: firstLogin(is.Assignees),
-			Author:   is.Author.Login,
+			Assignee: cleanLine(firstLogin(is.Assignees)),
+			Author:   cleanLine(is.Author.Login),
 			Updated:  is.UpdatedAt,
-			URL:      is.URL,
+			URL:      cleanLine(is.URL),
 		}
 	}
 	return out, nil
@@ -82,7 +82,7 @@ func labelNames(in []ghLabel) []string {
 	}
 	names := make([]string, len(in))
 	for i, l := range in {
-		names[i] = l.Name
+		names[i] = cleanLine(l.Name) // #483
 	}
 	return names
 }

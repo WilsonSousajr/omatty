@@ -96,6 +96,7 @@ func (m *Model) onIssues(msg IssuesLoadedMsg) tea.Cmd {
 	}
 	delete(m.issueFailed, msg.Project)
 	m.issues[msg.Project] = msg.Issues
+	m.settleTracker(msg.Project)
 	return nil
 }
 

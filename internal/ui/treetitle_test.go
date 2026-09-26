@@ -109,7 +109,9 @@ func TestModel_aWideTreeTitleShowsEverything_issue285(t *testing.T) {
 
 	title := treeTitleOf(t, m)
 
-	if title != "files · a-long-session-name /gate" {
+	// With room, the position #424 added is not given up either.
+	// Two rows since #430 compacted internal/ and gate/ into one.
+	if title != "files · a-long-session-name /gate · 1/2" {
 		t.Errorf("a wide column did not draw the whole title:\n%s", title)
 	}
 }

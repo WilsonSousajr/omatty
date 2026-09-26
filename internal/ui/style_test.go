@@ -25,7 +25,7 @@ func TestStatusColors_AmberMeansWaitingAloneAndAccentMeansFocusAlone_issue175(t 
 	}
 }
 
-// Working states earn no colour: the lane's height already says how busy.
+// Working states earn no colour: the spinner already says busy (#410).
 func TestStatusColors_WorkingStatesAreTextColoured_issue175(t *testing.T) {
 	for _, s := range []watcher.Status{watcher.StatusThinking, watcher.StatusTool} {
 		if !sameRGB(ui.StatusColor(s), ui.TextColor()) {
@@ -57,13 +57,5 @@ func TestStatusGlyphs_AreOneCellWide_issue128(t *testing.T) {
 	}
 	if !slices.Contains(ui.StatusGlyphs(), "◐") {
 		t.Error("the working glyph ◐ is missing (#175)")
-	}
-}
-
-func TestLaneCells_AreOneCellWide_issue128(t *testing.T) {
-	for _, c := range ui.LaneBlocks() {
-		if lipgloss.Width(c) != 1 || runewidth.StringWidth(c) != 1 {
-			t.Errorf("lane cell %q is %d/%d cells wide, want 1", c, lipgloss.Width(c), runewidth.StringWidth(c))
-		}
 	}
 }

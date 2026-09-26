@@ -5,7 +5,10 @@
 package ui
 
 import (
+	"errors"
 	"time"
+
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/notify"
@@ -27,10 +30,15 @@ type CreateFunc func(project, title, branch string, worktree bool) (registry.Ses
 // the size is a parameter so it is never frozen at startup (issue #73).
 type StartFunc func(sess registry.Session, w, h int) (termwrap.Terminal, error)
 
+// TickFunc schedules fn after d, as tea.Tick does (#412).
+//
+//	var t ui.TickFunc = tea.Tick
+type TickFunc func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd
+
 // RepoStatFunc reads a session's branch and diffstat for its sidebar card
 // (#180). Injected so ui never touches git (invariant 4). Nil is the switch,
-// as ModelName's is: with nothing wired the card draws its lane alone, which
-// is what every test's Deps gets.
+// as ModelName's is: with nothing wired the card's second line is blank,
+// which is what every test's Deps gets.
 type RepoStatFunc func(sess registry.Session, projectRoot string) (review.Stat, error)
 
 // TurnFuncs are the three calls #311 makes on a session's turn baseline,
@@ -41,6 +49,12 @@ type TurnFuncs struct {
 	Snap func(sess registry.Session) error
 	Diff DiffFunc
 	Drop func(sess registry.Session, projectRoot string) error
+	// Revert puts the worktree back to the baseline and says how many files it
+	// changed; Count is the same number read without writing anything, for the
+	// confirmation to name (#334). Unwired, both say there is no turn, which is
+	// the refusal the column already renders.
+	Revert func(sess registry.Session) (int, error)
+	Count  func(sess registry.Session) (int, error)
 }
 
 // Deps is everything a Model needs. Constructor injection, so no field is
@@ -63,8 +77,15 @@ type Deps struct {
 	GateRun     GateRunFunc
 	// GateAuto runs a session's gate when its turn ends. Off by default: a
 	// test suite on every idle costs real time, so it is asked for (#233).
-	GateAuto  bool
+	GateAuto bool
+	// NerdIcons draws every state mark in the Nerd Font set, for
+	// [ui] icons = "nerd"; plain Unicode otherwise (#425).
+	NerdIcons bool
 	Clock     func() time.Time
+	// SpinTick schedules the spinner's next frame (#412). Nil is tea.Tick; a
+	// test passes one that answers at once, since test helpers run every
+	// command they are handed and a real tick is a real 100 ms wait.
+	SpinTick  TickFunc
 	Notifier  notify.Notifier
 	TailStart func(registry.Session)
 	// Diff loads a session's changes for the review column (#21).
@@ -73,6 +94,16 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
+	// Generated reports which of a session's files nobody wrote, so the tree
+	// can fold them and the coverage markers can leave them alone (#338).
+	// Unwired, nothing is generated - which is what every tree looked like
+	// before this and is the safe direction to be wrong in.
+	Generated GeneratedFunc
+	// Tally records one gate run that followed a turn, for #332's first-pass
+	// rate. Unwired, nothing is measured, which is what every test sees.
+	Tally TallyFunc
+	// Ship is #331's push, open and merge. Unwired, each of them refuses.
+	Ship ShipFuncs
 	// Stat reads a session's branch and diffstat for its card; nil means no
 	// git to ask (#180).
 	Stat RepoStatFunc
@@ -140,11 +171,14 @@ type Deps struct {
 	Reattached map[string]bool
 }
 
-// withDefaults fills the optional fields: the wall clock and a silent
-// notifier, so no method needs a nil guard.
+// withDefaults fills the optional fields: the wall clock, the real timer and
+// a silent notifier, so no method needs a nil guard.
 func (d Deps) withDefaults() Deps {
 	if d.Clock == nil {
 		d.Clock = time.Now
+	}
+	if d.SpinTick == nil {
+		d.SpinTick = tea.Tick
 	}
 	if d.Notifier == nil {
 		d.Notifier = notify.Silent{}
@@ -168,6 +202,13 @@ func (d Deps) withReviewDefaults() Deps {
 	if d.Preview == nil {
 		d.Preview = review.ReadPreview
 	}
+	if d.Generated == nil {
+		d.Generated = noGenerated
+	}
+	if d.Tally == nil {
+		d.Tally = noTally
+	}
+	d.Ship = withShipDefaults(d.Ship)
 	return d
 }
 
@@ -201,6 +242,12 @@ func (d Deps) withTurnDefaults() Deps {
 	}
 	if d.Turn.Diff == nil {
 		d.Turn.Diff = func(registry.Session, string) (review.Diff, error) { return review.Diff{}, review.ErrNoTurn }
+	}
+	if d.Turn.Revert == nil {
+		d.Turn.Revert = noRevert
+	}
+	if d.Turn.Count == nil {
+		d.Turn.Count = noRevert
 	}
 	if d.Turn.Drop == nil {
 		d.Turn.Drop = func(registry.Session, string) error { return nil }
@@ -289,3 +336,65 @@ func (d Deps) withDiscoveryDefaults() Deps {
 // model takes a function rather than the Runner itself (invariant: the UI
 // holds no concurrency of its own).
 type GateRunFunc func(sessionID, dir string, steps []gate.Step)
+
+// noGenerated is the unwired Generated: nothing is generated, so every file
+// stays in the tree and every coverage marker stands. Wrong in the safe
+// direction - a file shown is a file the operator can judge, where a file
+// folded away by a broken detection is one they never see.
+func noGenerated(registry.Session, []string) (map[string]bool, error) { return nil, nil }
+
+// noRevert is the unwired Revert and Count: there is no baseline, which is the
+// refusal #311's own notice already has words for.
+func noRevert(registry.Session) (int, error) { return 0, review.ErrNoTurn }
+
+// noTally is the unwired Tally: nothing is measured. A measurement is not worth
+// a nil check at the call site, and a run nobody counted is the state every
+// project was in before #332.
+func noTally(string, bool) error { return nil }
+
+// ShipFuncs is everything #331 needs to act on a pull request: read the
+// worktree, push it, open the pull request, check the base is not protected, and
+// merge. Grouped like TurnFuncs because they are one feature and are wired
+// together or not at all.
+//
+// Unwired, each refuses. A ship key that silently did nothing would be worse
+// than one that says there is no forge configured.
+type ShipFuncs struct {
+	Shippable       func(sess registry.Session, projectRoot string) (review.Shippable, error)
+	Push            func(dir, branch string) error
+	CreatePR        func(repoRoot, head, base, title string) (int, error)
+	MergePR         func(repoRoot string, number int) error
+	BranchProtected func(repoRoot, branch string) (bool, error)
+}
+
+// withShipDefaults makes every unwired ship function refuse by name.
+func withShipDefaults(s ShipFuncs) ShipFuncs {
+	if s.Shippable == nil {
+		s.Shippable = func(registry.Session, string) (review.Shippable, error) {
+			return review.Shippable{}, errNoShip
+		}
+	}
+	if s.Push == nil {
+		s.Push = func(string, string) error { return errNoShip }
+	}
+	return withForgeShipDefaults(s)
+}
+
+// withForgeShipDefaults is the gh half of the same defaulting, split off to stay
+// inside the statement limit.
+func withForgeShipDefaults(s ShipFuncs) ShipFuncs {
+	if s.CreatePR == nil {
+		s.CreatePR = func(string, string, string, string) (int, error) { return 0, errNoShip }
+	}
+	if s.MergePR == nil {
+		s.MergePR = func(string, int) error { return errNoShip }
+	}
+	if s.BranchProtected == nil {
+		// True, because the refusal has to fail closed even when unwired.
+		s.BranchProtected = func(string, string) (bool, error) { return true, errNoShip }
+	}
+	return s
+}
+
+// errNoShip is what an unwired ship says.
+var errNoShip = errors.New("ui: no forge wired, so this session cannot be shipped from here")

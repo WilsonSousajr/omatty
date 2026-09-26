@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image/color"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/forge"
@@ -27,6 +28,40 @@ func LeaderKeys() []string {
 	return out
 }
 
+// Bold is s as a heading or a title is drawn (#433).
+func Bold(s string) string { return headerStyle.Render(s) }
+
+// Strong is s as a body's **strong** run is drawn (#433).
+func Strong(s string) string { return strongStyle.Render(s) }
+
+// SearchHit is s as the gate draws a search match (#429).
+func SearchHit(s string) string { return searchStyle.Render(s) }
+
+// UseNerdIcons switches the model to the Nerd Font glyph set, as
+// [ui] icons = "nerd" does through Deps (#425).
+func (m *Model) UseNerdIcons() { m.glyphs, m.nerdIcons = nerdGlyphs, true }
+
+// EmphasisAdded and EmphasisRemoved are the changed words of a pair (#435).
+func EmphasisAdded(s string) string   { return emphasisStyle(review.LineAdded).Render(s) }
+func EmphasisRemoved(s string) string { return emphasisStyle(review.LineRemoved).Render(s) }
+
+// ColumnKeyTables is each review-column face's documented keys, by face, plus
+// "column" for the keys every face shares - the tables helpBody renders, so
+// the #422 test checks the handlers against what the operator actually sees.
+func ColumnKeyTables() map[string][]string {
+	keysOf := func(table []keyHelp) []string {
+		out := make([]string, 0, len(table))
+		for _, k := range table {
+			out = append(out, k.Key)
+		}
+		return out
+	}
+	return map[string][]string{
+		"column": keysOf(columnKeys), "diff": keysOf(diffKeys), "tree": keysOf(treeKeys),
+		"gate": keysOf(gateKeys), "tracker": keysOf(trackerKeys),
+	}
+}
+
 // Footers is every footer constant by name, so a width assertion measures the
 // constant rather than the rendered line - which fitLine has already capped to
 // the window and which therefore cannot fail for an over-long footer.
@@ -35,6 +70,11 @@ func Footers(leader string) map[string]string {
 		"footer":       footerLine(leader),
 		"reviewFooter": reviewFooterLine(leader),
 		"treeFooter":   treeFooterLine(leader),
+		// #426's whole-entry test needs every face's line, not only the three
+		// the width test was written for.
+		"gateFooter":        gateFooterLine(leader),
+		"trackerFooter":     trackerFooterLine(leader),
+		"trackerItemFooter": trackerItemFooterLine(leader),
 	}
 }
 
@@ -62,13 +102,8 @@ func StatusGlyphs() []string {
 	return out
 }
 
-// LaneBlocks is the status-to-cell table and LaneCells the lane's width.
-func LaneBlocks() map[watcher.Status]string { return laneBlock }
-func LaneCells() int                        { return laneCells }
-
-// LaneOf is a session's rendered lane; CardOf its whole two-line card (#176);
-// Rail the accent cursor cell a selected card's lines open with.
-func (m *Model) LaneOf(id string) string { return m.renderLane(id) }
+// CardOf is a session's whole card (#176); Rail the accent cursor cell a
+// selected card's lines open with.
 func (m *Model) CardOf(id string) []string {
 	for _, row := range m.sidebar.Rows() {
 		if row.Session != nil && row.Session.ID == id {
@@ -116,7 +151,7 @@ func RuleRow(widths []int) string { return RuleRowClosable(widths, -1) }
 func RuleRowClosable(widths []int, closable int) string {
 	segs := make([]segment, len(widths))
 	for i, w := range widths {
-		segs[i] = segment{width: w, closable: i == closable}
+		segs[i] = segment{width: w, closable: i == closable, label: "diff"}
 	}
 	return ruleRow(segs)
 }
@@ -137,13 +172,11 @@ func RenderMeter(t watcher.Tokens) string {
 func MeterGlyphs() []string { return []string{meterFull, meterEmpty} }
 func MeterCells() int       { return meterCells }
 
-// Blend, LaneCellColor and MeterCellColor are the ramps; StatusColor and
-// MutedColor their endpoints (#154).
-func Blend(a, b color.Color, t float64) color.Color       { return blend(a, b, t) }
-func LaneCellColor(s watcher.Status, age int) color.Color { return laneCellColor(s, age) }
-func MeterCellColor(i int) color.Color                    { return meterCellColor(i) }
-func StatusColor(s watcher.Status) color.Color            { return statusColors[s] }
-func MutedColor() color.Color                             { return colorMuted }
+// Blend and MeterCellColor are the ramp; StatusColor a status's palette
+// entry (#154).
+func Blend(a, b color.Color, t float64) color.Color { return blend(a, b, t) }
+func MeterCellColor(i int) color.Color              { return meterCellColor(i) }
+func StatusColor(s watcher.Status) color.Color      { return statusColors[s] }
 
 // AccentColor, AmberColor and TextColor are the palette entries the colour
 // rule binds (#175); AllStatuses is every status the tables must cover.
@@ -258,3 +291,20 @@ func (m *Model) DiffSeq() uint64 { return m.diffSeq }
 
 // TurnSeq is DiffSeq for the turn diff.
 func (m *Model) TurnSeq() uint64 { return m.turnSeq }
+
+// MetaCols is card line two's width for the branch and the diffstat.
+func MetaCols() int { return metaCols }
+
+// SpinFrames is one turn of the working spinner, SpinEvery a frame's time on
+// screen and SpinFrameAt the frame at a moment (#410). SpinArmed is whether
+// a spin tick is pending (#412).
+func SpinFrames() []string             { return spinFrames[:] }
+func SpinEvery() time.Duration         { return spinEvery }
+func SpinFrameAt(now time.Time) string { return spinnerFrame(now) }
+func (m *Model) SpinArmed() bool       { return m.spinArmed }
+
+// GeneratedMsgFor is the message the detection command produces, so a test can
+// deliver a classification the way Update receives one (#338).
+func GeneratedMsgFor(id string, gen map[string]bool) tea.Msg {
+	return generatedMsg{id: id, gen: gen}
+}

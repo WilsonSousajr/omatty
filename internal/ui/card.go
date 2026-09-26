@@ -18,25 +18,26 @@ import (
 // The card's columns at SidebarWidth 28: 27 of content, the last one blank
 // so nothing touches the hairline. Line one spends the rail, the glyph, two
 // spaces, the age and the blank; the title gets 18, three more than #155's
-// fifteen. Line two spends the rail, two spaces, a space, the lane and the
-// blank; the branch and the diffstat share the 16 between (#180).
+// fifteen. Line two spends the rail, two spaces and the blank; the branch and
+// the diffstat share the 23 between (#180). It was 16 until #410 gave the
+// activity lane's seven columns back to the branch.
 const (
 	cardCols  = sidebarContentCols
 	ageCols   = 4
 	titleCols = cardCols - 1 - 1 - 1 - 1 - ageCols - 1
-	metaCols  = cardCols - 1 - 2 - 1 - laneCells - 1
+	metaCols  = cardCols - 1 - 2 - 1
 )
 
 // rail is the cursor: an accent bar down the left of both lines of the
 // selected card, the same idiom as the accent hairline on the keyboard owner
-// (#174). A block element like the lane cells, so the East Asian width rule
-// in lane.go covers it too.
+// (#174). A block element, East Asian Ambiguous like the status glyphs, so
+// the width rule statusGlyphs describes in style.go covers it too.
 const rail = "▎"
 
 // renderRow draws a row's lines: one for a project header, three for a card.
 //
-//	▎● parser-fix           4m
-//	▎  main      +12 −3 ▁▃▇█▅▂
+//	▎⠹ parser-fix           4m
+//	▎  feat/parser-rew… +12 −3
 //	▎  ✓✓✓✗ test       88.4%
 func (m *Model) renderRow(row Row, now time.Time) []string {
 	if row.Session == nil {
@@ -46,7 +47,7 @@ func (m *Model) renderRow(row Row, now time.Time) []string {
 	id := row.Session.ID
 	return []string{
 		r + m.cardTop(row, now),
-		r + "  " + m.cardMeta(id) + " " + m.renderLane(id) + " ",
+		r + "  " + m.cardMeta(id) + " ",
 		r + "  " + m.cardGate(id) + " ",
 	}
 }
@@ -71,7 +72,7 @@ func (m *Model) renderHeaderRow(project string) string {
 
 // cardTop is line one past the rail: the glyph, the title, the age.
 func (m *Model) cardTop(row Row, now time.Time) string {
-	glyph := statusCell(row.Status)
+	glyph := m.glyphCell(row.Session.ID, row.Status, now)
 	title := m.titleStyle(row.Session.ID).Render(fitLine(row.Session.Title, titleCols))
 	age := mutedStyle.Render(padLeft(clip(AgeString(now, m.status[row.Session.ID].At), ageCols), ageCols))
 	return glyph + " " + title + " " + age + " "
@@ -79,8 +80,8 @@ func (m *Model) cardTop(row Row, now time.Time) string {
 
 // cardMeta is line two's middle: the branch, then the diffstat right-aligned
 // (#180). The diffstat is drawn whole and the branch clipped to what remains
-// less one separating space; a clean tree gives the branch all sixteen, and
-// an unpolled session gives blanks so the lane keeps its place.
+// less one separating space; a clean tree gives the branch all 23, and an
+// unpolled session gives blanks so the line keeps its width.
 func (m *Model) cardMeta(id string) string {
 	st, ok := m.repoStat[id]
 	if !ok {

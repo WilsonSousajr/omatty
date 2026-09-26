@@ -12,6 +12,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -41,7 +42,7 @@ func (m *Model) renderGate(_, h int) []string {
 	case ran && report.Err != nil:
 		return []string{"the gate could not run:", "  " + report.Err.Error()}
 	case ran:
-		return window(m.gateLines(report), m.review.GateOffset, h)
+		return m.gateView(report, h)
 	case len(m.gateFor(id)) > 0:
 		return m.pendingGateLines(id)
 	}
@@ -61,7 +62,7 @@ func (m *Model) pendingGateLines(id string) []string {
 	steps := m.gateFor(id)
 	w := nameWidth(steps)
 	for _, step := range steps {
-		lines = append(lines, stepRow("  ", "·", step, w, ""))
+		lines = append(lines, stepRow("  ", m.glyphs.mark(markPending), step, w, ""))
 	}
 	return lines
 }
@@ -80,8 +81,15 @@ func (m *Model) noGateLines() []string {
 	}
 }
 
-// gateLines is every step, each followed by its output when folded open.
+// gateLines is every step, each followed by its output when folded open, its
+// marks plain: what the pan clamp measures and the cursor row draws.
 func (m *Model) gateLines(report gate.Report) []string {
+	return m.gateLinesWith(report, m.glyphs.mark)
+}
+
+// gateLinesWith is gateLines with each step's mark drawn by mark, so the plain
+// rows and the coloured ones come from one builder and cannot fall out of line.
+func (m *Model) gateLinesWith(report gate.Report, mark func(markState) string) []string {
 	steps := make([]gate.Step, len(report.Results))
 	for i, result := range report.Results {
 		steps[i] = result.Step
@@ -89,29 +97,29 @@ func (m *Model) gateLines(report gate.Report) []string {
 	w := nameWidth(steps)
 	var lines []string
 	for i, result := range report.Results {
-		lines = append(lines, m.gateStepLine(i, result, w))
+		lines = append(lines, gateStepLine(mark(verdictState(result.Verdict)), result, w))
 		if m.review.GateOpen[i] {
-			lines = append(lines, indent(result.Output)...)
+			lines = append(lines, m.gateOutput(result.Output)...)
 		}
 	}
 	return lines
 }
 
-// gateStepLine is one step's row: the cursor, its mark, its name and the
-// command it ran, so the pane says what was actually executed.
-func (m *Model) gateStepLine(i int, result gate.StepResult, nameW int) string {
-	cursor := "  "
-	if i == m.review.GateCursor {
-		cursor = "▸ "
-	}
-	return stepRow(cursor, verdictMark[result.Verdict], result.Step, nameW, elapsed(result))
+// gateStepLine is one step's row: its mark, its name and the command it ran,
+// so the pane says what was actually executed. The two leading cells were the
+// "▸ " cursor until #424 made reverse video the cursor on every face; they stay
+// so a row does not shift against the pending view's, which spends them too.
+func gateStepLine(mark string, result gate.StepResult, nameW int) string {
+	return stepRow("  ", mark, result.Step, nameW, elapsed(result))
 }
 
 // stepRow lays out one step for both the pending and the verdict view, so the
 // command starts in the same column in each and a row does not shift when its
 // verdict replaces the pending mark (#342). took is blank while pending.
 func stepRow(cursor, mark string, step gate.Step, nameW int, took string) string {
-	return fmt.Sprintf("%s%s %-*s %-6s $ %s", cursor, mark, nameW, step.Name, took, step.Run)
+	// took is right-aligned in its six cells (#428), so durations read as one
+	// column and a slow step stands out by its length.
+	return fmt.Sprintf("%s%s %-*s %6s $ %s", cursor, mark, nameW, step.Name, took, step.Run)
 }
 
 // nameWidth is the widest step name, and never less than six, so "fmt" and
@@ -124,23 +132,40 @@ func nameWidth(steps []gate.Step) int {
 	return w
 }
 
-// elapsed is how long a step took, blank for one that never ran.
-func elapsed(result gate.StepResult) string {
-	if result.Elapsed <= 0 {
+// elapsed is how long a step took, blank for one that never ran: seconds to a
+// tenth under a minute, minutes and seconds past one (#428), so a long step
+// fits the six-cell column and reads as long.
+func elapsed(result gate.StepResult) string { return durationText(result.Elapsed) }
+
+// durationText is a duration as the gate's column and an item's checks draw it
+// (#428, #433), blank for none.
+func durationText(d time.Duration) string {
+	if d <= 0 {
 		return ""
 	}
-	return fmt.Sprintf("%.1fs", result.Elapsed.Seconds())
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	return fmt.Sprintf("%dm%02ds", int(d.Minutes()), int(d.Seconds())%60)
 }
 
-// indent sets a step's output apart from the rows, and drops the trailing
-// blank a captured stream always ends with.
-func indent(out string) []string {
+// outputIndent sets a step's output apart from the rows.
+const outputIndent = "      "
+
+// gateOutput is a step's output as drawn: indented, without the trailing blank
+// a captured stream always ends with, and wrapped to the column (#429) - output
+// is prose read top to bottom, and at 23 cells a panned failure line is not
+// read at all. The step's command still pans; its output no longer has to.
+// gateLines and gateSpans both count through here, so the frame and the
+// scroll cannot disagree about how many lines an opened step holds.
+func (m *Model) gateOutput(out string) []string {
 	if out == "" {
 		return nil
 	}
+	width := max(m.columnWidth()-len(outputIndent), 1)
 	var lines []string
-	for _, l := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
-		lines = append(lines, "      "+l)
+	for _, l := range wrapBlock(strings.TrimRight(out, "\n"), width) {
+		lines = append(lines, outputIndent+l)
 	}
 	return lines
 }
@@ -169,13 +194,12 @@ func window(lines []string, offset, h int) []string {
 // j/k to walk, enter to open, esc to leave - so the column's modes do not each
 // need learning.
 func (m *Model) onGateKey(key string) tea.Cmd {
+	if m.gateCursorKey(key) {
+		return nil
+	}
 	switch key {
-	case "j", "down":
-		m.moveGateCursor(1)
-	case "k", "up":
-		m.moveGateCursor(-1)
-	case "enter":
-		m.toggleGateStep()
+	case "r", "/", "n", "N", "shift+n", "shift+N":
+		m.gateSearchKey(key)
 	case "S", "shift+s", "shift+S":
 		// Three spellings, all of which occur: a terminal reporting the
 		// modifier sends "shift+s", a legacy one the bare "S", and one that
@@ -184,8 +208,9 @@ func (m *Model) onGateKey(key string) tea.Cmd {
 		return m.submitGate()
 	case "esc", "ctrl+c":
 		// The diff and the tree both hand the keys back rather than close the
-		// column; the gate does the same so esc means one thing everywhere.
-		m.review.Focused = false
+		// column; the gate does the same so esc means one thing everywhere -
+		// after lifting a kept search, as the tree lifts its filter (#429).
+		m.leaveGate()
 	default:
 		// h/l/0, shared by every view (#94). A step's command is the widest
 		// thing here and is cut at the column edge, so it has to be reachable.
@@ -194,15 +219,37 @@ func (m *Model) onGateKey(key string) tea.Cmd {
 	return nil
 }
 
+// gateCursorKey is j, k and enter - the keys that move through the steps or
+// fold one - reporting whether key was one. Split off onGateKey when #429's
+// search keys took it past the statement limit.
+func (m *Model) gateCursorKey(key string) bool {
+	switch key {
+	case "j", "down":
+		m.moveGateCursor(1)
+	case "k", "up":
+		m.moveGateCursor(-1)
+	case "enter":
+		m.toggleGateStep()
+	default:
+		return false
+	}
+	return true
+}
+
 // moveGateCursor walks the steps, stopping at the ends rather than wrapping:
-// a gate is a short list read top to bottom.
+// a gate is a short list read top to bottom. An opened step is read through
+// before the cursor leaves it (#421, gatescroll.go).
 func (m *Model) moveGateCursor(by int) {
-	steps := len(m.gates[m.review.SessionID].Results)
-	if steps == 0 {
+	spans := m.gateSpans(m.gates[m.review.SessionID])
+	if len(spans) == 0 {
 		return
 	}
-	m.review.GateCursor = clampTo(m.review.GateCursor+by, 0, steps-1)
-	m.review.GateOffset = 0
+	m.review.GateCursor = clampTo(m.review.GateCursor, 0, len(spans)-1)
+	if by > 0 {
+		m.gateDown(spans)
+		return
+	}
+	m.gateUp(spans)
 }
 
 // toggleGateStep folds the step under the cursor open or shut. Output is
@@ -213,6 +260,7 @@ func (m *Model) toggleGateStep() {
 		m.review.GateOpen = map[int]bool{}
 	}
 	m.review.GateOpen[m.review.GateCursor] = !m.review.GateOpen[m.review.GateCursor]
+	m.clampGateOffset()
 }
 
 // clampTo keeps n within [lo, hi].

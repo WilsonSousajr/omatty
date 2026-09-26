@@ -180,10 +180,6 @@ func (m *Model) pickLines() []string {
 // is marked, so labels do not jog sideways as marks come and go; a
 // single-select list has no marks and spends no cells on them (#42).
 func pickRow(it pickItem, l *pickList) string {
-	marker := "  "
-	if cur, ok := l.Current(); ok && cur.ID == it.ID {
-		marker = "» "
-	}
 	mark := ""
 	if l.Multi {
 		mark = "  "
@@ -191,5 +187,11 @@ func pickRow(it pickItem, l *pickList) string {
 			mark = "* "
 		}
 	}
-	return marker + mark + it.Label + "  " + mutedStyle.Render(it.Detail)
+	// Reverse video is the cursor, as on every face of the review column
+	// (#424). The detail goes unstyled on the cursor row: a muted run inside
+	// ends in a reset, which would cut the reverse short mid-row.
+	if cur, ok := l.Current(); ok && cur.ID == it.ID {
+		return cursorStyle.Render("  " + mark + it.Label + "  " + it.Detail)
+	}
+	return "  " + mark + it.Label + "  " + mutedStyle.Render(it.Detail)
 }

@@ -30,13 +30,16 @@ not only the coverage gate. See "Rules" at the end for why.
 | M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. Released in v0.2.0. |
 | M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. Released in v0.2.0. |
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. Released in v0.2.0. |
-| M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. Of what it produced, #310 and #311 are built and released in v0.3.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379); what is open is the milestone's open issues on the board, not a count here. |
+| M12 | The Field | **Done.** The research half is #295-#302, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`; the verification core (#310, #311, #335, #342) released in v0.3.0 and the close-out in v0.4.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379), and those built 2026-09-26 as #337, #338, #339, #334, #331, #332, #333 and #329, with #410/#412 and the two defects #471/#472 beside them. Released in v0.6.0. It deliberately leaves three, which keep the label: **#369** blocked upstream (goreleaser#6870/#6873), **#336** gated on upstream #315, **#330** waiting on people rather than code. |
 | M13 | Memory and idle CPU | **Done.** PR #314, merged 2026-09-22. Released in v0.2.0. |
 | — | **Released** | **v0.2.0**, 2026-09-22. M9-M11, M13 and the session lifecycle promoted to `main` (#328). See "Releases". |
 | — | **Released** | **v0.3.0**, 2026-09-25. M12's verification core (#311, #310, #335, #342), the release pipeline (#327) and the MIT license (#362). See "Releases". |
 | — | **Released** | **v0.4.0**, 2026-09-25. M12's close-out promoted to `main` (#390). See "Releases". |
 | M14 | The Tracker | **Done.** Seven slices #393-#399 built 2026-09-25 as PRs #400-#406. Released in v0.5.0. |
 | — | **Released** | **v0.5.0**, 2026-09-26. M14 promoted to `main` (#407). See "Releases". |
+| M15 | The Polish | **Done.** Nineteen issues #421-#439 and two bugs found building them (#447, #483), merged 2026-09-26 as PRs #444-#491; closed out in #492. Released in v0.6.0. See the M15 section. |
+| — | **Released** | **v0.6.0**, 2026-09-26. M12's remainder and all of M15 promoted to `main` (#480). See "Releases". |
+| M16 | The Forges | **Planned** 2026-09-26: GitLab, Azure DevOps, Gitea/Forgejo/Codeberg and Bitbucket at GitHub's parity, #449-#465, in Backlog. See the M16 section. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -290,7 +293,8 @@ fits an ADE. Those converge on seven issues, one PR each, in build order:
   `NewNo`.
 
 **Cut**, and written down so it does not return sideways: Nerd Font
-file-type icons and a second theme, both refused in M8; wrapping long lines
+file-type icons and a second theme, both refused in M8 (icons came back
+opt-in in M15, #425/#431; the second theme is still cut); wrapping long lines
 in the preview, when panning already reaches them; a markdown renderer for
 the preview; watching the worktree with fsnotify, when the turn boundary is
 the moment the operator looks. Highlighting the diff view is deferred, not
@@ -542,7 +546,8 @@ Three things worth remembering from building it:
   slice the plan assigned them to.
 
 **Cut**, and written down so it does not return sideways: a second theme;
-background fills for any column; Nerd Font or provider glyphs; a
+background fills for any column; Nerd Font or provider glyphs (Nerd Font
+came back opt-in in M15, #425; provider glyphs did not); a
 context-window gauge like ade's (usage is known, the window size is not);
 plan, subagent or "changes" panes; blank margins between cards; tabs; a
 composer; a sidebar width other than 28. The gear and pause glyphs are not
@@ -969,6 +974,30 @@ own CHANGELOG section (#327). A pull request already checks the release
 configuration and builds it as a snapshot, so a tag cannot be the first thing
 to find it broken.
 
+**When a release happens: at every milestone close** (#329). This section and
+AGENTS.md said *how* for three weeks and never *when*, and with "no version
+bump and no release tag without explicit approval" standing over them, the
+default was that nothing shipped - v0.1.0 took nine days of finished
+milestones to arrive, and twelve days after it five more were waiting on
+`develop` (#328). Merges already ran on a standing approval granted per
+milestone; releases had no equivalent, so each one depended on somebody
+remembering to ask.
+
+So closing a milestone now *includes* its promotion pull request and its tag,
+under the same standing approval as that milestone's merges. The release is
+part of finishing the work.
+
+**A floor, not a ceiling.** A milestone close must produce a release; a release
+does not require one. v0.1.0, v0.2.0 and v0.5.0 went out at milestone closes;
+v0.3.0 and v0.4.0 went out in the middle of M12, because a verification core
+and a close-out were each worth having on `main` before the milestone around
+them finished. Both stay allowed and both stay asked about.
+
+**The checks did not move.** The gate above is exactly the same gate - CI green
+on both runners plus the smoke test a person reads. #329 was a question about
+the trigger, and the reason to settle it in writing is that a decision made by
+default, once per release, is the one that quietly stops being made at all.
+
 Below 1.0 the `ctrl+o` key table, `~/.omatty/config.toml` keys and the
 `state.json` schema are explicitly not frozen; the embedded terminal library
 underneath is itself pre-1.0 (invariant 4). A break in any of them is a minor
@@ -982,6 +1011,7 @@ in a hurry to make it.
 | v0.3.0 | 2026-09-25 | M12's verification core (#311, #310, #335, #342), the release pipeline (#327), the MIT license (#362). The first release built by `release.yml`. (#364) |
 | v0.4.0 | 2026-09-25 | M12's close-out: `omatty carry` (#309), the pane's own text selection (#360), the hook path that survives a reinstall (#380), and the defects v0.3.0 surfaced. 19 issues. (#390) |
 | v0.5.0 | 2026-09-26 | M14 The Tracker: a project's open issues and pull requests in the review column, read through the operator's own `gh` and never written to (#393-#399). 15 commits. (#407) |
+| v0.6.0 | 2026-09-26 | M12's remainder - the review pane's memory (#337, #338, #339, #334), shipping and measuring a green session (#331, #332, #333), when a release happens (#329) - plus all of M15 (#420-#439, #447, #483, #492) and the M16 spec (#448). 37 issues. (#480) |
 
 ## M12 - The Field
 
@@ -1090,6 +1120,19 @@ issues, M12 took them back:
 
 They are still not the reason to open the tool. They are what the reason
 needs once it is there, and `prior-art-findings.md` keeps their priorities.
+
+**Added** (2026-09-26, #410). The field signals "working" with one small
+moving mark - claude's own `✻`, a braille spinner in the agent TUIs, a busy
+dot in ccmanager and claude-squad - and none of them draws a history. omatty's
+activity lane (#128) did: six block cells whose height repeated line one's
+glyph and made every busy card the same grey wall. Line one's glyph now
+spins through braille frames at 100 ms while a session thinks or runs a
+tool, one spinner for both; a session with no process keeps its still glyph.
+The lane is gone and its seven columns went to the branch, 16 to 23. The
+frames come from a spin tick of their own, armed by whichever message makes
+a session spin and stopped when nothing does (#412: speeding up the
+heartbeat instead left the glyph still for up to a second), so an idle
+omatty ticks once a second as M13 left it.
 
 **Deliberately cut:**
 
@@ -1286,6 +1329,210 @@ project holding no sessions.
 history the forge already keeps; search across repositories; and a `[forge]`
 config section - the poll is zero-config, as #310's is.
 
+*Amended by M16 (#451):* `[forge.hosts]` exists only to name a self-hosted
+forge omatty cannot recognise by its host. The poll stays zero-config for
+every host omatty already knows.
+
+## M15 - The Polish
+
+**Delivers:** the review column's four faces and the help modal read as one
+product. The same cursor, the same keys, the same glyph and colour for the same
+state, the face's name in its own chrome, and room to read when you ask for it.
+Design: `docs/superpowers/specs/2026-09-26-omatty-m15-polish-design.md` (#420).
+
+**Why here.** Every face was built in its own milestone - the diff in M3, the
+tree in M5, the gate in M9, the tracker in M14 - and each chose its own
+conventions. By M14 there were four cursor styles, three glyph sets for state,
+a gate that drew its verdicts without colour, a column rule that said `review`
+on every face, and a help list that had been stale since M9. None of these is a
+feature gap. Together they make a daily tool feel assembled, and at five faces
+the cost of learning each one separately is paid every day.
+
+**Mapping the column found three bugs**, which land first:
+
+- **#421:** the gate view cannot scroll. `GateOffset` is only ever set to 0.
+- **#422:** help omits the gate's and the tracker's keys. The fix derives help
+  from the handlers' key tables so the two cannot drift again.
+- **#423:** the tracker's age is appended after the title instead of pinned to
+  the right edge, so it is off-screen on most rows.
+
+**The foundation**, which the other slices build on:
+
+- **#424:** one list window with one cursor style, `N/M` in the title, and
+  `g`/`G`/`ctrl+d`/`ctrl+u` and click-to-select on every face.
+- **#425:** one state vocabulary (a glyph and a colour per state), with Nerd
+  Font glyphs opt-in behind `[ui] icons = "nerd"`.
+- **#426:** the chrome names the face, and titles and footers shorten by
+  priority.
+- **#427:** `ctrl+o z` zooms the column over the pane.
+
+**Then each face** borrows from the tool that does it best:
+
+- **The gate reads like a CI check page:** summary counts in the title, the
+  first failure opened on arrival, durations; `r` re-runs and `/` searches the
+  opened output (#428, #429).
+- **The tree:** compact single-child folders, status rolled up to directories,
+  changed-only, and opt-in file-type icons (#430, #431).
+- **The tracker:** state, CI and review glyph columns; an item that reads like
+  a page; a preview beside the list when zoomed (#432-#434).
+- **The diff:** syntax and word-level highlighting, `]`/`[` between files and
+  `n`/`N` between hunks, and a file list when zoomed (#435-#437).
+- **Help:** opens on the face you are in, styled and filterable, and the footer
+  lists the next keys while the leader is armed (#438, #439).
+
+**Two earlier cuts move.** M5 and M8 refused Nerd Font glyphs. They come back
+**opt-in only**: a tofu box in a terminal without the font is worse than no
+icon, which is why the default stays plain Unicode. A second colour theme stays
+cut. M5 deferred diff highlighting until `internal/highlight` existed. It
+exists, and #435 is the caller.
+
+**Why zoom and not a resizable split.** A split needs a persisted width, a way
+to change it, and a layout that is right at every width. Zoom is one flag and
+two layouts that already exist. The views that need room (#434, #437) need it
+sometimes, and zoom is how you ask for it. Zoom is a viewing state and is not
+persisted (invariant 9).
+
+**Invariants held.** Every new key exists only while the column has focus, and
+the leader hints (#439) change what the footer *shows*, not what the router
+routes (invariant 1). Gate search and wrapping are display; the verdict is
+still the exit code (invariant 12).
+
+**Done when:** every face scrolls, moves and marks state the same way, names
+itself, and fits at 80x24. Zoomed at 200x50, the tracker and the diff show their
+second pane. The smoke run is read by a person at both sizes, and it includes
+`ctrl+o q` from inside a filtered help modal (M4's trap).
+
+**Deliberately out:**
+
+- A side-by-side diff: 160 columns to earn it, and a second copy of every diff
+  path.
+- A resizable column (above).
+- A second colour theme.
+- A command palette: #438's filter answers "what was that key", and fleet's
+  palette is its own bug source (fleet #139).
+- gh-dash's saved-search sections, which would configure a view M14 kept
+  zero-config.
+- Moved-code colouring.
+
+#337, #338 and #339 stay M12. #436 and #437 are built so as not to preclude
+#337.
+
+**What shipped**, one PR per issue unless noted, all merged 2026-09-26:
+
+- **Bugs:** #421 (PR #446), #422 (#445), #423 (#444).
+- **Foundation:** #424 with #447 (#467), #425 (#468), #426 (#469), #427 (#470).
+- **Gate:** #428 (#476), #429 (#477).
+- **Tree:** #430 (#478), #431 (#479).
+- **Tracker:** #432 (#482), #483 (#484), #433 (#485), #434 (#486).
+- **Diff:** #435 (#487), #436 (#488), #437 (#489).
+- **Help:** #438 (#490), #439 (#491).
+
+**Two bugs were found building it**, each with its own issue and regression test:
+
+- **#447:** the gate never panned. `h`/`l` moved the `+N` marker in the title
+  but not the rows, and #231's pan test passed because the marker alone changed
+  the frame. Fixed inside #424, whose rows it was.
+- **#483:** nothing forge folds from `gh` was stripped of control characters.
+  Titles, bodies, comments and labels kept their `ESC` and `BEL`. A real-PTY run
+  showed bubbletea's cell renderer absorbing the OSC 52 and `ESC[2J` an issue
+  carried, so the clipboard exploit the issue first described does not reproduce
+  end to end - corrected on the issue. The fix stands as defence in depth: text
+  is plain at the edge, once, and `n` no longer writes a title's escapes into
+  `state.json`.
+
+**Where it differs from the plan:**
+
+- **#429:** `r` during a run in flight says the gate is already running rather
+  than superseding it; superseding is the Runner's (#229).
+- **#430:** `c` is in help, not the footer, which #103's test holds under 80
+  columns. A directory's letter now says the strongest change beneath it, which
+  reverses M5's "a directory reads M" rule on purpose.
+- **#424:** `g` became "top" on every face, so #338's generated-files toggle
+  moved to `.`, the key lf, ranger, yazi and nnn use for hidden files.
+- **#435:** a screen of Go diff rows costs ~12-15% more per frame than before
+  (`BenchmarkDiffRows`, ~100 µs to ~115 µs), the ANSI-aware fit of coloured
+  text; the lexer and the word diff are memoised per hunk.
+
+**Worth remembering:**
+
+- **Merge the combination, then gate it.** A second session merged M12 and M16
+  work into `develop` throughout. Two PRs each green on CI failed only together:
+  #331's help rows and #427's `z` pushed a legend out of a 50-row help window.
+  Before merging a stack, merge current `develop` into its top branch and run the
+  full gate there.
+- **A test that passes before the code is not a test yet.** Three of M15's new
+  tests passed on first run - #437's list test matched the diff's own headers,
+  #434's debounce test had no row to skip - and each was rewritten until it
+  failed without the change.
+- **GitHub's mergeability goes stale after a merge.** A PR reported "merge
+  conflicts" that a local merge did not have; merging `develop` into its branch
+  and pushing made GitHub recompute. Move a card only after the merge reports
+  success.
+
+## M16 - The Forges
+
+**Delivers:** every forge omatty's users are on, at the parity GitHub has
+today. That means GitLab (gitlab.com and self-managed), Azure DevOps (Services
+and Server), Gitea, Forgejo and Codeberg, and Bitbucket (Cloud and Data
+Center). Each gets open PRs (MRs) with a CI rollup on the card, open issues
+(work items) in the tracker, an item's body and comments, and browse.
+Design: `docs/superpowers/specs/2026-09-26-omatty-m16-forges-design.md` (#448).
+
+**Why here.** #310 and M14 made the forge part of the window, but only for
+GitHub. Everyone else gets "not on GitHub" and a browser tab. The seam already
+exists: the UI depends on four func types, not on `gh`. So widening
+`internal/forge` behind a router touches one package and the wiring, not the
+UI.
+
+**Decided with the user:**
+
+- **Transport is CLI first, REST fallback.** omatty runs `glab`, `az` or `tea`
+  on the operator's own auth when it is installed. Otherwise it calls REST
+  with a token read from the environment per call and never stored. Bitbucket
+  has no official CLI, so it is REST only.
+- **Boards are out**, GitHub Projects included. M16 is issues and PRs.
+- **Every slice sits in Backlog.** M16 is designed, not scheduled.
+
+**The foundation** comes first, and GitHub is the first backend:
+
+- **#449:** a forge-neutral vocabulary: `MissingToolError`, `ErrNoForge`, and
+  the PR/MR noun in the copy.
+- **#450:** read the remote (`vcs.RemoteURL`) and name its forge from the
+  host.
+- **#451:** `[forge.hosts]` names self-hosted forges, which also covers
+  GitHub Enterprise.
+- **#452:** `forge.Router` dispatches per project to an unexported backend,
+  and every forge CLI is fenced to `internal/forge`.
+- **#453:** the REST transport: bounded bodies, redacted tokens, and a
+  `net/http` fence. Labelled `invariant`.
+
+**Then a backend per forge,** CLI then REST: GitLab (#454, #455), Azure DevOps
+(#456, #457), Gitea/Forgejo (#458, #459), Bitbucket Cloud and Data Center (#460,
+#461), and GitHub's own REST fallback (#462).
+
+**Then the close-out:** a real probe per forge (#463), #331's ship actions on
+every forge once #331 ships (#464), and a support matrix that claims only what
+the probes showed (#465).
+
+**Why one package and not one per forge.** A package per forge would add five
+`os/exec` importers to an allowlist where adding one "is a decision", and
+would make `ui` choose between five packages. One package with a backend file
+per forge is how the agent seam grows (#46).
+
+**Invariants held.** git stays in `vcs` and every forge CLI stays in `forge`
+(invariant 4). Nothing is persisted, and a project's forge is derived from its
+remote (invariant 9). M16 adds no forge write, and #464 only carries #331's
+bounded three.
+
+**Done when:** a project on each of the five forges shows its PRs with CI on
+the card and its issues in `ctrl+o i`, through both the CLI and the REST path.
+Each is verified by a real `forgeprobe` run read by a person (#463). Any forge
+not probed is named as untested, not claimed.
+
+**Deliberately out:** boards on every forge; Jira; forge writes beyond #331;
+OAuth, device flow, or any login or token store in omatty; several remotes per
+project; per-check CI detail; SourceHut, Gerrit, Phabricator and CodeCommit.
+
 ## Not on the roadmap
 
 Considered and cut, so they do not creep back in through the side door.
@@ -1320,14 +1567,15 @@ one argued from principle alone:
 | Merging when the checks go green | GitHub's own auto-merge, and every CI service with a merge queue | The same step as Orca #10131 one row up, arrived at from the other side: it acts because a check changed, with nobody reading. #331's ship key merges only what is *already* green, on a keypress, and refuses otherwise. Auto-merge is a real feature and a reasonable thing to want - it belongs on the forge, which has it, not inside a tool whose whole claim is that it only ever acts while you are watching. |
 
 **Reading a pull request's state is not "cloud, accounts, sync"** (#310).
-omatty runs the operator's own `gh`, read-only, holds no token of its own, makes
-one call per project and none while it is in the background. It writes nothing
-to the forge: acting on a pull request - pushing, opening, merging - is a
-separate decision (#331), taken when it is proposed, not by this one. It has
-since been proposed, and the paragraph below takes it.
+omatty runs the operator's own `gh`, holds no token of its own, makes one call
+per project and none while it is in the background. Acting on a pull request -
+pushing, opening, merging - was a separate decision (#331), taken when it was
+proposed rather than by this one. It has since been proposed, taken by the
+paragraph below, and **built**: `ctrl+o p`, one session, one keypress. Reading
+still happens on a timer; writing happens only when somebody presses that key.
 
-**Acting on a pull request: decided 2026-09-25 (#331).** It is accepted,
-bounded to what a person asks for while reading:
+**Acting on a pull request: decided 2026-09-25, built 2026-09-26 (#331).** It is
+accepted, bounded to what a person asks for while reading:
 
 - **Push the branch and open the pull request**, and **merge one whose local
   *and* remote verdicts are already green**. Otherwise do nothing and say which
@@ -1347,6 +1595,13 @@ bounded to what a person asks for while reading:
 Using the operator's existing `git` remote and `gh` auth is not "cloud,
 accounts, sync" - there is no account, no token and no sync. It is the
 credential the operator already uses by hand, on a keypress they pressed.
+
+*Amended by M16 (#453):* when a forge's CLI is absent, omatty may read a
+token the operator already put in the environment (`GITLAB_TOKEN`,
+`GH_TOKEN`, ...), per call. It still **stores** no token: nothing is written
+to config, `state.json` or a log, there is no login and no account, and
+nothing syncs. "Holds no token" above now reads "stores no token". The
+refusal of cloud, accounts and sync is unchanged.
 
 One idea found in the field is **not** refused, only unanswered: **forking a
 session's conversation** (`fleet`'s `f`). Invariant 9 asks the first question —
@@ -1374,7 +1629,9 @@ faster pair.
   dtach sockets cover the case that matters - omatty's own sessions surviving
   a quit. Not to be confused with M4's project discovery (#91), which reads
   the transcript store and registers nothing by itself.
-- Themes beyond one, or keybinding customisation beyond the leader
+- Themes beyond one, or keybinding customisation beyond the leader. M15's
+  opt-in Nerd Font glyphs (#425) swap glyphs, not colours; they are not a
+  second theme.
 
 ## Rules
 
@@ -1390,4 +1647,6 @@ faster pair.
    AGENTS.md says so in its commit message.
 5. **A milestone ends on `develop`; a release ends on `main`.** The promotion
    is a PR clearing rule 2's gate, and it is tagged. See "Releases". #134 is
-   what nine days without this rule cost.
+   what nine days without this rule cost. And closing a milestone *includes*
+   that promotion and that tag (#329) - a milestone is not finished while its
+   work is only on `develop`.

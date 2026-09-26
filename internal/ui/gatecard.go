@@ -17,21 +17,6 @@ import (
 // spaces that indent it and the blank final column, matching line two's sums.
 const gateCols = cardCols - 1 - 2 - 1
 
-// verdictMark is one cell per step, in the gate's configured order, so the
-// strip reads left to right as the gate ran.
-//
-// Missing is deliberately not ✗. A tool that is not installed is a statement
-// about the machine, not about the code (invariant 12), and a card that said
-// otherwise would send someone to fix code that was never broken.
-var verdictMark = map[gate.Verdict]string{
-	gate.Pass:      "✓",
-	gate.Fail:      "✗",
-	gate.Missing:   "?",
-	gate.Running:   "◍",
-	gate.Pending:   "·",
-	gate.Cancelled: "·",
-}
-
 // cardGate is line three past the rail and its indent: the marks, then what
 // they amount to, with any coverage reading right-aligned.
 //
@@ -46,15 +31,15 @@ func (m *Model) cardGate(id string) string {
 		return fitLine("gate error", gateCols)
 	}
 	right := coverageReading(report.Results)
-	left := marks(report.Results) + "  " + m.gateLabel(id, report.Results)
+	left := m.marks(report.Results) + "  " + m.gateLabel(id, report.Results)
 	return fitLine(left, gateCols-lipgloss.Width(right)-1) + " " + right
 }
 
-// marks is one cell per step.
-func marks(results []gate.StepResult) string {
+// marks is one cell per step, uncoloured as the whole card is.
+func (m *Model) marks(results []gate.StepResult) string {
 	var b strings.Builder
 	for _, r := range results {
-		b.WriteString(verdictMark[r.Verdict])
+		b.WriteString(m.glyphs.mark(verdictState(r.Verdict)))
 	}
 	return b.String()
 }
@@ -69,6 +54,24 @@ func (m *Model) gateLabel(id string, results []gate.StepResult) string {
 		return "READY"
 	}
 	return ""
+}
+
+// gateGreen reports whether the session's last gate run passed in full: a
+// report exists, it is not still running, it could run at all, and every step
+// returned Pass.
+//
+// Separate from readyToShip, which is three facts about the *session* and none
+// of them the gate. gateLabel reaches readyToShip only after firstNotPassed has
+// found nothing, so there it inherits the verdict from its caller; #331 called
+// it standalone and so shipped on an absent or a red gate (#471). A predicate
+// that names the gate cannot be borrowed that way by mistake.
+func (m *Model) gateGreen(id string) bool {
+	report, ran := m.gates[id]
+	if !ran || m.gateRunning[id] || report.Err != nil || len(report.Results) == 0 {
+		return false
+	}
+	_, stopped := firstNotPassed(report.Results)
+	return !stopped
 }
 
 // firstNotPassed is the step the gate stopped on, if it stopped.
@@ -93,7 +96,26 @@ func (m *Model) readyToShip(id string) bool {
 	if !polled || stat.Added+stat.Removed == 0 {
 		return false
 	}
-	return atRest(m.status[id].Status)
+	return atRest(m.reportedStatus(id))
+}
+
+// reportedStatus is a session's status with an unreported one read as idle,
+// which is what sessionRows already does for the sidebar (#331, #334).
+//
+// watcher.Status is a string, so its zero value is "" and not StatusIdle - and
+// atRest answers false for it. A session nothing has reported on is not
+// mid-turn: it is one that has not spoken yet, which is every session at boot
+// and every stopped one. Without this, READY never appeared on a stopped
+// session with a green gate, and both the ship key and the revert key refused
+// such a session with the wrong reason.
+//
+// Found by running the real binary, not by a test: every fixture in the suite
+// reports a status before asserting anything.
+func (m *Model) reportedStatus(id string) watcher.Status {
+	if s := m.status[id].Status; s != "" {
+		return s
+	}
+	return watcher.StatusIdle
 }
 
 // atRest reports whether a session is between turns rather than in one.

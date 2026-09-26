@@ -44,6 +44,11 @@ const (
 	// selects the commit, and a branch reaches git and the filesystem where a
 	// title reaches neither.
 	modalBranch
+	// modalRevert asks before putting a session's worktree back to the start of
+	// its last turn, opened with u (#334). A kind of its own rather than a flag
+	// on modalConfirm, because Kind is what selects the commit and this one
+	// rewrites a working tree where archiving edits the registry.
+	modalRevert
 	// modalHelp lists every leader key, opened with ? (#103). It takes no text:
 	// esc closes it, and the leader closes it and arms the next key.
 	modalHelp
@@ -59,6 +64,10 @@ type modal struct {
 	// HelpOffset is the first keymap row the help modal shows. The list is
 	// taller than a short window's pane, so it scrolls (#103).
 	HelpOffset int
+	// HelpQuery narrows the keymap to rows whose key or description holds it,
+	// and HelpFiltering says it is being typed (#438).
+	HelpQuery     string
+	HelpFiltering bool
 	// Scan identifies the discovery scan this picker is waiting for, so a
 	// slower earlier scan cannot overwrite it (#91).
 	Scan int
@@ -121,12 +130,12 @@ func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch m.modal.Kind {
 	case modalPrompt, modalRename, modalBranch:
 		return m.onEditorKey(msg)
-	case modalConfirm:
+	case modalConfirm, modalRevert:
 		return m.onConfirmKey(msg.Keystroke())
 	case modalList, modalPicker, modalAdopt:
 		return m.onListKey(msg)
 	case modalHelp:
-		return m.onHelpKey(msg.Keystroke())
+		return m.onHelpKey(msg)
 	}
 	return nil
 }
@@ -153,10 +162,16 @@ func (m *Model) onEditorKey(msg tea.KeyPressMsg) tea.Cmd {
 // smoke test found a literal q in the pane (#103). The leader itself is handled
 // one level up in command, which closes this box and arms the next key, so the
 // pair still completes.
-func (m *Model) onHelpKey(key string) tea.Cmd {
-	switch key {
+func (m *Model) onHelpKey(msg tea.KeyPressMsg) tea.Cmd {
+	if m.modal.HelpFiltering {
+		m.editHelpFilter(msg)
+		return nil
+	}
+	switch msg.Keystroke() {
+	case "/":
+		m.modal.HelpFiltering = true
 	case "esc":
-		m.modal = modal{}
+		m.leaveHelp()
 	case "j", "down":
 		m.scrollHelp(1)
 	case "k", "up":
@@ -169,7 +184,7 @@ func (m *Model) onHelpKey(key string) tea.Cmd {
 // clamps too, because a resize can shrink the pane after the last keypress.
 func (m *Model) scrollHelp(delta int) {
 	w, _ := PaneSize(m.width, m.height, m.review.Open)
-	last := max(len(helpBody(m.leader, w))-m.helpRows(), 0)
+	last := max(len(m.helpBody(w))-m.helpRows(), 0)
 	m.modal.HelpOffset = min(max(m.modal.HelpOffset+delta, 0), last)
 }
 

@@ -11,15 +11,16 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
-// cardMiddle is line two's sixteen columns between the rail's indent and the
-// lane - where the branch, or now the pull request, and the diffstat live.
+// cardMiddle is line two's columns between the rail's indent and the blank -
+// where the branch, or now the pull request, and the diffstat live. Sixteen
+// until #410 took the activity lane out and gave its seven to this.
 func cardMiddle(t *testing.T, m *ui.Model, id string) string {
 	t.Helper()
 	line := m.CardOf(id)[1]
 	if w := lipgloss.Width(line); w != ui.SidebarWidth-1 {
 		t.Errorf("line two is %d cells, want %d", w, ui.SidebarWidth-1)
 	}
-	return string([]rune(stripSGR(line))[3 : 3+16])
+	return string([]rune(stripSGR(line))[3 : 3+ui.MetaCols()])
 }
 
 // modelWithCard has s2 on a worktree (branch parser-fix) and s1 on the main
@@ -49,16 +50,16 @@ func TestCard_lineTwoNamesThePullRequestAndItsCI_issue310(t *testing.T) {
 		prs  []forge.PR
 		want string
 	}{
-		{"no pull request: the branch, as today", nil, "parser-fi +12 −3"},
-		{"passing", []forge.PR{open(349, "parser-fix", forge.CIPassing)}, "#349 ✓    +12 −3"},
-		{"failing", []forge.PR{open(349, "parser-fix", forge.CIFailing)}, "#349 ✗    +12 −3"},
-		{"running", []forge.PR{open(349, "parser-fix", forge.CIRunning)}, "#349 ◍    +12 −3"},
-		{"conflict", []forge.PR{conflicted}, "#349 ⚠    +12 −3"},
-		{"failing outranks conflict", []forge.PR{failingAndConflicted}, "#349 ✗    +12 −3"},
-		{"no checks", []forge.PR{open(349, "parser-fix", forge.CINone)}, "#349      +12 −3"},
-		{"merged gives the diffstat way", []forge.PR{{Number: 349, Branch: "parser-fix", State: forge.Merged, Head: "h1"}}, "#349 merged     "},
-		{"closed", []forge.PR{{Number: 349, Branch: "parser-fix", State: forge.Closed, Head: "h1"}}, "#349 closed     "},
-		{"another branch's PR", []forge.PR{open(7, "other", forge.CIPassing)}, "parser-fi +12 −3"},
+		{"no pull request: the branch, as today", nil, "parser-fix       +12 −3"},
+		{"passing", []forge.PR{open(349, "parser-fix", forge.CIPassing)}, "#349 ✓           +12 −3"},
+		{"failing", []forge.PR{open(349, "parser-fix", forge.CIFailing)}, "#349 ✗           +12 −3"},
+		{"running", []forge.PR{open(349, "parser-fix", forge.CIRunning)}, "#349 ◍           +12 −3"},
+		{"conflict", []forge.PR{conflicted}, "#349 ⚠           +12 −3"},
+		{"failing outranks conflict", []forge.PR{failingAndConflicted}, "#349 ✗           +12 −3"},
+		{"no checks", []forge.PR{open(349, "parser-fix", forge.CINone)}, "#349             +12 −3"},
+		{"merged, with room, keeps the diffstat (#410)", []forge.PR{{Number: 349, Branch: "parser-fix", State: forge.Merged, Head: "h1"}}, "#349 merged      +12 −3"},
+		{"closed, with room, keeps the diffstat (#410)", []forge.PR{{Number: 349, Branch: "parser-fix", State: forge.Closed, Head: "h1"}}, "#349 closed      +12 −3"},
+		{"another branch's PR", []forge.PR{open(7, "other", forge.CIPassing)}, "parser-fix       +12 −3"},
 	} {
 		m := modelWithCard(t, "main", tt.prs...)
 		if got := cardMiddle(t, m, "s2"); got != tt.want {
@@ -73,7 +74,7 @@ func TestCard_theNewestPullRequestForABranchWins_issue310(t *testing.T) {
 		forge.PR{Number: 12, Branch: "parser-fix", State: forge.Closed, Head: "h1"},
 		open(349, "parser-fix", forge.CIPassing))
 
-	if got := cardMiddle(t, m, "s2"); got != "#349 ✓    +12 −3" {
+	if got := cardMiddle(t, m, "s2"); got != "#349 ✓           +12 −3" {
 		t.Errorf("line two middle = %q, want the newest pull request, #349", got)
 	}
 }
@@ -83,11 +84,11 @@ func TestCard_theNewestPullRequestForABranchWins_issue310(t *testing.T) {
 func TestCard_aMainCheckoutTakesOpenPullRequestsOnly_issue310(t *testing.T) {
 	merged := forge.PR{Number: 343, Branch: "develop", State: forge.Merged}
 
-	if got := cardMiddle(t, modelWithCard(t, "develop", merged), "s1"); got != "develop   +12 −3" {
+	if got := cardMiddle(t, modelWithCard(t, "develop", merged), "s1"); got != "develop          +12 −3" {
 		t.Errorf("with a merged PR from develop, line two middle = %q, want the branch", got)
 	}
 	withOpen := modelWithCard(t, "develop", merged, open(350, "develop", forge.CIRunning))
-	if got := cardMiddle(t, withOpen, "s1"); got != "#350 ◍    +12 −3" {
+	if got := cardMiddle(t, withOpen, "s1"); got != "#350 ◍           +12 −3" {
 		t.Errorf("with an open PR from develop, line two middle = %q, want #350", got)
 	}
 }
@@ -99,7 +100,7 @@ func TestCard_aFailedPollMarksThePullRequestUnknown_issue310(t *testing.T) {
 
 	m.Update(ui.PRsLoadedMsg{Project: "omatty", Err: errors.New("HTTP 502")})
 
-	if got := cardMiddle(t, m, "s2"); got != "#349 ?    +12 −3" {
+	if got := cardMiddle(t, m, "s2"); got != "#349 ?           +12 −3" {
 		t.Errorf("line two middle = %q, want #349 ?", got)
 	}
 }
@@ -114,10 +115,10 @@ func TestCard_aForkPullRequestIsNeverThisSessions_issue310(t *testing.T) {
 	}
 	m := modelWithCard(t, "main", fork("main"), fork("parser-fix"))
 
-	if got := cardMiddle(t, m, "s1"); got != "main      +12 −3" {
+	if got := cardMiddle(t, m, "s1"); got != "main             +12 −3" {
 		t.Errorf("main checkout: line two middle = %q, want the branch", got)
 	}
-	if got := cardMiddle(t, m, "s2"); got != "parser-fi +12 −3" {
+	if got := cardMiddle(t, m, "s2"); got != "parser-fix       +12 −3" {
 		t.Errorf("worktree: line two middle = %q, want the branch", got)
 	}
 }
@@ -127,7 +128,7 @@ func TestCard_aForkPullRequestIsNeverThisSessions_issue310(t *testing.T) {
 func TestCard_aFinishedPullRequestOnAnotherCommitIsNotThisWork_issue310(t *testing.T) {
 	old := forge.PR{Number: 240, Branch: "parser-fix", State: forge.Merged, Head: "old"}
 
-	if got := cardMiddle(t, modelWithCard(t, "main", old), "s2"); got != "parser-fi +12 −3" {
+	if got := cardMiddle(t, modelWithCard(t, "main", old), "s2"); got != "parser-fix       +12 −3" {
 		t.Errorf("line two middle = %q, want the branch, not the old #240", got)
 	}
 }
@@ -137,9 +138,13 @@ func TestCard_aFinishedPullRequestOnAnotherCommitIsNotThisWork_issue310(t *testi
 // counts; on an active card a four-digit number and a large diffstat used to
 // hide the stat entirely. Now the label drops the space before its mark, then
 // the stat sheds whole parts - never a number cut mid-way, which would read
-// as a different count - and the CI verdict is never cut.
+// as a different count - and the CI verdict is never cut. #410 widened the
+// middle to 23 columns, where "#1234 ✓ +312 −1.2k" fits whole, so the table
+// reaches each step with five- and six-digit numbers and six-figure counts.
 func TestCard_anOpenFourDigitPullRequestKeepsItsDiffstat_issue357(t *testing.T) {
 	passing := []forge.PR{open(1234, "parser-fix", forge.CIPassing)}
+	passing5 := []forge.PR{open(12345, "parser-fix", forge.CIPassing)}
+	passing6 := []forge.PR{open(123456, "parser-fix", forge.CIPassing)}
 	merged := []forge.PR{{Number: 1234, Branch: "parser-fix", State: forge.Merged, Head: "h1"}}
 	for _, tt := range []struct {
 		name           string
@@ -147,11 +152,11 @@ func TestCard_anOpenFourDigitPullRequestKeepsItsDiffstat_issue357(t *testing.T) 
 		added, removed int
 		want           string
 	}{
-		{"both fit as they are", passing, 12, 3, "#1234 ✓   +12 −3"},
-		{"exactly sixteen", passing, 312, 12, "#1234 ✓ +312 −12"},
-		{"the issue's case: the gap goes, then the removed half", passing, 312, 1200, "#1234✓      +312"},
-		{"the widest diffstat", passing, 1200, 1200, "#1234✓     +1.2k"},
-		{"merged still gives the diffstat way", merged, 12, 3, "#1234 merged    "},
+		{"both fit as they are", passing, 12, 3, "#1234 ✓          +12 −3"},
+		{"exactly twenty-three", passing, 123_456, 123_456, "#1234 ✓ +123.5k −123.5k"},
+		{"the gap goes", passing5, 123_456, 123_456, "#12345✓ +123.5k −123.5k"},
+		{"then the removed half", passing6, 123_456, 123_456, "#123456✓        +123.5k"},
+		{"merged still gives the diffstat way", merged, 1200, 1200, "#1234 merged           "},
 	} {
 		m := modelWithCard(t, "main", tt.prs...)
 		m.SetRepoStat("s2", review.Stat{Branch: "parser-fix", Added: tt.added, Removed: tt.removed, Head: "h1"})

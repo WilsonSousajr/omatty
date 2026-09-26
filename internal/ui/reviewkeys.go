@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -9,7 +10,7 @@ import (
 )
 
 // ReviewCursor is the index of the highlighted row.
-func (m *Model) ReviewCursor() int { return m.review.Cursor }
+func (m *Model) ReviewCursor() int { return m.review.DiffList.Cursor }
 
 // PendingComments is how many notes the shown session has queued.
 func (m *Model) PendingComments() int { return m.commentsFor(m.review.SessionID).PendingLen() }
@@ -37,11 +38,10 @@ func (m *Model) onReviewKey(key string) tea.Cmd {
 
 // reviewAction runs the commands that act on the row under the cursor.
 func (m *Model) reviewAction(key string) tea.Cmd {
+	if m.commentKey(key) || m.diffNavKey(key) {
+		return nil
+	}
 	switch key {
-	case "c":
-		m.openNote()
-	case "d":
-		m.deleteComment()
 	case "r":
 		return m.loadDiff(m.review.SessionID)
 	case "t":
@@ -56,20 +56,34 @@ func (m *Model) reviewAction(key string) tea.Cmd {
 	return nil
 }
 
-func (m *Model) moveReviewCursor(delta int) {
-	n := len(m.review.Entries)
-	if n == 0 {
-		return
+// commentKey runs the three keys that write or remove a note, reporting whether
+// key was one. A second table because one switch over every review key is past
+// the statement limit, and these three share a subject.
+func (m *Model) commentKey(key string) bool {
+	switch key {
+	case "c":
+		m.openNote()
+	// Two spellings, as S has: a terminal reporting the shift modifier gives
+	// "shift+c" and a legacy one the bare "C" (issue #87).
+	case "shift+c", "C":
+		m.openFragment()
+	case "d":
+		m.deleteComment()
+	default:
+		return false
 	}
-	m.review.Cursor = min(max(m.review.Cursor+delta, 0), n-1)
-	m.review.Offset = ScrollOffset(m.review.Cursor, m.review.Offset, m.reviewRows())
+	return true
+}
+
+func (m *Model) moveReviewCursor(delta int) {
+	m.review.DiffList.move(delta, len(m.review.Entries), m.reviewRows())
 }
 
 // reviewRows is how many entry rows the column shows: the pane minus its
 // title, minus the editor line while it is open.
 func (m *Model) reviewRows() int {
 	_, h := PaneSize(m.width, m.height, true)
-	if m.review.Note.Active || m.review.Filter.Active {
+	if m.review.Note.Active || m.activeFilter().Active {
 		return h - 1
 	}
 	return h
@@ -93,10 +107,10 @@ func ScrollOffset(cursor, offset, rows int) int {
 }
 
 func (m *Model) cursorEntry() (review.Entry, bool) {
-	if m.review.Cursor >= len(m.review.Entries) {
+	if m.review.DiffList.Cursor >= len(m.review.Entries) {
 		return review.Entry{}, false
 	}
-	return m.review.Entries[m.review.Cursor], true
+	return m.review.Entries[m.review.DiffList.Cursor], true
 }
 
 // openNote starts a note on the line under the cursor, capturing its anchor
@@ -124,8 +138,23 @@ func (m *Model) anchorAt(p review.Position) review.Anchor {
 	return review.AnchorAt(m.review.Diff, p)
 }
 
-// onNoteKey edits the note; enter queues it, esc discards it. The keystroke
-// handling is editKey, shared with the modal editors (#41).
+// openFragment starts a note about part of the line under the cursor: the
+// fragment is collected first, then the note (#339).
+//
+// Typed rather than selected, and that is a limit worth stating: #360's drag
+// selection reads the *terminal* pane's cells, not the diff column's, so there
+// is no pointer gesture over a diff line to reuse. Typing or pasting the words
+// needs no column cursor, and it is checked against the line before anything is
+// queued, which a range of columns could not be.
+func (m *Model) openFragment() {
+	m.openNote()
+	if m.review.Note.Active {
+		m.review.Note.Stage = stageFragment
+	}
+}
+
+// onNoteKey edits the note; enter commits the stage, esc discards the whole
+// note. The keystroke handling is editKey, shared with the modal editors (#41).
 func (m *Model) onNoteKey(msg tea.KeyPressMsg) tea.Cmd {
 	buffer, action := editKey(m.review.Note.Buffer, msg)
 	m.review.Note.Buffer = buffer
@@ -133,9 +162,30 @@ func (m *Model) onNoteKey(msg tea.KeyPressMsg) tea.Cmd {
 	case editCancel:
 		m.review.Note = noteEditor{}
 	case editCommit:
-		m.queueNote()
+		m.commitNoteStage()
 	}
 	return nil
+}
+
+// commitNoteStage moves the fragment prompt on to the note, or queues a note
+// that is ready.
+func (m *Model) commitNoteStage() {
+	if m.review.Note.Stage != stageFragment {
+		m.queueNote()
+		return
+	}
+	fragment := strings.TrimSpace(m.review.Note.Buffer)
+	if fragment == "" {
+		return // an empty prompt waits, the way queueNote's empty note does
+	}
+	if !strings.Contains(m.review.Note.Quote, fragment) {
+		// Caught while the line is still on screen, rather than reaching claude
+		// as a quotation of something that was never there.
+		m.lastErr = strconv.Quote(fragment) + " is not on this line"
+		m.review.Note = noteEditor{}
+		return
+	}
+	m.review.Note.Fragment, m.review.Note.Buffer, m.review.Note.Stage = fragment, "", stageNote
 }
 
 // queueNote stores the note. An empty note leaves the editor open rather than
@@ -146,7 +196,9 @@ func (m *Model) queueNote() {
 		return
 	}
 	n := m.review.Note
-	m.commentsFor(m.review.SessionID).Add(review.Comment{Anchor: n.Anchor, Quote: n.Quote, Note: note})
+	m.commentsFor(m.review.SessionID).Add(review.Comment{
+		Anchor: n.Anchor, Quote: n.Quote, Note: note, Fragment: n.Fragment,
+	})
 	m.review.Note = noteEditor{}
 	m.rebuildEntries()
 }

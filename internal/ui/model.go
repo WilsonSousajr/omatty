@@ -59,12 +59,15 @@ type Model struct {
 	paneOnly  bool
 	// comments is each session's pending review queue, kept across opening and
 	// closing the column; only submit drains it (#22).
-	comments map[string]*review.Comments
-	diff     DiffFunc
-	files    ListFilesFunc
-	preview  PreviewFunc
-	rename   RenameFunc
-	rebind   RebindFunc // follows a /clear onto its new conversation (#316)
+	comments    map[string]*review.Comments
+	diff        DiffFunc
+	files       ListFilesFunc
+	generatedFn GeneratedFunc
+	ship        ShipFuncs
+	tally       TallyFunc
+	preview     PreviewFunc
+	rename      RenameFunc
+	rebind      RebindFunc // follows a /clear onto its new conversation (#316)
 	// renameBranch renames a worktree session's branch once its first prompt
 	// has said what the work is (#151).
 	renameBranch BranchRenameFunc
@@ -76,8 +79,8 @@ type Model struct {
 	// persisted, and correctly empty after a relaunch: whether a session
 	// still needs a name is derived from its title, not from this map.
 	namePending map[string]bool
-	// gates is each session's last gate report, display-only like the lane and
-	// repoStat and never persisted: state.json must suffice alone
+	// gates is each session's last gate report, display-only like repoStat
+	// and never persisted: state.json must suffice alone
 	// (invariant 9). Absent means no gate has run, which the card shows as a
 	// blank line rather than as a pass (#230).
 	gates map[string]gate.Report
@@ -127,13 +130,20 @@ type Model struct {
 	// gateReports and gateRun are the gate's two halves, shaped like the
 	// watcher's: a channel of results in, a request out. Concrete types stay
 	// out of the model so a test substitutes a recorder for the Runner.
-	gateReports <-chan gate.Report
-	gateRun     GateRunFunc
-	gateAuto    bool
-	// lane is each session's recent-status trace for the sidebar (#128).
-	lane map[string]activityLane
+	gateReports  <-chan gate.Report
+	gateRun      GateRunFunc
+	gateAuto     bool
+	gateStarted  map[string]time.Time // when the run in flight began, for its title (#428)
+	glyphs       glyphSet             // every state mark, plain or Nerd Font (#425)
+	previewArmed itemKey              // the row the tracker's preview is waiting to rest on (#434)
+	nerdIcons    bool                 // [ui] icons = "nerd": file-type icons in the tree too (#431)
+	// spinArmed is whether a spin tick is pending, so there is one spin
+	// chain at most however many sessions start working; spinTick schedules
+	// it (#412).
+	spinArmed bool
+	spinTick  TickFunc
 	// stat reads a card's branch and diffstat; repoStat is the last answer per
-	// session, display-only like the lane and never persisted - state.json
+	// session, display-only and never persisted - state.json
 	// must suffice alone (invariant 9). statPending guards one poll in flight
 	// per session; statFailed makes the warning once per outage (#180).
 	stat        RepoStatFunc
@@ -142,6 +152,20 @@ type Model struct {
 	statFailed  map[string]bool
 	// filesPending guards one worktree listing in flight per session (#195).
 	filesPending map[string]bool
+	// reviewed is, per session, the digest each file's diff had when the
+	// operator marked it read (#337). Keyed by session because the column
+	// keeps one Tree: a mark stored on the Tree would be dropped the moment
+	// they looked at another session, which is the review this exists to
+	// save. Display-only and never persisted, like covers and repoStat -
+	// state.json must suffice to relaunch a session (invariant 9), and what
+	// somebody has read is not part of that.
+	reviewed map[string]map[string]string
+	// generated is, per session, which of its files nobody wrote (#338).
+	// Display-only and never persisted, like reviewed above it.
+	generated map[string]map[string]bool
+	// turnGated marks the sessions whose gate run was started by a turn
+	// ending rather than by hand, which is the set #332's rate is over.
+	turnGated map[string]bool
 	// reattached is Deps.Reattached: the panes to nudge once at boot (#191).
 	reattached map[string]bool
 	// The archive path's three halves: forget the session, stop its tailer,
@@ -206,12 +230,14 @@ func NewModel(deps Deps) *Model {
 		start:      d.Start,
 		events:     d.Events,
 		clock:      d.Clock,
+		spinTick:   d.SpinTick,
 		tailStart:  d.TailStart,
 		notifier:   d.Notifier,
 		startedAt:  d.Clock(),
 		hasFocus:   true,
 		reattached: d.Reattached,
 	}
+	m.glyphs, m.nerdIcons = glyphsFor(d.NerdIcons), d.NerdIcons
 	return m.withSources(d).withGate(d).withWindow().withRuntimeMaps().withSweep(d)
 }
 
@@ -219,6 +245,7 @@ func NewModel(deps Deps) *Model {
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
+	m.generatedFn, m.ship, m.tally = d.Generated, d.Ship, d.Tally
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse = d.PRs, d.Issues, d.Item, d.Browse
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
@@ -248,6 +275,7 @@ func (m *Model) withWindow() *Model {
 // reports channel, or auto-run with no Runner, would each be a half-wiring.
 func (m *Model) withGate(d Deps) *Model {
 	m.gateReports, m.gateRun, m.gateAuto = d.GateReports, d.GateRun, d.GateAuto
+	m.gateStarted = map[string]time.Time{}
 	return m
 }
 
@@ -259,7 +287,6 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.notified = map[string]time.Time{}
 	m.comments = map[string]*review.Comments{}
 	m.namePending = map[string]bool{}
-	m.lane = map[string]activityLane{}
 	m.gates = map[string]gate.Report{}
 	m.gateRunning = map[string]bool{}
 	m.gateSent = map[string]gateSend{}
@@ -269,7 +296,18 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
-	return m.withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
+	m.turnGated = map[string]bool{}
+	return m.withReviewMaps().withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
+}
+
+// withReviewMaps allocates what the review column remembers per session that
+// nothing else does: which files have been read (#337) and which of them nobody
+// wrote (#338). Split from withRuntimeMaps when they took it past the statement
+// limit, the way withTurnMaps was.
+func (m *Model) withReviewMaps() *Model {
+	m.reviewed = map[string]map[string]string{}
+	m.generated = map[string]map[string]bool{}
+	return m
 }
 
 // withTurnMaps allocates the turn baseline's two maps (#311). Split from
@@ -357,7 +395,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// silently leaving a stale screen behind: the cost of forgetting is a
 	// rebuild, never a lie.
 	m.paneOnly = false
-	cmd := m.routeMsg(msg)
+	cmd := tea.Batch(m.routeMsg(msg), m.armSpin(), m.armPreview())
 	if !m.paneOnly {
 		m.frameMemo.valid = false
 	}
@@ -385,6 +423,8 @@ func (m *Model) onHeartbeat(msg tea.Msg) (tea.Cmd, bool) {
 	switch msg.(type) {
 	case TickMsg:
 		return scheduleTick(), true
+	case SpinTickMsg:
+		return m.onSpinTick(), true
 	case StatTickMsg:
 		return m.onStatTick(), true
 	case PRTickMsg:
@@ -496,6 +536,23 @@ func (m *Model) onStreamMsg(msg tea.Msg) (tea.Cmd, bool) {
 		m.onCoverage(typed)
 		return nil, true
 	}
+	return m.onColumnMsg(msg)
+}
+
+// onColumnMsg is what the review column's own work reports back: a
+// classification (#338), a revert (#334) and a ship (#331). A table of its own
+// because onStreamMsg was already at the statement limit, and these three share
+// a subject - the same argument that split onStreamMsg off onDataMsg.
+func (m *Model) onColumnMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case generatedMsg:
+		m.onGenerated(typed)
+		return nil, true
+	case RevertedMsg:
+		return m.onReverted(typed), true
+	case ShippedMsg:
+		return m.onShipped(typed), true
+	}
 	return nil, false
 }
 
@@ -547,6 +604,8 @@ func (m *Model) onForgeMsg(msg tea.Msg) (tea.Cmd, bool) {
 		return m.onItem(typed), true
 	case BrowsedMsg:
 		return m.onBrowsed(typed), true
+	case previewRestMsg:
+		return m.onPreviewRest(typed), true // the preview's read, once the cursor rests (#434)
 	}
 	return nil, false
 }

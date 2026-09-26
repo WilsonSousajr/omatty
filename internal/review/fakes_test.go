@@ -28,6 +28,8 @@ type FakeGit struct {
 	TurnTree               string            // TurnRef's tree; empty means no baseline
 	DiffTreesOut           string            // DiffTrees result
 	HeadOut                string            // Head result (#310)
+	AttrOut                map[string]bool   // Attr result (#338)
+	Restored               []string          // trees RestoreTree was given (#334)
 	Err                    error             // returned by every method when set
 	// Errs fails one method by name, so a test can reach an error path that
 	// lies behind a call which has to succeed first.
@@ -123,4 +125,13 @@ func (f *FakeGit) DiffTrees(dir, from, to string) (string, error) {
 
 func (f *FakeGit) Head(dir string) (string, error) {
 	return f.HeadOut, f.record("Head", dir)
+}
+
+func (f *FakeGit) Attr(dir, attr string, paths []string) (map[string]bool, error) {
+	return f.AttrOut, f.record("Attr", dir, attr, strings.Join(paths, " "))
+}
+
+func (f *FakeGit) RestoreTree(dir, tree string) error {
+	f.Restored = append(f.Restored, tree)
+	return f.record("RestoreTree", dir, tree)
 }

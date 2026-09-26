@@ -79,6 +79,15 @@ func ReviewWidth(width int, open bool) int {
 // both need it and a literal in each drifted before (#94, #174).
 func reviewContentWidth(width int) int { return ReviewWidth(width, true) - 1 }
 
+// columnWidth is the review column's content width as drawn: the split's, or
+// with the zoom everything right of the sidebar and its hairline (#427).
+func (m *Model) columnWidth() int {
+	if m.zoomed() {
+		return m.width - SidebarWidth
+	}
+	return reviewContentWidth(m.width)
+}
+
 // PaneSize returns the terminal's content size for a window. No box spends
 // columns any more (#174): the window minus the sidebar, minus the review
 // column when it is open, is the pane; its rows are the window minus the

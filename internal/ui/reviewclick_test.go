@@ -99,11 +99,11 @@ func TestUpdate_AClickOnATreeRowMovesTheTreeCursor_issue168(t *testing.T) {
 	m, _, _, reader := modelWithTree(t)
 	leader(m, key('f'))
 
-	m.Update(clickAt(reviewHairlineX+5, reviewRowY(2))) // internal/, ui/, model.go
+	m.Update(clickAt(reviewHairlineX+5, reviewRowY(1))) // internal/ui/ (compacted, #430), model.go
 	pressAndSettle(m, special(tea.KeyEnter))
 
 	if m.ReviewView() != ui.ViewPreview || len(reader.Read) != 1 || reader.Read[0] != "internal/ui/model.go" {
-		t.Errorf("view=%v read=%v after a click on row 2 and enter; want a preview of model.go", m.ReviewView(), reader.Read)
+		t.Errorf("view=%v read=%v after a click on row 1 and enter; want a preview of model.go", m.ReviewView(), reader.Read)
 	}
 }
 
@@ -138,10 +138,11 @@ func TestFrame_TheReviewRuleIsLabelledAndClosableAndThePanesIsNot_issue168(t *te
 	if rule[reviewCloseX] != '×' {
 		t.Errorf("the last cell is %q, want the close glyph: %q", rule[reviewCloseX], string(rule))
 	}
-	if column := string(rule[reviewHairlineX:]); !strings.Contains(column, "review") {
+	// Labelled with the face on show since #426 - the diff here - not "review".
+	if column := string(rule[reviewHairlineX:]); !strings.Contains(column, " diff ") {
 		t.Errorf("the column's rule is not labelled: %q", column)
 	}
-	if pane := string(rule[:reviewHairlineX]); strings.Contains(pane, "×") || strings.Contains(pane, "review") {
+	if pane := string(rule[:reviewHairlineX]); strings.Contains(pane, "×") || strings.Contains(pane, " diff ") {
 		t.Errorf("the pane's rule gained the column's affordances: %q", pane)
 	}
 }

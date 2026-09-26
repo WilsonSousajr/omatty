@@ -35,7 +35,7 @@ func (m *Model) renderReview(w, h int) string {
 	case ViewTrackerItem:
 		lines = m.renderTrackerItem(w, h)
 	default:
-		lines = m.reviewBody(w, h)
+		lines = m.withFileList(m.reviewBody(m.diffBodyWidth(w), h), h) // the list beside, zoomed (#437)
 	}
 	// Which column owns the keys - and so wears the accent hairline - is
 	// decided once, in keyboardEdge (#174); the title is the header row's.
@@ -54,17 +54,29 @@ func (m *Model) reviewTitle(width int) string {
 	return m.viewTitle(width-1-lipgloss.Width(marker)) + marker
 }
 
-// viewTitle names the view. Only the diff's is given a budget: the other three
+// viewTitle names the view and, room allowing, where it stands in it (#424).
+// The position is the first thing a short title gives up: it is kept only when
+// the title fitted to the smaller budget is the same title, so it never costs
+// a name, a count or a flag.
+func (m *Model) viewTitle(budget int) string {
+	full, pos := m.faceTitle(budget), m.positionMark()
+	if pos == "" || lipgloss.Width(full+pos) > budget || m.faceTitle(budget-lipgloss.Width(pos)) != full {
+		return full
+	}
+	return full + pos
+}
+
+// faceTitle names the face. Only the diff's is given a budget: the other three
 // are a path or a session title, which are one part each and have nothing to
 // give up, so they are cut as they always were.
-func (m *Model) viewTitle(budget int) string {
+func (m *Model) faceTitle(budget int) string {
 	switch m.review.View {
 	case ViewTree:
 		return m.treeTitle(budget)
 	case ViewPreview:
 		return previewTitle(m.review.Preview.Path, budget)
 	case ViewGate:
-		return "gate · " + m.sessionTitle(m.review.SessionID)
+		return m.gateTitle(budget)
 	case ViewTracker:
 		return m.trackerTitle(budget)
 	case ViewTrackerItem:
@@ -89,7 +101,7 @@ func (m *Model) viewTitle(budget int) string {
 // mechanism over both would hide which applies where.
 func (m *Model) treeTitle(budget int) string {
 	const head = "files · "
-	marker := m.filterMarker()
+	marker := m.changedMarker() + m.foldMarker() + m.filterMarker()
 	room := budget - lipgloss.Width(head) - lipgloss.Width(marker)
 	if room < minNameCells {
 		if marker == "" {
@@ -98,6 +110,48 @@ func (m *Model) treeTitle(budget int) string {
 		return head + strings.TrimSpace(marker)
 	}
 	return head + elideMiddle(m.sessionTitle(m.review.SessionID), room) + marker
+}
+
+// changedMarker says the listing is cut to changed files (#430). A narrowed
+// listing that did not say so would read as the whole tree, which is the
+// filter marker's argument (#285), so like it this is never given up.
+func (m *Model) changedMarker() string {
+	if m.review.Tree == nil || !m.review.Tree.ChangedOnly() {
+		return ""
+	}
+	return " changed"
+}
+
+// foldMarker says how many generated files the tree is keeping out of the
+// listing, or nothing when it is keeping none (#338).
+//
+// It is a marker rather than a count that may be dropped, for the reason the
+// filter marker is: a listing that is short because rows were withheld reads
+// exactly like a complete one, and nothing else on screen says otherwise. The
+// number is small and so is the marker.
+func (m *Model) foldMarker() string {
+	if m.review.Tree == nil {
+		return ""
+	}
+	if n := m.review.Tree.GeneratedHidden(); n > 0 {
+		return fmt.Sprintf(" ⊞%d", n)
+	}
+	return ""
+}
+
+// faceName is the face on show, as the column's rule names it (#426).
+func (m *Model) faceName() string {
+	switch m.review.View {
+	case ViewTree:
+		return "files"
+	case ViewPreview:
+		return "preview"
+	case ViewGate:
+		return "gate"
+	case ViewTracker, ViewTrackerItem:
+		return "tracker"
+	}
+	return "diff"
 }
 
 // previewTitle is the file's path, shortened from the *front* (#287).
@@ -248,10 +302,10 @@ func pairingNote(d review.Diff) string {
 
 // filterMarker names the filter in force, so a short listing says why.
 func (m *Model) filterMarker() string {
-	if m.review.Filter.Query == "" {
-		return ""
+	if q := m.activeFilter().Query; q != "" {
+		return " /" + q
 	}
-	return " /" + m.review.Filter.Query
+	return ""
 }
 
 // reviewBody is the error, the empty-state line, or the scrolled rows with the
@@ -272,20 +326,20 @@ func (m *Model) reviewBody(w, rows int) []string {
 		return m.renderEntries(w, rows)
 	}
 	out := m.renderEntries(w, rows-1)
-	return append(out, editLine("note", m.review.Note.Buffer, w))
+	return append(out, editLine(noteLabel(m.review.Note), m.review.Note.Buffer, w))
 }
 
 // renderEntries draws the rows-high window around the cursor. The offset is
 // recomputed here rather than trusted, because a resize can shrink rows after
 // the cursor last moved.
 func (m *Model) renderEntries(w, rows int) []string {
-	off := ScrollOffset(m.review.Cursor, m.review.Offset, rows)
+	off := ScrollOffset(m.review.DiffList.Cursor, m.review.DiffList.Offset, rows)
 	end := min(off+rows, len(m.review.Entries))
 	comments := m.commentsFor(m.review.SessionID).All()
 	out := make([]string, 0, rows)
 	for i := off; i < end; i++ {
 		e := m.review.Entries[i]
-		out = append(out, m.renderEntry(e, i == m.review.Cursor, w, comments))
+		out = append(out, m.renderEntry(e, i == m.review.DiffList.Cursor, w, comments))
 	}
 	return out
 }
@@ -299,6 +353,9 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 	if e.Kind == review.EntryComment && !comments[e.Comment].Sent.IsZero() {
 		return mutedStyle.Render(text) // sent: context for this turn, not a to-do (#335)
 	}
+	if e.Kind == review.EntryLine {
+		return m.styledLine(e, w) // syntax and changed words (#435)
+	}
 	return entryStyle(e, m.shownDiff()).Render(text)
 }
 
@@ -311,8 +368,7 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 // and panning would slide the count off the left instead of the right.
 func (m *Model) fitRow(e review.Entry, comments []review.Comment, w int) string {
 	if e.Kind == review.EntryFile {
-		fi := e.Pos.File
-		return fitLine(fileHeading(m.shownDiff().Files[fi], m.uncoveredNote(fi), w), w)
+		return fitLine(m.headerWithPlace(e.Pos.File, w), w)
 	}
 	return m.fitContent(m.entryText(e, comments), w)
 }
@@ -371,7 +427,14 @@ func (m *Model) uncovered(e review.Entry) bool {
 	if line.Kind != review.LineAdded {
 		return false
 	}
-	covered, known := m.overlay().Files[m.shownDiff().Files[e.Pos.File].Path].Lines[line.NewNo]
+	path := m.shownDiff().Files[e.Pos.File].Path
+	// A generated file has no test and never will, so an uncovered marker on
+	// it says something true about the file and nothing at all about the
+	// change - it only makes the file look worse than it is (#338).
+	if m.isGenerated(path) {
+		return false
+	}
+	covered, known := m.overlay().Files[path].Lines[line.NewNo]
 	return known && !covered
 }
 
@@ -400,6 +463,9 @@ func signPrefix(k review.LineKind) string {
 // nothing at all when there is nothing to report - a note on every file would
 // be decoration rather than a finding.
 func (m *Model) uncoveredNote(fi int) string {
+	if m.isGenerated(m.shownDiff().Files[fi].Path) {
+		return "" // #338, the same argument uncovered makes
+	}
 	lines := m.overlay().Files[m.shownDiff().Files[fi].Path].Lines
 	if len(lines) == 0 {
 		return ""
@@ -449,4 +515,12 @@ func noticeLines(lines []string, isErr bool, w int) []string {
 		}
 	}
 	return out
+}
+
+// noteLabel says which of the note editor's two prompts is showing (#339).
+func noteLabel(n noteEditor) string {
+	if n.Stage == stageFragment {
+		return "fragment"
+	}
+	return "note"
 }

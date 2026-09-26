@@ -13,8 +13,8 @@ import (
 type StatusMsg watcher.Event
 
 // TickMsg is the once-a-second heartbeat that re-renders the frame, so a
-// quiet session's age keeps counting (issue #71). Exported so tests can send
-// one.
+// quiet session's age keeps counting (issue #71). The spinner has its own
+// tick, SpinTickMsg (#412). Exported so tests can send one.
 type TickMsg time.Time
 
 // tickEvery is the age column's resolution; finer buys nothing.
@@ -54,7 +54,6 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 	before := m.status[e.SessionID]
 	after := watcher.Apply(before, e)
 	m.status[e.SessionID] = after
-	m.trace(e.SessionID, before, after)
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
 	return m.afterStatus(e, before.Status, after.Status)
 }

@@ -29,6 +29,16 @@ type DiffLoadedMsg struct {
 // reaches git itself (invariant 4, #24).
 type ListFilesFunc func(dir string) ([]string, error)
 
+// GeneratedFunc reports which of paths nobody wrote (#338). Injected like
+// ListFilesFunc, because the detection asks git about .gitattributes and reads
+// file headers, and ui does neither.
+type GeneratedFunc func(sess registry.Session, paths []string) (map[string]bool, error)
+
+// TallyFunc records one gate run that followed a turn, and whether it passed
+// (#332). Injected because it writes state.json, which ui may not touch itself
+// (invariant 10).
+type TallyFunc func(project string, passed bool) error
+
 // PreviewFunc reads one file for the preview view, so a test never touches
 // the filesystem.
 type PreviewFunc func(dir, rel string) (review.Preview, error)
@@ -82,21 +92,23 @@ type ReviewPane struct {
 	TurnDiff  review.Diff
 	TurnErr   error
 	TurnReady bool
-	Cursor    int
-	Offset    int // first visible entry
+	DiffList  listWindow // the cursor over Entries (#424)
 	Err       string
 	Note      noteEditor
 	// Filter is the tree's type-to-filter line (#198): Active while it has
 	// the keys, Query the text in force after enter kept it.
 	Filter filterLine
+	// GateSearch is the gate's / search over opened output (#429). Its own,
+	// not Filter: a tree filter left in place must never become a search of
+	// the gate's output, nor a gate search narrow the tree.
+	GateSearch filterLine
 	// The tree view's state (#24). Tree is nil until the listing arrives,
 	// which is what the "listing files..." placeholder means. TreeErr is
 	// separate from Err so a failed listing never blanks the diff, and a
 	// failed diff never blanks the tree: the two load independently.
-	Tree       *review.Tree
-	TreeErr    string
-	TreeCursor int
-	TreeOffset int
+	Tree    *review.Tree
+	TreeErr string
+	Files   listWindow // the cursor over the tree's visible rows (#424)
 	// The gate view's state (#231). GateOpen is which steps are folded open,
 	// nil until one is - a step's output is hidden by default because four
 	// steps of test output would bury the summary the pane exists to show.
@@ -116,6 +128,16 @@ type ReviewPane struct {
 	// line wider than the column can still be read (issue #94). One offset
 	// serves all three views, so h and l behave the same wherever you are.
 	ColOffset int
+	// FoldedFiles is the diff's files folded to their header (#436), by path
+	// so a reload keeps them. A viewing state: nothing persists it.
+	FoldedFiles map[string]bool
+	// HunkStyles memoises each hunk's syntax colours and changed words (#435),
+	// dropped whenever the entries are rebuilt.
+	HunkStyles map[hunkKey]hunkStyle
+	// Zoomed widens the column over the session pane (#427). A viewing state
+	// on the pane, so every reset of the pane drops it and nothing persists it
+	// (invariant 9); it shows only while the column has the keys - see zoomed.
+	Zoomed bool
 	// Stale marks content loaded before a turn that ended while the column
 	// was closed. A hidden pane does not fork git; the reopen does (#124).
 	Stale bool
@@ -166,7 +188,24 @@ type noteEditor struct {
 	Anchor review.Anchor
 	Quote  string
 	Buffer string
+	// Fragment is the part of Quote the note is about, and Stage says which of
+	// the two things the buffer is collecting (#339). A whole-line note opened
+	// with c never leaves stageNote and never sets Fragment, so it behaves
+	// exactly as it did.
+	Fragment string
+	Stage    noteStage
 }
+
+// noteStage is which prompt the note editor is showing.
+type noteStage int
+
+const (
+	// stageNote is the note itself, and the zero value: c opens straight into
+	// it, which is the whole-line path this feature must not disturb.
+	stageNote noteStage = iota
+	// stageFragment collects the part of the line first, for C (#339).
+	stageFragment
+)
 
 // noDiff is the Deps.Diff default: it names the missing wiring rather than
 // showing an empty diff, which would read as "this session changed nothing".
@@ -251,7 +290,7 @@ func (m *Model) reloadIfNeeded(id string, fresh bool) tea.Cmd {
 // leader refocus instead of close, to spare that reload; the cache answers
 // the reload, and the refocus made esc-then-leader an endless loop (#124).
 func (m *Model) closeColumn() tea.Cmd {
-	m.review.Open, m.review.Focused = false, false
+	m.review.Open, m.review.Focused, m.review.Zoomed = false, false, false
 	return m.resizeSelected()
 }
 
@@ -327,7 +366,7 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 	m.commentsFor(msg.SessionID).PruneSent(msg.Diff)
 	m.rebuildEntries()
 	m.retouchTree()
-	return nil
+	return m.classifyAfterDiff(msg.SessionID)
 }
 
 // rebuildEntries re-places the comments against the current diff and keeps the
@@ -340,10 +379,11 @@ func (m *Model) rebuildEntries() {
 		// does not place is elsewhere in the session, not moved (#311).
 		placed = review.PlaceIn(m.review.Diff, d, comments)
 	}
-	m.review.Entries = review.Flatten(d, placed)
+	m.review.Entries = m.withoutFolded(review.Flatten(d, placed), d)
+	m.review.HunkStyles = nil // the hunks may be another diff's now (#435)
 	m.contentChanged()
-	if m.review.Cursor >= len(m.review.Entries) {
-		m.review.Cursor = max(len(m.review.Entries)-1, 0)
+	if m.review.DiffList.Cursor >= len(m.review.Entries) {
+		m.review.DiffList.Cursor = max(len(m.review.Entries)-1, 0)
 	}
 }
 

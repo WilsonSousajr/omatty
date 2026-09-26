@@ -28,8 +28,7 @@ import (
 // cursor is in them.
 type trackerList struct {
 	Project string
-	Cursor  int
-	Offset  int
+	listWindow
 	// The open item (#397): which row is being read in full, and how far down it
 	// is scrolled. Only meaningful while the view is ViewTrackerItem.
 	ItemPR     bool
@@ -56,9 +55,13 @@ type trackerRow struct {
 	Updated time.Time
 }
 
-// TrackerCursor is the index of the highlighted tracker row. Exported for
-// tests, as ReviewCursor is.
-func (m *Model) TrackerCursor() int { return m.review.Tracker.Cursor }
+// TrackerCursor is the highlighted item's place among the items, from 0 -
+// headings not counted, so a test walking items is not rewritten each time a
+// heading is added (#432). Exported for tests, as ReviewCursor is.
+func (m *Model) TrackerCursor() int {
+	n, _ := m.trackerItemPosition()
+	return n - 1
+}
 
 // toggleTracker opens the column on the tracker, switches to it, or closes it.
 //
@@ -79,6 +82,7 @@ func (m *Model) toggleTracker() tea.Cmd {
 	m.review.Open, m.review.View, m.review.Focused, m.review.ColOffset = true, ViewTracker, true, 0
 	m.review.Tracker = keptTracker(m.review.Tracker, project)
 	m.contentChanged()
+	m.moveTrackerCursor(0) // off a heading, onto a row (#432)
 	return tea.Batch(m.resizeIfWidthChanged(wasOpen), m.readTracker(project))
 }
 
@@ -167,16 +171,55 @@ func (m *Model) setTrackerFilter(query string) {
 // item, and a cursor resting on it would have nothing to act on.
 func (m *Model) moveTrackerCursor(delta int) {
 	rows := m.trackerRows()
-	if len(rows) == 0 {
-		return
+	// A narrowed list can be shorter than where the cursor stood (#399);
+	// move clamps it back onto the rows there are.
+	m.review.Tracker.move(delta, len(rows), m.reviewRows())
+	if len(rows) > 0 && rows[m.review.Tracker.Cursor].Kind == rowRule {
+		m.stepOffRule(rows, delta)
 	}
-	next := min(max(m.review.Tracker.Cursor+delta, 0), len(rows)-1)
-	// A narrowed list can be shorter than where the cursor stood (#399).
-	if rows[next].Kind == rowRule {
-		next = min(max(next+delta, 0), len(rows)-1)
+}
+
+// stepOffRule moves the cursor to the nearest row that is not a rule, the way
+// it was going, or back the other way when there is none that way: g lands on
+// the issues heading at the top (#432), and the nearest item is below it.
+// It walks rather than jumping two, which skipped the first issue.
+func (m *Model) stepOffRule(rows []trackerRow, delta int) {
+	step := 1
+	if delta < 0 {
+		step = -1
 	}
-	m.review.Tracker.Cursor = next
-	m.review.Tracker.Offset = ScrollOffset(next, m.review.Tracker.Offset, m.reviewRows())
+	for _, dir := range []int{step, -step} {
+		for i := m.review.Tracker.Cursor + dir; i >= 0 && i < len(rows); i += dir {
+			if rows[i].Kind != rowRule {
+				m.review.Tracker.move(i-m.review.Tracker.Cursor, len(rows), m.reviewRows())
+				return
+			}
+		}
+	}
+}
+
+// trackerItemPosition is the cursor's place among the items, not the rows:
+// headings are labels, and "row 1 of 3" should not count one.
+func (m *Model) trackerItemPosition() (n, total int) {
+	for i, r := range m.trackerRows() {
+		if r.Kind == rowRule {
+			continue
+		}
+		total++
+		if i <= m.review.Tracker.Cursor {
+			n = total
+		}
+	}
+	return n, total
+}
+
+// settleTracker puts the tracker's cursor back on a row when project's lists
+// change under it: an arriving list can add the headings above the cursor,
+// and a cursor resting on a heading has nothing to act on (#432).
+func (m *Model) settleTracker(project string) {
+	if m.review.Tracker.Project == project {
+		m.moveTrackerCursor(0)
+	}
 }
 
 // trackerRows is the project's open issues, then its open pull requests under a
@@ -199,8 +242,10 @@ func (m *Model) trackerRows() []trackerRow {
 		return rows
 	}
 	// The rule goes with its list: one with nothing under it says a list is
-	// there when it is not (#399).
+	// there when it is not (#399). With both lists on screen each is named
+	// (#432); a lone list needs no name.
 	if len(rows) > 0 {
+		rows = append([]trackerRow{{Kind: rowRule, Title: "issues"}}, rows...)
 		rows = append(rows, trackerRow{Kind: rowRule, Title: "pull requests"})
 	}
 	return append(rows, prs...)
@@ -230,7 +275,7 @@ func (m *Model) openPRs(project string) []trackerRow {
 			continue
 		}
 		row := trackerRow{
-			Kind: rowPR, Number: pr.Number, Label: prMark(pr),
+			Kind: rowPR, Number: pr.Number, Label: m.prMark(pr),
 			Title: pr.Title, Updated: pr.Updated,
 		}
 		if m.matchesFilter(row, nil) {
@@ -240,13 +285,23 @@ func (m *Model) openPRs(project string) []trackerRow {
 	return rows
 }
 
-// prMark is a pull request's one cell in the label column: its CI, or "draft"
-// for one not offered as work yet.
-func prMark(pr forge.PR) string {
+// prMark is a pull request's three cells in the label column: whether it is a
+// draft, its CI, its review - one column each, a blank where there is nothing
+// to say, so the three read as columns down the list (#432, gh-dash).
+func (m *Model) prMark(pr forge.PR) string {
+	draft := " "
 	if pr.Draft {
-		return "draft"
+		draft = m.glyphs.mark(markDraft)
 	}
-	return ciMark(pr)
+	ci := m.ciMark(pr)
+	if ci == "" {
+		ci = " "
+	}
+	review := " "
+	if s, ok := reviewState(pr.Review); ok {
+		review = m.glyphs.mark(s)
+	}
+	return draft + ci + review
 }
 
 func firstLabel(labels []string) string {
@@ -301,14 +356,15 @@ func plural(n int, noun string) string {
 // wrapped onto a row the cursor would then have to account for.
 func (m *Model) renderTracker(_, h int) []string {
 	if note := m.trackerNote(); note != nil {
-		return m.withFilterLine(note, reviewContentWidth(m.width), h)
+		return m.withFilterLine(note, m.columnWidth(), h)
 	}
 	rows := m.trackerRows()
 	lines := make([]string, 0, len(rows))
 	for i, r := range rows {
 		lines = append(lines, m.trackerLine(r, i == m.review.Tracker.Cursor))
 	}
-	return m.withFilterLine(window(lines, m.review.Tracker.Offset, h), reviewContentWidth(m.width), h)
+	list := m.withFilterLine(window(lines, m.review.Tracker.Offset, h), m.trackerListWidth(), h)
+	return m.withPreview(list, h)
 }
 
 // trackerNote is the "nothing to show" state, or nil when there are rows. Each
@@ -337,7 +393,7 @@ func (m *Model) trackerNote() []string {
 // long since it last moved. The cursor row is drawn in the accent, the way a
 // selected card's rail is (#174).
 func (m *Model) trackerLine(r trackerRow, selected bool) string {
-	w := reviewContentWidth(m.width)
+	w := m.trackerListWidth()
 	if r.Kind == rowRule {
 		// The rule does not pan. It is a label rather than content, so it fits
 		// its own column the way a diff's file header does (#291): panned right
@@ -345,11 +401,14 @@ func (m *Model) trackerLine(r trackerRow, selected bool) string {
 		// one with nothing to say where the issues stopped.
 		return fitLine(labelledRule(r.Title, w), w)
 	}
-	text := trackerText(r, m.clock())
+	// Only the lead pans. The age is pinned to the right edge, so a title
+	// longer than the column is what gets cut - not the age after it (#423).
+	lead, age := trackerParts(r, m.clock(), w)
+	text := m.fitContent(lead, w-len(trackerAgeGap)-trackerAgeCols) + trackerAgeGap + age
 	if selected {
-		return m.fitStyled(accentStyle.Render(text), w)
+		return cursorStyle.Render(text)
 	}
-	return m.fitContent(text, w)
+	return text
 }
 
 // trackerNumberCols and trackerLabelCols are the two fixed columns; the title
@@ -359,15 +418,39 @@ const (
 	trackerNumberCols = 6
 	trackerLabelCols  = 10
 	trackerAgeCols    = 4
+	trackerAgeGap     = "  "
+	// trackerMinTitle is the least a title keeps before the label gives way:
+	// about a word. Pinning the age at 80 columns left one cell for it (#423).
+	trackerMinTitle = 12
 )
 
-// trackerText is a row's plain text, measured by the pan clamp and drawn by the
-// renderer from one builder so the two can never disagree (#133).
-func trackerText(r trackerRow, now time.Time) string {
+// trackerText is a row's plain text, measured by the pan clamp. It comes from
+// the renderer's own builder so the two can never disagree (#133): the age is
+// a fixed trackerAgeCols wide, so the clamp's widest-minus-column is exactly
+// how far the lead must pan for the end of the longest title to show beside
+// the pinned age (#423).
+func trackerText(r trackerRow, now time.Time, w int) string {
+	lead, age := trackerParts(r, now, w)
+	return lead + trackerAgeGap + age
+}
+
+// trackerParts is a row split where the renderer splits it: the lead - number,
+// label and title - which pans, and the age, which stays at the right edge.
+// In a column too narrow for all four the label is left out, since it is the
+// least of them and the title is what a row is read for.
+func trackerParts(r trackerRow, now time.Time, w int) (lead, age string) {
 	number := padRight("#"+strconv.Itoa(r.Number), trackerNumberCols)
+	age = padLeft(clip(AgeString(now, r.Updated), trackerAgeCols), trackerAgeCols)
+	if r.Kind == rowPR {
+		// Three glyph cells, never given up: they fit where a label does not,
+		// and they are the row's state (#432).
+		return number + r.Label + " " + r.Title, age
+	}
+	if w < trackerNumberCols+trackerLabelCols+trackerMinTitle+len(trackerAgeGap)+trackerAgeCols {
+		return number + r.Title, age
+	}
 	label := padRight(clip(r.Label, trackerLabelCols-1), trackerLabelCols)
-	age := padLeft(clip(AgeString(now, r.Updated), trackerAgeCols), trackerAgeCols)
-	return number + label + r.Title + "  " + age
+	return number + label + r.Title, age
 }
 
 // labelledRule is "── pull requests ─────": a rule that says what is under it.
@@ -388,7 +471,7 @@ func (m *Model) trackerMaxWidth() int {
 		if r.Kind == rowRule {
 			continue
 		}
-		widest = max(widest, lipgloss.Width(trackerText(r, m.clock())))
+		widest = max(widest, lipgloss.Width(trackerText(r, m.clock(), m.trackerListWidth())))
 	}
 	return widest
 }

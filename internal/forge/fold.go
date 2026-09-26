@@ -1,6 +1,13 @@
-// Package forge is omatty's interface over the gh CLI (#310): it reads a
-// repository's pull requests and their CI, and nothing else. Read-only by
-// design - acting on a pull request is a different decision (#331).
+// Package forge is omatty's interface over the gh CLI (#310): a repository's
+// pull requests and their CI, its open issues, one item in full - and, since
+// #331, the three writes a ship key makes.
+//
+// Read-only *by default*, which is a weaker claim than the one this package
+// carried until #331 and the honest one now. It reads on a timer and writes only
+// when somebody presses a key: opening a pull request, merging one that is
+// already green on both sides, and reading whether a branch is protected in
+// order to refuse. Everything else about the forge is still refused - no
+// comment, no close, no label, no review.
 //
 // It is to gh what internal/vcs is to git (invariant 4 in spirit): the one
 // package that runs the binary, so the rest of omatty sees typed values and
@@ -47,6 +54,37 @@ type PR struct {
 	Head     string // the head commit, which says whether a merged PR is this work
 	Draft    bool   // opened as a draft: not ready to be read as work offered
 	Updated  time.Time
+	// MergedAt is when it merged, zero for one that has not (#332). The thing
+	// itself rather than Updated as a proxy for it: a merged pull request can be
+	// commented on afterwards, which moves Updated and not the merge.
+	MergedAt time.Time
+	Review   Review // what review asks of it, from reviewDecision (#432)
+}
+
+// Review is a pull request's review state as gh reports it. ReviewNone is a
+// repository that asks for no review, or an answer that did not say - never
+// read as approved.
+type Review int
+
+// The review states, in gh's reviewDecision.
+const (
+	ReviewNone     Review = iota
+	ReviewRequired        // REVIEW_REQUIRED: nobody has approved yet
+	ReviewApproved        // APPROVED
+	ReviewChanges         // CHANGES_REQUESTED
+)
+
+// reviewOf is gh's reviewDecision as a Review.
+func reviewOf(s string) Review {
+	switch s {
+	case "REVIEW_REQUIRED":
+		return ReviewRequired
+	case "APPROVED":
+		return ReviewApproved
+	case "CHANGES_REQUESTED":
+		return ReviewChanges
+	}
+	return ReviewNone
 }
 
 // ghPR is one element of `gh pr list --json` with the fields ListPRs asks for.
@@ -61,6 +99,8 @@ type ghPR struct {
 	StatusCheckRollup []check   `json:"statusCheckRollup"`
 	IsDraft           bool      `json:"isDraft"`
 	UpdatedAt         time.Time `json:"updatedAt"`
+	MergedAt          time.Time `json:"mergedAt"`
+	ReviewDecision    string    `json:"reviewDecision"`
 }
 
 // check is a CheckRun (status, conclusion) or a StatusContext (state); the
@@ -70,6 +110,12 @@ type check struct {
 	Status     string `json:"status"`
 	Conclusion string `json:"conclusion"`
 	State      string `json:"state"`
+	// Name (a CheckRun) or Context (a StatusContext) and the two times are
+	// read only by an item's view, which lists each check (#433).
+	Name        string    `json:"name"`
+	Context     string    `json:"context"`
+	StartedAt   time.Time `json:"startedAt"`
+	CompletedAt time.Time `json:"completedAt"`
 }
 
 // Fold turns `gh pr list --json` output into PRs.
@@ -82,20 +128,28 @@ func Fold(raw []byte) ([]PR, error) {
 	}
 	out := make([]PR, len(in))
 	for i, p := range in {
-		out[i] = PR{
-			Number:   p.Number,
-			Title:    p.Title,
-			Branch:   p.HeadRefName,
-			State:    stateOf(p.State),
-			CI:       rollup(p.StatusCheckRollup),
-			Conflict: p.MergeStateStatus == "DIRTY" || p.MergeStateStatus == "BEHIND",
-			Fork:     p.IsCrossRepository,
-			Head:     p.HeadRefOid,
-			Draft:    p.IsDraft,
-			Updated:  p.UpdatedAt,
-		}
+		out[i] = foldOne(p)
 	}
 	return out, nil
+}
+
+// foldOne is one element of gh's list as omatty's own type. Split from Fold when
+// #332's mergedAt took the loop past the length limit.
+func foldOne(p ghPR) PR {
+	return PR{
+		Number:   p.Number,
+		Title:    cleanLine(p.Title), // #483
+		Branch:   cleanLine(p.HeadRefName),
+		State:    stateOf(p.State),
+		CI:       rollup(p.StatusCheckRollup),
+		Conflict: p.MergeStateStatus == "DIRTY" || p.MergeStateStatus == "BEHIND",
+		Fork:     p.IsCrossRepository,
+		Head:     p.HeadRefOid,
+		Draft:    p.IsDraft,
+		Updated:  p.UpdatedAt,
+		MergedAt: p.MergedAt,
+		Review:   reviewOf(p.ReviewDecision),
+	}
 }
 
 func stateOf(s string) PRState {

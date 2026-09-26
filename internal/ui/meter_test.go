@@ -47,7 +47,7 @@ func TestRenderMeter_NoInputDrawsNothing_issue153(t *testing.T) {
 	}
 }
 
-// Both glyphs must be one cell by both measures, as the lane's are (#128).
+// Both glyphs must be one cell by both measures, as the status glyphs are (#128).
 func TestMeterGlyphs_AreOneCellWide_issue153(t *testing.T) {
 	for _, g := range ui.MeterGlyphs() {
 		if lipgloss.Width(g) != 1 || runewidth.StringWidth(g) != 1 {

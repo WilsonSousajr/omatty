@@ -42,14 +42,18 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.5.0**, 2026-09-26 — the forge, read from inside the window. `ctrl+o i`
-shows a project's open issues and open pull requests, with the counts on every
-project's sidebar header; `enter` reads one in full; `n` turns the one you picked
-into a worktree session named and branched after it, and `a` types its reference
-into a running session's prompt without sending it. It reads the forge through
-your own `gh` and never writes to it — no create, no comment, no close. Install
-with `brew install WilsonSousajr/tap/omatty` on macOS or a release archive on
-Linux; `CHANGELOG.md` has the whole list.
+**v0.6.0**, 2026-09-26 — the review column starts remembering things. `v` marks
+a file read and says `~` when its diff changes under you; the files nobody wrote
+are folded away; a line takes more than one comment, and `C` comments on part of
+one. `ctrl+o u` puts a session back to the start of its last turn, and `ctrl+o p`
+ships a green one — push, open the pull request, and merge it when your gate and
+the forge's checks are *both* already green. `omatty gate <project> --stats` is
+the only thing omatty measures about itself: lead time, and how often the gate
+passes first time. And the review column is made worth living in: every face
+moves and marks state the same way, the diff is syntax-highlighted with its
+changed words picked out, and `ctrl+o z` zooms the column when a view needs the
+room. Install with `brew install WilsonSousajr/tap/omatty` on macOS
+or a release archive on Linux; `CHANGELOG.md` has the whole list.
 
 | Milestone | Delivers |
 |---|---|
@@ -64,9 +68,10 @@ Linux; `CHANGELOG.md` has the whole list.
 | **M9** The Gate | A project carries the check line that says whether work in it is sound. omatty runs it per session, shows the verdict on the card, and sends the failures back into the session. |
 | **M10** Coverage on the diff | Of the lines a session added, the ones no test covers, marked in the diff with a count per file — and a word on the title when a change brought no tests with it. |
 | **M11** The Harness | Nothing an operator sees: invariant 4's import boundaries, module hygiene, per-function C.R.A.P. and the package dependency structure become steps of this repository's gate that fail. |
-| **M12** The Field | What the rest of the field ships and why omatty declines most of it, researched at code level; then the verification core that came out of it — review scoped to the last turn, a session's pull request and CI on its card, and the files a new worktree needs. |
+| **M12** The Field | What the rest of the field ships and why omatty declines most of it, researched at code level; then everything that came out of it — review scoped to the last turn and to what you have read, generated files folded away, several comments on a line, a session put back to where its turn began, and a green one shipped from its card. |
 | **M13** Memory and idle CPU | Idle CPU cut by about 55%, and a per-session leak on archive fixed. |
 | **M14** The Tracker | A project's open issues and pull requests in the review column, read through your own `gh` and never written to: counts on every header, one item's body and comments on `enter`, and a worktree session named after the issue you picked. |
+| **M15** The Polish | The review column made worth living in: one list window and one state vocabulary across every face, chrome that names the face you are on, and `ctrl+o z` to zoom it; a gate that reads like a CI check page, a compact tree, a tracker with review state and a preview, a syntax-highlighted diff with file and hunk navigation, and help that opens where you are. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
 pre-1.0, and the key table, `config.toml` keys and `state.json` schema are
@@ -152,6 +157,18 @@ repository they came from. On a well-used machine that is 34 directories in
 the store collapsing to 6 worth listing. It only ever proposes: nothing is
 registered until you pick it.
 
+`omatty gate <project> --stats` is the only thing omatty measures about itself:
+the mean time from a session being registered to its pull request merging, and
+the share of the gate runs that followed a turn which passed. Two numbers, local
+only, nothing leaves the machine. A project that has measured nothing says so
+rather than reporting 0% - a rate over no runs is not a rate.
+
+```
+the numbers for omatty:
+  lead time        3h30m  (mean over 4 merged session(s))
+  first-pass gate  75%  (8 run(s) after a turn)
+```
+
 `omatty gate` reads the repository and proposes the check line it already
 uses — `gofmt`, `go vet`, `golangci-lint`, `go test -race`, a coverage script;
 `cargo fmt --check`, `cargo clippy`, `cargo test`; `ruff` and `pytest`; or the
@@ -171,6 +188,11 @@ both understood, told apart by content rather than by file name. A project that
 writes its profile somewhere else names it in `~/.omatty/state.json`; a project
 that declares none simply gets no overlay.
 
+A step can be anything your shell runs, including a hostile review by a model:
+`docs/llm-audit-gate.md` is the recipe, with a working script, and it is honest
+about the three things that makes awkward - it is not deterministic, it costs
+money on every run, and the diff it reads is untrusted input.
+
 Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 
 | Key | Action |
@@ -183,9 +205,12 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o f` | open or close the file tree |
 | `ctrl+o g` | open or close the gate pane, and run the gate |
 | `ctrl+o i` | open or close this project's issues and pull requests |
+| `ctrl+o z` | zoom the review column over the session pane, or back; `esc` also brings the split back |
 | `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o s` | stop the selected session's claude, keeping the session; `enter` resumes it |
+| `ctrl+o u` | put the session's worktree back to the start of its last turn, after a confirmation |
+| `ctrl+o p` | ship a green session: push and open its pull request, or merge one already green |
 | `ctrl+o B` | rename a worktree session's branch |
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
@@ -310,7 +335,17 @@ auto = false               # run a session's gate when its turn ends
 [sessions]
 lazy_start = true          # at boot, start only sessions dtach still holds; enter starts the rest
 idle_stop = "0"            # stop a session quiet this long, keeping it; "0" is off
+
+[ui]
+icons = "plain"            # "nerd" draws every state mark with a Nerd Font's icons
 ```
+
+`ui.icons` is `"plain"` unless you ask: a Nerd Font glyph in a terminal without
+one is a box, which is worse than no icon. Set `"nerd"` if your terminal font is
+a Nerd Font and every state mark - a gate step's verdict, a card's gate strip, a
+pull request's CI - switches to its icon at once, and the file tree gains an
+icon per file type and folder. Any other value is refused at
+startup, naming the key.
 
 `sessions.lazy_start` is on because every `claude` costs a few hundred MB
 before its first turn, and a boot that started all of them paid that for
@@ -373,9 +408,12 @@ The pane takes the keys while it is open.
 | Key | Action |
 |---|---|
 | `j` / `k` | move through the diff |
+| `g` / `G` | the first row, or the last - the same on every face of the column |
+| `ctrl+d` / `ctrl+u` | half a page down, or up |
 | `h` / `l` | pan left and right along a line too wide for the column |
 | `0` | jump back to the left edge |
 | `c` | comment on the line under the cursor |
+| `C` | comment on *part* of the line: type the words, then the note |
 | `d` | delete the comment under the cursor |
 | `r` | reload the diff |
 | `t` | switch between the whole session and only this turn |
@@ -391,6 +429,26 @@ Comments are anchored to the *content* of a line, not its number, so they stay
 put while Claude edits the file underneath you. A comment whose line disappears
 floats to the top of its file marked `(moved)` rather than silently attaching
 itself to the wrong code.
+
+You can leave **several comments on one line** - they are all shown under it,
+all numbered in the message, and `d` takes the one under the cursor. And `C`
+comments on *part* of a line: type or paste the words you mean, then the note,
+and the message tells Claude `about: "do(ctx, timeout)"` rather than pointing at
+the whole line. The fragment is checked against the line before it is queued, so
+a typo is caught while the line is still in front of you. It is stored as text
+rather than as a column range, because a range into a line Claude has since
+rewritten points at whatever now happens to sit there - and if the line survives
+an edit that removes those words, the note still travels and says the fragment is
+no longer in it.
+
+`ctrl+o u` puts the worktree back to where that baseline was taken - the start
+of the session's last turn. It asks first, and the question names how many files
+will be discarded. Files the turn created go with it; a gitignored file that
+existed before the turn - the `.env` the session needs to run - is in neither
+snapshot and is never touched, and your index, HEAD and stash are not moved
+either. It refuses mid-turn, and when no baseline has been taken yet. omatty
+does not tell the session what happened: sending anything is `S`'s job and needs
+you.
 
 `t` narrows the diff to what changed since you last sent the session a
 prompt, and back. omatty takes the baseline when the prompt hook fires, as a
@@ -412,19 +470,42 @@ Comments live in memory: quitting omatty drops them.
 A letter marks every file the session changed - `M` modified, `A` added, `D`
 deleted, `R` renamed - in the colour the diff gives that state, and a directory
 holding one reads as `M`, so you can see the shape of a change before reading
-it. A deleted file keeps its row, in red, until the next listing without it. The two views share one column:
+it. A deleted file keeps its row, in red, until the next listing without it.
+
+Files nobody wrote are **folded out of the listing**: lockfiles, protobuf
+output, `build/`, `dist/`, `coverage/`, `vendor/`, `node_modules/`, and anything
+the repository's own `.gitattributes` marks `linguist-generated`. A lockfile does
+not belong in the queue beside source, and a generated file has no test and never
+will - so the coverage markers leave it alone too, rather than making it look
+worse than it is. The title says how many are folded (`⊞3`) and `.` brings them
+back: they are folded, not hidden. Detection is the repository's declaration
+first, then the name, then the Go `// Code generated ... DO NOT EDIT.` header.
+
+`v` marks the file under the cursor as read. It keeps a `✓` and goes quiet
+until its diff changes, at which point it reads `~` - changed since you read
+it. On a long session that is the difference between reviewing the turn and
+reviewing everything again from the top. What is compared is the file's diff
+*content*, never its modification time: the agent rewrites files while you are
+reading them, so a timestamp only says that something was written. The marks
+are one session's, they are not written to disk, and quitting omatty drops
+them. The two views share one column:
 `ctrl+o d` and `ctrl+o f` switch between them, and either key closes the column
 when it already shows that view.
 
 | Key | Action |
 |---|---|
 | `j` / `k` | move through the tree, or scroll a preview |
+| `g` / `G` | the first row, or the last - the same on every face of the column |
+| `ctrl+d` / `ctrl+u` | half a page down, or up |
 | `enter` | fold or unfold a directory, or preview a file |
 | `h` / `l` | pan left and right along a line too wide for the column |
 | `0` | jump back to the left edge |
 | `r` | re-list the worktree |
 | `/` | filter the tree as you type; `enter` keeps the filter, `esc` clears it |
+| `c` | only the files the session changed and the folders above them, or the whole tree again |
 | `a` | attach the row, or the previewed file, to the prompt as `@path` and go back to typing |
+| `v` | mark the file read: `✓` while its diff is unchanged, `~` once the session changes it again |
+| `.` | show the generated files the tree folded away, or fold them again |
 | `o` | from a preview, jump to the diff at that line; from a diff line, `o` opens the preview there |
 | `esc` | from a preview back to the tree; from the tree, lift the filter, then back to Claude |
 
@@ -467,6 +548,8 @@ its issues matter most.
 | Key | Action |
 |---|---|
 | `j` / `k` | move through the list, or scroll an open item |
+| `g` / `G` | the first row, or the last - the same on every face of the column |
+| `ctrl+d` / `ctrl+u` | half a page down, or up |
 | `enter` | read the item under the cursor: its body and its comments |
 | `/` | filter by number, title or label as you type; `enter` keeps it, `esc` clears it |
 | `n` | start a worktree session named and branched from the issue |
@@ -483,9 +566,36 @@ the branch after the issue (`399-filter-the-tracker`) and titles the session
 `issue #399 ` into the composer **and stops** - no carriage return, so nothing
 is sent until you send it. omatty never submits a turn on your behalf.
 
-Everything here is read through your own `gh`, with your own authentication,
-and omatty writes nothing to the forge: there is no create, no comment, no
-close. The board stays GitHub's; this is a window onto it.
+Everything here is read through your own `gh`, with your own authentication.
+The tracker itself writes nothing: no comment, no close, no label. The board
+stays GitHub's; this is a window onto it. The one thing omatty does write to the
+forge is `ctrl+o p`, below - and only on that keypress.
+
+## Shipping a green session
+
+`ctrl+o p` on a session whose gate is green does one of two things, and refuses
+with a reason the rest of the time.
+
+**No pull request yet:** it pushes the branch and opens one against the branch
+the worktree was forked from, with `gh pr create --fill`, so the body is your own
+commits. It refuses if the worktree has uncommitted work — the gate verified a
+working tree and a push moves commits, so shipping uncommitted work would open a
+pull request that differs from what was checked. Commit it in the session; omatty
+will not write a commit message for you, the same way it never submits a turn for
+you.
+
+**A pull request already open:** it merges it, but only when **both** verdicts are
+already green — your gate here, and the checks on the forge. Otherwise it says
+which one is missing. It uses the repository's own merge method, never
+`--delete-branch`, never `--admin`, and it **refuses to merge into a protected
+branch** at all: `main` moves by a promotion pull request, and a key that could
+merge there would route around omatty's own release gate. If it cannot tell
+whether the base is protected, it refuses.
+
+What it will never do is merge when the checks *go* green. That acts because a
+check changed, with nobody reading, which is the line this whole tool is built
+around — and GitHub's auto-merge already does it, on the forge, where it belongs.
+`docs/ROADMAP.md` argues the boundary in full.
 
 The cost, on top of the two `gh pr list` calls the cards already make: one
 `gh issue list` per project every five minutes, one more when you open the

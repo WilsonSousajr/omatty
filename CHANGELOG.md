@@ -11,6 +11,112 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.6.0] — 2026-09-26
+
+M12 finishes what its research asked for, and the review column starts
+remembering things. It knows which files you have read and says when one changes
+under you; it folds away the files nobody wrote; it takes more than one comment
+on a line, and comments on part of one. A session can be put back to the start
+of its last turn, and a green one can be shipped — pushed, opened as a pull
+request, and merged when both verdicts are already green — from the card you read
+it on. And the whole of M15 comes with it: every face of the column moves,
+marks state and names itself the same way, and the gate, the tree, the tracker,
+the diff and help each borrow from the tool that does them best.
+
+### Added
+
+- **Per-file reviewed, and changed since reviewed** (#337). `v` in the tree
+  marks a file read: it keeps a `✓` and goes quiet until its diff changes, then
+  reads `~`. The identity compared is the file's diff *content* — the agent
+  rewrites files while you read them, so a timestamp only says something was
+  written.
+- **Generated files folded out of the review queue** (#338). Lockfiles,
+  `coverage/`, protobuf stubs and anything the repository's own `.gitattributes`
+  marks `linguist-generated`, detected in that order. `.` brings them back, the
+  title says how many are withheld, and the coverage markers leave them alone —
+  a generated file has no test and never will.
+- **Several comments on one line, and comments on part of a line** (#339). All
+  of them are shown, numbered and sent; `C` collects the words the note is about
+  and the message says `about: "…"`. The fragment is text, not a column range,
+  and it is not part of the anchor — invariant 7 keeps the line's identity to
+  itself.
+- **Revert a session to the start of its last turn** (#334). `ctrl+o u`, after a
+  confirmation naming how many files go. It reuses #311's baseline, so it adds a
+  restore and no new state, and it leaves your index, HEAD and stash alone. A
+  gitignored file that existed before the turn — the `.env` the session needs —
+  is never touched.
+- **Ship a green session** (#331). `ctrl+o p` pushes the branch and opens its
+  pull request, or merges one whose local *and* remote verdicts are already
+  green. One keypress, one session, every time. Never when checks merely *go*
+  green, never a force-push, never a branch deletion, and never into a protected
+  branch.
+- **Lead time and first-pass gate rate** (#332). `omatty gate <project> --stats`:
+  session start to pull request merged, and the share of turn-following gate runs
+  that passed. Two numbers, local only, nothing leaves the machine.
+- **A recipe for an LLM audit as a gate step** (#333). `docs/llm-audit-gate.md`
+  and a working `docs/examples/audit.sh`, honest about non-determinism, cost and
+  the fact that the diff it reads is untrusted input.
+- **The Polish, M15** (#420–#439). Every face of the review column moves the
+  same way: reverse video is the cursor, `g`/`G` and `ctrl+d`/`ctrl+u` page, the
+  title says `N/M`, a click selects (#424). One glyph and colour per state, with
+  Nerd Font icons behind `[ui] icons = "nerd"` (#425, #431). The column's rule
+  names the face, and footers give up whole entries, never the help key (#426).
+  `ctrl+o z` zooms the column over the session (#427). Then, face by face:
+  - **the gate** reads like a CI check page - the verdict in the title, the first
+    failure open on arrival, durations - and `r` re-runs it, `/` searches its
+    output (#428, #429);
+  - **the tree** compacts single-child folders, rolls a folder's status up, and
+    `c` shows only what changed (#430);
+  - **the tracker** shows draft, CI and review glyphs for a pull request (#432),
+    reads an item like a page with its checks listed (#433), and previews it
+    beside the list when zoomed (#434);
+  - **the diff** is syntax-highlighted with the changed words of an edit
+    emphasised (#435), `]`/`[` and `n`/`N` walk its files and hunks and `enter`
+    folds one (#436), and it lists its files beside it when zoomed (#437);
+  - **help** opens on the face you are in, styled and filterable with `/`
+    (#438), and after `ctrl+o` the footer lists what the next key can be (#439).
+- Issue templates and an announcement draft (#415, part of #330).
+
+### Changed
+
+- **A release happens at every milestone close** (#329), written into AGENTS.md
+  and the roadmap. A floor, not a ceiling: a release may still happen without
+  one. The checks did not move.
+- **The working glyph spins** and the activity lane is gone (#410, #412); the
+  branch gets the seven columns it cost.
+- `internal/forge` is no longer read-only. It reads on a timer and writes only on
+  a keypress — the three calls `ctrl+o p` makes, and nothing else.
+- **No session URL** in a commit, a pull request, an issue or a comment (#474).
+
+### Fixed
+
+- **The ship key shipped without a green gate** (#471). It guarded on a
+  predicate that checks three facts, none of them the gate: a project with no
+  gate configured, or one whose gate had failed, was pushed anyway. Found by the
+  real-binary smoke test, not by the suite.
+- **`git push` prompted for credentials over the TUI** (#472). git asks on the
+  controlling terminal, which is the one omatty draws on; it now fails into the
+  footer instead.
+- The gate view could not scroll or pan (#421, #447), the help modal omitted
+  whole faces' keys (#422), and the tracker's age was not at the right edge
+  (#423).
+- **Text from the forge kept its control characters** (#483). Issue and pull
+  request titles, bodies, comments and labels are now stripped of them where
+  they are read. A real-terminal run found bubbletea's renderer already absorbing
+  the sequences on screen, so this closes a path rather than a live exploit - and
+  stops `n` writing a title's escapes into `state.json`.
+
+### Keys
+
+- `.` now toggles the tree's generated files: `g` means "the first row" on every
+  face since #424.
+
+### Schema
+
+`state.json` stays at version 1. `Session.Started` and a project's two gate
+counters are new and optional, with derivable empty values — the argument
+`Base`, `Agent` and `Gate` already make.
+
 ## [v0.5.0] — 2026-09-26
 
 The forge, read from inside the window. omatty could already tell you that this

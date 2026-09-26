@@ -169,6 +169,9 @@ func (m *Model) onConfirmKey(key string) tea.Cmd {
 		if c.Key != key {
 			continue
 		}
+		if m.modal.Kind == modalRevert {
+			return m.revertSession()
+		}
 		if m.modal.Confirm.Project != "" {
 			return m.removeProjectRow()
 		}
@@ -285,9 +288,9 @@ func (m *Model) forgetSessionMaps(id string) {
 	delete(m.notified, id)
 	delete(m.comments, id)
 	delete(m.namePending, id)
-	delete(m.lane, id)
 	delete(m.gates, id)
 	delete(m.gateRunning, id)
+	delete(m.gateStarted, id)
 	delete(m.gateSent, id)
 	delete(m.covers, id)
 	delete(m.coverFailed, id)
@@ -303,6 +306,9 @@ func (m *Model) forgetCardMaps(id string) {
 	delete(m.statPending, id)
 	delete(m.statFailed, id)
 	delete(m.filesPending, id)
+	delete(m.reviewed, id)  // what they had read, display-only (#337)
+	delete(m.generated, id) // which of its files nobody wrote (#338)
+	delete(m.turnGated, id) // whether its gate run followed a turn (#332)
 	delete(m.reattached, id)
 	delete(m.activeAt, id)    // the idle sweep's floor (#319)
 	delete(m.turnPending, id) // the turn baseline's bookkeeping (#311)
