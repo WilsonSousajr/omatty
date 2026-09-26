@@ -28,6 +28,9 @@ func LeaderKeys() []string {
 	return out
 }
 
+// SearchHit is s as the gate draws a search match (#429).
+func SearchHit(s string) string { return searchStyle.Render(s) }
+
 // UseNerdIcons switches the model to the Nerd Font glyph set, as
 // [ui] icons = "nerd" does through Deps (#425).
 func (m *Model) UseNerdIcons() { m.glyphs = nerdGlyphs }

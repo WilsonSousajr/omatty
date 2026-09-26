@@ -88,7 +88,8 @@ func gateFooterLine(leader string) string { return joinKeys(gateFooterKeys(leade
 
 func gateFooterKeys(leader string) []footerKey {
 	return []footerKey{
-		{"j/k move", 2}, {"enter output", 3}, {"S send", 4}, {"esc back", 1}, {leader + " ? keys", keepKey},
+		{"j/k move", 2}, {"enter output", 3}, {"S send", 4}, {"r rerun", 2}, {"/ search", 1},
+		{"esc back", 1}, {leader + " ? keys", keepKey},
 	}
 }
 

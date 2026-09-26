@@ -19,10 +19,7 @@ import (
 // sidebar and the pane already name the session, and nothing else on screen
 // says the gate's verdict.
 func (m *Model) gateTitle(budget int) string {
-	head := "gate"
-	if found := m.gateSummary(); found != "" {
-		head += " · " + found
-	}
+	head := m.gateHead(budget)
 	room := budget - lipgloss.Width(head+" · ")
 	if room < minNameCells {
 		return head
@@ -30,25 +27,39 @@ func (m *Model) gateTitle(budget int) string {
 	return head + " · " + elideMiddle(m.sessionTitle(m.review.SessionID), room)
 }
 
+// gateHead is "gate", what the run found, and a search in force. The search
+// marker is never given up - highlighted matches with no query on screen would
+// be marks nobody can account for (#285, #429) - so the finding's parts go
+// first, the last of them first, until the head fits.
+func (m *Model) gateHead(budget int) string {
+	marker, found := m.filterMarker(), m.gateSummary()
+	for n := len(found); n > 0; n-- {
+		if head := "gate · " + strings.Join(found[:n], " · ") + marker; lipgloss.Width(head) <= budget {
+			return head
+		}
+	}
+	return "gate" + marker
+}
+
 // gateSummary is the run in flight, with the spinner and how long it has
-// been going, or the last report's counts; "" when there is neither.
-func (m *Model) gateSummary() string {
+// been going, or the last report's counts; nothing when there is neither.
+func (m *Model) gateSummary() []string {
 	id := m.review.SessionID
 	if m.gateRunning[id] {
 		took := m.clock().Sub(m.gateStarted[id])
-		return fmt.Sprintf("%s running %ds", spinnerFrame(m.clock()), int(took.Seconds()))
+		return []string{fmt.Sprintf("%s running %ds", spinnerFrame(m.clock()), int(took.Seconds()))}
 	}
 	report, ran := m.gates[id]
 	if !ran || report.Err != nil {
-		return ""
+		return nil
 	}
 	return verdictCounts(report.Results)
 }
 
-// verdictCounts is "1 failing · 6 passed · 1 missing", each part only when
+// verdictCounts is ["1 failing", "6 passed", "1 missing"], each part only when
 // it is not zero, failures first because they are what the title is for.
 // Steps that never ran are not counted: a pending step has no verdict.
-func verdictCounts(results []gate.StepResult) string {
+func verdictCounts(results []gate.StepResult) []string {
 	counts := map[gate.Verdict]int{}
 	for _, r := range results {
 		counts[r.Verdict]++
@@ -62,7 +73,7 @@ func verdictCounts(results []gate.StepResult) string {
 			parts = append(parts, fmt.Sprintf("%d %s", n, c.word))
 		}
 	}
-	return strings.Join(parts, " · ")
+	return parts
 }
 
 // openFirstFailure is a report landing on the face: the first failed step

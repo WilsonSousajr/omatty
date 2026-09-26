@@ -24,7 +24,7 @@ func (m *Model) gateSpans(report gate.Report) []gateSpan {
 	for i, result := range report.Results {
 		end := line
 		if m.review.GateOpen[i] {
-			end += len(indent(result.Output))
+			end += len(m.gateOutput(result.Output))
 		}
 		spans[i] = gateSpan{start: line, end: end}
 		line = end + 1
@@ -32,12 +32,9 @@ func (m *Model) gateSpans(report gate.Report) []gateSpan {
 	return spans
 }
 
-// gateRows is how many rows the gate view draws: the whole column body, as it
-// has no editor line to give up.
-func (m *Model) gateRows() int {
-	_, h := PaneSize(m.width, m.height, true)
-	return h
-}
+// gateRows is how many rows the gate view draws: the column body, less the
+// search line while it is being typed (#429).
+func (m *Model) gateRows() int { return m.reviewRows() }
 
 // gateDown reads on through the step under the cursor while its output runs
 // past the bottom of the window, then moves to the next step, stopping at the
@@ -100,15 +97,28 @@ func gateWindowOffset(offset, lines, h int) int {
 func (m *Model) gateView(report gate.Report, h int) []string {
 	plain, styled := m.gateLines(report), m.gateLinesWith(report, m.glyphs.cell)
 	off := gateWindowOffset(m.review.GateOffset, len(plain), h)
-	cursor, w := -1, m.columnWidth()
+	cursor, w, rows := -1, m.columnWidth(), stepRows(m.gateSpans(report))
 	if spans := m.gateSpans(report); m.review.GateCursor < len(spans) {
 		cursor = spans[m.review.GateCursor].start
 	}
 	out := make([]string, 0, h)
 	for i := off; i < min(off+h, len(plain)); i++ {
-		out = append(out, m.gateRow(plain[i], styled[i], i == cursor, w))
+		row := styled[i]
+		if !rows[i] {
+			row = highlightMatches(row, m.review.GateSearch.Query) // output, not a step (#429)
+		}
+		out = append(out, m.gateRow(plain[i], row, i == cursor, w))
 	}
 	return out
+}
+
+// stepRows is which lines of gateLines are step rows rather than output.
+func stepRows(spans []gateSpan) map[int]bool {
+	rows := make(map[int]bool, len(spans))
+	for _, s := range spans {
+		rows[s.start] = true
+	}
+	return rows
 }
 
 // gateRow is one drawn line of the gate, panned and fitted to the column: its

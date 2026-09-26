@@ -292,10 +292,10 @@ func pairingNote(d review.Diff) string {
 
 // filterMarker names the filter in force, so a short listing says why.
 func (m *Model) filterMarker() string {
-	if m.review.Filter.Query == "" {
-		return ""
+	if q := m.activeFilter().Query; q != "" {
+		return " /" + q
 	}
-	return " /" + m.review.Filter.Query
+	return ""
 }
 
 // reviewBody is the error, the empty-state line, or the scrolled rows with the

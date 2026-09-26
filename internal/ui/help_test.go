@@ -114,7 +114,7 @@ var columnHandlers = map[string]map[string][]string{
 	"column":  {"pan.go": {"panKey"}, "listwindow.go": {"pageDelta"}},
 	"diff":    {"reviewkeys.go": {"onReviewKey", "reviewAction"}},
 	"tree":    {"treekeys.go": {"onTreeKey", "treeActionKey", "treeCursorKey", "treeMarkKey", "onPreviewKey"}},
-	"gate":    {"gatepane.go": {"onGateKey"}},
+	"gate":    {"gatepane.go": {"onGateKey", "gateCursorKey"}, "gatesearch.go": {"gateSearchKey"}},
 	"tracker": {"tracker.go": {"onTrackerKey", "trackerCursorKey"}, "trackerwork.go": {"trackerAction"}, "trackeritem.go": {"onTrackerItemKey"}},
 }
 
