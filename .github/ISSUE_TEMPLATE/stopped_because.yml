@@ -1,0 +1,39 @@
+name: I tried it and stopped because…
+description: You installed omatty, used it for a bit, and went back to what you had. That is the most useful thing you can tell us.
+labels: ["chore"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is not a bug report and there is nothing to reproduce. Three
+        questions, no triage burden, and "the whole idea is wrong" is a valid
+        answer.
+
+        Every defect found in omatty so far was found by its maintainer's own
+        sessions, CI and smoke tests - which is to say, by someone who already
+        agreed with it. This template exists because that is not good enough.
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you thought it would do
+      description: What you understood from the README, before you ran it.
+    validations:
+      required: true
+  - type: textarea
+    id: stopped
+    attributes:
+      label: Where you stopped
+      description: >
+        The install, the first session, the gate, the diff pane, an hour in.
+        If it was a single moment of friction, name it - "I could not work out
+        how to X" is a finding, not a failure on your part.
+    validations:
+      required: true
+  - type: textarea
+    id: instead
+    attributes:
+      label: What you went back to
+      description: >
+        tmux and a second terminal, `claude agents`, ccmanager, claude-squad,
+        a desktop app, nothing at all. `docs/comparison.md` is the maintainer's
+        own attempt at this comparison and is happy to be proven wrong.
