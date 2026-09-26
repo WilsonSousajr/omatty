@@ -94,18 +94,31 @@ type Model struct {
 	// that would silently span two turns. Neither is persisted.
 	turn      TurnFuncs
 	hooksDown bool // the hook socket did not bind (#49): no baseline will come
-	// prs is each project's pull requests (#310), keyed by project name like
-	// prPending (a call in flight), prFailed (the last call failed) and prOff
-	// (gh cannot map it to GitHub). ghMissing stops every poll. None persisted.
-	prList      PRListFunc
-	prs         map[string][]forge.PR
-	prPending   map[string]bool
-	prFailed    map[string]bool
-	prOff       map[string]bool
-	prAsked     map[string]time.Time // when each project was last asked: the gap
-	ghMissing   bool
-	turnPending map[string]bool
-	turnErr     map[string]error
+	// prs is each project's pull requests (#310) and issues its open issues
+	// (#394), keyed by project name like their Pending (a call in flight),
+	// Failed (the last call failed) and Asked (when it was last asked, for the
+	// gap) maps. notGitHub (gh cannot map the checkout to GitHub) and ghMissing
+	// (no gh at all) are shared by both lists: they are facts about the
+	// checkout and the machine, not about a list. None persisted.
+	prList       PRListFunc
+	prs          map[string][]forge.PR
+	prPending    map[string]bool
+	prFailed     map[string]bool
+	prAsked      map[string]time.Time
+	issueList    IssueListFunc
+	itemFuncs    ForgeItemFuncs
+	browse       BrowseFunc
+	items        map[itemKey]forge.Detail
+	itemPending  map[itemKey]bool
+	itemFailed   map[itemKey]bool
+	issues       map[string][]forge.Issue
+	issuePending map[string]bool
+	issueFailed  map[string]bool
+	issueAsked   map[string]time.Time
+	notGitHub    map[string]bool
+	ghMissing    bool
+	turnPending  map[string]bool
+	turnErr      map[string]error
 	// covers is each session's coverage overlay, read when its gate finishes
 	// (#254). Display-only like gates and never persisted; coverFailed makes
 	// the warning once per session rather than once per run.
@@ -207,7 +220,7 @@ func NewModel(deps Deps) *Model {
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
-	m.prList = d.PRs
+	m.prList, m.issueList, m.itemFuncs, m.browse = d.PRs, d.Issues, d.Item, d.Browse
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
 	m.rebind = d.Rebind
 	m.renameBranch = d.RenameBranch
@@ -256,7 +269,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
-	return m.withTurnMaps().withPRMaps()
+	return m.withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
 }
 
 // withTurnMaps allocates the turn baseline's two maps (#311). Split from
@@ -315,7 +328,7 @@ func (m *Model) Init() tea.Cmd {
 	}
 	// The first stat poll runs at start rather than a tick later, so a card
 	// names its branch before the operator has read the screen (#180).
-	cmds = append(cmds, scheduleTick(), m.onStatTick(), m.onPRTick(), m.scheduleSweep())
+	cmds = append(cmds, scheduleTick(), m.onStatTick(), m.onPRTick(), m.onIssueTick(), m.scheduleSweep())
 	return tea.Batch(cmds...)
 }
 
@@ -356,20 +369,32 @@ func (m *Model) routeMsg(msg tea.Msg) tea.Cmd {
 	if cmd, ok := m.onInput(msg); ok {
 		return cmd
 	}
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		return m.onResize(msg)
-	case TickMsg:
-		return scheduleTick()
-	case StatTickMsg:
-		return m.onStatTick()
-	case PRTickMsg:
-		return m.onPRTick()
-	case SweepTickMsg:
-		return m.onSweepTick()
-	default:
-		return m.onDataMsg(msg)
+	if cmd, ok := m.onHeartbeat(msg); ok {
+		return cmd
 	}
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		return m.onResize(size)
+	}
+	return m.onDataMsg(msg)
+}
+
+// onHeartbeat answers the periodic ticks, and says whether it did, so routeMsg
+// stays a short list of tables rather than growing a case per timer - #394
+// added the fifth.
+func (m *Model) onHeartbeat(msg tea.Msg) (tea.Cmd, bool) {
+	switch msg.(type) {
+	case TickMsg:
+		return scheduleTick(), true
+	case StatTickMsg:
+		return m.onStatTick(), true
+	case PRTickMsg:
+		return m.onPRTick(), true
+	case IssueTickMsg:
+		return m.onIssueTick(), true
+	case SweepTickMsg:
+		return m.onSweepTick(), true
+	}
+	return nil, false
 }
 
 // onInput routes what the operator did - a key, the mouse, a paste - and
@@ -493,6 +518,9 @@ func (m *Model) onPaneMsg(msg tea.Msg) tea.Cmd {
 // onSessionMsg is the third table: the messages that change which sessions
 // exist, or which process is behind one.
 func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
+	if cmd, ok := m.onForgeMsg(msg); ok {
+		return cmd
+	}
 	switch typed := msg.(type) {
 	case ProjectsProposedMsg:
 		return m.onProjectsProposed(typed)
@@ -502,10 +530,25 @@ func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
 		return m.relaunch(typed.Session)
 	case RepoStatMsg:
 		return m.onRepoStat(typed)
-	case PRsLoadedMsg:
-		return m.onPRs(typed)
 	}
 	return m.onWindowFocus(msg)
+}
+
+// onForgeMsg is what the three gh-backed reads answer with (#310, #394, #397),
+// split out of onSessionMsg when the third pushed it past the statement limit -
+// and they belong together: one forge, three reads.
+func (m *Model) onForgeMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case PRsLoadedMsg:
+		return m.onPRs(typed), true
+	case IssuesLoadedMsg:
+		return m.onIssues(typed), true
+	case ItemLoadedMsg:
+		return m.onItem(typed), true
+	case BrowsedMsg:
+		return m.onBrowsed(typed), true
+	}
+	return nil, false
 }
 
 // onWindowFocus records whether omatty itself has the operator's attention,
@@ -516,7 +559,7 @@ func (m *Model) onWindowFocus(msg tea.Msg) tea.Cmd {
 		m.hasFocus = true
 		// Catch up on whatever changed while the poll was gated off, rather
 		// than leaving stale cards up for the rest of the ten-second period.
-		return tea.Batch(m.pollAll(), m.pollPRs())
+		return tea.Batch(m.pollAll(), m.pollPRs(), m.pollIssues())
 	case tea.BlurMsg:
 		m.hasFocus = false
 		return nil

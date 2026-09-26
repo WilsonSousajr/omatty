@@ -42,14 +42,14 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.4.0**, 2026-09-25 — a worktree you can actually run, a pane you can copy
-out of, and a hook that survives being reinstalled. `omatty carry` names the
-gitignored files a project needs — `.env`, local certificates — and every new
-worktree gets them before claude starts in it, so a gate step fails because the
-code is wrong rather than because `.env` was missing. A drag inside a session
-pane now copies that pane instead of the sidebar along with it. Install with
-`brew install WilsonSousajr/tap/omatty` on macOS or a release archive on Linux;
-`CHANGELOG.md` has the whole list.
+**v0.5.0**, 2026-09-26 — the forge, read from inside the window. `ctrl+o i`
+shows a project's open issues and open pull requests, with the counts on every
+project's sidebar header; `enter` reads one in full; `n` turns the one you picked
+into a worktree session named and branched after it, and `a` types its reference
+into a running session's prompt without sending it. It reads the forge through
+your own `gh` and never writes to it — no create, no comment, no close. Install
+with `brew install WilsonSousajr/tap/omatty` on macOS or a release archive on
+Linux; `CHANGELOG.md` has the whole list.
 
 | Milestone | Delivers |
 |---|---|
@@ -66,6 +66,7 @@ pane now copies that pane instead of the sidebar along with it. Install with
 | **M11** The Harness | Nothing an operator sees: invariant 4's import boundaries, module hygiene, per-function C.R.A.P. and the package dependency structure become steps of this repository's gate that fail. |
 | **M12** The Field | What the rest of the field ships and why omatty declines most of it, researched at code level; then the verification core that came out of it — review scoped to the last turn, a session's pull request and CI on its card, and the files a new worktree needs. |
 | **M13** Memory and idle CPU | Idle CPU cut by about 55%, and a per-session leak on archive fixed. |
+| **M14** The Tracker | A project's open issues and pull requests in the review column, read through your own `gh` and never written to: counts on every header, one item's body and comments on `enter`, and a worktree session named after the issue you picked. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
 pre-1.0, and the key table, `config.toml` keys and `state.json` schema are
@@ -181,6 +182,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o d` | open or close the diff pane |
 | `ctrl+o f` | open or close the file tree |
 | `ctrl+o g` | open or close the gate pane, and run the gate |
+| `ctrl+o i` | open or close this project's issues and pull requests |
 | `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o s` | stop the selected session's claude, keeping the session; `enter` resumes it |
@@ -439,6 +441,60 @@ The listing is tracked plus untracked files with `.gitignore` honoured — what
 `git` thinks the worktree contains, not what is on disk. A preview reads at most
 256 KiB and says so when it stops; a binary file says it is binary rather than
 spraying the pane.
+
+## Issues and pull requests
+
+`ctrl+o i` turns the same column into the project's tracker: its open issues,
+then its open pull requests under a rule, each row naming the number, one label
+or the pull request's CI mark, the title and how long since it last moved. The
+counts are in the title, and on every project's header in the sidebar - `13i 2p`
+- so "how many are open" needs no keypress at all.
+
+```
+ projects · 2              │ omatty ▎ review loop · develop  │ tracker · omatty · 13 issues · 2 prs
+───────────────────────────┼─────────────────────────────────┼─ review ──────────────────────────×
+ omatty              13i 2p│                                 │#399  feat      filter the tracker
+▎● review loop             │                                 │#397  feat      read one issue or p
+▎  399-filter-the-t        │                                 │#315            Upstream: 4 MiB par
+ other-app             4i 1p                                 │── pull requests ──────────────────
+                           │                                 │#405  ✓         work from an issue
+```
+
+It is the one view that belongs to a project rather than a session, so it works
+on a project you have registered and never started a session in - which is when
+its issues matter most.
+
+| Key | Action |
+|---|---|
+| `j` / `k` | move through the list, or scroll an open item |
+| `enter` | read the item under the cursor: its body and its comments |
+| `/` | filter by number, title or label as you type; `enter` keeps it, `esc` clears it |
+| `n` | start a worktree session named and branched from the issue |
+| `a` | type the item's reference into the selected session's prompt, unsent |
+| `b` | open the item in your browser |
+| `r` | read both lists again now |
+| `h` / `l` / `0` | pan along a row too wide for the column |
+| `esc` | from an item back to the list; from the list, lift the filter, then back to Claude |
+
+`n` is the point of showing you issues at all: it creates the worktree, names
+the branch after the issue (`399-filter-the-tracker`) and titles the session
+`#399 …`, then hands you the keyboard so the next thing you type is a prompt.
+`a` is the smaller version for a session you already have: it pastes
+`issue #399 ` into the composer **and stops** - no carriage return, so nothing
+is sent until you send it. omatty never submits a turn on your behalf.
+
+Everything here is read through your own `gh`, with your own authentication,
+and omatty writes nothing to the forge: there is no create, no comment, no
+close. The board stays GitHub's; this is a window onto it.
+
+The cost, on top of the two `gh pr list` calls the cards already make: one
+`gh issue list` per project every five minutes, one more when you open the
+tracker or press `r`, and one `gh issue view` or `gh pr view` for an item you
+open, cached until you press `r` on it. Nothing at all while omatty is in the
+background, never more than once in thirty seconds for one project, and nothing
+after `gh` is found missing. An item is read to 64 KiB and says so if there was
+more. Without `gh`, or for a repository that is not on GitHub, the column says
+which and the sidebar headers stay as they were.
 
 ## Session status
 

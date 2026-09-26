@@ -82,9 +82,17 @@ type Deps struct {
 	// HooksDown says the hook socket did not bind (#49), so no turn baseline
 	// will ever be taken; the turn view says so instead of diffing (#311).
 	HooksDown bool
-	// PRs lists a project's pull requests for its cards (#310). Unwired, it
-	// says gh is missing, which stops every poll: what every test sees.
-	PRs PRListFunc
+	// PRs lists a project's pull requests for its cards (#310) and Issues its
+	// open issues for the tracker (#394). Unwired, each says gh is missing,
+	// which stops every poll: what every test sees.
+	PRs    PRListFunc
+	Issues IssueListFunc
+	// Item reads one issue or pull request in full, on the keypress that opens
+	// it (#397). Unwired, it says gh is missing.
+	Item ForgeItemFuncs
+	// Browse opens one item in the operator's browser (#398). Unwired, it names
+	// the missing wiring.
+	Browse BrowseFunc
 	// Rename persists a session's new title (#41), and Name reads the first
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
@@ -169,6 +177,18 @@ func (d Deps) withReviewDefaults() Deps {
 func (d Deps) withPRDefaults() Deps {
 	if d.PRs == nil {
 		d.PRs = noPRs
+	}
+	if d.Issues == nil {
+		d.Issues = noIssues
+	}
+	if d.Item.Issue == nil {
+		d.Item.Issue = noItem
+	}
+	if d.Item.PR == nil {
+		d.Item.PR = noItem
+	}
+	if d.Browse == nil {
+		d.Browse = noBrowse
 	}
 	return d
 }

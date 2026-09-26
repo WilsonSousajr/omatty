@@ -73,6 +73,19 @@ func gateFooterLine(leader string) string {
 	return "j/k move  enter output  S send  esc back  " + leader + " ? keys"
 }
 
+// trackerFooterLine is the tracker's keys (#396, #398, #399).
+func trackerFooterLine(leader string) string {
+	return "j/k move  enter read  / filter  n session  a attach  b browser  esc back  " + leader + " ? keys"
+}
+
+// trackerItemFooterLine is the open item's own keys (#397). Its own line because
+// without one the child view fell through to the tree's, and a footer offering
+// `o diff` in a view that has no diff is worse than none - found by the M14
+// smoke run.
+func trackerItemFooterLine(leader string) string {
+	return "j/k scroll  r read again  n session  a attach  b browser  esc list  " + leader + " ? keys"
+}
+
 // emptyTreeHint is the tree's empty state: a repository that listed
 // successfully and holds nothing, which is not a listing still in flight (#131).
 const emptyTreeHint = "no files - the repository is empty; press r to list again"
@@ -337,6 +350,10 @@ func (m *Model) footerKeys() string {
 		return reviewFooterLine(m.leader)
 	case ViewGate:
 		return gateFooterLine(m.leader)
+	case ViewTracker:
+		return trackerFooterLine(m.leader)
+	case ViewTrackerItem:
+		return trackerItemFooterLine(m.leader)
 	}
 	return treeFooterLine(m.leader)
 }

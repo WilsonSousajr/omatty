@@ -16,11 +16,22 @@ func (m *Model) onFilterKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.review.Filter.Active = false
 	case editCancel:
 		m.review.Filter.Active = false
-		m.setTreeFilter("")
+		m.setViewFilter("")
 	default:
-		m.setTreeFilter(buffer)
+		m.setViewFilter(buffer)
 	}
 	return nil
+}
+
+// setViewFilter applies the query to whichever list has the line: the tree's
+// listing, or the tracker's rows (#399). One filter line, two lists - which is
+// why the query lives on ReviewPane rather than in either of them.
+func (m *Model) setViewFilter(query string) {
+	if m.review.View == ViewTracker {
+		m.setTrackerFilter(query)
+		return
+	}
+	m.setTreeFilter(query)
 }
 
 // setTreeFilter applies query to the tree and re-clamps the cursor and the

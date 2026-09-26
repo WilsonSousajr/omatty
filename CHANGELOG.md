@@ -11,6 +11,94 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.5.0] — 2026-09-26
+
+The forge, read from inside the window. omatty could already tell you that this
+session's branch had pull request #349 and that its checks were green; it could
+not tell you how many issues the project had, what they were about, or which one
+to start next. That was the last daily-friction item that needed no new
+subsystem, and M14 is it.
+
+`ctrl+o i` turns the review column into the project's tracker: its open issues,
+then its open pull requests under a rule, with the counts on every project's
+sidebar header so "how many are open" needs no keypress at all. `enter` reads one
+in full. `n` turns the one you picked into a worktree session named and branched
+after it.
+
+**It reads the forge and never writes to it.** No create, no comment, no close,
+no label. `docs/ROADMAP.md` refuses "a planning board inside the TUI" for a
+stated reason - two sources of truth - and this is not one: nothing is stored, no
+`state.json` field is added, and the rows are gone when omatty exits. It is a
+window onto GitHub's board, which is the distinction #310 already won for pull
+requests. The keys that act - `n`, `a`, `b` - act on this machine: a worktree, a
+composer, a browser.
+
+A minor bump, per the pre-1.0 rule: a new leader key, two new column views, three
+new keys inside them and a third `gh` call. **`state.json` does not change at
+all**, so there is no migration and `Version` stays 1. Nothing was renamed or
+removed.
+
+### Added
+
+- **`ctrl+o i` - a project's open issues and open pull requests.** A row names
+  the number, one label or the pull request's CI mark, the title and how long
+  since it last moved. It is the one view that belongs to a *project* rather than
+  a session, so it opens on a project you have registered and never started a
+  session in - which is when its issues matter most - and it keeps its list and
+  its cursor as you move between two sessions of one project. `j`/`k` walk,
+  `h`/`l`/`0` pan, `r` reads both lists again. (#396)
+- **Counts on every project's sidebar header** - `13i 2p`, right-aligned and
+  muted. Unknown is never drawn as zero: without `gh`, for a repository that is
+  not on GitHub, or before the first poll answers, the header is exactly what it
+  was before. A project holding no session is never asked for pull requests, so
+  it shows its issue count and says nothing about the other. (#395)
+- **`enter` reads one issue or pull request in full** - its body and its
+  comments, wrapped to the column and scrolled with `j`/`k`. One `gh` call on the
+  keypress, cached until `r` asks again, bounded at 64 KiB with whole comments
+  dropped rather than cut, and it says when there was more. (#397)
+- **`n` starts a worktree session on the issue under the cursor**, named `#399 …`
+  and branched `399-filter-the-tracker`, then hands you the keyboard so the next
+  thing you type is a prompt. On a pull request row it refuses and says why: that
+  branch already exists. (#398)
+- **`a` types the item's reference into the selected session's composer** -
+  `issue #399 ` - bracketed and **with no carriage return**, so nothing is sent
+  until you send it. omatty never submits a turn on your behalf. `b` opens the
+  item in your browser through your own `gh`. (#398)
+- **`/` filters the list as you type**, over the number, the title and every
+  label - including the ones the row has no room for, because `M14` is how a
+  milestone is asked for. `enter` keeps the query, `esc` lifts it, and the marker
+  never leaves the title: a filtered list is short *because* a filter is in
+  force. (#399)
+- **`internal/forge` reads issues as well as pull requests**: `ListIssues` is one
+  `gh issue list --state open` call per project, and an open pull request now
+  carries its title, whether it is a draft, and an age. Polled every five minutes
+  where the pull requests are polled every one - CI changes in minutes, an issue
+  list changes in days - and never while omatty is in the background, never more
+  than once in thirty seconds for one project, and not at all once `gh` has been
+  found missing. (#393, #394)
+
+### Changed
+
+- The review column has five faces rather than three. `ctrl+o d`, `ctrl+o f`,
+  `ctrl+o g` and `ctrl+o i` switch between them and each closes the column when it
+  already shows its own view. (#396)
+- `docs/ARCHITECTURE.md` gains the tracker's data flow and `internal/forge`'s row
+  in the package table, which #310 never added. (#399)
+
+### Fixed
+
+- The rule between the two lists panned away with the rows, leaving the issues
+  and the pull requests merged with nothing to say where one stopped. Found by
+  the real-PTY smoke run, not by a test. (#396)
+- An open item's footer was the file tree's, offering `o diff` in a view with no
+  diff. (#397)
+
+### Known limitations
+
+- `brew install` prints `Calling postflight is deprecated`. The install works;
+  the warning comes from GoReleaser's generated cask and is blocked on
+  goreleaser#6873. (#369)
+
 ## [v0.4.0] — 2026-09-25
 
 A worktree you can actually run, a pane you can copy out of, and a hook that
@@ -434,7 +522,8 @@ after its issue:
 - The agent seam has one profile, claude. Codex is a follow-up. (#152)
 - Scrollback is not preserved across a detach and reattach.
 
-[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.5.0
 [v0.4.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.4.0
 [v0.3.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.2.0

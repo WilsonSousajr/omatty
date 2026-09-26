@@ -69,6 +69,8 @@ func (m *Model) forgetProject(name string) {
 	delete(m.prs, name) // the project's pull requests (#310)
 	delete(m.prPending, name)
 	delete(m.prFailed, name)
-	delete(m.prOff, name)
+	delete(m.notGitHub, name)
 	delete(m.prAsked, name)
+	m.forgetProjectIssues(name) // and its issues (#394)
+	m.forgetProjectItems(name)  // and any item read in full (#397)
 }

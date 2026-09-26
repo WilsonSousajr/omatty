@@ -91,10 +91,20 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Diff:    src.Load,
 		Stat:    src.Stat,
 		Turn:    ui.TurnFuncs{Snap: src.SnapTurn, Diff: src.LoadTurn, Drop: src.DropTurn},
-		PRs:     forge.NewCLI().ListPRs,
 		Files:   git.ListFiles,
 	}
-	return withStoreDeps(withTableDeps(deps, env.Cfg), store, home, git)
+	return withStoreDeps(withTableDeps(withForgeDeps(deps), env.Cfg), store, home, git)
+}
+
+// withForgeDeps points both gh-backed lists at one forge CLI: the pull requests
+// a card shows (#310) and the open issues the tracker lists (#394) share a
+// binary, a bound and the operator's own authentication.
+func withForgeDeps(deps ui.RunDeps) ui.RunDeps {
+	gh := forge.NewCLI()
+	deps.PRs, deps.Issues = gh.ListPRs, gh.ListIssues
+	deps.Item = ui.ForgeItemFuncs{Issue: gh.ViewIssue, PR: gh.ViewPR}
+	deps.Browse = gh.Browse
+	return deps
 }
 
 // withTableDeps copies the config's [gate] and [sessions] tables onto the run.

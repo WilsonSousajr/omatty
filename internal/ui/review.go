@@ -44,13 +44,15 @@ type FilesLoadedMsg struct {
 // ReviewView is which face the review column shows.
 type ReviewView int
 
-// The column's views: the diff, the worktree tree, one file's preview, or the
-// project's gate (#231).
+// The column's views: the diff, the worktree tree, one file's preview, the
+// project's gate (#231), or its tracker (#396).
 const (
 	ViewDiff ReviewView = iota
 	ViewTree
 	ViewPreview
 	ViewGate
+	ViewTracker
+	ViewTrackerItem
 )
 
 // focusTarget is which pane receives a key the router sends "to the terminal":
@@ -101,6 +103,10 @@ type ReviewPane struct {
 	GateCursor int
 	GateOffset int
 	GateOpen   map[int]bool
+	// The tracker view's state (#396), keyed by project rather than by session:
+	// it is the one view that belongs to a project, so following the sidebar
+	// between two sessions of one project must not throw it away.
+	Tracker trackerList
 	// The preview view's state: one file at a time, so a new preview
 	// replaces the last rather than accumulating.
 	Preview       review.Preview
@@ -358,16 +364,29 @@ func (m *Model) followSession() tea.Cmd {
 	if !m.review.Open || id == "" || id == m.review.SessionID {
 		return nil
 	}
+	sess, _ := m.session(id)
 	m.review = ReviewPane{
 		Open: true, Focused: m.review.Focused, SessionID: id, View: keptView(m.review.View),
+		// The tracker is the project's, not the session's: moving along the
+		// sidebar inside one project keeps its list and its cursor, and moving
+		// to another project re-points it (#396).
+		Tracker: keptTracker(m.review.Tracker, sess.Project),
+	}
+	if m.review.View == ViewTracker {
+		return m.readTracker(m.review.Tracker.Project)
 	}
 	return tea.Batch(m.loadDiff(id), m.loadFiles(id))
 }
 
-// keptView is the view a column carries to another session.
+// keptView is the view a column carries to another session, and the view its
+// own leader key toggles: a child view degrades to its parent, so ctrl+o f over
+// a preview and ctrl+o i over an item both close the column (#124, #397).
 func keptView(v ReviewView) ReviewView {
-	if v == ViewPreview {
+	switch v {
+	case ViewPreview:
 		return ViewTree
+	case ViewTrackerItem:
+		return ViewTracker
 	}
 	return v
 }

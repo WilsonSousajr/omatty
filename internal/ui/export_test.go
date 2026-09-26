@@ -237,6 +237,21 @@ func (m *Model) PollPRs() tea.Cmd                { return m.pollPRs() }
 func (m *Model) PRsOf(project string) []forge.PR { return m.prs[project] }
 func (m *Model) PRFailed(project string) bool    { return m.prFailed[project] }
 
+// PollIssues is one issue tick without the tick that re-arms it, IssuesOf what
+// the model holds for a project and IssuesFailed whether its last poll failed
+// (#394).
+func (m *Model) PollIssues() tea.Cmd                   { return m.pollIssues() }
+func (m *Model) IssuesOf(project string) []forge.Issue { return m.issues[project] }
+func (m *Model) IssuesFailed(project string) bool      { return m.issueFailed[project] }
+
+// FitCounts is the header's rule for counts that will not fit beside a name
+// (#395), asserted directly because the sidebar is 28 cells and a repository
+// with four-digit counts cannot be built out of a fixture.
+func FitCounts(parts []string) string { return fitCounts(parts) }
+
+// TrackerRowCount is how many rows the tracker draws, the rule included (#396).
+func (m *Model) TrackerRowCount() int { return len(m.trackerRows()) }
+
 // DiffSeq and TurnSeq are the latest load's numbers, so a test that hands in
 // a loaded diff of its own stamps it as the answer to that load (#352).
 func (m *Model) DiffSeq() uint64 { return m.diffSeq }
