@@ -98,26 +98,27 @@ func gateWindowOffset(offset, lines, h int) int {
 // (#447: it was the one face whose rows ignored h and l) and with the cursor's
 // row in reverse video (#424).
 func (m *Model) gateView(report gate.Report, h int) []string {
-	lines := m.gateLines(report)
-	off := gateWindowOffset(m.review.GateOffset, len(lines), h)
+	plain, styled := m.gateLines(report), m.gateLinesWith(report, m.glyphs.cell)
+	off := gateWindowOffset(m.review.GateOffset, len(plain), h)
 	cursor, w := -1, reviewContentWidth(m.width)
 	if spans := m.gateSpans(report); m.review.GateCursor < len(spans) {
 		cursor = spans[m.review.GateCursor].start
 	}
 	out := make([]string, 0, h)
-	for i, line := range window(lines, off, h) {
-		out = append(out, m.gateRow(line, off+i == cursor, w))
+	for i := off; i < min(off+h, len(plain)); i++ {
+		out = append(out, m.gateRow(plain[i], styled[i], i == cursor, w))
 	}
 	return out
 }
 
-// gateRow is one drawn line of the gate, panned and fitted to the column.
-func (m *Model) gateRow(line string, cursor bool, w int) string {
-	row := m.fitContent(line, w)
+// gateRow is one drawn line of the gate, panned and fitted to the column: its
+// verdict coloured (#425), or plain in reverse video on the cursor row, where a
+// colour run inside would end the reverse part-way along it.
+func (m *Model) gateRow(plain, styled string, cursor bool, w int) string {
 	if cursor {
-		return cursorStyle.Render(row)
+		return cursorStyle.Render(m.fitContent(plain, w))
 	}
-	return row
+	return m.fitStyled(styled, w)
 }
 
 // pageGate moves the gate by delta presses of j or k, bounded by how many

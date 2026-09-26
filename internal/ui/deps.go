@@ -78,7 +78,10 @@ type Deps struct {
 	// GateAuto runs a session's gate when its turn ends. Off by default: a
 	// test suite on every idle costs real time, so it is asked for (#233).
 	GateAuto bool
-	Clock    func() time.Time
+	// NerdIcons draws every state mark in the Nerd Font set, for
+	// [ui] icons = "nerd"; plain Unicode otherwise (#425).
+	NerdIcons bool
+	Clock     func() time.Time
 	// SpinTick schedules the spinner's next frame (#412). Nil is tea.Tick; a
 	// test passes one that answers at once, since test helpers run every
 	// command they are handed and a real tick is a real 100 ms wait.

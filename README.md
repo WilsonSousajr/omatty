@@ -329,7 +329,16 @@ auto = false               # run a session's gate when its turn ends
 [sessions]
 lazy_start = true          # at boot, start only sessions dtach still holds; enter starts the rest
 idle_stop = "0"            # stop a session quiet this long, keeping it; "0" is off
+
+[ui]
+icons = "plain"            # "nerd" draws every state mark with a Nerd Font's icons
 ```
+
+`ui.icons` is `"plain"` unless you ask: a Nerd Font glyph in a terminal without
+one is a box, which is worse than no icon. Set `"nerd"` if your terminal font is
+a Nerd Font and every state mark - a gate step's verdict, a card's gate strip, a
+pull request's CI - switches to its icon at once. Any other value is refused at
+startup, naming the key.
 
 `sessions.lazy_start` is on because every `claude` costs a few hundred MB
 before its first turn, and a boot that started all of them paid that for

@@ -422,7 +422,8 @@ func TestModel_foldingShutFromDeepInTheOutputShowsTheStep_issue421(t *testing.T)
 
 	press(m, special(13)) // fold it shut again
 
-	if body := m.View().Content; !strings.Contains(cursorRow(m), "✗ fmt") || !strings.Contains(body, "✓ vet") {
+	// Unstyled: since #425 a verdict off the cursor row is coloured.
+	if body := stripSGR(m.View().Content); !strings.Contains(cursorRow(m), "✗ fmt") || !strings.Contains(body, "✓ vet") {
 		t.Errorf("after folding shut, the pane should show both steps with the cursor on fmt:\n%s", body)
 	}
 }

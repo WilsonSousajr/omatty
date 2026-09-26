@@ -60,24 +60,17 @@ func (m *Model) prLabel(pr forge.PR, project string) string {
 	case pr.State == forge.Closed:
 		return label + " closed"
 	}
-	if mark := ciMark(pr); mark != "" {
+	if mark := m.ciMark(pr); mark != "" {
 		return label + " " + mark
 	}
 	return label
 }
 
-// ciMark is one cell by precedence: failing, then conflict or behind, then
-// running, then passing; nothing when the pull request has no checks.
-func ciMark(pr forge.PR) string {
-	switch {
-	case pr.CI == forge.CIFailing:
-		return "✗"
-	case pr.Conflict:
-		return "⚠"
-	case pr.CI == forge.CIRunning:
-		return "◍"
-	case pr.CI == forge.CIPassing:
-		return "✓"
+// ciMark is the pull request's CI as one uncoloured cell (ciState's
+// precedence), or nothing when it has no checks.
+func (m *Model) ciMark(pr forge.PR) string {
+	if s, ok := ciState(pr); ok {
+		return m.glyphs.mark(s)
 	}
 	return ""
 }

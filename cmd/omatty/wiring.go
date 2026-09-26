@@ -145,6 +145,7 @@ func withTableDeps(deps ui.RunDeps, cfg config.Config) ui.RunDeps {
 	deps.GateParallel, deps.GateAuto = cfg.Gate.MaxParallel, cfg.Gate.Auto
 	deps.LazyStart = cfg.Sessions.LazyStart
 	deps.IdleStop = time.Duration(cfg.Sessions.IdleStop)
+	deps.NerdIcons = cfg.UI.Icons == config.IconsNerd
 	return deps
 }
 
