@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 
@@ -137,22 +138,28 @@ func TestHeader_TheStateSpinsWhileWorking_issue410(t *testing.T) {
 	}
 }
 
-// The heartbeat runs at spinner speed only while something spins: an idle
-// omatty must tick exactly as it did before (M13).
+// The screen redraws at spinner speed only while something spins: an idle
+// omatty must tick exactly as it did before (M13). #412 moved the fast frames
+// from the heartbeat to a spin tick of their own, so this asserts that the
+// spin tick is armed while a session works, re-arms on each step, and stops
+// once the turn ends.
 func TestTick_RunsAtSpinnerSpeedOnlyWhileASessionSpins_issue410(t *testing.T) {
 	now := fixedNow
 	terms, _ := fakeTerms(t)
 	m := modelAt(t, &now, terms)
-	if got := m.TickInterval(); got != time.Second {
-		t.Fatalf("idle tick every %v, want 1s", got)
+	m.Update(ui.TickMsg(fixedNow))
+	if m.SpinArmed() {
+		t.Fatal("idle, a spin tick is armed; omatty would redraw ten times a second for nothing")
 	}
 	status(m, "s1", watcher.PromptSubmitted, fixedNow)
-	if got := m.TickInterval(); got != ui.SpinEvery() {
-		t.Errorf("tick every %v while a session works, want %v", got, ui.SpinEvery())
+	m.Update(ui.SpinTickMsg(fixedNow))
+	if !m.SpinArmed() {
+		t.Error("a spin step while a session works did not re-arm the spin tick")
 	}
 	status(m, "s1", watcher.TurnEnded, fixedNow.Add(time.Second))
-	if got := m.TickInterval(); got != time.Second {
-		t.Errorf("tick every %v after the turn ended, want 1s", got)
+	m.Update(ui.SpinTickMsg(fixedNow))
+	if m.SpinArmed() {
+		t.Error("the spin tick re-armed after the turn ended")
 	}
 }
 
@@ -165,8 +172,8 @@ func TestTick_AStoppedWorkingSessionDoesNotHoldTheFastTick_issue410(t *testing.T
 	m := modelAt(t, &now, terms)
 	status(m, "s2", watcher.PromptSubmitted, fixedNow)
 
-	if got := m.TickInterval(); got != time.Second {
-		t.Errorf("tick every %v for a stopped working session, want 1s", got)
+	if m.SpinArmed() {
+		t.Error("a stopped working session armed the spin tick")
 	}
 }
 
@@ -179,5 +186,41 @@ func TestCard_LineTwoGivesTheBranchTwentyThreeColumns_issue410(t *testing.T) {
 
 	if got := stripSGR(m.CardOf("s1")[1]); !strings.Contains(got, branch) {
 		t.Errorf("line two %q does not hold the %d-column branch %q", got, len(branch), branch)
+	}
+}
+
+// Regression, #412: #410 sped the heartbeat up only when it scheduled the
+// next tick, so a session that started working waited out the one-second
+// tick already pending - a still glyph for up to a second - before it
+// turned. The message that makes a session spin must start the spin itself.
+func TestSpin_TheStatusThatStartsWorkStartsTheSpin_issue412(t *testing.T) {
+	now := fixedNow
+	terms, _ := fakeTerms(t)
+	m := modelAt(t, &now, terms)
+
+	status(m, "s1", watcher.PromptSubmitted, fixedNow)
+
+	if !m.SpinArmed() {
+		t.Error("a session started working and no spin tick was armed; it waits for the heartbeat")
+	}
+}
+
+// The other way a session starts spinning is without a status at all: a
+// session stopped mid-turn keeps "thinking" (#318) and does not spin, and
+// resuming it gives it a process. The spin starts on that keypress too, not
+// on the next heartbeat (#412).
+func TestSpin_ResumingASessionMidTurnStartsTheSpin_issue412(t *testing.T) {
+	r := newStopRig(t)
+	status(r.m, "s1", watcher.PromptSubmitted, fixedNow)
+	r.stop()
+	r.m.Update(ui.SpinTickMsg(fixedNow))
+	if r.m.SpinArmed() {
+		t.Fatal("a stopped session still holds the spin tick")
+	}
+
+	pressAndSettle(r.m, special(tea.KeyEnter))
+
+	if !r.m.SpinArmed() {
+		t.Error("resuming a session mid-turn armed no spin tick; it waits for the heartbeat")
 	}
 }
