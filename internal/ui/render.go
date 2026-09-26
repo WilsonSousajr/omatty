@@ -392,8 +392,8 @@ func joinEnds(left, right string, width int) string {
 // footerKeys is the keymap for whatever has focus. A modal surface comes
 // first: while one is open its keys are the only ones that do anything.
 func (m *Model) footerKeys() []footerKey {
-	if s := modalFooter(m.modal); s != "" {
-		return []footerKey{{s, keepKey}}
+	if keys, ok := m.overridingKeys(); ok {
+		return keys
 	}
 	if !m.reviewOwnsKeys() {
 		return footerKeysFor(m.leader)
