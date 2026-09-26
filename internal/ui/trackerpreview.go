@@ -43,8 +43,11 @@ func (m *Model) trackerListWidth() int {
 // panWidth is the width h and l pan against: the list's while it shares the
 // column, so the clamp reaches the end of a title in the narrower list.
 func (m *Model) panWidth() int {
-	if m.review.View == ViewTracker {
+	switch m.review.View {
+	case ViewTracker:
 		return m.trackerListWidth()
+	case ViewDiff:
+		return m.diffBodyWidth(m.columnWidth()) // beside its file list (#437)
 	}
 	return m.columnWidth()
 }
