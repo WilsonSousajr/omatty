@@ -93,7 +93,7 @@ func (m *Model) readyToShip(id string) bool {
 	if !polled || stat.Added+stat.Removed == 0 {
 		return false
 	}
-	return atRest(m.status[id].Status)
+	return atRest(m.reportedStatus(id))
 }
 
 // reportedStatus is a session's status with an unreported one read as idle,

@@ -53,6 +53,7 @@ var leaderKeys = []keyHelp{
 	{"r", "restart a crashed session"},
 	{"s", "stop the session's process, keeping it; enter resumes it"},
 	{"u", "put the session's worktree back to the start of its last turn"},
+	{"p", "ship a green session: push and open its pull request, or merge a green one"},
 	{"d", "open or close the diff pane"},
 	{"f", "open or close the file tree"},
 	{"g", "open or close the gate pane"},

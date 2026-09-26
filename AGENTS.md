@@ -57,7 +57,8 @@ internal/
 ├── registry/       projects + sessions + state.json.
 ├── agent/          the agent seam (#46): a command template plus a status adapter.
 ├── vcs/            OUR interface over the git CLI (invariant 4).
-├── forge/          OUR interface over the gh CLI: pull requests and CI, read-only (#310).
+├── forge/          OUR interface over the gh CLI: pull requests, CI and issues,
+│                read on a timer; written only on a keypress (#310, #331).
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
 ├── detach/         [M6] OUR interface over the dtach CLI (invariant 4).
@@ -197,8 +198,9 @@ not in the gate.
   from `detach`, `forge`, `gate`, `golist`, `notify`, `supervisor`,
   `termwrap` and `vcs`, and nowhere else in production code. `termwrap` is on that list because it names
   `*exec.Cmd` in a signature without ever constructing one - a distinction
-  depguard cannot draw. `forge` joined for #310 as omatty's one reader of the
-  forge, through `gh`. Adding a ninth package is a decision, so
+  depguard cannot draw. `forge` joined for #310 as omatty's one route to the
+  forge, through `gh` - reading on a timer, and since #331 writing on a
+  keypress. Adding a ninth package is a decision, so
   `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
   in both `.golangci.yml` and here.
 - **Depend in the direction of stability.** For every edge A -> B,

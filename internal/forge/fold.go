@@ -1,6 +1,13 @@
-// Package forge is omatty's interface over the gh CLI (#310): it reads a
-// repository's pull requests and their CI, and nothing else. Read-only by
-// design - acting on a pull request is a different decision (#331).
+// Package forge is omatty's interface over the gh CLI (#310): a repository's
+// pull requests and their CI, its open issues, one item in full - and, since
+// #331, the three writes a ship key makes.
+//
+// Read-only *by default*, which is a weaker claim than the one this package
+// carried until #331 and the honest one now. It reads on a timer and writes only
+// when somebody presses a key: opening a pull request, merging one that is
+// already green on both sides, and reading whether a branch is protected in
+// order to refuse. Everything else about the forge is still refused - no
+// comment, no close, no label, no review.
 //
 // It is to gh what internal/vcs is to git (invariant 4 in spirit): the one
 // package that runs the binary, so the rest of omatty sees typed values and

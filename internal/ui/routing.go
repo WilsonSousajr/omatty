@@ -226,6 +226,8 @@ func (m *Model) lifecycleCommand(key string) (tea.Cmd, bool) {
 		return m.stopSelected(), true
 	case "u":
 		return m.askRevert(), true
+	case "p":
+		return m.shipSelected(), true
 	}
 	return nil, false
 }
