@@ -384,6 +384,13 @@ message and explain why the behaviour it asserted was never correct.
   e.g. `feat(#12): tail session JSONL for status events`
 - **PR titles use the same pattern**; the body links the issue and states what
   changed, why, and how it was verified.
+- **Never put a session URL anywhere.** Not in a commit message, a pull request,
+  an issue, or a comment - no `Claude-Session:` trailer, no "generated with"
+  footer carrying one. This is a public repository and the history is the
+  record; a link to an agent transcript cannot be reviewed, means nothing to
+  anyone who cannot open it, and outlives its usefulness in `git log`.
+  `Co-Authored-By:` stays: that names who wrote the code, which is what
+  attribution is for.
 - **Every bug found gets an issue and a regression test**, even if you fix it
   immediately. Label the issue `regression`; follow the procedure under
   "Every bug gets a regression test" above.
