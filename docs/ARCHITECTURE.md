@@ -113,7 +113,8 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
 | `internal/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
 | `internal/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. |
-| `internal/forge` | omatty's only route to the `gh` CLI: a project's pull requests, its open issues, one item in full, and `gh browse`. Read-only on the forge (#310, #394, #397). |
+| `internal/tally` | A project's gate counters and its pull requests → lead time and first-pass rate. Pure; no I/O (#332). |
+| `internal/forge` | omatty's only route to the `gh` CLI: a project's pull requests, its open issues, one item in full, `gh browse` — all read on a timer — and the three writes the ship key makes, only on a keypress (#310, #394, #397, #331). |
 | `internal/gate` | A project's own verification commands, run in a session's directory. Verdicts come from exit status only (invariant 12). |
 | `internal/highlight` | omatty's only route to the syntax highlighter (chroma), with omatty's own colour style (#197). |
 | `internal/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
@@ -257,13 +258,13 @@ nothing depends on.
 
 | Package | Ca | Ce | I |
 |---|---|---|---|
-| `internal/ui` | 0 | 14 | 1.00 |
+| `internal/tally`, `internal/ui` | 0 | 2, 14 | 1.00 |
 | `internal/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
 | `internal/supervisor` | 1 | 5 | 0.83 |
 | `internal/review` | 1 | 3 | 0.75 |
 | `internal/agent` | 2 | 3 | 0.60 |
 | `internal/detach`, `watcher` | 1–3 | 1–3 | 0.50 |
-| `internal/registry` | 4 | 3 | 0.43 |
+| `internal/registry` | 5 | 3 | 0.38 |
 | `internal/paths` | 6 | 0 | 0.00 |
 | `internal/forge`, `gate`, `golist`, `hooks`, `termwrap`, `vcs`, `fuzzy` | 1–2 | 0 | 0.00 |
 | `internal/coverage` | 2 | 0 | 0.00 |
@@ -271,8 +272,16 @@ nothing depends on.
 
 The chain reads as a clean monotonic descent —
 `cmd → ui → supervisor → agent → watcher → registry → {gate, paths, vcs}` — so
-the Stable Dependencies Principle holds with **0 violations over 38 edges**, the
-tightest being `watcher → registry` at **+0.071**. `internal/forge` is a stable
+the Stable Dependencies Principle holds with **0 violations over 40 edges**, the
+tightest being `agent → watcher` at **+0.100**.
+
+`internal/tally` (#332) is a leaf nothing depends on, importing `registry` and
+`forge` to turn a project's counters and its pull requests into two numbers. It
+is its own package for a reason worth recording: in `registry` it would have
+added `registry → forge` and taken registry's own instability up, tightening
+every edge into it; in `gate` it would have given a deliberate stable leaf its
+first outward import. As a leaf at I=1.00 it depends only downwards and pins
+nothing. `internal/forge` is a stable
 leaf like `vcs`: `ui` is its only importer, which is what keeps `gh` inside one
 package we own.
 

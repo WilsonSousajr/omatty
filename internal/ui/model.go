@@ -63,6 +63,8 @@ type Model struct {
 	diff        DiffFunc
 	files       ListFilesFunc
 	generatedFn GeneratedFunc
+	ship        ShipFuncs
+	tally       TallyFunc
 	preview     PreviewFunc
 	rename      RenameFunc
 	rebind      RebindFunc // follows a /clear onto its new conversation (#316)
@@ -158,6 +160,9 @@ type Model struct {
 	// generated is, per session, which of its files nobody wrote (#338).
 	// Display-only and never persisted, like reviewed above it.
 	generated map[string]map[string]bool
+	// turnGated marks the sessions whose gate run was started by a turn
+	// ending rather than by hand, which is the set #332's rate is over.
+	turnGated map[string]bool
 	// reattached is Deps.Reattached: the panes to nudge once at boot (#191).
 	reattached map[string]bool
 	// The archive path's three halves: forget the session, stop its tailer,
@@ -237,7 +242,7 @@ func NewModel(deps Deps) *Model {
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
-	m.generatedFn = d.Generated
+	m.generatedFn, m.ship, m.tally = d.Generated, d.Ship, d.Tally
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse = d.PRs, d.Issues, d.Item, d.Browse
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
@@ -287,6 +292,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
+	m.turnGated = map[string]bool{}
 	return m.withReviewMaps().withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
 }
 
@@ -525,11 +531,23 @@ func (m *Model) onStreamMsg(msg tea.Msg) (tea.Cmd, bool) {
 	case coverageMsg:
 		m.onCoverage(typed)
 		return nil, true
+	}
+	return m.onColumnMsg(msg)
+}
+
+// onColumnMsg is what the review column's own work reports back: a
+// classification (#338), a revert (#334) and a ship (#331). A table of its own
+// because onStreamMsg was already at the statement limit, and these three share
+// a subject - the same argument that split onStreamMsg off onDataMsg.
+func (m *Model) onColumnMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
 	case generatedMsg:
 		m.onGenerated(typed)
 		return nil, true
 	case RevertedMsg:
 		return m.onReverted(typed), true
+	case ShippedMsg:
+		return m.onShipped(typed), true
 	}
 	return nil, false
 }

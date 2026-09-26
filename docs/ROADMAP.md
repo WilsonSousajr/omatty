@@ -38,6 +38,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M14 | The Tracker | **Done.** Seven slices #393-#399 built 2026-09-25 as PRs #400-#406. Released in v0.5.0. |
 | — | **Released** | **v0.5.0**, 2026-09-26. M14 promoted to `main` (#407). See "Releases". |
 | M15 | The Polish | **Planned** 2026-09-26: three bugs and sixteen slices, #421-#439, in Sprint Backlog. See the M15 section. |
+| M16 | The Forges | **Planned** 2026-09-26: GitLab, Azure DevOps, Gitea/Forgejo/Codeberg and Bitbucket at GitHub's parity, #449-#465, in Backlog. See the M16 section. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -972,6 +973,30 @@ own CHANGELOG section (#327). A pull request already checks the release
 configuration and builds it as a snapshot, so a tag cannot be the first thing
 to find it broken.
 
+**When a release happens: at every milestone close** (#329). This section and
+AGENTS.md said *how* for three weeks and never *when*, and with "no version
+bump and no release tag without explicit approval" standing over them, the
+default was that nothing shipped - v0.1.0 took nine days of finished
+milestones to arrive, and twelve days after it five more were waiting on
+`develop` (#328). Merges already ran on a standing approval granted per
+milestone; releases had no equivalent, so each one depended on somebody
+remembering to ask.
+
+So closing a milestone now *includes* its promotion pull request and its tag,
+under the same standing approval as that milestone's merges. The release is
+part of finishing the work.
+
+**A floor, not a ceiling.** A milestone close must produce a release; a release
+does not require one. v0.1.0, v0.2.0 and v0.5.0 went out at milestone closes;
+v0.3.0 and v0.4.0 went out in the middle of M12, because a verification core
+and a close-out were each worth having on `main` before the milestone around
+them finished. Both stay allowed and both stay asked about.
+
+**The checks did not move.** The gate above is exactly the same gate - CI green
+on both runners plus the smoke test a person reads. #329 was a question about
+the trigger, and the reason to settle it in writing is that a decision made by
+default, once per release, is the one that quietly stops being made at all.
+
 Below 1.0 the `ctrl+o` key table, `~/.omatty/config.toml` keys and the
 `state.json` schema are explicitly not frozen; the embedded terminal library
 underneath is itself pre-1.0 (invariant 4). A break in any of them is a minor
@@ -1302,6 +1327,10 @@ project holding no sessions.
 history the forge already keeps; search across repositories; and a `[forge]`
 config section - the poll is zero-config, as #310's is.
 
+*Amended by M16 (#451):* `[forge.hosts]` exists only to name a self-hosted
+forge omatty cannot recognise by its host. The poll stays zero-config for
+every host omatty already knows.
+
 ## M15 - The Polish
 
 **Delivers:** the review column's four faces and the help modal read as one
@@ -1386,6 +1415,70 @@ second pane. The smoke run is read by a person at both sizes, and it includes
 #337, #338 and #339 stay M12. #436 and #437 are built so as not to preclude
 #337.
 
+## M16 - The Forges
+
+**Delivers:** every forge omatty's users are on, at the parity GitHub has
+today. That means GitLab (gitlab.com and self-managed), Azure DevOps (Services
+and Server), Gitea, Forgejo and Codeberg, and Bitbucket (Cloud and Data
+Center). Each gets open PRs (MRs) with a CI rollup on the card, open issues
+(work items) in the tracker, an item's body and comments, and browse.
+Design: `docs/superpowers/specs/2026-09-26-omatty-m16-forges-design.md` (#448).
+
+**Why here.** #310 and M14 made the forge part of the window, but only for
+GitHub. Everyone else gets "not on GitHub" and a browser tab. The seam already
+exists: the UI depends on four func types, not on `gh`. So widening
+`internal/forge` behind a router touches one package and the wiring, not the
+UI.
+
+**Decided with the user:**
+
+- **Transport is CLI first, REST fallback.** omatty runs `glab`, `az` or `tea`
+  on the operator's own auth when it is installed. Otherwise it calls REST
+  with a token read from the environment per call and never stored. Bitbucket
+  has no official CLI, so it is REST only.
+- **Boards are out**, GitHub Projects included. M16 is issues and PRs.
+- **Every slice sits in Backlog.** M16 is designed, not scheduled.
+
+**The foundation** comes first, and GitHub is the first backend:
+
+- **#449:** a forge-neutral vocabulary: `MissingToolError`, `ErrNoForge`, and
+  the PR/MR noun in the copy.
+- **#450:** read the remote (`vcs.RemoteURL`) and name its forge from the
+  host.
+- **#451:** `[forge.hosts]` names self-hosted forges, which also covers
+  GitHub Enterprise.
+- **#452:** `forge.Router` dispatches per project to an unexported backend,
+  and every forge CLI is fenced to `internal/forge`.
+- **#453:** the REST transport: bounded bodies, redacted tokens, and a
+  `net/http` fence. Labelled `invariant`.
+
+**Then a backend per forge,** CLI then REST: GitLab (#454, #455), Azure DevOps
+(#456, #457), Gitea/Forgejo (#458, #459), Bitbucket Cloud and Data Center (#460,
+#461), and GitHub's own REST fallback (#462).
+
+**Then the close-out:** a real probe per forge (#463), #331's ship actions on
+every forge once #331 ships (#464), and a support matrix that claims only what
+the probes showed (#465).
+
+**Why one package and not one per forge.** A package per forge would add five
+`os/exec` importers to an allowlist where adding one "is a decision", and
+would make `ui` choose between five packages. One package with a backend file
+per forge is how the agent seam grows (#46).
+
+**Invariants held.** git stays in `vcs` and every forge CLI stays in `forge`
+(invariant 4). Nothing is persisted, and a project's forge is derived from its
+remote (invariant 9). M16 adds no forge write, and #464 only carries #331's
+bounded three.
+
+**Done when:** a project on each of the five forges shows its PRs with CI on
+the card and its issues in `ctrl+o i`, through both the CLI and the REST path.
+Each is verified by a real `forgeprobe` run read by a person (#463). Any forge
+not probed is named as untested, not claimed.
+
+**Deliberately out:** boards on every forge; Jira; forge writes beyond #331;
+OAuth, device flow, or any login or token store in omatty; several remotes per
+project; per-check CI detail; SourceHut, Gerrit, Phabricator and CodeCommit.
+
 ## Not on the roadmap
 
 Considered and cut, so they do not creep back in through the side door.
@@ -1420,14 +1513,15 @@ one argued from principle alone:
 | Merging when the checks go green | GitHub's own auto-merge, and every CI service with a merge queue | The same step as Orca #10131 one row up, arrived at from the other side: it acts because a check changed, with nobody reading. #331's ship key merges only what is *already* green, on a keypress, and refuses otherwise. Auto-merge is a real feature and a reasonable thing to want - it belongs on the forge, which has it, not inside a tool whose whole claim is that it only ever acts while you are watching. |
 
 **Reading a pull request's state is not "cloud, accounts, sync"** (#310).
-omatty runs the operator's own `gh`, read-only, holds no token of its own, makes
-one call per project and none while it is in the background. It writes nothing
-to the forge: acting on a pull request - pushing, opening, merging - is a
-separate decision (#331), taken when it is proposed, not by this one. It has
-since been proposed, and the paragraph below takes it.
+omatty runs the operator's own `gh`, holds no token of its own, makes one call
+per project and none while it is in the background. Acting on a pull request -
+pushing, opening, merging - was a separate decision (#331), taken when it was
+proposed rather than by this one. It has since been proposed, taken by the
+paragraph below, and **built**: `ctrl+o p`, one session, one keypress. Reading
+still happens on a timer; writing happens only when somebody presses that key.
 
-**Acting on a pull request: decided 2026-09-25 (#331).** It is accepted,
-bounded to what a person asks for while reading:
+**Acting on a pull request: decided 2026-09-25, built 2026-09-26 (#331).** It is
+accepted, bounded to what a person asks for while reading:
 
 - **Push the branch and open the pull request**, and **merge one whose local
   *and* remote verdicts are already green**. Otherwise do nothing and say which
@@ -1447,6 +1541,13 @@ bounded to what a person asks for while reading:
 Using the operator's existing `git` remote and `gh` auth is not "cloud,
 accounts, sync" - there is no account, no token and no sync. It is the
 credential the operator already uses by hand, on a keypress they pressed.
+
+*Amended by M16 (#453):* when a forge's CLI is absent, omatty may read a
+token the operator already put in the environment (`GITLAB_TOKEN`,
+`GH_TOKEN`, ...), per call. It still **stores** no token: nothing is written
+to config, `state.json` or a log, there is no login and no account, and
+nothing syncs. "Holds no token" above now reads "stores no token". The
+refusal of cloud, accounts and sync is unchanged.
 
 One idea found in the field is **not** refused, only unanswered: **forking a
 session's conversation** (`fleet`'s `f`). Invariant 9 asks the first question —
@@ -1492,4 +1593,6 @@ faster pair.
    AGENTS.md says so in its commit message.
 5. **A milestone ends on `develop`; a release ends on `main`.** The promotion
    is a PR clearing rule 2's gate, and it is tagged. See "Releases". #134 is
-   what nine days without this rule cost.
+   what nine days without this rule cost. And closing a milestone *includes*
+   that promotion and that tag (#329) - a milestone is not finished while its
+   work is only on `develop`.

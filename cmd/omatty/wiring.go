@@ -85,6 +85,20 @@ func turnFuncs(src *review.Source) ui.TurnFuncs {
 	}
 }
 
+// shipFuncs is #331's push, open and merge: git for the worktree and the push,
+// gh for the pull request. omatty's first write to the forge, and it happens only
+// on a keypress, on one session, after a person has read the verdict.
+func shipFuncs(src *review.Source, git *vcs.CLI) ui.ShipFuncs {
+	gh := forge.NewCLI()
+	return ui.ShipFuncs{
+		Shippable:       src.Shippable,
+		Push:            git.Push,
+		CreatePR:        gh.CreatePR,
+		MergePR:         gh.MergePR,
+		BranchProtected: gh.BranchProtected,
+	}
+}
+
 // tuiDeps wires the TUI's dependencies: the launcher, the terminal factory,
 // and the typed functions that reach git and the registry on ui's behalf,
 // because ui may do neither itself (invariants 4 and 10).
@@ -106,7 +120,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Stat:      src.Stat,
 		Turn:      turnFuncs(src),
 		Files:     git.ListFiles,
-		Generated: src.Generated,
+		Generated: src.Generated, Ship: shipFuncs(src, git),
 	}
 	return withStoreDeps(withTableDeps(withForgeDeps(deps), env.Cfg), store, home, git)
 }
@@ -171,7 +185,15 @@ func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui
 	deps.Archive = sessionArchiver(store)
 	deps.RemoveWorktree = git.RemoveWorktree
 	deps.RemoveProject = projectRemover(store)
+	deps.Tally = gateTallier(store)
 	return deps
+}
+
+// gateTallier adapts registry.TallyGateRun to ui.TallyFunc (#332).
+func gateTallier(store *registry.Store) ui.TallyFunc {
+	return func(project string, passed bool) error {
+		return registry.TallyGateRun(store, project, passed)
+	}
 }
 
 // projectRemover adapts registry.RemoveProject to ui.RemoveProjectFunc (#159).
