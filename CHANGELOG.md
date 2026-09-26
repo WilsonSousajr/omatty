@@ -11,6 +11,85 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.6.0] — 2026-09-26
+
+M12 finishes what its research asked for, and the review column starts
+remembering things. It knows which files you have read and says when one changes
+under you; it folds away the files nobody wrote; it takes more than one comment
+on a line, and comments on part of one. A session can be put back to the start
+of its last turn, and a green one can be shipped — pushed, opened as a pull
+request, and merged when both verdicts are already green — from the card you read
+it on. M15's first eleven slices come with it.
+
+### Added
+
+- **Per-file reviewed, and changed since reviewed** (#337). `v` in the tree
+  marks a file read: it keeps a `✓` and goes quiet until its diff changes, then
+  reads `~`. The identity compared is the file's diff *content* — the agent
+  rewrites files while you read them, so a timestamp only says something was
+  written.
+- **Generated files folded out of the review queue** (#338). Lockfiles,
+  `coverage/`, protobuf stubs and anything the repository's own `.gitattributes`
+  marks `linguist-generated`, detected in that order. `g` brings them back, the
+  title says how many are withheld, and the coverage markers leave them alone —
+  a generated file has no test and never will.
+- **Several comments on one line, and comments on part of a line** (#339). All
+  of them are shown, numbered and sent; `C` collects the words the note is about
+  and the message says `about: "…"`. The fragment is text, not a column range,
+  and it is not part of the anchor — invariant 7 keeps the line's identity to
+  itself.
+- **Revert a session to the start of its last turn** (#334). `ctrl+o u`, after a
+  confirmation naming how many files go. It reuses #311's baseline, so it adds a
+  restore and no new state, and it leaves your index, HEAD and stash alone. A
+  gitignored file that existed before the turn — the `.env` the session needs —
+  is never touched.
+- **Ship a green session** (#331). `ctrl+o p` pushes the branch and opens its
+  pull request, or merges one whose local *and* remote verdicts are already
+  green. One keypress, one session, every time. Never when checks merely *go*
+  green, never a force-push, never a branch deletion, and never into a protected
+  branch.
+- **Lead time and first-pass gate rate** (#332). `omatty gate <project> --stats`:
+  session start to pull request merged, and the share of turn-following gate runs
+  that passed. Two numbers, local only, nothing leaves the machine.
+- **A recipe for an LLM audit as a gate step** (#333). `docs/llm-audit-gate.md`
+  and a working `docs/examples/audit.sh`, honest about non-determinism, cost and
+  the fact that the diff it reads is untrusted input.
+- **M15's first eleven** (#420–#429, #447): one list window for every face of the
+  column, one state vocabulary, chrome that names the face it is showing,
+  `ctrl+o z` to zoom, a gate face that reads like a CI check page, and `r` to
+  re-run it.
+- Issue templates and an announcement draft (#415, part of #330).
+
+### Changed
+
+- **A release happens at every milestone close** (#329), written into AGENTS.md
+  and the roadmap. A floor, not a ceiling: a release may still happen without
+  one. The checks did not move.
+- **The working glyph spins** and the activity lane is gone (#410, #412); the
+  branch gets the seven columns it cost.
+- `internal/forge` is no longer read-only. It reads on a timer and writes only on
+  a keypress — the three calls `ctrl+o p` makes, and nothing else.
+- **No session URL** in a commit, a pull request, an issue or a comment (#474).
+
+### Fixed
+
+- **The ship key shipped without a green gate** (#471). It guarded on a
+  predicate that checks three facts, none of them the gate: a project with no
+  gate configured, or one whose gate had failed, was pushed anyway. Found by the
+  real-binary smoke test, not by the suite.
+- **`git push` prompted for credentials over the TUI** (#472). git asks on the
+  controlling terminal, which is the one omatty draws on; it now fails into the
+  footer instead.
+- The gate view could not scroll or pan (#421, #447), the help modal omitted
+  whole faces' keys (#422), and the tracker's age was not at the right edge
+  (#423).
+
+### Schema
+
+`state.json` stays at version 1. `Session.Started` and a project's two gate
+counters are new and optional, with derivable empty values — the argument
+`Base`, `Agent` and `Gate` already make.
+
 ## [v0.5.0] — 2026-09-26
 
 The forge, read from inside the window. omatty could already tell you that this

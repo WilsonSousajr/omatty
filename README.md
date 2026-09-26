@@ -42,14 +42,15 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.5.0**, 2026-09-26 — the forge, read from inside the window. `ctrl+o i`
-shows a project's open issues and open pull requests, with the counts on every
-project's sidebar header; `enter` reads one in full; `n` turns the one you picked
-into a worktree session named and branched after it, and `a` types its reference
-into a running session's prompt without sending it. It reads the forge through
-your own `gh`, and writes to it only when you press `ctrl+o p`. Install
-with `brew install WilsonSousajr/tap/omatty` on macOS or a release archive on
-Linux; `CHANGELOG.md` has the whole list.
+**v0.6.0**, 2026-09-26 — the review column starts remembering things. `v` marks
+a file read and says `~` when its diff changes under you; the files nobody wrote
+are folded away; a line takes more than one comment, and `C` comments on part of
+one. `ctrl+o u` puts a session back to the start of its last turn, and `ctrl+o p`
+ships a green one — push, open the pull request, and merge it when your gate and
+the forge's checks are *both* already green. `omatty gate <project> --stats` is
+the only thing omatty measures about itself: lead time, and how often the gate
+passes first time. Install with `brew install WilsonSousajr/tap/omatty` on macOS
+or a release archive on Linux; `CHANGELOG.md` has the whole list.
 
 | Milestone | Delivers |
 |---|---|
@@ -64,9 +65,10 @@ Linux; `CHANGELOG.md` has the whole list.
 | **M9** The Gate | A project carries the check line that says whether work in it is sound. omatty runs it per session, shows the verdict on the card, and sends the failures back into the session. |
 | **M10** Coverage on the diff | Of the lines a session added, the ones no test covers, marked in the diff with a count per file — and a word on the title when a change brought no tests with it. |
 | **M11** The Harness | Nothing an operator sees: invariant 4's import boundaries, module hygiene, per-function C.R.A.P. and the package dependency structure become steps of this repository's gate that fail. |
-| **M12** The Field | What the rest of the field ships and why omatty declines most of it, researched at code level; then the verification core that came out of it — review scoped to the last turn, a session's pull request and CI on its card, and the files a new worktree needs. |
+| **M12** The Field | What the rest of the field ships and why omatty declines most of it, researched at code level; then everything that came out of it — review scoped to the last turn and to what you have read, generated files folded away, several comments on a line, a session put back to where its turn began, and a green one shipped from its card. |
 | **M13** Memory and idle CPU | Idle CPU cut by about 55%, and a per-session leak on archive fixed. |
 | **M14** The Tracker | A project's open issues and pull requests in the review column, read through your own `gh` and never written to: counts on every header, one item's body and comments on `enter`, and a worktree session named after the issue you picked. |
+| **M15** The Polish | The review column made worth living in: one list window and one state vocabulary across every face, chrome that names the face you are on, `ctrl+o z` to zoom it, and a gate face that reads like a CI check page. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
 pre-1.0, and the key table, `config.toml` keys and `state.json` schema are

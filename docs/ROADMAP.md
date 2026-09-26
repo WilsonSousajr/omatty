@@ -30,14 +30,15 @@ not only the coverage gate. See "Rules" at the end for why.
 | M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. Released in v0.2.0. |
 | M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. Released in v0.2.0. |
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. Released in v0.2.0. |
-| M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. Of what it produced, #310 and #311 are built and released in v0.3.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379); what is open is the milestone's open issues on the board, not a count here. |
+| M12 | The Field | **Done.** The research half is #295-#302, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`; the verification core (#310, #311, #335, #342) released in v0.3.0 and the close-out in v0.4.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379), and those built 2026-09-26 as #337, #338, #339, #334, #331, #332, #333 and #329, with #410/#412 and the two defects #471/#472 beside them. Released in v0.6.0. It deliberately leaves three, which keep the label: **#369** blocked upstream (goreleaser#6870/#6873), **#336** gated on upstream #315, **#330** waiting on people rather than code. |
 | M13 | Memory and idle CPU | **Done.** PR #314, merged 2026-09-22. Released in v0.2.0. |
 | — | **Released** | **v0.2.0**, 2026-09-22. M9-M11, M13 and the session lifecycle promoted to `main` (#328). See "Releases". |
 | — | **Released** | **v0.3.0**, 2026-09-25. M12's verification core (#311, #310, #335, #342), the release pipeline (#327) and the MIT license (#362). See "Releases". |
 | — | **Released** | **v0.4.0**, 2026-09-25. M12's close-out promoted to `main` (#390). See "Releases". |
 | M14 | The Tracker | **Done.** Seven slices #393-#399 built 2026-09-25 as PRs #400-#406. Released in v0.5.0. |
 | — | **Released** | **v0.5.0**, 2026-09-26. M14 promoted to `main` (#407). See "Releases". |
-| M15 | The Polish | **Planned** 2026-09-26: three bugs and sixteen slices, #421-#439, in Sprint Backlog. See the M15 section. |
+| M15 | The Polish | **In progress.** Planned 2026-09-26 as #420-#439. Eleven built the same day - the four bugs #421, #422, #423, #447 and #424-#429 - and released in v0.6.0; #430-#439 are still open. See the M15 section. |
+| — | **Released** | **v0.6.0**, 2026-09-26. M12's remainder and M15's first eleven promoted to `main` (#480). See "Releases". |
 | M16 | The Forges | **Planned** 2026-09-26: GitLab, Azure DevOps, Gitea/Forgejo/Codeberg and Bitbucket at GitHub's parity, #449-#465, in Backlog. See the M16 section. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
@@ -1010,6 +1011,7 @@ in a hurry to make it.
 | v0.3.0 | 2026-09-25 | M12's verification core (#311, #310, #335, #342), the release pipeline (#327), the MIT license (#362). The first release built by `release.yml`. (#364) |
 | v0.4.0 | 2026-09-25 | M12's close-out: `omatty carry` (#309), the pane's own text selection (#360), the hook path that survives a reinstall (#380), and the defects v0.3.0 surfaced. 19 issues. (#390) |
 | v0.5.0 | 2026-09-26 | M14 The Tracker: a project's open issues and pull requests in the review column, read through the operator's own `gh` and never written to (#393-#399). 15 commits. (#407) |
+| v0.6.0 | 2026-09-26 | M12's remainder - the review pane's memory (#337, #338, #339, #334), shipping and measuring a green session (#331, #332, #333), when a release happens (#329) - plus M15's first eleven (#420-#429, #447) and the M16 spec (#448). 25 issues. (#480) |
 
 ## M12 - The Field
 
