@@ -72,7 +72,7 @@ func TestModel_theHeaderShowsTheMarkerAndThePaneNamesTheProject_issue158(t *test
 
 	got := m.View().Content
 
-	if !strings.Contains(stripSGR(got), "▎wstech") {
+	if !strings.Contains(stripSGR(got), "▎ wstech") { // the rail, then #498's gutter
 		t.Errorf("the selected header carries no rail:\n%s", got)
 	}
 	if !strings.Contains(got, "no sessions in wstech - press ctrl+o n") {

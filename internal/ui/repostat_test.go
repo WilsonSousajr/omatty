@@ -121,7 +121,8 @@ func TestCard_LineTwoSharesTwentyThreeColumnsBetweenBranchAndDiffstat_issue180(t
 	} {
 		m.Update(ui.RepoStatMsg{SessionID: "s1", Stat: tt.stat})
 		line := []rune(stripSGR(m.CardOf("s1")[1])) // runes: the rail and the minus sign are multi-byte
-		if got := string(line[3 : 3+ui.MetaCols()]); got != tt.want {
+		start := 1 + ui.GutterCols() + 2            // the rail, the gutter (#498), the indent
+		if got := string(line[start : start+ui.MetaCols()]); got != tt.want {
 			t.Errorf("stat %+v: line two middle = %q, want %q (line %q)", tt.stat, got, tt.want, string(line))
 		}
 		if lipgloss.Width(m.CardOf("s1")[1]) != ui.SidebarWidth-1 {

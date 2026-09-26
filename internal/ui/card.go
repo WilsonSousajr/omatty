@@ -15,18 +15,28 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
 
-// The card's columns at SidebarWidth 28: 27 of content, the last one blank
-// so nothing touches the hairline. Line one spends the rail, the glyph, two
-// spaces, the age and the blank; the title gets 18, three more than #155's
-// fifteen. Line two spends the rail, two spaces and the blank; the branch and
-// the diffstat share the 23 between (#180). It was 16 until #410 gave the
-// activity lane's seven columns back to the branch.
+// The card's columns at SidebarWidth 29: 28 of content, the last one blank
+// so nothing touches the hairline, and gutterCols after the rail so nothing
+// touches the cursor bar either (#498). Line one spends the rail, the gutter,
+// the glyph, two spaces, the age and the blank; the title gets 18, three more
+// than #155's fifteen. Line two spends the rail, the gutter, two spaces and
+// the blank; the branch and the diffstat share the 23 between (#180). It was
+// 16 until #410 gave the activity lane's seven columns back to the branch.
+//
+// #498 widened the sidebar by exactly gutterCols, so both budgets are what
+// they were: the gutter is paid for out of the pane's column, never out of a
+// title or a branch.
 const (
 	cardCols  = sidebarContentCols
 	ageCols   = 4
-	titleCols = cardCols - 1 - 1 - 1 - 1 - ageCols - 1
-	metaCols  = cardCols - 1 - 2 - 1
+	titleCols = cardCols - 1 - gutterCols - 1 - 1 - 1 - ageCols - 1
+	metaCols  = cardCols - 1 - gutterCols - 2 - 1
 )
+
+// cardGutter is the blank column between the rail and a card's content. The
+// rail itself stays flush left: it is the cursor, and a cursor indented off
+// the edge it marks is not marking it (#498).
+var cardGutter = strings.Repeat(" ", gutterCols)
 
 // rail is the cursor: an accent bar down the left of both lines of the
 // selected card, the same idiom as the accent hairline on the keyboard owner
@@ -43,7 +53,7 @@ func (m *Model) renderRow(row Row, now time.Time) []string {
 	if row.Session == nil {
 		return []string{m.renderHeaderRow(row.Project)}
 	}
-	r := m.rail(m.isSelected(row.Session.ID))
+	r := m.rail(m.isSelected(row.Session.ID)) + cardGutter
 	id := row.Session.ID
 	return []string{
 		r + m.cardTop(row, now),
@@ -61,12 +71,12 @@ func (m *Model) renderRow(row Row, now time.Time) []string {
 // unknown counts promise.
 func (m *Model) renderHeaderRow(project string) string {
 	p, ok := m.sidebar.SelectedHeader()
-	rail := m.rail(ok && p == project)
+	rail := m.rail(ok && p == project) + cardGutter
 	counts := m.forgeCounts(project)
 	if counts == "" {
-		return rail + mutedStyle.Render(fitLine(project, cardCols-1))
+		return rail + mutedStyle.Render(fitLine(project, cardCols-1-gutterCols))
 	}
-	name := fitLine(project, cardCols-1-1-lipgloss.Width(counts))
+	name := fitLine(project, cardCols-1-gutterCols-1-lipgloss.Width(counts))
 	return rail + mutedStyle.Render(name+" "+counts)
 }
 
