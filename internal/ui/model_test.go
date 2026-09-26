@@ -3,6 +3,7 @@ package ui_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -33,7 +34,14 @@ func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap
 // baseDeps is the required half of ui.Deps with inert fakes; tests add the
 // optional fields they exercise.
 func baseDeps(st registry.State, terms map[string]termwrap.Terminal) ui.Deps {
-	return ui.Deps{State: st, Terms: terms, Create: noCreate, Start: noStart}
+	return ui.Deps{State: st, Terms: terms, Create: noCreate, Start: noStart, SpinTick: instantTick}
+}
+
+// instantTick is a ui.TickFunc that answers at once, at fixedNow. The helpers
+// that run a model's commands would otherwise wait out a real 100 ms spin
+// tick every time a test starts a turn (#412).
+func instantTick(_ time.Duration, fn func(time.Time) tea.Msg) tea.Cmd {
+	return func() tea.Msg { return fn(fixedNow) }
 }
 
 func modelWithFakes(t *testing.T) (*ui.Model, map[string]*termwrap.Fake) {
@@ -55,13 +63,15 @@ func pressAndSettle(m *ui.Model, k tea.KeyPressMsg) {
 }
 
 // settle runs cmd and feeds whatever it produces back into the model until
-// nothing is left, unwrapping batches the way the runtime does.
+// nothing is left, unwrapping batches the way the runtime does. A spin tick
+// is dropped rather than fed back: while a session works it re-arms on every
+// Update (#412), so "until nothing is left" would never come.
 func settle(m *ui.Model, cmd tea.Cmd) {
 	if cmd == nil {
 		return
 	}
 	switch msg := cmd().(type) {
-	case nil:
+	case nil, ui.SpinTickMsg:
 	case tea.BatchMsg:
 		for _, c := range msg {
 			settle(m, c)

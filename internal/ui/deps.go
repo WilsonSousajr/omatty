@@ -7,6 +7,8 @@ package ui
 import (
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -26,6 +28,11 @@ type CreateFunc func(project, title, branch string, worktree bool) (registry.Ses
 // so the model can start a session created at runtime without knowing how;
 // the size is a parameter so it is never frozen at startup (issue #73).
 type StartFunc func(sess registry.Session, w, h int) (termwrap.Terminal, error)
+
+// TickFunc schedules fn after d, as tea.Tick does (#412).
+//
+//	var t ui.TickFunc = tea.Tick
+type TickFunc func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd
 
 // RepoStatFunc reads a session's branch and diffstat for its sidebar card
 // (#180). Injected so ui never touches git (invariant 4). Nil is the switch,
@@ -63,8 +70,12 @@ type Deps struct {
 	GateRun     GateRunFunc
 	// GateAuto runs a session's gate when its turn ends. Off by default: a
 	// test suite on every idle costs real time, so it is asked for (#233).
-	GateAuto  bool
-	Clock     func() time.Time
+	GateAuto bool
+	Clock    func() time.Time
+	// SpinTick schedules the spinner's next frame (#412). Nil is tea.Tick; a
+	// test passes one that answers at once, since test helpers run every
+	// command they are handed and a real tick is a real 100 ms wait.
+	SpinTick  TickFunc
 	Notifier  notify.Notifier
 	TailStart func(registry.Session)
 	// Diff loads a session's changes for the review column (#21).
@@ -145,11 +156,14 @@ type Deps struct {
 	Reattached map[string]bool
 }
 
-// withDefaults fills the optional fields: the wall clock and a silent
-// notifier, so no method needs a nil guard.
+// withDefaults fills the optional fields: the wall clock, the real timer and
+// a silent notifier, so no method needs a nil guard.
 func (d Deps) withDefaults() Deps {
 	if d.Clock == nil {
 		d.Clock = time.Now
+	}
+	if d.SpinTick == nil {
+		d.SpinTick = tea.Tick
 	}
 	if d.Notifier == nil {
 		d.Notifier = notify.Silent{}

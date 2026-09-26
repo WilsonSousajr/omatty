@@ -12,16 +12,16 @@ import (
 // StatusMsg carries one watcher event into the model's Update loop.
 type StatusMsg watcher.Event
 
-// TickMsg is the heartbeat that re-renders the frame, so a quiet session's
-// age keeps counting (issue #71): once a second, or once a spinner frame
-// while a session works (#410, tickInterval). Exported so tests can send one.
+// TickMsg is the once-a-second heartbeat that re-renders the frame, so a
+// quiet session's age keeps counting (issue #71). The spinner has its own
+// tick, SpinTickMsg (#412). Exported so tests can send one.
 type TickMsg time.Time
 
 // tickEvery is the age column's resolution; finer buys nothing.
 const tickEvery = time.Second
 
-func (m *Model) scheduleTick() tea.Cmd {
-	return tea.Tick(m.tickInterval(), func(t time.Time) tea.Msg { return TickMsg(t) })
+func scheduleTick() tea.Cmd {
+	return tea.Tick(tickEvery, func(t time.Time) tea.Msg { return TickMsg(t) })
 }
 
 // waitForEvent blocks on the next status event and delivers it as a StatusMsg.

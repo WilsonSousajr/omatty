@@ -234,9 +234,10 @@ func TestView_EnablesMouseReportingSoTheWheelArrives_issue107(t *testing.T) {
 // option, and claiming shift outright was wrong for half of them.
 func TestModel_helpNamesTheKeysThatScrollTheSession_issue107(t *testing.T) {
 	m, _ := modelWithFakes(t)
-	// Tall enough for the whole keymap: it scrolls on anything shorter (#103),
-	// and #311's `t` row took it one past 40.
-	m.Update(tea.WindowSizeMsg{Width: 120, Height: 44})
+	// Tall enough for the whole keymap: it scrolls on anything shorter (#103).
+	// #311's `t` row took it one past 40, and #422's per-face sections - one
+	// table for each of the column's faces - to 65.
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: helpFitsHeight})
 
 	press(m, ctrl('o'))
 	press(m, key('?'))
@@ -264,7 +265,9 @@ func TestModel_theHelpModalScrollsWhenItDoesNotFit_issue103(t *testing.T) {
 	if got := m.View().Content; strings.Contains(got, "scroll the transcript") {
 		t.Fatalf("the fixture is too tall to test scrolling; the last section already shows:\n%s", got)
 	}
-	for range len(ui.LeaderKeys()) + 4 {
+	// Enough presses for any keymap: the offset is clamped at the last page,
+	// and a count sized to the body went stale when #422 lengthened it.
+	for range helpFitsHeight {
 		press(m, key('j'))
 	}
 
