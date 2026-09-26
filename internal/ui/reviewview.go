@@ -368,8 +368,7 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 // and panning would slide the count off the left instead of the right.
 func (m *Model) fitRow(e review.Entry, comments []review.Comment, w int) string {
 	if e.Kind == review.EntryFile {
-		fi := e.Pos.File
-		return fitLine(fileHeading(m.shownDiff().Files[fi], m.uncoveredNote(fi), w), w)
+		return fitLine(m.headerWithPlace(e.Pos.File, w), w)
 	}
 	return m.fitContent(m.entryText(e, comments), w)
 }

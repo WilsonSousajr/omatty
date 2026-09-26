@@ -112,7 +112,7 @@ func TestHelp_everyColumnKeyIsDocumented_issue422(t *testing.T) {
 // findFunc loudly, which is the point: the list cannot quietly go stale.
 var columnHandlers = map[string]map[string][]string{
 	"column":  {"pan.go": {"panKey"}, "listwindow.go": {"pageDelta"}},
-	"diff":    {"reviewkeys.go": {"onReviewKey", "reviewAction"}},
+	"diff":    {"reviewkeys.go": {"onReviewKey", "reviewAction"}, "diffnav.go": {"diffNavKey"}},
 	"tree":    {"treekeys.go": {"onTreeKey", "treeActionKey", "treeCursorKey", "treeMarkKey", "onPreviewKey"}},
 	"gate":    {"gatepane.go": {"onGateKey", "gateCursorKey"}, "gatesearch.go": {"gateSearchKey"}},
 	"tracker": {"tracker.go": {"onTrackerKey", "trackerCursorKey"}, "trackerwork.go": {"trackerAction"}, "trackeritem.go": {"onTrackerItemKey"}},
