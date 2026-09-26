@@ -10,6 +10,9 @@ import (
 
 // bareRemote gives dir an `origin` pointing at a bare repository, so a push
 // can be tested for real without a forge.
+//
+// The bare repository's own HEAD follows init.defaultBranch, which differs
+// between machines, so nothing here may assume a clone of it lands on `main`.
 func bareRemote(t *testing.T, dir string) string {
 	t.Helper()
 	remote := filepath.Join(t.TempDir(), "origin.git")
@@ -52,7 +55,7 @@ func TestPush_RefusesRatherThanForcing_issue331(t *testing.T) {
 	}
 	// The remote gains a commit the local branch does not have.
 	other := filepath.Join(t.TempDir(), "clone")
-	gitOut(t, dir, "clone", remote, other)
+	gitOut(t, dir, "clone", "--branch", "main", remote, other)
 	write(t, filepath.Join(other, "b.go"), "package b\n")
 	gitOut(t, other, "add", "b.go")
 	gitOut(t, other, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "two")
