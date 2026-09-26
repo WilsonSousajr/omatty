@@ -30,6 +30,9 @@ func (m *Model) clickReview(msg tea.MouseClickMsg) tea.Cmd {
 	if msg.Y == ruleY() && msg.X == m.reviewCloseX() {
 		return m.closeColumn()
 	}
+	if m.clickFileList(msg.X, msg.Y) {
+		return nil // the diff's file list, zoomed (#437)
+	}
 	if m.review.View == ViewGate {
 		// The gate's lines are not its steps: an opened step's output sits
 		// under its row, so a click is mapped through the spans (#424).

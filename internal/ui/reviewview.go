@@ -35,7 +35,7 @@ func (m *Model) renderReview(w, h int) string {
 	case ViewTrackerItem:
 		lines = m.renderTrackerItem(w, h)
 	default:
-		lines = m.reviewBody(w, h)
+		lines = m.withFileList(m.reviewBody(m.diffBodyWidth(w), h), h) // the list beside, zoomed (#437)
 	}
 	// Which column owns the keys - and so wears the accent hairline - is
 	// decided once, in keyboardEdge (#174); the title is the header row's.
