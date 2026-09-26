@@ -443,6 +443,9 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 - `docs/comparison.md` — how omatty compares to every other tool in this
   space, fairly, including where they are ahead. Read it before proposing a
   feature, alongside the roadmap.
+- `docs/llm-audit-gate.md` — how to put an LLM review into a project's gate
+  as an ordinary step, and why that is a check rather than a coordinator
+  (#333). `docs/examples/audit.sh` is the script it describes.
 - `docs/research/` — the evidence behind it, captured 2026-09-18: the field
   inventory, four per-competitor deep dives read at code level, five
   issue-tracker minings, the prior-art ledger at P0/P1/P2 with its "Ideas Not

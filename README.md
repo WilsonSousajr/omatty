@@ -171,6 +171,11 @@ both understood, told apart by content rather than by file name. A project that
 writes its profile somewhere else names it in `~/.omatty/state.json`; a project
 that declares none simply gets no overlay.
 
+A step can be anything your shell runs, including a hostile review by a model:
+`docs/llm-audit-gate.md` is the recipe, with a working script, and it is honest
+about the three things that makes awkward - it is not deterministic, it costs
+money on every run, and the diff it reads is untrusted input.
+
 Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 
 | Key | Action |
