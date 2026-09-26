@@ -226,7 +226,8 @@ func TestTrackerItem_TheFooterIsItsOwn_issue397(t *testing.T) {
 	pressDeliver(m, special(tea.KeyEnter))
 
 	footer := frameLines(m)[len(frameLines(m))-1]
-	if !strings.Contains(footer, "scroll") || strings.Contains(footer, "o diff") {
+	// "esc list" is the item's alone; "j/k scroll" went to the help modal (#426).
+	if !strings.Contains(footer, "esc list") || strings.Contains(footer, "o diff") {
 		t.Errorf("footer = %q, want the item's own keys and not the tree's", footer)
 	}
 }

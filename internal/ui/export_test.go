@@ -57,6 +57,11 @@ func Footers(leader string) map[string]string {
 		"footer":       footerLine(leader),
 		"reviewFooter": reviewFooterLine(leader),
 		"treeFooter":   treeFooterLine(leader),
+		// #426's whole-entry test needs every face's line, not only the three
+		// the width test was written for.
+		"gateFooter":        gateFooterLine(leader),
+		"trackerFooter":     trackerFooterLine(leader),
+		"trackerItemFooter": trackerItemFooterLine(leader),
 	}
 }
 
@@ -133,7 +138,7 @@ func RuleRow(widths []int) string { return RuleRowClosable(widths, -1) }
 func RuleRowClosable(widths []int, closable int) string {
 	segs := make([]segment, len(widths))
 	for i, w := range widths {
-		segs[i] = segment{width: w, closable: i == closable}
+		segs[i] = segment{width: w, closable: i == closable, label: "diff"}
 	}
 	return ruleRow(segs)
 }

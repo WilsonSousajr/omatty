@@ -35,9 +35,14 @@ func exitKeyFor(leader string) string { return leader + " q quit" }
 // footerLine is the resting keymap. At DefaultLeader it is the 76 columns
 // #103 measured; a longer leader is cut from the right, where the help key
 // is, and never from the exit key (#44).
-func footerLine(leader string) string {
-	return exitKeyFor(leader) + "  " + leader + " ? keys  " + leader + " j/k switch  " +
-		leader + " n new  " + leader + " d diff"
+func footerLine(leader string) string { return joinKeys(footerKeysFor(leader)) }
+
+// footerKeysFor is the resting footer's entries, ranked (#426).
+func footerKeysFor(leader string) []footerKey {
+	return []footerKey{
+		{exitKeyFor(leader), keepKey}, {leader + " ? keys", keepKey},
+		{leader + " j/k switch", 3}, {leader + " n new", 2}, {leader + " d diff", 1},
+	}
 }
 
 // reviewFooterLine replaces the footer while the review column has focus:
@@ -50,8 +55,13 @@ func footerLine(leader string) string {
 // (#103). r left for the same reason on 2026-09-09: the column reloads itself
 // when a turn ends (#21, #195), and o (#200) needed the cells to stay under
 // 80.
-func reviewFooterLine(leader string) string {
-	return "j/k move  c comment  d delete  o open  S submit  esc back  " + leader + " ? keys"
+func reviewFooterLine(leader string) string { return joinKeys(reviewFooterKeys(leader)) }
+
+func reviewFooterKeys(leader string) []footerKey {
+	return []footerKey{
+		{"j/k move", 3}, {"c comment", 5}, {"d delete", 1}, {"o open", 2},
+		{"S submit", 4}, {"esc back", 2}, {leader + " ? keys", keepKey},
+	}
 }
 
 // treeFooterLine replaces reviewFooterLine in the tree and preview views,
@@ -63,27 +73,49 @@ func reviewFooterLine(leader string) string {
 // moved to the help modal on 2026-09-09 so that / (#198), a (#199) and o
 // (#200) fit: budgeted together they took this line to 94 columns, and the
 // tree re-lists itself at every turn end now (#195), so r is the rare key.
-func treeFooterLine(leader string) string {
-	return "h/l/0 pan  enter open  / filter  a attach  o diff  esc back  " + leader + " ? keys"
+func treeFooterLine(leader string) string { return joinKeys(treeFooterKeys(leader)) }
+
+func treeFooterKeys(leader string) []footerKey {
+	return []footerKey{
+		{"h/l/0 pan", 1}, {"enter open", 5}, {"/ filter", 4}, {"a attach", 3},
+		{"o diff", 2}, {"esc back", 2}, {leader + " ? keys", keepKey},
+	}
 }
 
 // gateFooterLine replaces both in the gate view, where the keys are the few a
 // list of steps has (#231).
-func gateFooterLine(leader string) string {
-	return "j/k move  enter output  S send  esc back  " + leader + " ? keys"
+func gateFooterLine(leader string) string { return joinKeys(gateFooterKeys(leader)) }
+
+func gateFooterKeys(leader string) []footerKey {
+	return []footerKey{
+		{"j/k move", 2}, {"enter output", 3}, {"S send", 4}, {"esc back", 1}, {leader + " ? keys", keepKey},
+	}
 }
 
-// trackerFooterLine is the tracker's keys (#396, #398, #399).
-func trackerFooterLine(leader string) string {
-	return "j/k move  enter read  / filter  n session  a attach  b browser  esc back  " + leader + " ? keys"
+// trackerFooterLine is the tracker's keys (#396, #398, #399). j/k went to the
+// help modal in #426: at 87 columns the line was cut on an 80-column window and
+// took the help key with it, and j/k is the one key every face shares.
+func trackerFooterLine(leader string) string { return joinKeys(trackerFooterKeys(leader)) }
+
+func trackerFooterKeys(leader string) []footerKey {
+	return []footerKey{
+		{"enter read", 5}, {"/ filter", 3}, {"n session", 4}, {"a attach", 2},
+		{"b browser", 1}, {"esc back", 2}, {leader + " ? keys", keepKey},
+	}
 }
 
 // trackerItemFooterLine is the open item's own keys (#397). Its own line because
 // without one the child view fell through to the tree's, and a footer offering
 // `o diff` in a view that has no diff is worse than none - found by the M14
 // smoke run.
-func trackerItemFooterLine(leader string) string {
-	return "j/k scroll  r read again  n session  a attach  b browser  esc list  " + leader + " ? keys"
+func trackerItemFooterLine(leader string) string { return joinKeys(trackerItemFooterKeys(leader)) }
+
+// trackerItemFooterKeys drops j/k scroll for trackerFooterLine's reason (#426).
+func trackerItemFooterKeys(leader string) []footerKey {
+	return []footerKey{
+		{"r read again", 1}, {"n session", 4}, {"a attach", 2},
+		{"b browser", 1}, {"esc list", 3}, {leader + " ? keys", keepKey},
+	}
 }
 
 // emptyTreeHint is the tree's empty state: a repository that listed
@@ -219,7 +251,7 @@ func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segmen
 	}
 	rw := reviewContentWidth(m.width)
 	cols = append(cols, hairlineColumn(edge == edgeReview, termH), m.renderReview(rw, termH))
-	return cols, append(segs, segment{title: m.reviewTitle(rw), width: rw, owns: edge == edgeReview, closable: true})
+	return cols, append(segs, segment{title: m.reviewTitle(rw), width: rw, owns: edge == edgeReview, closable: true, label: m.faceName()})
 }
 
 // renderSidebar draws the project/session rows in the sidebar's content
@@ -291,7 +323,7 @@ func (m *Model) renderFooter() string {
 		// only place the way out is written down (#28, #30, #43).
 		return footerStyle.Render(fitLine(" "+exitKeyFor(m.leader)+"  "+m.notice, m.width))
 	}
-	return joinEnds(footerStyle.Render(" "+m.footerKeys()), m.footerFacts(), m.width)
+	return joinEnds(footerStyle.Render(" "+fitKeys(m.footerKeys(), m.width-1)), m.footerFacts(), m.width)
 }
 
 // footerFacts is the footer's right side (#178): how many sessions there
@@ -338,24 +370,24 @@ func joinEnds(left, right string, width int) string {
 
 // footerKeys is the keymap for whatever has focus. A modal surface comes
 // first: while one is open its keys are the only ones that do anything.
-func (m *Model) footerKeys() string {
+func (m *Model) footerKeys() []footerKey {
 	if s := modalFooter(m.modal); s != "" {
-		return s
+		return []footerKey{{s, keepKey}}
 	}
 	if !m.reviewOwnsKeys() {
-		return footerLine(m.leader)
+		return footerKeysFor(m.leader)
 	}
 	switch m.review.View {
 	case ViewDiff:
-		return reviewFooterLine(m.leader)
+		return reviewFooterKeys(m.leader)
 	case ViewGate:
-		return gateFooterLine(m.leader)
+		return gateFooterKeys(m.leader)
 	case ViewTracker:
-		return trackerFooterLine(m.leader)
+		return trackerFooterKeys(m.leader)
 	case ViewTrackerItem:
-		return trackerItemFooterLine(m.leader)
+		return trackerItemFooterKeys(m.leader)
 	}
-	return treeFooterLine(m.leader)
+	return treeFooterKeys(m.leader)
 }
 
 // fitBlock forces lines to exactly width x height so a border lands
