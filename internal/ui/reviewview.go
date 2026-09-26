@@ -35,7 +35,7 @@ func (m *Model) renderReview(w, h int) string {
 	case ViewTrackerItem:
 		lines = m.renderTrackerItem(w, h)
 	default:
-		lines = m.reviewBody(w, h)
+		lines = m.withFileList(m.reviewBody(m.diffBodyWidth(w), h), h) // the list beside, zoomed (#437)
 	}
 	// Which column owns the keys - and so wears the accent hairline - is
 	// decided once, in keyboardEdge (#174); the title is the header row's.
@@ -101,7 +101,7 @@ func (m *Model) faceTitle(budget int) string {
 // mechanism over both would hide which applies where.
 func (m *Model) treeTitle(budget int) string {
 	const head = "files · "
-	marker := m.foldMarker() + m.filterMarker()
+	marker := m.changedMarker() + m.foldMarker() + m.filterMarker()
 	room := budget - lipgloss.Width(head) - lipgloss.Width(marker)
 	if room < minNameCells {
 		if marker == "" {
@@ -110,6 +110,16 @@ func (m *Model) treeTitle(budget int) string {
 		return head + strings.TrimSpace(marker)
 	}
 	return head + elideMiddle(m.sessionTitle(m.review.SessionID), room) + marker
+}
+
+// changedMarker says the listing is cut to changed files (#430). A narrowed
+// listing that did not say so would read as the whole tree, which is the
+// filter marker's argument (#285), so like it this is never given up.
+func (m *Model) changedMarker() string {
+	if m.review.Tree == nil || !m.review.Tree.ChangedOnly() {
+		return ""
+	}
+	return " changed"
 }
 
 // foldMarker says how many generated files the tree is keeping out of the
@@ -343,6 +353,9 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 	if e.Kind == review.EntryComment && !comments[e.Comment].Sent.IsZero() {
 		return mutedStyle.Render(text) // sent: context for this turn, not a to-do (#335)
 	}
+	if e.Kind == review.EntryLine {
+		return m.styledLine(e, w) // syntax and changed words (#435)
+	}
 	return entryStyle(e, m.shownDiff()).Render(text)
 }
 
@@ -355,8 +368,7 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 // and panning would slide the count off the left instead of the right.
 func (m *Model) fitRow(e review.Entry, comments []review.Comment, w int) string {
 	if e.Kind == review.EntryFile {
-		fi := e.Pos.File
-		return fitLine(fileHeading(m.shownDiff().Files[fi], m.uncoveredNote(fi), w), w)
+		return fitLine(m.headerWithPlace(e.Pos.File, w), w)
 	}
 	return m.fitContent(m.entryText(e, comments), w)
 }

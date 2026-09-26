@@ -49,7 +49,10 @@ one. `ctrl+o u` puts a session back to the start of its last turn, and `ctrl+o p
 ships a green one — push, open the pull request, and merge it when your gate and
 the forge's checks are *both* already green. `omatty gate <project> --stats` is
 the only thing omatty measures about itself: lead time, and how often the gate
-passes first time. Install with `brew install WilsonSousajr/tap/omatty` on macOS
+passes first time. And the review column is made worth living in: every face
+moves and marks state the same way, the diff is syntax-highlighted with its
+changed words picked out, and `ctrl+o z` zooms the column when a view needs the
+room. Install with `brew install WilsonSousajr/tap/omatty` on macOS
 or a release archive on Linux; `CHANGELOG.md` has the whole list.
 
 | Milestone | Delivers |
@@ -68,7 +71,7 @@ or a release archive on Linux; `CHANGELOG.md` has the whole list.
 | **M12** The Field | What the rest of the field ships and why omatty declines most of it, researched at code level; then everything that came out of it — review scoped to the last turn and to what you have read, generated files folded away, several comments on a line, a session put back to where its turn began, and a green one shipped from its card. |
 | **M13** Memory and idle CPU | Idle CPU cut by about 55%, and a per-session leak on archive fixed. |
 | **M14** The Tracker | A project's open issues and pull requests in the review column, read through your own `gh` and never written to: counts on every header, one item's body and comments on `enter`, and a worktree session named after the issue you picked. |
-| **M15** The Polish | The review column made worth living in: one list window and one state vocabulary across every face, chrome that names the face you are on, `ctrl+o z` to zoom it, and a gate face that reads like a CI check page. |
+| **M15** The Polish | The review column made worth living in: one list window and one state vocabulary across every face, chrome that names the face you are on, and `ctrl+o z` to zoom it; a gate that reads like a CI check page, a compact tree, a tracker with review state and a preview, a syntax-highlighted diff with file and hunk navigation, and help that opens where you are. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
 pre-1.0, and the key table, `config.toml` keys and `state.json` schema are
@@ -340,7 +343,8 @@ icons = "plain"            # "nerd" draws every state mark with a Nerd Font's ic
 `ui.icons` is `"plain"` unless you ask: a Nerd Font glyph in a terminal without
 one is a box, which is worse than no icon. Set `"nerd"` if your terminal font is
 a Nerd Font and every state mark - a gate step's verdict, a card's gate strip, a
-pull request's CI - switches to its icon at once. Any other value is refused at
+pull request's CI - switches to its icon at once, and the file tree gains an
+icon per file type and folder. Any other value is refused at
 startup, naming the key.
 
 `sessions.lazy_start` is on because every `claude` costs a few hundred MB
@@ -498,6 +502,7 @@ when it already shows that view.
 | `0` | jump back to the left edge |
 | `r` | re-list the worktree |
 | `/` | filter the tree as you type; `enter` keeps the filter, `esc` clears it |
+| `c` | only the files the session changed and the folders above them, or the whole tree again |
 | `a` | attach the row, or the previewed file, to the prompt as `@path` and go back to typing |
 | `v` | mark the file read: `✓` while its diff is unchanged, `~` once the session changes it again |
 | `.` | show the generated files the tree folded away, or fold them again |

@@ -3,8 +3,6 @@ package review
 import (
 	"sort"
 	"strings"
-
-	"github.com/WilsonSousajr/omatty/internal/fuzzy"
 )
 
 // TreeNode is one row of the file tree: a directory or a file at a depth.
@@ -32,6 +30,9 @@ type Tree struct {
 	// it is detected asynchronously, after the listing is already on screen.
 	generated     map[string]bool
 	showGenerated bool
+	// changedOnly narrows Visible to the changed files and their parents
+	// (#430), the view wanted mid-session.
+	changedOnly bool
 }
 
 // NewTree builds the listing from paths, emitting a directory the first time
@@ -118,20 +119,24 @@ func (t *Tree) addPath(p string, changes map[string]Change, seen map[string]bool
 	}
 }
 
-// changeUnder is the change at path: a file's own, or modified for a
-// directory with any change beneath it. A directory is never added or
-// deleted here, even when every file in it was: git tracks files, not
-// directories, and the row is a listing artefact rather than a change.
+// changeUnder is the change at path: a file's own, or for a directory the
+// strongest change beneath it (#430). Until #430 a directory only ever read
+// modified, on the argument that git tracks files and a directory row is a
+// listing artefact rather than a change. That still holds of what the letter
+// is not: a directory marked A was not "added". What it now says is the
+// strongest thing that happened inside it - a folded directory that reads D
+// is one to open - which "M" for every change could not say.
 func changeUnder(path string, isDir bool, changes map[string]Change) Change {
 	if !isDir {
 		return changes[path]
 	}
-	for f := range changes {
-		if strings.HasPrefix(f, path+"/") {
-			return ChangeModified
+	strongest := ChangeNone
+	for f, c := range changes {
+		if strings.HasPrefix(f, path+"/") && changeStrength[c] > changeStrength[strongest] {
+			strongest = c
 		}
 	}
-	return ChangeNone
+	return strongest
 }
 
 // Visible returns the rows with collapsed directories' children skipped. The
@@ -140,8 +145,8 @@ func changeUnder(path string, isDir bool, changes map[string]Change) Change {
 // from swallowing a sibling named "internal-old". While a filter is set the
 // matches and their ancestors are the rows, folds ignored (#198).
 func (t *Tree) Visible() []TreeNode {
-	if t.filter != "" {
-		return t.matching()
+	if t.filter != "" || t.changedOnly {
+		return compact(t.matching())
 	}
 	// Non-nil even when empty: the ui tells "not listed yet" from "listed,
 	// nothing there" by this (#131).
@@ -160,7 +165,7 @@ func (t *Tree) Visible() []TreeNode {
 			hidden = n.Path + "/"
 		}
 	}
-	return t.withoutEmptyDirs(out)
+	return compact(t.withoutEmptyDirs(out))
 }
 
 // folded reports whether n is a generated file being kept out of the listing.
@@ -250,12 +255,13 @@ func (t *Tree) SetFilter(query string) { t.filter = query }
 // Filter is the query in force, or "" when the listing is unfiltered.
 func (t *Tree) Filter() string { return t.filter }
 
-// matching is Visible under a filter: a pass to find the kept paths, then the
-// listing in its own order restricted to them, so pre-order survives.
+// matching is Visible under a filter or changed-only: a pass to find the kept
+// paths, then the listing in its own order restricted to them, so pre-order
+// survives.
 func (t *Tree) matching() []TreeNode {
 	keep := map[string]bool{}
 	for _, n := range t.nodes {
-		if _, ok := fuzzy.Match(t.filter, n.Path); ok && !n.IsDir {
+		if t.selected(n) {
 			keepWithAncestors(keep, n.Path)
 		}
 	}

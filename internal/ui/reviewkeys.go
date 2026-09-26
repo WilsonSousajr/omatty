@@ -38,7 +38,7 @@ func (m *Model) onReviewKey(key string) tea.Cmd {
 
 // reviewAction runs the commands that act on the row under the cursor.
 func (m *Model) reviewAction(key string) tea.Cmd {
-	if m.commentKey(key) {
+	if m.commentKey(key) || m.diffNavKey(key) {
 		return nil
 	}
 	switch key {

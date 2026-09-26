@@ -37,8 +37,8 @@ not only the coverage gate. See "Rules" at the end for why.
 | — | **Released** | **v0.4.0**, 2026-09-25. M12's close-out promoted to `main` (#390). See "Releases". |
 | M14 | The Tracker | **Done.** Seven slices #393-#399 built 2026-09-25 as PRs #400-#406. Released in v0.5.0. |
 | — | **Released** | **v0.5.0**, 2026-09-26. M14 promoted to `main` (#407). See "Releases". |
-| M15 | The Polish | **In progress.** Planned 2026-09-26 as #420-#439. Eleven built the same day - the four bugs #421, #422, #423, #447 and #424-#429 - and released in v0.6.0; #430-#439 are still open. See the M15 section. |
-| — | **Released** | **v0.6.0**, 2026-09-26. M12's remainder and M15's first eleven promoted to `main` (#480). See "Releases". |
+| M15 | The Polish | **Done.** Nineteen issues #421-#439 and two bugs found building them (#447, #483), merged 2026-09-26 as PRs #444-#491; closed out in #492. Released in v0.6.0. See the M15 section. |
+| — | **Released** | **v0.6.0**, 2026-09-26. M12's remainder and all of M15 promoted to `main` (#480). See "Releases". |
 | M16 | The Forges | **Planned** 2026-09-26: GitLab, Azure DevOps, Gitea/Forgejo/Codeberg and Bitbucket at GitHub's parity, #449-#465, in Backlog. See the M16 section. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
@@ -1011,7 +1011,7 @@ in a hurry to make it.
 | v0.3.0 | 2026-09-25 | M12's verification core (#311, #310, #335, #342), the release pipeline (#327), the MIT license (#362). The first release built by `release.yml`. (#364) |
 | v0.4.0 | 2026-09-25 | M12's close-out: `omatty carry` (#309), the pane's own text selection (#360), the hook path that survives a reinstall (#380), and the defects v0.3.0 surfaced. 19 issues. (#390) |
 | v0.5.0 | 2026-09-26 | M14 The Tracker: a project's open issues and pull requests in the review column, read through the operator's own `gh` and never written to (#393-#399). 15 commits. (#407) |
-| v0.6.0 | 2026-09-26 | M12's remainder - the review pane's memory (#337, #338, #339, #334), shipping and measuring a green session (#331, #332, #333), when a release happens (#329) - plus M15's first eleven (#420-#429, #447) and the M16 spec (#448). 25 issues. (#480) |
+| v0.6.0 | 2026-09-26 | M12's remainder - the review pane's memory (#337, #338, #339, #334), shipping and measuring a green session (#331, #332, #333), when a release happens (#329) - plus all of M15 (#420-#439, #447, #483, #492) and the M16 spec (#448). 37 issues. (#480) |
 
 ## M12 - The Field
 
@@ -1416,6 +1416,58 @@ second pane. The smoke run is read by a person at both sizes, and it includes
 
 #337, #338 and #339 stay M12. #436 and #437 are built so as not to preclude
 #337.
+
+**What shipped**, one PR per issue unless noted, all merged 2026-09-26:
+
+- **Bugs:** #421 (PR #446), #422 (#445), #423 (#444).
+- **Foundation:** #424 with #447 (#467), #425 (#468), #426 (#469), #427 (#470).
+- **Gate:** #428 (#476), #429 (#477).
+- **Tree:** #430 (#478), #431 (#479).
+- **Tracker:** #432 (#482), #483 (#484), #433 (#485), #434 (#486).
+- **Diff:** #435 (#487), #436 (#488), #437 (#489).
+- **Help:** #438 (#490), #439 (#491).
+
+**Two bugs were found building it**, each with its own issue and regression test:
+
+- **#447:** the gate never panned. `h`/`l` moved the `+N` marker in the title
+  but not the rows, and #231's pan test passed because the marker alone changed
+  the frame. Fixed inside #424, whose rows it was.
+- **#483:** nothing forge folds from `gh` was stripped of control characters.
+  Titles, bodies, comments and labels kept their `ESC` and `BEL`. A real-PTY run
+  showed bubbletea's cell renderer absorbing the OSC 52 and `ESC[2J` an issue
+  carried, so the clipboard exploit the issue first described does not reproduce
+  end to end - corrected on the issue. The fix stands as defence in depth: text
+  is plain at the edge, once, and `n` no longer writes a title's escapes into
+  `state.json`.
+
+**Where it differs from the plan:**
+
+- **#429:** `r` during a run in flight says the gate is already running rather
+  than superseding it; superseding is the Runner's (#229).
+- **#430:** `c` is in help, not the footer, which #103's test holds under 80
+  columns. A directory's letter now says the strongest change beneath it, which
+  reverses M5's "a directory reads M" rule on purpose.
+- **#424:** `g` became "top" on every face, so #338's generated-files toggle
+  moved to `.`, the key lf, ranger, yazi and nnn use for hidden files.
+- **#435:** a screen of Go diff rows costs ~12-15% more per frame than before
+  (`BenchmarkDiffRows`, ~100 µs to ~115 µs), the ANSI-aware fit of coloured
+  text; the lexer and the word diff are memoised per hunk.
+
+**Worth remembering:**
+
+- **Merge the combination, then gate it.** A second session merged M12 and M16
+  work into `develop` throughout. Two PRs each green on CI failed only together:
+  #331's help rows and #427's `z` pushed a legend out of a 50-row help window.
+  Before merging a stack, merge current `develop` into its top branch and run the
+  full gate there.
+- **A test that passes before the code is not a test yet.** Three of M15's new
+  tests passed on first run - #437's list test matched the diff's own headers,
+  #434's debounce test had no row to skip - and each was rewritten until it
+  failed without the change.
+- **GitHub's mergeability goes stale after a merge.** A PR reported "merge
+  conflicts" that a local merge did not have; merging `develop` into its branch
+  and pushing made GitHub recompute. Move a card only after the merge reports
+  success.
 
 ## M16 - The Forges
 

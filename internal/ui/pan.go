@@ -41,7 +41,7 @@ func (m *Model) panReview(delta int) {
 		m.review.ColOffset = max(m.review.ColOffset+delta, 0)
 		return
 	}
-	w := m.columnWidth()
+	w := m.panWidth()
 	last := max(m.reviewMaxWidth()-w, 0)
 	m.review.ColOffset = min(m.review.ColOffset+delta, last)
 }
@@ -125,7 +125,8 @@ func (m *Model) previewMaxWidth() int {
 func (m *Model) treeMaxWidth() int {
 	widest := 0
 	for _, n := range m.treeRows() {
-		widest = max(widest, lipgloss.Width(treeText(n, m.review.Tree.Collapsed(n.Path), m.reviewMark(n.Path, n.IsDir))))
+		collapsed := m.review.Tree.Collapsed(n.Path)
+		widest = max(widest, lipgloss.Width(treeText(n, collapsed, m.reviewMark(n.Path, n.IsDir), m.treeIcon(n, collapsed))))
 	}
 	return widest
 }
@@ -170,6 +171,11 @@ func (m *Model) fitContent(text string, w int) string {
 // cut. The width the pan clamps to is still measured on the plain row, which
 // is why Preview.Lines stays beside Preview.Styled (#197).
 func (m *Model) fitStyled(text string, w int) string {
+	if m.review.ColOffset == 0 {
+		// No pan: the left cut would walk the row for nothing, and since #435
+		// every diff line comes through here (its text is syntax-coloured).
+		return padRight(ansi.Truncate(text, w, ""), w)
+	}
 	panned := ansi.TruncateLeft(text, m.review.ColOffset, "")
 	return padRight(ansi.Truncate(panned, w, ""), w)
 }

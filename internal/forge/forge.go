@@ -30,7 +30,8 @@ var notGitHub = []string{
 // CI and whether it can merge, and the tracker's row shows its title, whether
 // it is a draft, and its age (#393). All three are cheap fields on a call
 // already being made; statusCheckRollup stays the only expensive one.
-const openFields = "number,title,headRefName,headRefOid,isCrossRepository,state,isDraft,updatedAt,mergeStateStatus,statusCheckRollup"
+// reviewDecision joined for #432's review glyph, the same cheap-field argument.
+const openFields = "number,title,headRefName,headRefOid,isCrossRepository,state,isDraft,updatedAt,mergeStateStatus,statusCheckRollup,reviewDecision"
 
 // finishedFields leaves the checks out: a merged or closed card shows no CI
 // mark, and the rollup is the expensive part of the answer (#358). It leaves

@@ -54,10 +54,10 @@ func TestModel_anUncoveredAddedLineIsMarked_issue255(t *testing.T) {
 
 	view := m.View().Content
 
-	if got := lineWith(t, view, "b := 3"); !strings.Contains(got, "!    b := 3") {
+	if got := plainLineWith(t, view, "b := 3"); !strings.Contains(got, "!    b := 3") {
 		t.Errorf("the uncovered added line is not marked:\n%s", got)
 	}
-	if got := lineWith(t, view, "c := 4"); !strings.Contains(got, "+    c := 4") {
+	if got := plainLineWith(t, view, "c := 4"); !strings.Contains(got, "+    c := 4") {
 		t.Errorf("a covered added line was marked:\n%s", got)
 	}
 }
@@ -70,7 +70,7 @@ func TestModel_aLineWithNoVerdictIsUnmarked_issue255(t *testing.T) {
 	// Only line 12 has a block, so line 11 is a line the profile is silent on.
 	m := modelWithOverlay(t, "mode: set\nexample.com/m/internal/ui/model.go:12.1,12.20 1 1\n")
 
-	if got := lineWith(t, m.View().Content, "b := 3"); !strings.Contains(got, "+    b := 3") {
+	if got := plainLineWith(t, m.View().Content, "b := 3"); !strings.Contains(got, "+    b := 3") {
 		t.Errorf("a line the profile says nothing about was marked:\n%s", got)
 	}
 }
@@ -87,11 +87,11 @@ func TestModel_contextAndRemovedLinesAreNeverMarked_issue255(t *testing.T) {
 		{"b := 2", "-    b := 2"},
 		{"return", "     return"},
 	} {
-		if got := lineWith(t, view, c.needle); !strings.Contains(got, c.want) {
+		if got := plainLineWith(t, view, c.needle); !strings.Contains(got, c.want) {
 			t.Errorf("line %q = %q, want it drawn as %q", c.needle, got, c.want)
 		}
 	}
-	if got := lineWith(t, view, "b := 3"); !strings.Contains(got, "!    b := 3") {
+	if got := plainLineWith(t, view, "b := 3"); !strings.Contains(got, "!    b := 3") {
 		t.Errorf("the added line in the same hunk is not marked:\n%s", got)
 	}
 }
@@ -106,10 +106,10 @@ func TestModel_theFileHeaderCountsUncoveredAddedLines_issue255(t *testing.T) {
 
 	view := m.View().Content
 
-	if got := lineWith(t, view, "internal/ui/model.go"); !strings.Contains(got, "+2 -1  1 uncovered") {
+	if got := plainLineWith(t, view, "internal/ui/model.go"); !strings.Contains(got, "+2 -1  1 uncovered") {
 		t.Errorf("file header = %q, want the uncovered count beside the diffstat", got)
 	}
-	if got := lineWith(t, view, "new.txt"); strings.Contains(got, "uncovered") {
+	if got := plainLineWith(t, view, "new.txt"); strings.Contains(got, "uncovered") {
 		t.Errorf("a file the profile does not mention carries a count: %q", got)
 	}
 }
@@ -133,7 +133,7 @@ func rowsOf(t *testing.T, m *ui.Model, needles ...string) string {
 	view := m.View().Content
 	out := make([]string, 0, len(needles))
 	for _, n := range needles {
-		out = append(out, strings.TrimRight(lineWith(t, view, n), " "))
+		out = append(out, strings.TrimRight(plainLineWith(t, view, n), " "))
 	}
 	return strings.Join(out, "\n")
 }
@@ -147,7 +147,7 @@ func TestModel_aNarrowColumnKeepsTheUncoveredCountWhole_issue291(t *testing.T) {
 
 	for _, w := range []int{160, 140, 120, 100, 92, 84, 80} {
 		m.Update(tea.WindowSizeMsg{Width: w, Height: 30})
-		got := lineWith(t, m.View().Content, "model.go")
+		got := plainLineWith(t, m.View().Content, "model.go")
 		if !strings.Contains(got, "1 uncovered") {
 			t.Errorf("at %d columns the file header is %q, want the count present and whole", w, got)
 		}
@@ -160,7 +160,7 @@ func TestModel_aNarrowFileHeaderShortensThePathFromTheFront_issue291(t *testing.
 	m := modelWithOverlay(t, overlayProfile)
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
 
-	got := lineWith(t, m.View().Content, "model.go")
+	got := plainLineWith(t, m.View().Content, "model.go")
 	if !strings.Contains(got, "…/model.go") {
 		t.Errorf("file header = %q, want the path shortened from the front with the marker", got)
 	}
@@ -188,7 +188,7 @@ func TestModel_panningTheDiffLeavesTheFileHeaderInPlace_issue291(t *testing.T) {
 	m := modelWithOverlay(t, overlayProfile)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	viewBefore := m.View().Content
-	before := lineWith(t, viewBefore, "model.go")
+	before := plainLineWith(t, viewBefore, "model.go")
 
 	for range 4 {
 		press(m, key('l'))
@@ -197,7 +197,7 @@ func TestModel_panningTheDiffLeavesTheFileHeaderInPlace_issue291(t *testing.T) {
 	if m.View().Content == viewBefore {
 		t.Fatal("the column never panned, so the header staying put proves nothing")
 	}
-	if after := lineWith(t, m.View().Content, "model.go"); after != before {
+	if after := plainLineWith(t, m.View().Content, "model.go"); after != before {
 		t.Errorf("the file header moved when the column panned:\nbefore %q\nafter  %q", before, after)
 	}
 }

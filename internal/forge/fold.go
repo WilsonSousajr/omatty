@@ -58,6 +58,33 @@ type PR struct {
 	// itself rather than Updated as a proxy for it: a merged pull request can be
 	// commented on afterwards, which moves Updated and not the merge.
 	MergedAt time.Time
+	Review   Review // what review asks of it, from reviewDecision (#432)
+}
+
+// Review is a pull request's review state as gh reports it. ReviewNone is a
+// repository that asks for no review, or an answer that did not say - never
+// read as approved.
+type Review int
+
+// The review states, in gh's reviewDecision.
+const (
+	ReviewNone     Review = iota
+	ReviewRequired        // REVIEW_REQUIRED: nobody has approved yet
+	ReviewApproved        // APPROVED
+	ReviewChanges         // CHANGES_REQUESTED
+)
+
+// reviewOf is gh's reviewDecision as a Review.
+func reviewOf(s string) Review {
+	switch s {
+	case "REVIEW_REQUIRED":
+		return ReviewRequired
+	case "APPROVED":
+		return ReviewApproved
+	case "CHANGES_REQUESTED":
+		return ReviewChanges
+	}
+	return ReviewNone
 }
 
 // ghPR is one element of `gh pr list --json` with the fields ListPRs asks for.
@@ -73,6 +100,7 @@ type ghPR struct {
 	IsDraft           bool      `json:"isDraft"`
 	UpdatedAt         time.Time `json:"updatedAt"`
 	MergedAt          time.Time `json:"mergedAt"`
+	ReviewDecision    string    `json:"reviewDecision"`
 }
 
 // check is a CheckRun (status, conclusion) or a StatusContext (state); the
@@ -82,6 +110,12 @@ type check struct {
 	Status     string `json:"status"`
 	Conclusion string `json:"conclusion"`
 	State      string `json:"state"`
+	// Name (a CheckRun) or Context (a StatusContext) and the two times are
+	// read only by an item's view, which lists each check (#433).
+	Name        string    `json:"name"`
+	Context     string    `json:"context"`
+	StartedAt   time.Time `json:"startedAt"`
+	CompletedAt time.Time `json:"completedAt"`
 }
 
 // Fold turns `gh pr list --json` output into PRs.
@@ -104,8 +138,8 @@ func Fold(raw []byte) ([]PR, error) {
 func foldOne(p ghPR) PR {
 	return PR{
 		Number:   p.Number,
-		Title:    p.Title,
-		Branch:   p.HeadRefName,
+		Title:    cleanLine(p.Title), // #483
+		Branch:   cleanLine(p.HeadRefName),
 		State:    stateOf(p.State),
 		CI:       rollup(p.StatusCheckRollup),
 		Conflict: p.MergeStateStatus == "DIRTY" || p.MergeStateStatus == "BEHIND",
@@ -114,6 +148,7 @@ func foldOne(p ghPR) PR {
 		Draft:    p.IsDraft,
 		Updated:  p.UpdatedAt,
 		MergedAt: p.MergedAt,
+		Review:   reviewOf(p.ReviewDecision),
 	}
 }
 

@@ -115,14 +115,14 @@ func TestModel_aGeneratedFileGetsNoCoverageMarkers_issue338(t *testing.T) {
 	m := modelWithOverlay(t, overlayProfile)
 
 	// Before: the marker is there, which is what #255 shipped.
-	if got := lineWith(t, m.View().Content, "b := 3"); !strings.Contains(got, "!    b := 3") {
+	if got := plainLineWith(t, m.View().Content, "b := 3"); !strings.Contains(got, "!    b := 3") {
 		t.Fatalf("the fixture is not marking the uncovered line at all:\n%s", got)
 	}
 
 	m.Update(ui.GeneratedMsgFor("s1", map[string]bool{"internal/ui/model.go": true}))
 
 	view := m.View().Content
-	if got := lineWith(t, view, "b := 3"); strings.Contains(got, "!") {
+	if got := plainLineWith(t, view, "b := 3"); strings.Contains(got, "!") {
 		t.Errorf("a generated file still carries an uncovered marker:\n%s", got)
 	}
 	if strings.Contains(view, "uncovered") {

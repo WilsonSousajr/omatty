@@ -153,3 +153,43 @@ func TestCLI_BrowseWithoutGhIsErrNoGH_issue398(t *testing.T) {
 		t.Errorf("error = %v, want ErrNoGH", err)
 	}
 }
+
+// A pull request's view carries its checks - each one's name, how it ended and
+// how long it took - so the item can list them as the gate lists its steps
+// (#433). An issue has no checks, and gh refuses the field for one.
+func TestFoldDetail_ReadsAPullRequestsChecks_issue433(t *testing.T) {
+	raw := `{"number":400,"title":"t","body":"b","author":{"login":"x"},"comments":[],"statusCheckRollup":[` +
+		`{"__typename":"CheckRun","name":"test","status":"COMPLETED","conclusion":"FAILURE","startedAt":"2026-09-25T19:00:00Z","completedAt":"2026-09-25T19:01:42Z"},` +
+		`{"__typename":"CheckRun","name":"lint","status":"COMPLETED","conclusion":"SUCCESS","startedAt":"2026-09-25T19:00:00Z","completedAt":"2026-09-25T19:00:03Z"},` +
+		`{"__typename":"StatusContext","context":"ci/e2e","state":"PENDING"}]}`
+
+	got, err := forge.FoldDetail([]byte(raw))
+
+	if err != nil || len(got.Checks) != 3 {
+		t.Fatalf("FoldDetail() = %+v, %v; want three checks", got.Checks, err)
+	}
+	want := []forge.Check{
+		{Name: "test", State: forge.CIFailing, Took: 102 * time.Second},
+		{Name: "lint", State: forge.CIPassing, Took: 3 * time.Second},
+		{Name: "ci/e2e", State: forge.CIRunning},
+	}
+	for i, w := range want {
+		if got.Checks[i] != w {
+			t.Errorf("check %d = %+v, want %+v", i, got.Checks[i], w)
+		}
+	}
+}
+
+func TestCLI_ViewPRAsksForItsChecks_issue433(t *testing.T) {
+	bin, calls := fakeGH(t, detailJSON("pr body"), "", 0)
+	if _, err := forge.NewCLIWithBin(bin).ViewPR(t.TempDir(), 400); err != nil {
+		t.Fatal(err)
+	}
+	out, err := os.ReadFile(calls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), ",statusCheckRollup") {
+		t.Errorf("the pull request's view did not ask for its checks: %q", out)
+	}
+}

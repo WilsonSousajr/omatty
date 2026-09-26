@@ -177,7 +177,7 @@ func TestModel_anOlderLoadAnsweredLastIsDropped_issue352(t *testing.T) {
 		m.Update(msg)
 	}
 
-	body := m.View().Content
+	body := stripSGR(m.View().Content) // text: a Go line is syntax-coloured since #435
 	if strings.Contains(body, "new.txt") || !strings.Contains(body, "c := 4") {
 		t.Errorf("the older answer, delivered last, painted over the newer:\n%s", body)
 	}

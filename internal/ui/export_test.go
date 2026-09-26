@@ -28,12 +28,22 @@ func LeaderKeys() []string {
 	return out
 }
 
+// Bold is s as a heading or a title is drawn (#433).
+func Bold(s string) string { return headerStyle.Render(s) }
+
+// Strong is s as a body's **strong** run is drawn (#433).
+func Strong(s string) string { return strongStyle.Render(s) }
+
 // SearchHit is s as the gate draws a search match (#429).
 func SearchHit(s string) string { return searchStyle.Render(s) }
 
 // UseNerdIcons switches the model to the Nerd Font glyph set, as
 // [ui] icons = "nerd" does through Deps (#425).
-func (m *Model) UseNerdIcons() { m.glyphs = nerdGlyphs }
+func (m *Model) UseNerdIcons() { m.glyphs, m.nerdIcons = nerdGlyphs, true }
+
+// EmphasisAdded and EmphasisRemoved are the changed words of a pair (#435).
+func EmphasisAdded(s string) string   { return emphasisStyle(review.LineAdded).Render(s) }
+func EmphasisRemoved(s string) string { return emphasisStyle(review.LineRemoved).Render(s) }
 
 // ColumnKeyTables is each review-column face's documented keys, by face, plus
 // "column" for the keys every face shares - the tables helpBody renders, so
