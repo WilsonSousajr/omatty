@@ -42,7 +42,11 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.6.0**, 2026-09-26 — the review column starts remembering things. `v` marks
+**v0.7.0**, 2026-09-26 — two pieces of polish you feel on every frame: the
+session list answers the mouse wheel, and neither column starts hard against its
+own edge any more (#497, #498).
+
+v0.6.0, the same day — the review column starts remembering things. `v` marks
 a file read and says `~` when its diff changes under you; the files nobody wrote
 are folded away; a line takes more than one comment, and `C` comments on part of
 one. `ctrl+o u` puts a session back to the start of its last turn, and `ctrl+o p`

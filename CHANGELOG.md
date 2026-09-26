@@ -11,6 +11,32 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.7.0] — 2026-09-26
+
+Two pieces of polish you feel on every frame. The session list answers the
+mouse wheel, and neither column starts hard against its own edge any more.
+
+### Added
+
+- **The wheel over the sidebar moves the session cursor** (#497). It worked over
+  the session pane and over the review column; the one list on screen actually
+  made of discrete rows was the surface it did nothing on. A notch is one
+  session, and it goes through the same path `j/k` and a click take — so it
+  sizes the terminal it lands on and drags an open review column with it.
+- **A column of gutter in the sidebar and the review column** (#498). The cards
+  began in the cell straight after the rail and every face of the column in the
+  cell straight after the hairline. `SidebarWidth` goes 28 → 29 to pay for it,
+  so the title still gets 18 columns and the branch and diffstat still share 23:
+  the gutter comes out of the pane, never out of what a card says. The cards
+  stay three lines — a blank line between them would have cost a third of the
+  sessions on screen — and the pane's own edges stay flush, because #174 tore
+  out three boxes to win those columns.
+
+### Fixed
+
+- Three spots v0.6.0 left stale in `README.md`, `docs/ROADMAP.md` and
+  `docs/comparison.md` (#495).
+
 ## [v0.6.0] — 2026-09-26
 
 M12 finishes what its research asked for, and the review column starts
