@@ -10,15 +10,25 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
+// The row is found by the text it shows, with its styling stripped, and
+// returned as drawn, so a test can still ask about its colour: since #435 a
+// diff line's text is syntax-coloured, and SGR sits between its tokens.
 func lineWith(t *testing.T, view, needle string) string {
 	t.Helper()
 	for _, l := range strings.Split(view, "\n") {
-		if strings.Contains(l, needle) {
+		if strings.Contains(stripSGR(l), needle) {
 			return l
 		}
 	}
 	t.Fatalf("no line contains %q:\n%s", needle, view)
 	return ""
+}
+
+// plainLineWith is lineWith's row as text, for a test about what a row says
+// rather than how it is coloured.
+func plainLineWith(t *testing.T, view, needle string) string {
+	t.Helper()
+	return stripSGR(lineWith(t, view, needle))
 }
 
 func TestModel_ReviewShowsFileHeadersWithCountsAndHunkHeaders_issue21(t *testing.T) {
@@ -43,10 +53,10 @@ func TestModel_ReviewPrefixesLinesWithTheirSign_issue21(t *testing.T) {
 	view := m.View().Content
 
 	// Tabs are widened to four spaces so lipgloss measures what is drawn.
-	if !strings.Contains(lineWith(t, view, "b := 2"), "-    b := 2") {
+	if !strings.Contains(plainLineWith(t, view, "b := 2"), "-    b := 2") {
 		t.Error("removed line lacks its - prefix")
 	}
-	if !strings.Contains(lineWith(t, view, "b := 3"), "+    b := 3") {
+	if !strings.Contains(plainLineWith(t, view, "b := 3"), "+    b := 3") {
 		t.Error("added line lacks its + prefix")
 	}
 }

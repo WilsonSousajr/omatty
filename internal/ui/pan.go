@@ -171,6 +171,11 @@ func (m *Model) fitContent(text string, w int) string {
 // cut. The width the pan clamps to is still measured on the plain row, which
 // is why Preview.Lines stays beside Preview.Styled (#197).
 func (m *Model) fitStyled(text string, w int) string {
+	if m.review.ColOffset == 0 {
+		// No pan: the left cut would walk the row for nothing, and since #435
+		// every diff line comes through here (its text is syntax-coloured).
+		return padRight(ansi.Truncate(text, w, ""), w)
+	}
 	panned := ansi.TruncateLeft(text, m.review.ColOffset, "")
 	return padRight(ansi.Truncate(panned, w, ""), w)
 }
