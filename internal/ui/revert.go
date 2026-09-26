@@ -15,7 +15,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/review"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // RevertedMsg carries the outcome of a revert into Update. Exported so tests
@@ -130,20 +129,4 @@ func (m *Model) onReverted(msg RevertedMsg) tea.Cmd {
 // them.
 func (m *Model) refreshAfterRevert(id string) tea.Cmd {
 	return tea.Batch(m.loadDiff(id), m.relistFiles(id), m.pollStat(id))
-}
-
-// reportedStatus is a session's status with an unreported one read as idle,
-// which is what sessionRows already does for the sidebar (#334).
-//
-// Status is a string, so its zero value is "" and not StatusIdle - and atRest
-// answers false for it. A session nothing has reported on is not mid-turn: it is
-// a session that has not spoken yet, which is every session at boot and every
-// stopped one. Without this, u refused to revert with "cannot revert mid-turn"
-// on exactly the sessions a revert is most useful for. Found by the real-PTY
-// smoke test, not by a unit test - the fixtures all report a status first.
-func (m *Model) reportedStatus(id string) watcher.Status {
-	if s := m.status[id].Status; s != "" {
-		return s
-	}
-	return watcher.StatusIdle
 }
