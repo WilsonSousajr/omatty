@@ -138,10 +138,11 @@ func TestFrame_TheReviewRuleIsLabelledAndClosableAndThePanesIsNot_issue168(t *te
 	if rule[reviewCloseX] != '×' {
 		t.Errorf("the last cell is %q, want the close glyph: %q", rule[reviewCloseX], string(rule))
 	}
-	if column := string(rule[reviewHairlineX:]); !strings.Contains(column, "review") {
+	// Labelled with the face on show since #426 - the diff here - not "review".
+	if column := string(rule[reviewHairlineX:]); !strings.Contains(column, " diff ") {
 		t.Errorf("the column's rule is not labelled: %q", column)
 	}
-	if pane := string(rule[:reviewHairlineX]); strings.Contains(pane, "×") || strings.Contains(pane, "review") {
+	if pane := string(rule[:reviewHairlineX]); strings.Contains(pane, "×") || strings.Contains(pane, " diff ") {
 		t.Errorf("the pane's rule gained the column's affordances: %q", pane)
 	}
 }

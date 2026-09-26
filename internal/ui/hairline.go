@@ -74,17 +74,19 @@ func hairlineColumn(accent bool, h int) string {
 type segment struct {
 	title    string
 	width    int
-	owns     bool // the column owns the keyboard: its title is ink, not muted
-	closable bool // the column can be closed: its rule carries a label and × (#168)
+	owns     bool   // the column owns the keyboard: its title is ink, not muted
+	closable bool   // the column can be closed: its rule carries a label and × (#168)
+	label    string // what the closable column's rule names: its face (#426)
 }
 
 // closeGlyph is the one-cell close affordance on a closable column's rule,
-// and reviewRuleLabel names the column there. Two diffs can be on screen at
-// once - claude's own inside its pane, omatty's review column beside it -
-// and nothing said which was which; the pane's rule is plain dashes, the
-// column's reads "─ review ─────×", so they are told apart at a glance and
-// the one that closes is the one that says so (#168).
-const closeGlyph, reviewRuleLabel = "×", "review"
+// where the face on show is named. Two diffs can be on screen at once -
+// claude's own inside its pane, omatty's review column beside it - and nothing
+// said which was which; the pane's rule is plain dashes, the column's reads
+// "─ diff ─────×", so they are told apart at a glance and the one that closes
+// is the one that says so (#168). It said "review" on every face until #426:
+// with five faces, the rule is where a glance tells them apart.
+const closeGlyph = "×"
 
 // headerRow lays the segments across the window with a hairline cell between
 // each pair. A title is padded and cut to its column, so the row is exactly
@@ -126,13 +128,13 @@ func ruleSegment(s segment) string {
 	if !s.closable || s.width < 1 {
 		return hairlineStyle(false).Render(strings.Repeat(ruleDash, s.width))
 	}
-	return hairlineStyle(false).Render(ruleLabel(s.width-1)) + hairlineStyle(s.owns).Render(closeGlyph)
+	return hairlineStyle(false).Render(ruleLabel(s.label, s.width-1)) + hairlineStyle(s.owns).Render(closeGlyph)
 }
 
-// ruleLabel is width cells of dashes with " review " set into them after one
+// ruleLabel is width cells of dashes with " name " set into them after one
 // dash, or plain dashes when the column is too narrow to carry the name.
-func ruleLabel(width int) string {
-	label := " " + reviewRuleLabel + " "
+func ruleLabel(name string, width int) string {
+	label := " " + name + " "
 	if width < len(label)+2 {
 		return strings.Repeat(ruleDash, width)
 	}
