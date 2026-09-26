@@ -255,7 +255,9 @@ func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segmen
 	}
 	rw := m.columnWidth()
 	cols = append(cols, hairlineColumn(edge == edgeReview, termH), m.renderReview(rw, termH))
-	return cols, append(segs, m.columnSegment(rw, edge == edgeReview))
+	// rw+gutterCols, because renderReview draws the gutter as well as the
+	// content and the header row must span exactly what the body does (#498).
+	return cols, append(segs, m.columnSegment(rw+gutterCols, edge == edgeReview))
 }
 
 // zoomedColumns is the body with the column drawn over the session pane: the
@@ -263,7 +265,7 @@ func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segmen
 func (m *Model) zoomedColumns(termH int, now time.Time) ([]string, []segment) {
 	rw := m.columnWidth()
 	cols := []string{m.renderSidebar(termH, now), hairlineColumn(true, termH), m.renderReview(rw, termH)}
-	return cols, []segment{{title: m.sidebarSegment(), width: sidebarContentCols}, m.columnSegment(rw, true)}
+	return cols, []segment{{title: m.sidebarSegment(), width: sidebarContentCols}, m.columnSegment(rw+gutterCols, true)}
 }
 
 // columnSegment is the review column's header and rule segment.

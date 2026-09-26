@@ -13,9 +13,10 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
-// gateCols is line three's budget: the card's content less the rail, the two
-// spaces that indent it and the blank final column, matching line two's sums.
-const gateCols = cardCols - 1 - 2 - 1
+// gateCols is line three's budget: the card's content less the rail, the
+// gutter after it (#498), the two spaces that indent it and the blank final
+// column, matching line two's sums.
+const gateCols = cardCols - 1 - gutterCols - 2 - 1
 
 // cardGate is line three past the rail and its indent: the marks, then what
 // they amount to, with any coverage reading right-aligned.

@@ -158,7 +158,10 @@ func TestModel_aNarrowColumnKeepsTheUncoveredCountWhole_issue291(t *testing.T) {
 // part that says which file this is - survives every width (#287, #291).
 func TestModel_aNarrowFileHeaderShortensThePathFromTheFront_issue291(t *testing.T) {
 	m := modelWithOverlay(t, overlayProfile)
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	// 92, not 80: below it ReviewWidth is pinned at minReviewWidth, so #498's
+	// gutter came straight off the content and the header shed the path whole
+	// rather than eliding it. 92 gives the column the 23 cells it had.
+	m.Update(tea.WindowSizeMsg{Width: 92, Height: 30})
 
 	got := plainLineWith(t, m.View().Content, "model.go")
 	if !strings.Contains(got, "…/model.go") {

@@ -225,8 +225,8 @@ func TestModel_MovingTheCursorResizesTheNewlySelectedTerminal_issue73(t *testing
 	press(m, ctrl('o'))
 	press(m, key('j'))
 
-	if f := fakes["s2"]; f.Width != 92 || f.Height != 37 {
-		t.Errorf("newly focused s2 is %dx%d, want PTYSize(120,40) = 92x37", f.Width, f.Height)
+	if f := fakes["s2"]; f.Width != 91 || f.Height != 37 {
+		t.Errorf("newly focused s2 is %dx%d, want PTYSize(120,40) = 91x37", f.Width, f.Height)
 	}
 }
 

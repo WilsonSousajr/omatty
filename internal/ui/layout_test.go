@@ -14,9 +14,9 @@ import (
 func TestPaneSize_SubtractsSidebarAndBorders_issue35(t *testing.T) {
 	w, h := ui.PaneSize(120, 40, false)
 
-	// terminal = 120 - 28 = 92. Rows: 40 - header 1 - rule 1 - footer 1 = 37.
-	if w != 92 || h != 37 {
-		t.Errorf("PaneSize(120, 40) = (%d, %d), want (92, 37)", w, h)
+	// terminal = 120 - 29 = 91. Rows: 40 - header 1 - rule 1 - footer 1 = 37.
+	if w != 91 || h != 37 {
+		t.Errorf("PaneSize(120, 40) = (%d, %d), want (91, 37)", w, h)
 	}
 }
 
@@ -72,10 +72,10 @@ func TestModel_ResizePassesPaneSizeToTheSelectedTerminal_issue35(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	f := fakes["s1"]
-	// PaneSize 92x37; the title is in the header row, so the PTY is the whole
+	// PaneSize 91x37; the title is in the header row, so the PTY is the whole
 	// pane (issue #75, #128, #174).
-	if f.Width != 92 || f.Height != 37 {
-		t.Errorf("terminal resized to %dx%d, want PTYSize 92x37", f.Width, f.Height)
+	if f.Width != 91 || f.Height != 37 {
+		t.Errorf("terminal resized to %dx%d, want PTYSize 91x37", f.Width, f.Height)
 	}
 }
 
@@ -163,12 +163,12 @@ func TestPaneSize_ReviewColumnTakesTwoFifthsOfTheRest_issue21(t *testing.T) {
 		t.Errorf("ReviewWidth(closed) = %d, want 0", got)
 	}
 	w, h := ui.PaneSize(100, 30, true)
-	// 100 - sidebar 28 - review 28 = 44 (#174: no border columns); rows unchanged.
-	if w != 44 || h != 27 {
-		t.Errorf("PaneSize(100, 30, open) = (%d, %d), want (44, 27)", w, h)
+	// 100 - sidebar 29 (#498) - review 28 = 43 (#174: no border columns); rows unchanged.
+	if w != 43 || h != 27 {
+		t.Errorf("PaneSize(100, 30, open) = (%d, %d), want (43, 27)", w, h)
 	}
-	if w, _ := ui.PaneSize(160, 45, true); w != 80 {
-		t.Errorf("PaneSize(160, 45, open) width = %d, want 80 (review 52)", w)
+	if w, _ := ui.PaneSize(160, 45, true); w != 79 {
+		t.Errorf("PaneSize(160, 45, open) width = %d, want 79 (review 52)", w)
 	}
 }
 

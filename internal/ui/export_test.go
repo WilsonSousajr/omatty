@@ -292,8 +292,16 @@ func (m *Model) DiffSeq() uint64 { return m.diffSeq }
 // TurnSeq is DiffSeq for the turn diff.
 func (m *Model) TurnSeq() uint64 { return m.turnSeq }
 
-// MetaCols is card line two's width for the branch and the diffstat.
-func MetaCols() int { return metaCols }
+// MetaCols is card line two's width for the branch and the diffstat;
+// TitleCols is line one's for the session title. Both are budgets #498 had
+// to leave untouched while adding a gutter, so a test asserts on them.
+func MetaCols() int  { return metaCols }
+func TitleCols() int { return titleCols }
+
+// GutterCols is the blank column a column keeps inside its own left edge
+// (#498), so a test derives its offsets from the layout rather than writing
+// them down a second time.
+func GutterCols() int { return gutterCols }
 
 // SpinFrames is one turn of the working spinner, SpinEvery a frame's time on
 // screen and SpinFrameAt the frame at a moment (#410). SpinArmed is whether
