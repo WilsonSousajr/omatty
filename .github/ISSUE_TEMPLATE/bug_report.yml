@@ -1,0 +1,68 @@
+name: Bug report
+description: Something omatty did that it should not have, or did not do that it should
+labels: ["fix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time. omatty is a young tool and the maintainer
+        has been its only user, so the things you hit first are the things
+        nobody has hit yet.
+
+        **Before you paste anything:** `~/.claude/projects/` holds your
+        transcripts and omatty's logs can quote paths and branch names. Have a
+        look at what you are pasting.
+  - type: input
+    id: version
+    attributes:
+      label: omatty version
+      description: "`omatty --version`"
+      placeholder: v0.5.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and terminal
+      description: The terminal matters more than you would think - key reporting differs between them.
+      placeholder: macOS 15.3, Ghostty 1.1 / Ubuntu 24.04, tmux 3.5a inside Alacritty
+    validations:
+      required: true
+  - type: checkboxes
+    id: optional-tools
+    attributes:
+      label: Which of these are installed
+      description: All three are optional. omatty degrades rather than failing when one is missing, so knowing which you have narrows most reports by half.
+      options:
+        - label: "`dtach` (sessions survive quitting omatty)"
+        - label: "`gh`, authenticated (pull request and CI state, the tracker)"
+        - label: "a gate configured for this project (`omatty gate <project>`)"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you saw, and what you expected instead.
+      placeholder: |
+        1. ctrl+o N, made a worktree session on `feat/thing`
+        2. asked claude for a change; the card went to ✓
+        3. ctrl+o g ran the gate and the strip stayed blank
+    validations:
+      required: true
+  - type: textarea
+    id: card-vs-claude
+    attributes:
+      label: What the card said, and what claude was actually doing
+      description: >
+        omatty reads status from Claude Code's hooks and its transcript, never
+        from the screen, so these two can disagree - and when they do, that
+        disagreement is the bug. Tell us both.
+      placeholder: "The card showed ○ idle while claude was plainly mid-tool-call."
+  - type: textarea
+    id: logs
+    attributes:
+      label: Anything from the log
+      description: >
+        omatty logs as JSON to `~/.omatty/logs/`, never to the screen, so the
+        answer is usually in there and not on your terminal. The last few lines
+        around the moment it went wrong are normally enough.
+      render: text
