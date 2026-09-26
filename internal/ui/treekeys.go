@@ -52,6 +52,8 @@ func (m *Model) treeMarkKey(key string) bool {
 		// Not g, which #424 made "the top" on every face; "." is what lf,
 		// ranger, yazi and nnn toggle hidden files with.
 		m.toggleGenerated()
+	case "c":
+		m.toggleChangedOnly()
 	default:
 		return false
 	}

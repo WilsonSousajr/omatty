@@ -24,8 +24,7 @@ func treeOnModelGo(t *testing.T) (*ui.Model, *diffRecorder) {
 	m := ui.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	leader(m, key('f'))
-	press(m, key('j'))
-	press(m, key('j'))
+	press(m, key('j')) // model.go, under the compacted internal/ui/ row (#430)
 	return m, rec
 }
 
@@ -74,7 +73,7 @@ func TestModel_aReviewedFileThatChangesSaysChangedSince_issue337(t *testing.T) {
 	// tree's own r only re-lists the worktree.
 	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
 
-	row := lineWith(t, m.View().Content, "M model.go")
+	row := columnPart(lineWith(t, m.View().Content, "M model.go"))
 	if strings.Contains(row, "✓") {
 		t.Errorf("the row still reads reviewed after its diff changed: %q", row)
 	}
@@ -162,14 +161,14 @@ func TestModel_aReviewedRowGoesQuietAndAChangedOneDoesNot_issue337(t *testing.T)
 	press(m, key('v'))
 	press(m, key('j')) // render.go, leaving model.go to its own style
 
-	if row := lineWith(t, m.View().Content, "✓M model.go"); !strings.Contains(row, sgrMuted) {
+	if row := columnPart(lineWith(t, m.View().Content, "✓M model.go")); !strings.Contains(row, sgrMuted) {
 		t.Errorf("a reviewed row is not muted: %q", row)
 	}
 
 	rec.Diff = parseDiff(t, strings.Replace(sampleDiff, "+	b := 3", "+	b := 99", 1))
 	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
 
-	row := lineWith(t, m.View().Content, "~M model.go")
+	row := columnPart(lineWith(t, m.View().Content, "~M model.go"))
 	if strings.Contains(row, sgrMuted) {
 		t.Errorf("a changed-since-reviewed row is muted, so the change reads as read: %q", row)
 	}
@@ -177,3 +176,9 @@ func TestModel_aReviewedRowGoesQuietAndAChangedOneDoesNot_issue337(t *testing.T)
 		t.Errorf("row = %q, want a modified file's amber back", row)
 	}
 }
+
+// columnPart is the review column's share of a frame line: past its last
+// hairline. A whole line also carries the sidebar, whose status glyph (✓ once
+// a turn ends) and muted age would answer these tests' questions for it - which
+// is what happened when #430 moved model.go up onto the card's row.
+func columnPart(line string) string { return line[strings.LastIndex(line, "│"):] }

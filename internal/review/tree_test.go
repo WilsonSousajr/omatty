@@ -61,7 +61,9 @@ func TestNewTree_DirectoriesFirstThenCaseInsensitive_issue194(t *testing.T) {
 
 	got := names(tr.Visible())
 
-	want := "cmd/| main.go|internal/| ui/|  apple.go|  Zed.go|internal-old/| x.go|bar.go|Foo.go|go.mod"
+	// internal/ui is one row since #430 compacted single-child chains; the
+	// order this test is about is unchanged.
+	want := "cmd/| main.go|internal/ui/| apple.go| Zed.go|internal-old/| x.go|bar.go|Foo.go|go.mod"
 	if got != want {
 		t.Errorf("Visible() =\n%s\nwant\n%s", got, want)
 	}
@@ -182,8 +184,9 @@ func TestTree_RelistForgetsADirectoryThatIsGone_issue195(t *testing.T) {
 
 // The mark says what kind of change: M A D R, coloured the way the diff
 // colours those states. A deleted file is in the diff but not in the
-// listing, so it becomes a row from the change map; a directory rolls up to
-// modified whatever changed beneath it (#196).
+// listing, so it becomes a row from the change map. A directory rolled up to
+// modified whatever changed beneath it (#196) until #430 made it carry the
+// strongest change beneath: here a deletion, so D.
 func TestTree_RowsCarryTheKindOfChange_issue196(t *testing.T) {
 	tr := review.NewTree([]string{"a/m.go", "a/n.go", "r.go"}, map[string]review.Change{
 		"a/m.go": review.ChangeModified, "a/n.go": review.ChangeAdded,
@@ -192,7 +195,7 @@ func TestTree_RowsCarryTheKindOfChange_issue196(t *testing.T) {
 
 	got := names(tr.Visible())
 
-	want := "a/M| d.goD| m.goM| n.goA|r.goR"
+	want := "a/D| d.goD| m.goM| n.goA|r.goR"
 	if got != want {
 		t.Errorf("Visible() =\n%s\nwant\n%s", got, want)
 	}

@@ -101,7 +101,7 @@ func (m *Model) faceTitle(budget int) string {
 // mechanism over both would hide which applies where.
 func (m *Model) treeTitle(budget int) string {
 	const head = "files · "
-	marker := m.foldMarker() + m.filterMarker()
+	marker := m.changedMarker() + m.foldMarker() + m.filterMarker()
 	room := budget - lipgloss.Width(head) - lipgloss.Width(marker)
 	if room < minNameCells {
 		if marker == "" {
@@ -110,6 +110,16 @@ func (m *Model) treeTitle(budget int) string {
 		return head + strings.TrimSpace(marker)
 	}
 	return head + elideMiddle(m.sessionTitle(m.review.SessionID), room) + marker
+}
+
+// changedMarker says the listing is cut to changed files (#430). A narrowed
+// listing that did not say so would read as the whole tree, which is the
+// filter marker's argument (#285), so like it this is never given up.
+func (m *Model) changedMarker() string {
+	if m.review.Tree == nil || !m.review.Tree.ChangedOnly() {
+		return ""
+	}
+	return " changed"
 }
 
 // foldMarker says how many generated files the tree is keeping out of the

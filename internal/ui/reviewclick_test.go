@@ -99,11 +99,11 @@ func TestUpdate_AClickOnATreeRowMovesTheTreeCursor_issue168(t *testing.T) {
 	m, _, _, reader := modelWithTree(t)
 	leader(m, key('f'))
 
-	m.Update(clickAt(reviewHairlineX+5, reviewRowY(2))) // internal/, ui/, model.go
+	m.Update(clickAt(reviewHairlineX+5, reviewRowY(1))) // internal/ui/ (compacted, #430), model.go
 	pressAndSettle(m, special(tea.KeyEnter))
 
 	if m.ReviewView() != ui.ViewPreview || len(reader.Read) != 1 || reader.Read[0] != "internal/ui/model.go" {
-		t.Errorf("view=%v read=%v after a click on row 2 and enter; want a preview of model.go", m.ReviewView(), reader.Read)
+		t.Errorf("view=%v read=%v after a click on row 1 and enter; want a preview of model.go", m.ReviewView(), reader.Read)
 	}
 }
 

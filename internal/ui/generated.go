@@ -113,6 +113,17 @@ func (m *Model) toggleGenerated() {
 	m.moveTreeCursor(0)
 }
 
+// toggleChangedOnly is c: the tree cut to the files the session changed and
+// the directories above them, or all of it again (#430).
+func (m *Model) toggleChangedOnly() {
+	if m.review.Tree == nil {
+		return
+	}
+	m.review.Tree.SetChangedOnly(!m.review.Tree.ChangedOnly())
+	m.contentChanged()
+	m.moveTreeCursor(0)
+}
+
 // isGenerated reports whether the shown session's path is one nobody wrote,
 // which is what keeps M10's coverage markers off it: a generated file has no
 // test and never will, so marking its lines uncovered says something true about

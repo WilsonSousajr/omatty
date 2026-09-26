@@ -130,7 +130,8 @@ var treeKeys = []keyHelp{
 	{"a", "attach the row or previewed file to the prompt as @path"},
 	{"o", "from a preview, jump to that file in the diff"},
 	{"r", "re-list the tree"},
-	{"M A D R", "a file the session modified, added, deleted or renamed"},
+	{"c", "only the files the session changed, or all of them again"},
+	{"M A D R", "a file the session modified, added, deleted or renamed; a folder, the strongest beneath it"},
 }
 
 var gateKeys = []keyHelp{
