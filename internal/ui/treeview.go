@@ -51,8 +51,9 @@ func (m *Model) treeLines(nodes []review.TreeNode, w, rows int) []string {
 	off := ScrollOffset(m.review.TreeCursor, m.review.TreeOffset, rows)
 	out := make([]string, 0, rows)
 	for i := off; i < min(off+rows, len(nodes)); i++ {
-		text := m.fitContent(treeText(nodes[i], m.review.Tree.Collapsed(nodes[i].Path)), w)
-		out = append(out, treeStyle(nodes[i], i == m.review.TreeCursor).Render(text))
+		mark := m.reviewMark(nodes[i].Path, nodes[i].IsDir)
+		text := m.fitContent(treeText(nodes[i], m.review.Tree.Collapsed(nodes[i].Path), mark), w)
+		out = append(out, treeStyle(nodes[i], i == m.review.TreeCursor, mark).Render(text))
 	}
 	return out
 }
@@ -61,8 +62,13 @@ func (m *Model) treeLines(nodes []review.TreeNode, w, rows int) []string {
 // kind of change the session made - M A D R - or a space for none, and a
 // directory holding a changed file reads as M (#196). Before that one *
 // marked every kind.
-func treeText(n review.TreeNode, collapsed bool) string {
-	mark := changeLetter(n.Change)
+//
+// review is the read gutter, one cell to the left of the change letter (#337).
+// It goes on the left rather than between the letter and the name so that
+// every row a reviewer has not marked reads exactly as it did before: the
+// change letter still sits against the name.
+func treeText(n review.TreeNode, collapsed bool, review string) string {
+	mark := review + changeLetter(n.Change)
 	indent := strings.Repeat("  ", n.Depth)
 	if !n.IsDir {
 		return indent + mark + " " + n.Name
@@ -95,10 +101,16 @@ func changeLetter(c review.Change) string {
 // renamed file, the operator's-attention hue; that is what keeps style.go's
 // one-hue-one-meaning rule with no new colour (#196). The cursor's reverse
 // wins over all of them so the row is found at a glance.
-func treeStyle(n review.TreeNode, cursor bool) lipgloss.Style {
+func treeStyle(n review.TreeNode, cursor bool, mark string) lipgloss.Style {
 	switch {
 	case cursor:
 		return cursorStyle
+	// A file read and unchanged since is the one row worth making quieter
+	// than the rest: it is done, and the point of the mark is to stop the eye
+	// going back to it. A changed-since row keeps its change colour, because
+	// it wants attention again (#337).
+	case mark == reviewedMark:
+		return mutedStyle
 	case n.Change == review.ChangeAdded:
 		return addedStyle
 	case n.Change == review.ChangeDeleted:

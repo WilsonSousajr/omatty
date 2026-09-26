@@ -145,6 +145,14 @@ type Model struct {
 	statFailed  map[string]bool
 	// filesPending guards one worktree listing in flight per session (#195).
 	filesPending map[string]bool
+	// reviewed is, per session, the digest each file's diff had when the
+	// operator marked it read (#337). Keyed by session because the column
+	// keeps one Tree: a mark stored on the Tree would be dropped the moment
+	// they looked at another session, which is the review this exists to
+	// save. Display-only and never persisted, like covers and repoStat -
+	// state.json must suffice to relaunch a session (invariant 9), and what
+	// somebody has read is not part of that.
+	reviewed map[string]map[string]string
 	// reattached is Deps.Reattached: the panes to nudge once at boot (#191).
 	reattached map[string]bool
 	// The archive path's three halves: forget the session, stop its tailer,
@@ -272,6 +280,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
+	m.reviewed = map[string]map[string]string{}
 	return m.withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
 }
 

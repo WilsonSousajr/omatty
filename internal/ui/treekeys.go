@@ -22,11 +22,14 @@ func (m *Model) onTreeKey(key string) tea.Cmd {
 	return nil
 }
 
-// treeActionKey runs enter, r, / and a, reporting whether key was one.
+// treeActionKey runs enter, r, /, a and v, reporting whether key was one.
 func (m *Model) treeActionKey(key string) (tea.Cmd, bool) {
 	switch key {
 	case "enter":
 		return m.openTreeNode(), true
+	case "v":
+		m.toggleReviewed()
+		return nil, true
 	case "r":
 		return m.loadFiles(m.review.SessionID), true
 	case "/":

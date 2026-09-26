@@ -412,7 +412,16 @@ Comments live in memory: quitting omatty drops them.
 A letter marks every file the session changed - `M` modified, `A` added, `D`
 deleted, `R` renamed - in the colour the diff gives that state, and a directory
 holding one reads as `M`, so you can see the shape of a change before reading
-it. A deleted file keeps its row, in red, until the next listing without it. The two views share one column:
+it. A deleted file keeps its row, in red, until the next listing without it.
+
+`v` marks the file under the cursor as read. It keeps a `✓` and goes quiet
+until its diff changes, at which point it reads `~` - changed since you read
+it. On a long session that is the difference between reviewing the turn and
+reviewing everything again from the top. What is compared is the file's diff
+*content*, never its modification time: the agent rewrites files while you are
+reading them, so a timestamp only says that something was written. The marks
+are one session's, they are not written to disk, and quitting omatty drops
+them. The two views share one column:
 `ctrl+o d` and `ctrl+o f` switch between them, and either key closes the column
 when it already shows that view.
 
@@ -425,6 +434,7 @@ when it already shows that view.
 | `r` | re-list the worktree |
 | `/` | filter the tree as you type; `enter` keeps the filter, `esc` clears it |
 | `a` | attach the row, or the previewed file, to the prompt as `@path` and go back to typing |
+| `v` | mark the file read: `✓` while its diff is unchanged, `~` once the session changes it again |
 | `o` | from a preview, jump to the diff at that line; from a diff line, `o` opens the preview there |
 | `esc` | from a preview back to the tree; from the tree, lift the filter, then back to Claude |
 
