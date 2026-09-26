@@ -32,7 +32,7 @@ func TestLoad_MissingFileIsEveryDefault_issue44(t *testing.T) {
 
 func TestLoad_ReadsEveryKey_issue44(t *testing.T) {
 	home := t.TempDir()
-	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\nauto = true\n[sessions]\nlazy_start = false\n")
+	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\nauto = true\n[sessions]\nlazy_start = false\n[ui]\nicons = \"nerd\"\n")
 	got, err := config.Load(path, home)
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func TestLoad_ReadsEveryKey_issue44(t *testing.T) {
 	want := config.Config{
 		Leader: "ctrl+a", ClaudeBin: "/opt/claude", WorktreeRoot: "/vol/wt", BaseBranch: "develop",
 		Naming: config.Naming{Model: true}, Gate: config.Gate{MaxParallel: 3, Auto: true},
-		Sessions: config.Sessions{LazyStart: false},
+		Sessions: config.Sessions{LazyStart: false}, UI: config.UI{Icons: config.IconsNerd},
 	}
 	if got != want {
 		t.Errorf("Load() = %+v, want %+v", got, want)
@@ -214,6 +214,45 @@ func TestLoad_RefusesABadIdleStop_issue319(t *testing.T) {
 			if !strings.Contains(err.Error(), want) {
 				t.Errorf("idle_stop = %q: error %q does not name %q", value, err, want)
 			}
+		}
+	}
+}
+
+// Icons are plain Unicode unless asked for: a Nerd Font glyph in a terminal
+// without one is a tofu box, worse than no icon (#425).
+func TestLoad_IconsArePlainByDefault_issue425(t *testing.T) {
+	home := t.TempDir()
+	got, err := config.Load(filepath.Join(home, "none.toml"), home)
+	if err != nil || got.UI.Icons != config.IconsPlain {
+		t.Errorf("Load() with no file = (icons %q, %v), want %q and no error", got.UI.Icons, err, config.IconsPlain)
+	}
+}
+
+func TestLoad_ReadsNerdIcons_issue425(t *testing.T) {
+	home := t.TempDir()
+	got, err := config.Load(writeConfig(t, home, "[ui]\nicons = \"nerd\"\n"), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.UI.Icons != config.IconsNerd {
+		t.Errorf("icons = %q, want %q", got.UI.Icons, config.IconsNerd)
+	}
+}
+
+// A value omatty has no glyphs for is refused, naming the file, the key, the
+// value and what would have worked, rather than silently drawing plain (#44).
+func TestLoad_RefusesUnknownIcons_issue425(t *testing.T) {
+	home := t.TempDir()
+	path := writeConfig(t, home, "[ui]\nicons = \"emoji\"\n")
+
+	_, err := config.Load(path, home)
+
+	if err == nil {
+		t.Fatal("icons = \"emoji\" was accepted, want an error")
+	}
+	for _, want := range []string{path, "ui.icons", "emoji", `"plain"`, `"nerd"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name %q", err, want)
 		}
 	}
 }

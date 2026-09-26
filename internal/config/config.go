@@ -36,6 +36,7 @@ type Config struct {
 	Naming       Naming   `toml:"naming"`
 	Gate         Gate     `toml:"gate"`
 	Sessions     Sessions `toml:"sessions"`
+	UI           UI       `toml:"ui"`
 }
 
 // Sessions is the [sessions] table: when omatty spends a claude process on a
@@ -90,13 +91,28 @@ type Gate struct {
 	Auto bool `toml:"auto"`
 }
 
+// UI is the [ui] table: how omatty draws, as opposed to what it does (#425).
+type UI struct {
+	// Icons is the glyph set every state is drawn with: IconsPlain, Unicode
+	// any terminal font has, or IconsNerd, a Nerd Font's icons. Opt-in,
+	// because a Nerd Font glyph without the font is a tofu box - the reason
+	// M5 and M8 cut icons, which M15 takes back only behind this key.
+	Icons string `toml:"icons"`
+}
+
+// The values UI.Icons takes.
+const (
+	IconsPlain = "plain"
+	IconsNerd  = "nerd"
+)
+
 // Defaults is the configuration of a machine with no config file.
 //
 //	cfg := config.Defaults(home)
 func Defaults(home string) Config {
 	return Config{
 		Leader: "ctrl+o", ClaudeBin: "claude", WorktreeRoot: paths.DefaultWorktreeRoot(home),
-		Gate: Gate{MaxParallel: 2}, Sessions: Sessions{LazyStart: true},
+		Gate: Gate{MaxParallel: 2}, Sessions: Sessions{LazyStart: true}, UI: UI{Icons: IconsPlain},
 	}
 }
 
@@ -120,7 +136,7 @@ func Load(path, home string) (Config, error) {
 	if err := refuseUnknownKeys(path, md); err != nil {
 		return Config{}, err
 	}
-	if err := refuseBlankLeader(path, cfg.Leader); err != nil {
+	if err := refuseBadValues(path, cfg); err != nil {
 		return Config{}, err
 	}
 	cfg.WorktreeRoot = expandHome(cfg.WorktreeRoot, home)
@@ -158,6 +174,24 @@ func tagPaths(t reflect.Type, prefix string) []string {
 func refuseUnknownKeys(path string, md toml.MetaData) error {
 	if keys := md.Undecoded(); len(keys) > 0 {
 		return fmt.Errorf("config %s: unknown key %q, want one of %s", path, keys[0].String(), knownKeys())
+	}
+	return nil
+}
+
+// refuseBadValues is every check on a value the decoder accepted by type but
+// omatty cannot use.
+func refuseBadValues(path string, cfg Config) error {
+	if err := refuseBlankLeader(path, cfg.Leader); err != nil {
+		return err
+	}
+	return refuseUnknownIcons(path, cfg.UI.Icons)
+}
+
+// refuseUnknownIcons rejects a glyph set omatty does not have, rather than
+// drawing plain and leaving the operator to wonder why the key did nothing.
+func refuseUnknownIcons(path, icons string) error {
+	if icons != IconsPlain && icons != IconsNerd {
+		return fmt.Errorf("config %s: ui.icons %q is not a glyph set, want %q or %q", path, icons, IconsPlain, IconsNerd)
 	}
 	return nil
 }

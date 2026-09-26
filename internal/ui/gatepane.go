@@ -61,7 +61,7 @@ func (m *Model) pendingGateLines(id string) []string {
 	steps := m.gateFor(id)
 	w := nameWidth(steps)
 	for _, step := range steps {
-		lines = append(lines, stepRow("  ", "·", step, w, ""))
+		lines = append(lines, stepRow("  ", m.glyphs.mark(markPending), step, w, ""))
 	}
 	return lines
 }
@@ -80,8 +80,15 @@ func (m *Model) noGateLines() []string {
 	}
 }
 
-// gateLines is every step, each followed by its output when folded open.
+// gateLines is every step, each followed by its output when folded open, its
+// marks plain: what the pan clamp measures and the cursor row draws.
 func (m *Model) gateLines(report gate.Report) []string {
+	return m.gateLinesWith(report, m.glyphs.mark)
+}
+
+// gateLinesWith is gateLines with each step's mark drawn by mark, so the plain
+// rows and the coloured ones come from one builder and cannot fall out of line.
+func (m *Model) gateLinesWith(report gate.Report, mark func(markState) string) []string {
 	steps := make([]gate.Step, len(report.Results))
 	for i, result := range report.Results {
 		steps[i] = result.Step
@@ -89,7 +96,7 @@ func (m *Model) gateLines(report gate.Report) []string {
 	w := nameWidth(steps)
 	var lines []string
 	for i, result := range report.Results {
-		lines = append(lines, gateStepLine(result, w))
+		lines = append(lines, gateStepLine(mark(verdictState(result.Verdict)), result, w))
 		if m.review.GateOpen[i] {
 			lines = append(lines, indent(result.Output)...)
 		}
@@ -101,8 +108,8 @@ func (m *Model) gateLines(report gate.Report) []string {
 // so the pane says what was actually executed. The two leading cells were the
 // "▸ " cursor until #424 made reverse video the cursor on every face; they stay
 // so a row does not shift against the pending view's, which spends them too.
-func gateStepLine(result gate.StepResult, nameW int) string {
-	return stepRow("  ", verdictMark[result.Verdict], result.Step, nameW, elapsed(result))
+func gateStepLine(mark string, result gate.StepResult, nameW int) string {
+	return stepRow("  ", mark, result.Step, nameW, elapsed(result))
 }
 
 // stepRow lays out one step for both the pending and the verdict view, so the

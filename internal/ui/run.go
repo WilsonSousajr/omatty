@@ -169,6 +169,8 @@ type RunDeps struct {
 	// GateAuto runs a session's gate when its turn ends (#233). Off unless
 	// the config asks for it.
 	GateAuto bool
+	// NerdIcons is [ui] icons = "nerd" (#425).
+	NerdIcons bool
 }
 
 // Run starts every session's terminal, the status watcher, and the TUI, and
@@ -207,7 +209,7 @@ func modelFor(
 		Events: watch.Events(), HooksDown: !watch.HooksLive(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
 		GateReports: gates.Reports(), GateRun: gates.Start, GateAuto: d.GateAuto,
-		IdleStop: d.IdleStop,
+		IdleStop: d.IdleStop, NerdIcons: d.NerdIcons,
 	})
 }
 

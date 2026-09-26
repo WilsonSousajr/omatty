@@ -17,21 +17,6 @@ import (
 // spaces that indent it and the blank final column, matching line two's sums.
 const gateCols = cardCols - 1 - 2 - 1
 
-// verdictMark is one cell per step, in the gate's configured order, so the
-// strip reads left to right as the gate ran.
-//
-// Missing is deliberately not ✗. A tool that is not installed is a statement
-// about the machine, not about the code (invariant 12), and a card that said
-// otherwise would send someone to fix code that was never broken.
-var verdictMark = map[gate.Verdict]string{
-	gate.Pass:      "✓",
-	gate.Fail:      "✗",
-	gate.Missing:   "?",
-	gate.Running:   "◍",
-	gate.Pending:   "·",
-	gate.Cancelled: "·",
-}
-
 // cardGate is line three past the rail and its indent: the marks, then what
 // they amount to, with any coverage reading right-aligned.
 //
@@ -46,15 +31,15 @@ func (m *Model) cardGate(id string) string {
 		return fitLine("gate error", gateCols)
 	}
 	right := coverageReading(report.Results)
-	left := marks(report.Results) + "  " + m.gateLabel(id, report.Results)
+	left := m.marks(report.Results) + "  " + m.gateLabel(id, report.Results)
 	return fitLine(left, gateCols-lipgloss.Width(right)-1) + " " + right
 }
 
-// marks is one cell per step.
-func marks(results []gate.StepResult) string {
+// marks is one cell per step, uncoloured as the whole card is.
+func (m *Model) marks(results []gate.StepResult) string {
 	var b strings.Builder
 	for _, r := range results {
-		b.WriteString(verdictMark[r.Verdict])
+		b.WriteString(m.glyphs.mark(verdictState(r.Verdict)))
 	}
 	return b.String()
 }

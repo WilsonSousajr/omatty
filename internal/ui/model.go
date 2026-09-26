@@ -131,6 +131,7 @@ type Model struct {
 	gateReports <-chan gate.Report
 	gateRun     GateRunFunc
 	gateAuto    bool
+	glyphs      glyphSet // every state mark, plain or Nerd Font (#425)
 	// spinArmed is whether a spin tick is pending, so there is one spin
 	// chain at most however many sessions start working; spinTick schedules
 	// it (#412).
@@ -228,6 +229,7 @@ func NewModel(deps Deps) *Model {
 		hasFocus:   true,
 		reattached: d.Reattached,
 	}
+	m.glyphs = glyphsFor(d.NerdIcons)
 	return m.withSources(d).withGate(d).withWindow().withRuntimeMaps().withSweep(d)
 }
 

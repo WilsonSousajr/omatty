@@ -239,7 +239,7 @@ func (m *Model) openPRs(project string) []trackerRow {
 			continue
 		}
 		row := trackerRow{
-			Kind: rowPR, Number: pr.Number, Label: prMark(pr),
+			Kind: rowPR, Number: pr.Number, Label: m.prMark(pr),
 			Title: pr.Title, Updated: pr.Updated,
 		}
 		if m.matchesFilter(row, nil) {
@@ -251,11 +251,11 @@ func (m *Model) openPRs(project string) []trackerRow {
 
 // prMark is a pull request's one cell in the label column: its CI, or "draft"
 // for one not offered as work yet.
-func prMark(pr forge.PR) string {
+func (m *Model) prMark(pr forge.PR) string {
 	if pr.Draft {
 		return "draft"
 	}
-	return ciMark(pr)
+	return m.ciMark(pr)
 }
 
 func firstLabel(labels []string) string {
