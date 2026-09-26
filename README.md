@@ -47,7 +47,7 @@ shows a project's open issues and open pull requests, with the counts on every
 project's sidebar header; `enter` reads one in full; `n` turns the one you picked
 into a worktree session named and branched after it, and `a` types its reference
 into a running session's prompt without sending it. It reads the forge through
-your own `gh` and never writes to it — no create, no comment, no close. Install
+your own `gh`, and writes to it only when you press `ctrl+o p`. Install
 with `brew install WilsonSousajr/tap/omatty` on macOS or a release archive on
 Linux; `CHANGELOG.md` has the whole list.
 
@@ -186,6 +186,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o s` | stop the selected session's claude, keeping the session; `enter` resumes it |
+| `ctrl+o p` | ship a green session: push and open its pull request, or merge one already green |
 | `ctrl+o B` | rename a worktree session's branch |
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
@@ -483,9 +484,36 @@ the branch after the issue (`399-filter-the-tracker`) and titles the session
 `issue #399 ` into the composer **and stops** - no carriage return, so nothing
 is sent until you send it. omatty never submits a turn on your behalf.
 
-Everything here is read through your own `gh`, with your own authentication,
-and omatty writes nothing to the forge: there is no create, no comment, no
-close. The board stays GitHub's; this is a window onto it.
+Everything here is read through your own `gh`, with your own authentication.
+The tracker itself writes nothing: no comment, no close, no label. The board
+stays GitHub's; this is a window onto it. The one thing omatty does write to the
+forge is `ctrl+o p`, below - and only on that keypress.
+
+## Shipping a green session
+
+`ctrl+o p` on a session whose gate is green does one of two things, and refuses
+with a reason the rest of the time.
+
+**No pull request yet:** it pushes the branch and opens one against the branch
+the worktree was forked from, with `gh pr create --fill`, so the body is your own
+commits. It refuses if the worktree has uncommitted work — the gate verified a
+working tree and a push moves commits, so shipping uncommitted work would open a
+pull request that differs from what was checked. Commit it in the session; omatty
+will not write a commit message for you, the same way it never submits a turn for
+you.
+
+**A pull request already open:** it merges it, but only when **both** verdicts are
+already green — your gate here, and the checks on the forge. Otherwise it says
+which one is missing. It uses the repository's own merge method, never
+`--delete-branch`, never `--admin`, and it **refuses to merge into a protected
+branch** at all: `main` moves by a promotion pull request, and a key that could
+merge there would route around omatty's own release gate. If it cannot tell
+whether the base is protected, it refuses.
+
+What it will never do is merge when the checks *go* green. That acts because a
+check changed, with nobody reading, which is the line this whole tool is built
+around — and GitHub's auto-merge already does it, on the forge, where it belongs.
+`docs/ROADMAP.md` argues the boundary in full.
 
 The cost, on top of the two `gh pr list` calls the cards already make: one
 `gh issue list` per project every five minutes, one more when you open the

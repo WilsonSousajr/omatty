@@ -219,6 +219,8 @@ func (m *Model) lifecycleCommand(key string) (tea.Cmd, bool) {
 		return m.restartSelected(), true
 	case "s":
 		return m.stopSelected(), true
+	case "p":
+		return m.shipSelected(), true
 	}
 	return nil, false
 }

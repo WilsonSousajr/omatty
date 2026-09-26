@@ -1333,14 +1333,15 @@ one argued from principle alone:
 | Merging when the checks go green | GitHub's own auto-merge, and every CI service with a merge queue | The same step as Orca #10131 one row up, arrived at from the other side: it acts because a check changed, with nobody reading. #331's ship key merges only what is *already* green, on a keypress, and refuses otherwise. Auto-merge is a real feature and a reasonable thing to want - it belongs on the forge, which has it, not inside a tool whose whole claim is that it only ever acts while you are watching. |
 
 **Reading a pull request's state is not "cloud, accounts, sync"** (#310).
-omatty runs the operator's own `gh`, read-only, holds no token of its own, makes
-one call per project and none while it is in the background. It writes nothing
-to the forge: acting on a pull request - pushing, opening, merging - is a
-separate decision (#331), taken when it is proposed, not by this one. It has
-since been proposed, and the paragraph below takes it.
+omatty runs the operator's own `gh`, holds no token of its own, makes one call
+per project and none while it is in the background. Acting on a pull request -
+pushing, opening, merging - was a separate decision (#331), taken when it was
+proposed rather than by this one. It has since been proposed, taken by the
+paragraph below, and **built**: `ctrl+o p`, one session, one keypress. Reading
+still happens on a timer; writing happens only when somebody presses that key.
 
-**Acting on a pull request: decided 2026-09-25 (#331).** It is accepted,
-bounded to what a person asks for while reading:
+**Acting on a pull request: decided 2026-09-25, built 2026-09-26 (#331).** It is
+accepted, bounded to what a person asks for while reading:
 
 - **Push the branch and open the pull request**, and **merge one whose local
   *and* remote verdicts are already green**. Otherwise do nothing and say which

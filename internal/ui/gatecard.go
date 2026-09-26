@@ -93,7 +93,23 @@ func (m *Model) readyToShip(id string) bool {
 	if !polled || stat.Added+stat.Removed == 0 {
 		return false
 	}
-	return atRest(m.status[id].Status)
+	return atRest(m.reportedStatus(id))
+}
+
+// reportedStatus is a session's status with an unreported one read as idle,
+// which is what sessionRows already does for the sidebar.
+//
+// watcher.Status is a string, so its zero value is "" and not StatusIdle - and
+// atRest answers false for it. A session nothing has reported on is not mid-turn:
+// it is one that has not spoken yet, which is every session at boot and every
+// stopped one. Without this, READY never appeared on a stopped session with a
+// green gate, and #331's ship key refused it with "the gate is not green".
+// Found by running it, not by a test: every fixture reports a status first.
+func (m *Model) reportedStatus(id string) watcher.Status {
+	if s := m.status[id].Status; s != "" {
+		return s
+	}
+	return watcher.StatusIdle
 }
 
 // atRest reports whether a session is between turns rather than in one.

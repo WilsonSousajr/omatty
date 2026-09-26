@@ -5,6 +5,7 @@
 package ui
 
 import (
+	"errors"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -84,6 +85,8 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
+	// Ship is #331's push, open and merge. Unwired, each of them refuses.
+	Ship ShipFuncs
 	// Stat reads a session's branch and diffstat for its card; nil means no
 	// git to ask (#180).
 	Stat RepoStatFunc
@@ -182,6 +185,7 @@ func (d Deps) withReviewDefaults() Deps {
 	if d.Preview == nil {
 		d.Preview = review.ReadPreview
 	}
+	d.Ship = withShipDefaults(d.Ship)
 	return d
 }
 
@@ -303,3 +307,50 @@ func (d Deps) withDiscoveryDefaults() Deps {
 // model takes a function rather than the Runner itself (invariant: the UI
 // holds no concurrency of its own).
 type GateRunFunc func(sessionID, dir string, steps []gate.Step)
+
+// ShipFuncs is everything #331 needs to act on a pull request: read the
+// worktree, push it, open the pull request, check the base is not protected, and
+// merge. Grouped like TurnFuncs because they are one feature and are wired
+// together or not at all.
+//
+// Unwired, each refuses. A ship key that silently did nothing would be worse
+// than one that says there is no forge configured.
+type ShipFuncs struct {
+	Shippable       func(sess registry.Session, projectRoot string) (review.Shippable, error)
+	Push            func(dir, branch string) error
+	CreatePR        func(repoRoot, head, base, title string) (int, error)
+	MergePR         func(repoRoot string, number int) error
+	BranchProtected func(repoRoot, branch string) (bool, error)
+}
+
+// withShipDefaults makes every unwired ship function refuse by name.
+func withShipDefaults(s ShipFuncs) ShipFuncs {
+	if s.Shippable == nil {
+		s.Shippable = func(registry.Session, string) (review.Shippable, error) {
+			return review.Shippable{}, errNoShip
+		}
+	}
+	if s.Push == nil {
+		s.Push = func(string, string) error { return errNoShip }
+	}
+	return withForgeShipDefaults(s)
+}
+
+// withForgeShipDefaults is the gh half of the same defaulting, split off to stay
+// inside the statement limit.
+func withForgeShipDefaults(s ShipFuncs) ShipFuncs {
+	if s.CreatePR == nil {
+		s.CreatePR = func(string, string, string, string) (int, error) { return 0, errNoShip }
+	}
+	if s.MergePR == nil {
+		s.MergePR = func(string, int) error { return errNoShip }
+	}
+	if s.BranchProtected == nil {
+		// True, because the refusal has to fail closed even when unwired.
+		s.BranchProtected = func(string, string) (bool, error) { return true, errNoShip }
+	}
+	return s
+}
+
+// errNoShip is what an unwired ship says.
+var errNoShip = errors.New("ui: no forge wired, so this session cannot be shipped from here")

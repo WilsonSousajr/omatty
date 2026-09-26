@@ -62,6 +62,7 @@ type Model struct {
 	comments map[string]*review.Comments
 	diff     DiffFunc
 	files    ListFilesFunc
+	ship     ShipFuncs
 	preview  PreviewFunc
 	rename   RenameFunc
 	rebind   RebindFunc // follows a /clear onto its new conversation (#316)
@@ -223,6 +224,7 @@ func NewModel(deps Deps) *Model {
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
+	m.ship = d.Ship
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse = d.PRs, d.Issues, d.Item, d.Browse
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
@@ -500,6 +502,8 @@ func (m *Model) onStreamMsg(msg tea.Msg) (tea.Cmd, bool) {
 	case coverageMsg:
 		m.onCoverage(typed)
 		return nil, true
+	case ShippedMsg:
+		return m.onShipped(typed), true
 	}
 	return nil, false
 }
