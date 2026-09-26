@@ -130,6 +130,11 @@ type Model struct {
 	gateReports <-chan gate.Report
 	gateRun     GateRunFunc
 	gateAuto    bool
+	// spinArmed is whether a spin tick is pending, so there is one spin
+	// chain at most however many sessions start working; spinTick schedules
+	// it (#412).
+	spinArmed bool
+	spinTick  TickFunc
 	// stat reads a card's branch and diffstat; repoStat is the last answer per
 	// session, display-only and never persisted - state.json
 	// must suffice alone (invariant 9). statPending guards one poll in flight
@@ -212,6 +217,7 @@ func NewModel(deps Deps) *Model {
 		start:      d.Start,
 		events:     d.Events,
 		clock:      d.Clock,
+		spinTick:   d.SpinTick,
 		tailStart:  d.TailStart,
 		notifier:   d.Notifier,
 		startedAt:  d.Clock(),
@@ -334,7 +340,7 @@ func (m *Model) Init() tea.Cmd {
 	}
 	// The first stat poll runs at start rather than a tick later, so a card
 	// names its branch before the operator has read the screen (#180).
-	cmds = append(cmds, m.scheduleTick(), m.onStatTick(), m.onPRTick(), m.onIssueTick(), m.scheduleSweep())
+	cmds = append(cmds, scheduleTick(), m.onStatTick(), m.onPRTick(), m.onIssueTick(), m.scheduleSweep())
 	return tea.Batch(cmds...)
 }
 
@@ -363,7 +369,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// silently leaving a stale screen behind: the cost of forgetting is a
 	// rebuild, never a lie.
 	m.paneOnly = false
-	cmd := m.routeMsg(msg)
+	cmd := tea.Batch(m.routeMsg(msg), m.armSpin())
 	if !m.paneOnly {
 		m.frameMemo.valid = false
 	}
@@ -390,7 +396,9 @@ func (m *Model) routeMsg(msg tea.Msg) tea.Cmd {
 func (m *Model) onHeartbeat(msg tea.Msg) (tea.Cmd, bool) {
 	switch msg.(type) {
 	case TickMsg:
-		return m.scheduleTick(), true
+		return scheduleTick(), true
+	case SpinTickMsg:
+		return m.onSpinTick(), true
 	case StatTickMsg:
 		return m.onStatTick(), true
 	case PRTickMsg:

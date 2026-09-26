@@ -63,6 +63,10 @@ func sampleDiffParsed(t *testing.T) review.Diff {
 // produces back into the model, so a diff loaded off the event loop lands
 // before the assertion. Never call it on a blocking command (a tick or an
 // event wait): these models have no event channel.
+//
+// The spin tick is the exception it has to tolerate: while a session works,
+// any Update may arm it (#412), and feeding it back re-arms it forever. It is
+// dropped, since it redraws and changes nothing an assertion reads.
 func deliver(m *ui.Model, cmd tea.Cmd) {
 	if cmd == nil {
 		return
@@ -72,6 +76,9 @@ func deliver(m *ui.Model, cmd tea.Cmd) {
 		for _, c := range batch {
 			deliver(m, c)
 		}
+		return
+	}
+	if _, spin := msg.(ui.SpinTickMsg); spin {
 		return
 	}
 	if msg != nil {
