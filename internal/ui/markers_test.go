@@ -80,7 +80,8 @@ func TestModel_ADeletedFileIsARowAndEnterOnItDoesNotError_issue196(t *testing.T)
 // The legend replaces the old * explanation where the operator looks for it.
 func TestModel_HelpExplainsTheChangeLetters_issue196(t *testing.T) {
 	m, _, _, _ := modelWithTree(t)
-	m.Update(tea.WindowSizeMsg{Width: 160, Height: 50})
+	// Tall enough for the whole keymap, which outgrew 50 rows (#424).
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: helpFitsHeight})
 
 	leader(m, key('?'))
 
