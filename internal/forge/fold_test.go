@@ -127,3 +127,18 @@ func TestFold_CarriesTitleDraftAndAge_issue393(t *testing.T) {
 		t.Errorf("Updated = %v, want %v", got.Updated, want)
 	}
 }
+
+// reviewDecision is read into the tracker's review glyph (#432). gh reports it
+// on a repository that requires reviews and leaves it empty on one that does
+// not; empty is no review state, never "approved".
+func TestFold_ReadsTheReviewDecision_issue432(t *testing.T) {
+	for decision, want := range map[string]forge.Review{
+		"APPROVED": forge.ReviewApproved, "CHANGES_REQUESTED": forge.ReviewChanges,
+		"REVIEW_REQUIRED": forge.ReviewRequired, "": forge.ReviewNone,
+	} {
+		got := foldOne(t, `{"number":1,"state":"OPEN","reviewDecision":"`+decision+`"}`)
+		if got.Review != want {
+			t.Errorf("reviewDecision %q folded to %v, want %v", decision, got.Review, want)
+		}
+	}
+}

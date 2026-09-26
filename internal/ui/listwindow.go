@@ -100,7 +100,7 @@ func (m *Model) facePosition() (n, total int) {
 	case ViewGate:
 		return m.gatePosition()
 	case ViewTracker:
-		return m.review.Tracker.Cursor + 1, len(m.trackerRows())
+		return m.trackerItemPosition()
 	case ViewTrackerItem:
 		total = len(m.itemLines())
 		return min(m.review.Tracker.ItemOffset+m.reviewRows(), total), total

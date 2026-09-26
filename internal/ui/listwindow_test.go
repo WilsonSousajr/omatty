@@ -165,9 +165,10 @@ func TestColumn_AClickSelectsOnTheGateAndTheTracker_issue424(t *testing.T) {
 	m, _, _ = trackerModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	openTracker(m)
-	m.Update(clickAt(reviewHairlineX+5, reviewRowY(1)))
+	// Row 2: the issues heading (#432) is row 0, so the second item is row 2.
+	m.Update(clickAt(reviewHairlineX+5, reviewRowY(2)))
 	if got := m.TrackerCursor(); got != 1 {
-		t.Errorf("a click on the second tracker row left the cursor at %d", got)
+		t.Errorf("a click on the second tracker item left the cursor at %d", got)
 	}
 }
 

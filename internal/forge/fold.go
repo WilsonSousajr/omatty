@@ -58,6 +58,33 @@ type PR struct {
 	// itself rather than Updated as a proxy for it: a merged pull request can be
 	// commented on afterwards, which moves Updated and not the merge.
 	MergedAt time.Time
+	Review   Review // what review asks of it, from reviewDecision (#432)
+}
+
+// Review is a pull request's review state as gh reports it. ReviewNone is a
+// repository that asks for no review, or an answer that did not say - never
+// read as approved.
+type Review int
+
+// The review states, in gh's reviewDecision.
+const (
+	ReviewNone     Review = iota
+	ReviewRequired        // REVIEW_REQUIRED: nobody has approved yet
+	ReviewApproved        // APPROVED
+	ReviewChanges         // CHANGES_REQUESTED
+)
+
+// reviewOf is gh's reviewDecision as a Review.
+func reviewOf(s string) Review {
+	switch s {
+	case "REVIEW_REQUIRED":
+		return ReviewRequired
+	case "APPROVED":
+		return ReviewApproved
+	case "CHANGES_REQUESTED":
+		return ReviewChanges
+	}
+	return ReviewNone
 }
 
 // ghPR is one element of `gh pr list --json` with the fields ListPRs asks for.
@@ -73,6 +100,7 @@ type ghPR struct {
 	IsDraft           bool      `json:"isDraft"`
 	UpdatedAt         time.Time `json:"updatedAt"`
 	MergedAt          time.Time `json:"mergedAt"`
+	ReviewDecision    string    `json:"reviewDecision"`
 }
 
 // check is a CheckRun (status, conclusion) or a StatusContext (state); the
@@ -114,6 +142,7 @@ func foldOne(p ghPR) PR {
 		Draft:    p.IsDraft,
 		Updated:  p.UpdatedAt,
 		MergedAt: p.MergedAt,
+		Review:   reviewOf(p.ReviewDecision),
 	}
 }
 

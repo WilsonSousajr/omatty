@@ -29,6 +29,7 @@ const (
 	markPending
 	markCancelled
 	markConflict // a pull request that cannot merge as it stands
+	markDraft    // a pull request opened as a draft (#432)
 )
 
 // glyphSet is one glyph per markState. The two sets are fixed tables, chosen
@@ -44,14 +45,14 @@ type glyphSet map[markState]string
 // (This was verdictMark's rule, the card strip's table before #425.)
 var plainGlyphs = glyphSet{
 	markPass: "✓", markFail: "✗", markMissing: "?", markRunning: "◍",
-	markPending: "·", markCancelled: "·", markConflict: "⚠",
+	markPending: "·", markCancelled: "·", markConflict: "⚠", markDraft: "◌",
 }
 
 // nerdGlyphs are Font Awesome's icons as every Nerd Font patches them, for
 // [ui] icons = "nerd". Opt-in because without the font each is a tofu box.
 var nerdGlyphs = glyphSet{
 	markPass: "", markFail: "", markMissing: "", markRunning: "",
-	markPending: "", markCancelled: "", markConflict: "",
+	markPending: "", markCancelled: "", markConflict: "", markDraft: "",
 }
 
 // markColors is the one place a mark becomes a colour, on the palette's rule
@@ -60,7 +61,7 @@ var nerdGlyphs = glyphSet{
 // error, because a missing tool says nothing about the code (invariant 12).
 var markColors = map[markState]color.Color{
 	markPass: colorGreen, markFail: colorRed, markMissing: colorAmber, markConflict: colorAmber,
-	markRunning: colorText, markPending: colorMuted, markCancelled: colorMuted,
+	markRunning: colorText, markPending: colorMuted, markCancelled: colorMuted, markDraft: colorMuted,
 }
 
 // glyphsFor is the set the config asked for.
@@ -96,6 +97,21 @@ func verdictState(v gate.Verdict) markState {
 		return markCancelled
 	}
 	return markPending
+}
+
+// reviewState is a pull request's review as a mark: approved is a pass,
+// changes requested a fail, and waiting on review is pending - the vocabulary
+// the gate already taught; false when review is not asked for.
+func reviewState(r forge.Review) (markState, bool) {
+	switch r {
+	case forge.ReviewApproved:
+		return markPass, true
+	case forge.ReviewChanges:
+		return markFail, true
+	case forge.ReviewRequired:
+		return markPending, true
+	}
+	return 0, false
 }
 
 // ciState is a pull request's CI as one mark, by precedence: failing, then a
