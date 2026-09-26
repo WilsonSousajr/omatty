@@ -173,14 +173,14 @@ func TestModel_gateCursorStopsAtTheEnds_issue231(t *testing.T) {
 	for range 5 {
 		press(m, key('k')) // up, from the top
 	}
-	if !strings.Contains(m.View().Content, "▸ ✓ fmt") {
+	if !strings.Contains(cursorRow(m), "✓ fmt") {
 		t.Errorf("cursor left the first step going up:\n%s", m.View().Content)
 	}
 
 	for range 5 {
 		press(m, key('j')) // down, past the end
 	}
-	if !strings.Contains(m.View().Content, "▸ ✗ vet") {
+	if !strings.Contains(cursorRow(m), "✗ vet") {
 		t.Errorf("cursor left the last step going down:\n%s", m.View().Content)
 	}
 }
@@ -350,10 +350,10 @@ func TestModel_gatePaneReachesTheEndOfAnOpenedStep_issue421(t *testing.T) {
 	if !pressUntil(m, key('j'), 300, "line 199") {
 		t.Fatalf("j never reached the opened step's last line:\n%s", m.View().Content)
 	}
-	if !pressUntil(m, key('j'), 3, "▸ ✓ vet") {
+	if !pressUntilCursor(m, key('j'), 3, "✓ vet") {
 		t.Errorf("past the output, j did not move on to the next step:\n%s", m.View().Content)
 	}
-	if !pressUntil(m, key('k'), 300, "▸ ✗ fmt") {
+	if !pressUntilCursor(m, key('k'), 300, "✗ fmt") {
 		t.Errorf("k never read back up to the opened step's row:\n%s", m.View().Content)
 	}
 }
@@ -374,13 +374,13 @@ func TestModel_gateCursorStaysVisibleInALongGate_issue421(t *testing.T) {
 	for range 39 {
 		press(m, key('j'))
 	}
-	if body := m.View().Content; !strings.Contains(body, "▸ ✓ s39") {
+	if body := m.View().Content; !strings.Contains(cursorRow(m), "✓ s39") {
 		t.Errorf("the cursor on the last step is not on screen:\n%s", body)
 	}
 	for range 39 {
 		press(m, key('k'))
 	}
-	if body := m.View().Content; !strings.Contains(body, "▸ ✓ s00") {
+	if body := m.View().Content; !strings.Contains(cursorRow(m), "✓ s00") {
 		t.Errorf("k did not bring the first step back:\n%s", body)
 	}
 }
@@ -422,7 +422,7 @@ func TestModel_foldingShutFromDeepInTheOutputShowsTheStep_issue421(t *testing.T)
 
 	press(m, special(13)) // fold it shut again
 
-	if body := m.View().Content; !strings.Contains(body, "▸ ✗ fmt") || !strings.Contains(body, "✓ vet") {
+	if body := m.View().Content; !strings.Contains(cursorRow(m), "✗ fmt") || !strings.Contains(body, "✓ vet") {
 		t.Errorf("after folding shut, the pane should show both steps with the cursor on fmt:\n%s", body)
 	}
 }
@@ -444,5 +444,28 @@ func TestModel_aShorterReportIsNotDrawnBlank_issue421(t *testing.T) {
 
 	if body := m.View().Content; !strings.Contains(body, "✓ fmt") {
 		t.Errorf("the shorter report was not drawn:\n%s", body)
+	}
+}
+
+// Regression, issue #447: h and l moved the pan marker in the title but not the
+// rows - renderGate never went through fitContent - so a command cut at the
+// column edge stayed cut. TestModel_gatePanStopsAtTheWidestLine_issue231 missed
+// it because the marker alone changes the frame.
+func TestModel_gatePansItsRows_issue447(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	rep := gateReport(gate.Pass)
+	rep.Results[0].Step.Run = "go test ./... -run TheVeryEndOfALongCommand"
+	m.SetGateReport("s1", rep)
+	leader(m, key('g'))
+	if strings.Contains(m.View().Content, "LongCommand") {
+		t.Fatalf("the fixture's command already fits; it must be cut at the edge:\n%s", m.View().Content)
+	}
+
+	for range 6 {
+		press(m, key('l'))
+	}
+
+	if body := stripSGR(m.View().Content); !strings.Contains(body, "LongCommand") {
+		t.Errorf("panned right, the gate still does not show the end of the command:\n%s", body)
 	}
 }

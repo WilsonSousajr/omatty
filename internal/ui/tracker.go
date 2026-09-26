@@ -359,7 +359,7 @@ func (m *Model) trackerLine(r trackerRow, selected bool) string {
 	lead, age := trackerParts(r, m.clock(), w)
 	text := m.fitContent(lead, w-len(trackerAgeGap)-trackerAgeCols) + trackerAgeGap + age
 	if selected {
-		return accentStyle.Render(text)
+		return cursorStyle.Render(text)
 	}
 	return text
 }

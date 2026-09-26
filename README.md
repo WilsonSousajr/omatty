@@ -374,6 +374,8 @@ The pane takes the keys while it is open.
 | Key | Action |
 |---|---|
 | `j` / `k` | move through the diff |
+| `g` / `G` | the first row, or the last - the same on every face of the column |
+| `ctrl+d` / `ctrl+u` | half a page down, or up |
 | `h` / `l` | pan left and right along a line too wide for the column |
 | `0` | jump back to the left edge |
 | `c` | comment on the line under the cursor |
@@ -441,7 +443,7 @@ output, `build/`, `dist/`, `coverage/`, `vendor/`, `node_modules/`, and anything
 the repository's own `.gitattributes` marks `linguist-generated`. A lockfile does
 not belong in the queue beside source, and a generated file has no test and never
 will - so the coverage markers leave it alone too, rather than making it look
-worse than it is. The title says how many are folded (`⊞3`) and `g` brings them
+worse than it is. The title says how many are folded (`⊞3`) and `.` brings them
 back: they are folded, not hidden. Detection is the repository's declaration
 first, then the name, then the Go `// Code generated ... DO NOT EDIT.` header.
 
@@ -459,6 +461,8 @@ when it already shows that view.
 | Key | Action |
 |---|---|
 | `j` / `k` | move through the tree, or scroll a preview |
+| `g` / `G` | the first row, or the last - the same on every face of the column |
+| `ctrl+d` / `ctrl+u` | half a page down, or up |
 | `enter` | fold or unfold a directory, or preview a file |
 | `h` / `l` | pan left and right along a line too wide for the column |
 | `0` | jump back to the left edge |
@@ -466,7 +470,7 @@ when it already shows that view.
 | `/` | filter the tree as you type; `enter` keeps the filter, `esc` clears it |
 | `a` | attach the row, or the previewed file, to the prompt as `@path` and go back to typing |
 | `v` | mark the file read: `✓` while its diff is unchanged, `~` once the session changes it again |
-| `g` | show the generated files the tree folded away, or fold them again |
+| `.` | show the generated files the tree folded away, or fold them again |
 | `o` | from a preview, jump to the diff at that line; from a diff line, `o` opens the preview there |
 | `esc` | from a preview back to the tree; from the tree, lift the filter, then back to Claude |
 
@@ -509,6 +513,8 @@ its issues matter most.
 | Key | Action |
 |---|---|
 | `j` / `k` | move through the list, or scroll an open item |
+| `g` / `G` | the first row, or the last - the same on every face of the column |
+| `ctrl+d` / `ctrl+u` | half a page down, or up |
 | `enter` | read the item under the cursor: its body and its comments |
 | `/` | filter by number, title or label as you type; `enter` keeps it, `esc` clears it |
 | `n` | start a worktree session named and branched from the issue |

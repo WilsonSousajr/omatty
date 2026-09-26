@@ -30,9 +30,15 @@ func (m *Model) clickReview(msg tea.MouseClickMsg) tea.Cmd {
 	if msg.Y == ruleY() && msg.X == m.reviewCloseX() {
 		return m.closeColumn()
 	}
+	if m.review.View == ViewGate {
+		// The gate's lines are not its steps: an opened step's output sits
+		// under its row, so a click is mapped through the spans (#424).
+		m.review.Focused = m.clickGate(msg.Y) || m.review.Focused
+		return nil
+	}
 	if delta, ok := m.reviewRowDelta(msg.Y); ok {
 		m.review.Focused = true
-		m.moveReviewRow(delta)
+		m.moveFace(delta)
 	}
 	return nil
 }
@@ -76,16 +82,8 @@ func (m *Model) reviewCursorState() (cursor, offset, count int) {
 		return m.review.DiffList.Cursor, m.review.DiffList.Offset, len(m.review.Entries)
 	case ViewTree:
 		return m.review.Files.Cursor, m.review.Files.Offset, len(m.treeRows())
+	case ViewTracker:
+		return m.review.Tracker.Cursor, m.review.Tracker.Offset, len(m.trackerRows())
 	}
 	return 0, 0, 0
-}
-
-// moveReviewRow moves the current view's cursor by delta through the same
-// clamps j and k use.
-func (m *Model) moveReviewRow(delta int) {
-	if m.review.View == ViewTree {
-		m.moveTreeCursor(delta)
-		return
-	}
-	m.moveReviewCursor(delta)
 }

@@ -109,9 +109,9 @@ func TestHelp_everyColumnKeyIsDocumented_issue422(t *testing.T) {
 // the face whose help section documents it. A handler split or renamed fails
 // findFunc loudly, which is the point: the list cannot quietly go stale.
 var columnHandlers = map[string]map[string][]string{
-	"column":  {"pan.go": {"panKey"}},
+	"column":  {"pan.go": {"panKey"}, "listwindow.go": {"pageDelta"}},
 	"diff":    {"reviewkeys.go": {"onReviewKey", "reviewAction"}},
-	"tree":    {"treekeys.go": {"onTreeKey", "treeActionKey", "treeCursorKey", "onPreviewKey"}},
+	"tree":    {"treekeys.go": {"onTreeKey", "treeActionKey", "treeCursorKey", "treeMarkKey", "onPreviewKey"}},
 	"gate":    {"gatepane.go": {"onGateKey"}},
 	"tracker": {"tracker.go": {"onTrackerKey", "trackerCursorKey"}, "trackerwork.go": {"trackerAction"}, "trackeritem.go": {"onTrackerItemKey"}},
 }

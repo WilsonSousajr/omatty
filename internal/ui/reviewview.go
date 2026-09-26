@@ -54,10 +54,22 @@ func (m *Model) reviewTitle(width int) string {
 	return m.viewTitle(width-1-lipgloss.Width(marker)) + marker
 }
 
-// viewTitle names the view. Only the diff's is given a budget: the other three
+// viewTitle names the view and, room allowing, where it stands in it (#424).
+// The position is the first thing a short title gives up: it is kept only when
+// the title fitted to the smaller budget is the same title, so it never costs
+// a name, a count or a flag.
+func (m *Model) viewTitle(budget int) string {
+	full, pos := m.faceTitle(budget), m.positionMark()
+	if pos == "" || lipgloss.Width(full+pos) > budget || m.faceTitle(budget-lipgloss.Width(pos)) != full {
+		return full
+	}
+	return full + pos
+}
+
+// faceTitle names the face. Only the diff's is given a budget: the other three
 // are a path or a session title, which are one part each and have nothing to
 // give up, so they are cut as they always were.
-func (m *Model) viewTitle(budget int) string {
+func (m *Model) faceTitle(budget int) string {
 	switch m.review.View {
 	case ViewTree:
 		return m.treeTitle(budget)
