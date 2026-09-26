@@ -71,6 +71,24 @@ func (m *Model) gateLabel(id string, results []gate.StepResult) string {
 	return ""
 }
 
+// gateGreen reports whether the session's last gate run passed in full: a
+// report exists, it is not still running, it could run at all, and every step
+// returned Pass.
+//
+// Separate from readyToShip, which is three facts about the *session* and none
+// of them the gate. gateLabel reaches readyToShip only after firstNotPassed has
+// found nothing, so there it inherits the verdict from its caller; #331 called
+// it standalone and so shipped on an absent or a red gate (#471). A predicate
+// that names the gate cannot be borrowed that way by mistake.
+func (m *Model) gateGreen(id string) bool {
+	report, ran := m.gates[id]
+	if !ran || m.gateRunning[id] || report.Err != nil || len(report.Results) == 0 {
+		return false
+	}
+	_, stopped := firstNotPassed(report.Results)
+	return !stopped
+}
+
 // firstNotPassed is the step the gate stopped on, if it stopped.
 func firstNotPassed(results []gate.StepResult) (gate.StepResult, bool) {
 	for _, r := range results {

@@ -25,7 +25,17 @@ func (c *CLI) Push(dir, branch string) error {
 	}
 	// --set-upstream so the next `git status` in that worktree says how it
 	// stands against the remote, which is what the operator will look at.
-	if _, err := c.capture(dir, 0, "push", "--set-upstream", remoteName, branch); err != nil {
+	//
+	// GIT_TERMINAL_PROMPT=0, because git asks for credentials on the
+	// *controlling terminal* - which is the terminal omatty is drawing on. In a
+	// real PTY the bottom of the screen became git's own half-scrolled
+	// `sername for 'https://github.com':` over omatty's frame (#472).
+	// Invariant 5 says stdout belongs to the TUI; a subprocess that prompts
+	// takes it anyway, so the only fix is not to let it ask. git then fails at
+	// once with "could not read Username ... terminal prompts disabled", which
+	// the wrap below turns into a sentence in the footer.
+	noPrompt := []string{"GIT_TERMINAL_PROMPT=0"}
+	if _, err := c.captureEnv(dir, 0, noPrompt, "push", "--set-upstream", remoteName, branch); err != nil {
 		return fmt.Errorf("vcs: pushing %q from %q: %w", branch, dir, err)
 	}
 	return nil

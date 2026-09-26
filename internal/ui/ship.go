@@ -58,7 +58,7 @@ func (m *Model) shipSelected() tea.Cmd {
 // already in memory. Whether the worktree is clean is read in the command,
 // because it costs two git calls and is only ever wanted at this moment.
 func (m *Model) openPullRequest(sess registry.Session) tea.Cmd {
-	if !m.readyToShip(sess.ID) {
+	if !m.gateGreen(sess.ID) || !m.readyToShip(sess.ID) {
 		m.lastErr = "the gate is not green for " + sess.Title + "; run it with " + m.leader + " g first"
 		return nil
 	}
@@ -119,7 +119,7 @@ func notPushable(sess registry.Session, state review.Shippable) string {
 // Five reasons not to, each its own sentence. The protected-branch check is
 // last because it costs a gh call, and it is the one that fails closed.
 func (m *Model) mergeIfGreen(sess registry.Session, pr forge.PR) tea.Cmd {
-	if reason := notMergeable(m.readyToShip(sess.ID), pr); reason != "" {
+	if reason := notMergeable(m.gateGreen(sess.ID) && m.readyToShip(sess.ID), pr); reason != "" {
 		m.lastErr = "cannot merge #" + strconv.Itoa(pr.Number) + ": " + reason
 		return nil
 	}
