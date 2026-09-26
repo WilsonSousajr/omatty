@@ -32,9 +32,11 @@ not only the coverage gate. See "Rules" at the end for why.
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. Released in v0.2.0. |
 | M12 | The Field | **In progress.** The research half is #295-#302, eight slices, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`. Of what it produced, #310 and #311 are built and released in v0.3.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379); what is open is the milestone's open issues on the board, not a count here. |
 | M13 | Memory and idle CPU | **Done.** PR #314, merged 2026-09-22. Released in v0.2.0. |
-| M14 | The Tracker | **Built** 2026-09-25 as PRs #400-#406, one per issue #393-#399. See the M14 section. |
 | — | **Released** | **v0.2.0**, 2026-09-22. M9-M11, M13 and the session lifecycle promoted to `main` (#328). See "Releases". |
 | — | **Released** | **v0.3.0**, 2026-09-25. M12's verification core (#311, #310, #335, #342), the release pipeline (#327) and the MIT license (#362). See "Releases". |
+| — | **Released** | **v0.4.0**, 2026-09-25. M12's close-out promoted to `main` (#390). See "Releases". |
+| M14 | The Tracker | **Done.** Seven slices #393-#399 built 2026-09-25 as PRs #400-#406. Released in v0.5.0. |
+| — | **Released** | **v0.5.0**, 2026-09-26. M14 promoted to `main` (#407). See "Releases". |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -978,6 +980,8 @@ in a hurry to make it.
 | v0.1.0 | 2026-09-10 | M1-M8, all eight milestones. 307 commits. (#134) |
 | v0.2.0 | 2026-09-22 | M9, M10, M11, M13, the session lifecycle (#316-#319, #321) and M12's research. 122 commits. (#328) |
 | v0.3.0 | 2026-09-25 | M12's verification core (#311, #310, #335, #342), the release pipeline (#327), the MIT license (#362). The first release built by `release.yml`. (#364) |
+| v0.4.0 | 2026-09-25 | M12's close-out: `omatty carry` (#309), the pane's own text selection (#360), the hook path that survives a reinstall (#380), and the defects v0.3.0 surfaced. 19 issues. (#390) |
+| v0.5.0 | 2026-09-26 | M14 The Tracker: a project's open issues and pull requests in the review column, read through the operator's own `gh` and never written to (#393-#399). 15 commits. (#407) |
 
 ## M12 - The Field
 
