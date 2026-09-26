@@ -109,6 +109,7 @@ func filledModel() *Model {
 	m.filesPending[forgottenID] = true
 	m.reviewed[forgottenID] = map[string]string{"a.go": "deadbeef"}
 	m.generated[forgottenID] = map[string]bool{"go.sum": true}
+	m.turnGated[forgottenID] = true
 	m.reattached[forgottenID] = true
 	m.terms[forgottenID] = nil
 	m.activeAt[forgottenID] = time.Unix(0, 0)

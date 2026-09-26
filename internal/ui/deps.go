@@ -96,6 +96,9 @@ type Deps struct {
 	// Unwired, nothing is generated - which is what every tree looked like
 	// before this and is the safe direction to be wrong in.
 	Generated GeneratedFunc
+	// Tally records one gate run that followed a turn, for #332's first-pass
+	// rate. Unwired, nothing is measured, which is what every test sees.
+	Tally TallyFunc
 	// Ship is #331's push, open and merge. Unwired, each of them refuses.
 	Ship ShipFuncs
 	// Stat reads a session's branch and diffstat for its card; nil means no
@@ -198,6 +201,9 @@ func (d Deps) withReviewDefaults() Deps {
 	}
 	if d.Generated == nil {
 		d.Generated = noGenerated
+	}
+	if d.Tally == nil {
+		d.Tally = noTally
 	}
 	d.Ship = withShipDefaults(d.Ship)
 	return d
@@ -337,6 +343,11 @@ func noGenerated(registry.Session, []string) (map[string]bool, error) { return n
 // noRevert is the unwired Revert and Count: there is no baseline, which is the
 // refusal #311's own notice already has words for.
 func noRevert(registry.Session) (int, error) { return 0, review.ErrNoTurn }
+
+// noTally is the unwired Tally: nothing is measured. A measurement is not worth
+// a nil check at the call site, and a run nobody counted is the state every
+// project was in before #332.
+func noTally(string, bool) error { return nil }
 
 // ShipFuncs is everything #331 needs to act on a pull request: read the
 // worktree, push it, open the pull request, check the base is not protected, and

@@ -152,6 +152,18 @@ repository they came from. On a well-used machine that is 34 directories in
 the store collapsing to 6 worth listing. It only ever proposes: nothing is
 registered until you pick it.
 
+`omatty gate <project> --stats` is the only thing omatty measures about itself:
+the mean time from a session being registered to its pull request merging, and
+the share of the gate runs that followed a turn which passed. Two numbers, local
+only, nothing leaves the machine. A project that has measured nothing says so
+rather than reporting 0% - a rate over no runs is not a rate.
+
+```
+the numbers for omatty:
+  lead time        3h30m  (mean over 4 merged session(s))
+  first-pass gate  75%  (8 run(s) after a turn)
+```
+
 `omatty gate` reads the repository and proposes the check line it already
 uses — `gofmt`, `go vet`, `golangci-lint`, `go test -race`, a coverage script;
 `cargo fmt --check`, `cargo clippy`, `cargo test`; `ruff` and `pytest`; or the
@@ -170,6 +182,11 @@ and it is what puts the uncovered markers on the diff. Go profiles and lcov are
 both understood, told apart by content rather than by file name. A project that
 writes its profile somewhere else names it in `~/.omatty/state.json`; a project
 that declares none simply gets no overlay.
+
+A step can be anything your shell runs, including a hostile review by a model:
+`docs/llm-audit-gate.md` is the recipe, with a working script, and it is honest
+about the three things that makes awkward - it is not deterministic, it costs
+money on every run, and the diff it reads is untrusted input.
 
 Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 

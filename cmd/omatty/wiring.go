@@ -184,7 +184,15 @@ func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui
 	deps.Archive = sessionArchiver(store)
 	deps.RemoveWorktree = git.RemoveWorktree
 	deps.RemoveProject = projectRemover(store)
+	deps.Tally = gateTallier(store)
 	return deps
+}
+
+// gateTallier adapts registry.TallyGateRun to ui.TallyFunc (#332).
+func gateTallier(store *registry.Store) ui.TallyFunc {
+	return func(project string, passed bool) error {
+		return registry.TallyGateRun(store, project, passed)
+	}
 }
 
 // projectRemover adapts registry.RemoveProject to ui.RemoveProjectFunc (#159).

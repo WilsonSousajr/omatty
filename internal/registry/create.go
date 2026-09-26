@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"time"
+
 	"fmt"
 	"log/slog"
 	"strings"
@@ -17,6 +19,10 @@ type CreatorOpts struct {
 	// BaseBranch forks every worktree from this branch. Empty keeps the
 	// existing derivation: whatever branch the project's main checkout is on.
 	BaseBranch string
+	// Clock stamps Session.Started (#332). Nil is the wall clock, so nothing
+	// has to pass one; it is here rather than as a constructor parameter
+	// because an option struct can gain a field without touching a call site.
+	Clock func() time.Time
 }
 
 // Creator turns a request for a session into a registered Session, creating
@@ -59,7 +65,8 @@ func (c *Creator) create(st *State, project, title, branch string, worktree bool
 		return Session{}, err
 	}
 	id := c.newID()
-	sess := Session{ID: id, Project: project, Title: titleOr(title, id), Dir: p.Root}
+	sess := Session{ID: id, Project: project, Title: titleOr(title, id), Dir: p.Root,
+		Started: c.now()}
 	if worktree {
 		sess.Branch = branchOr(branch, id)
 		if err := c.addWorktree(&sess, p); err != nil {
@@ -170,4 +177,12 @@ func projectNames(st *State) []string {
 		names = append(names, p.Name)
 	}
 	return names
+}
+
+// now is the Creator's clock, or the wall clock when none was injected.
+func (c *Creator) now() time.Time {
+	if c.opts.Clock == nil {
+		return time.Now()
+	}
+	return c.opts.Clock()
 }
