@@ -130,12 +130,13 @@ type Model struct {
 	// gateReports and gateRun are the gate's two halves, shaped like the
 	// watcher's: a channel of results in, a request out. Concrete types stay
 	// out of the model so a test substitutes a recorder for the Runner.
-	gateReports <-chan gate.Report
-	gateRun     GateRunFunc
-	gateAuto    bool
-	gateStarted map[string]time.Time // when the run in flight began, for its title (#428)
-	glyphs      glyphSet             // every state mark, plain or Nerd Font (#425)
-	nerdIcons   bool                 // [ui] icons = "nerd": file-type icons in the tree too (#431)
+	gateReports  <-chan gate.Report
+	gateRun      GateRunFunc
+	gateAuto     bool
+	gateStarted  map[string]time.Time // when the run in flight began, for its title (#428)
+	glyphs       glyphSet             // every state mark, plain or Nerd Font (#425)
+	previewArmed itemKey              // the row the tracker's preview is waiting to rest on (#434)
+	nerdIcons    bool                 // [ui] icons = "nerd": file-type icons in the tree too (#431)
 	// spinArmed is whether a spin tick is pending, so there is one spin
 	// chain at most however many sessions start working; spinTick schedules
 	// it (#412).
@@ -394,7 +395,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// silently leaving a stale screen behind: the cost of forgetting is a
 	// rebuild, never a lie.
 	m.paneOnly = false
-	cmd := tea.Batch(m.routeMsg(msg), m.armSpin())
+	cmd := tea.Batch(m.routeMsg(msg), m.armSpin(), m.armPreview())
 	if !m.paneOnly {
 		m.frameMemo.valid = false
 	}
@@ -603,6 +604,8 @@ func (m *Model) onForgeMsg(msg tea.Msg) (tea.Cmd, bool) {
 		return m.onItem(typed), true
 	case BrowsedMsg:
 		return m.onBrowsed(typed), true
+	case previewRestMsg:
+		return m.onPreviewRest(typed), true // the preview's read, once the cursor rests (#434)
 	}
 	return nil, false
 }
