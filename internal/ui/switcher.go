@@ -7,6 +7,7 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // openSwitcher lists every session across every project, in sidebar order, so
@@ -19,20 +20,24 @@ import (
 func (m *Model) openSwitcher() tea.Cmd {
 	items := make([]pickItem, 0, len(m.state.Sessions))
 	for _, row := range m.sidebar.Rows() {
-		if row.Session == nil {
-			continue // a project header is a label, never a target
+		for _, sess := range rowSessions(row) {
+			items = append(items, pickItem{ID: sess.ID, Label: sess.Title, Detail: row.Project})
 		}
-		items = append(items, pickItem{
-			ID:     row.Session.ID,
-			Label:  row.Session.Title,
-			Detail: row.Project,
-		})
 	}
 	if len(items) == 0 {
 		return nil
 	}
 	m.openModal(modal{Kind: modalList, List: newPickList("jump to session", items, false)})
 	return nil
+}
+
+// rowSessions is what a row offers the switcher: its session, or the sessions
+// a folded header hides (#505). A plain header is a label, never a target.
+func rowSessions(row Row) []*registry.Session {
+	if row.Session != nil {
+		return []*registry.Session{row.Session}
+	}
+	return row.Folded
 }
 
 // onListKey drives the open list: the keys that end it, and everything else.
@@ -93,7 +98,7 @@ func (m *Model) commitJump() tea.Cmd {
 		return nil
 	}
 	m.modal = modal{}
-	if !m.sidebar.SelectByID(chosen.ID) {
+	if !m.revealSession(chosen.ID) {
 		return nil
 	}
 	// The same pair moveCursor uses: size what we landed on and drag an open

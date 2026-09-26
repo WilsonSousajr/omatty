@@ -20,6 +20,9 @@ func (m *Model) clickSidebar(msg tea.MouseClickMsg) tea.Cmd {
 	if m.overReview(msg.X) || !m.overSidebar(msg.X) {
 		return nil
 	}
+	if p, ok := m.foldableHeaderAt(msg.Y); ok {
+		return m.toggleFold(p)
+	}
 	i, ok := m.sidebarRowAt(msg.Y)
 	if !ok {
 		return nil
@@ -57,4 +60,18 @@ func (m *Model) selectRow(i int) tea.Cmd {
 		return nil
 	}
 	return m.moveCursor(func() { m.sidebar.selectIndex(i) })
+}
+
+// foldableHeaderAt is the project whose header is drawn at window row winY,
+// when that project has sessions to fold. A click there folds or unfolds it,
+// as a click on a directory does in the tree (#505); an empty project's
+// header is left to sidebarRowAt, which selects it (#158).
+func (m *Model) foldableHeaderAt(winY int) (string, bool) {
+	m.syncSidebarWindow()
+	i, ok := m.sidebar.rowAtLine(winY - sidebarTop())
+	if !ok || m.sidebar.rows[i].Session != nil {
+		return "", false
+	}
+	p := m.sidebar.rows[i].Project
+	return p, m.foldable(p) >= 0
 }

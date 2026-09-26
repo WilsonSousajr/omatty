@@ -132,7 +132,7 @@ func (m *Model) foldInSession(sess registry.Session) (tea.Cmd, error) {
 // The bool is not discarded: a session that was just created and added to the
 // rebuilt rows and is still not found means the rebuild dropped it, which is
 // the one case addSession would want to hear about.
-func (m *Model) selectSession(id string) bool { return m.sidebar.SelectByID(id) }
+func (m *Model) selectSession(id string) bool { return m.revealSession(id) }
 
 // stopSelected ends the focused session's process and keeps the session
 // (#318). ctrl+o s: the way to reclaim a claude's memory without archiving

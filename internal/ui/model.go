@@ -173,6 +173,7 @@ type Model struct {
 	archive          ArchiveFunc
 	removeWorktree   RemoveWorktreeFunc
 	removeProject    RemoveProjectFunc // forgets an empty project (#159)
+	fold             FoldFunc          // persists a project's fold (#505)
 	tailStop         func(sessionID string)
 	discover         DiscoverFunc
 	registerProjects AddProjectFunc
@@ -253,7 +254,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.renameBranch = d.RenameBranch
 	m.modelNamer = d.ModelName
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
-	m.removeProject = d.RemoveProject
+	m.removeProject, m.fold = d.RemoveProject, d.Fold
 	m.discover, m.registerProjects = d.Discover, d.AddProject
 	m.adoptPropose, m.adoptCommit = d.AdoptPropose, d.AdoptCommit
 	m.stop, m.notice = d.Stop, d.Notice

@@ -379,6 +379,25 @@ func TestProjectRemover_ReturnsTheRemovedProject_issue159(t *testing.T) {
 	}
 }
 
+// The folder writes the fold to state.json, so a folded project is still
+// folded on the next launch (#505).
+func TestProjectFolder_PersistsTheFold_issue505(t *testing.T) {
+	store := storeIn(t)
+	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
+	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+		t.Fatalf("AddProject: %v", err)
+	}
+
+	if err := projectFolder(store)("omatty", true); err != nil {
+		t.Fatalf("projectFolder: %v", err)
+	}
+
+	st, err := store.Load()
+	if err != nil || !st.Projects[0].Collapsed {
+		t.Errorf("after folding, Load() = %+v, %v; want omatty collapsed", st.Projects, err)
+	}
+}
+
 // #134 promoted develop to main and tagged it. A tag names a version the
 // binary itself could not report: `omatty --version` was an unknown command,
 // so a bug report could not say which build it came from.
