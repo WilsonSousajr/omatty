@@ -81,7 +81,8 @@ func boundLeaderKeys(t *testing.T) []string {
 // TestModel_helpSaysHowToCopyOutOfAPane_issue190 noticed. Deliberately generous
 // now: nothing here asserts the modal is *exactly* this tall, and the test that
 // cares about scrolling uses a short window instead. #424's g / G and
-// ctrl+d / ctrl+u took the minimum to 71, so it is 80: room for a few more.
+// ctrl+d / ctrl+u took the minimum to 71, and #427's z with #331's keys to
+// 73, so it is 80: room for a few more.
 const helpFitsHeight = 80
 
 // Regression, issue #422: the help modal's review-column table was written for
