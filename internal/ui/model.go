@@ -135,6 +135,7 @@ type Model struct {
 	gateAuto    bool
 	gateStarted map[string]time.Time // when the run in flight began, for its title (#428)
 	glyphs      glyphSet             // every state mark, plain or Nerd Font (#425)
+	nerdIcons   bool                 // [ui] icons = "nerd": file-type icons in the tree too (#431)
 	// spinArmed is whether a spin tick is pending, so there is one spin
 	// chain at most however many sessions start working; spinTick schedules
 	// it (#412).
@@ -235,7 +236,7 @@ func NewModel(deps Deps) *Model {
 		hasFocus:   true,
 		reattached: d.Reattached,
 	}
-	m.glyphs = glyphsFor(d.NerdIcons)
+	m.glyphs, m.nerdIcons = glyphsFor(d.NerdIcons), d.NerdIcons
 	return m.withSources(d).withGate(d).withWindow().withRuntimeMaps().withSweep(d)
 }
 

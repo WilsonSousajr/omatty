@@ -53,7 +53,8 @@ func (m *Model) treeLines(nodes []review.TreeNode, w, rows int) []string {
 	out := make([]string, 0, rows)
 	for i := off; i < min(off+rows, len(nodes)); i++ {
 		mark := m.reviewMark(nodes[i].Path, nodes[i].IsDir)
-		text := m.fitContent(treeText(nodes[i], m.review.Tree.Collapsed(nodes[i].Path), mark), w)
+		collapsed := m.review.Tree.Collapsed(nodes[i].Path)
+		text := m.fitContent(treeText(nodes[i], collapsed, mark, m.treeIcon(nodes[i], collapsed)), w)
 		out = append(out, treeStyle(nodes[i], i == m.review.Files.Cursor, mark).Render(text))
 	}
 	return out
@@ -68,17 +69,20 @@ func (m *Model) treeLines(nodes []review.TreeNode, w, rows int) []string {
 // It goes on the left rather than between the letter and the name so that
 // every row a reviewer has not marked reads exactly as it did before: the
 // change letter still sits against the name.
-func treeText(n review.TreeNode, collapsed bool, review string) string {
+//
+// icon is the row's file-type glyph and a space, or "" - the plain tree, drawn
+// exactly as before #431.
+func treeText(n review.TreeNode, collapsed bool, review, icon string) string {
 	mark := review + changeLetter(n.Change)
 	indent := strings.Repeat("  ", n.Depth)
 	if !n.IsDir {
-		return indent + mark + " " + n.Name
+		return indent + mark + " " + icon + n.Name
 	}
 	arrow := "▾"
 	if collapsed {
 		arrow = "▸"
 	}
-	return indent + mark + " " + arrow + " " + n.Name + "/"
+	return indent + mark + " " + arrow + " " + icon + n.Name + "/"
 }
 
 // changeLetter is the one-cell mark column: nvim-tree, yazi and lazygit all
