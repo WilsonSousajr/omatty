@@ -109,6 +109,7 @@ var columnKeys = []keyHelp{
 
 var diffKeys = []keyHelp{
 	{"c", "comment on the line under the cursor"},
+	{"C", "comment on part of the line: type the words, then the note"},
 	{"d", "delete the comment under the cursor"},
 	{"S", "submit the queued comments"},
 	{"t", "the whole session, or only this turn"},

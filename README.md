@@ -376,6 +376,7 @@ The pane takes the keys while it is open.
 | `h` / `l` | pan left and right along a line too wide for the column |
 | `0` | jump back to the left edge |
 | `c` | comment on the line under the cursor |
+| `C` | comment on *part* of the line: type the words, then the note |
 | `d` | delete the comment under the cursor |
 | `r` | reload the diff |
 | `t` | switch between the whole session and only this turn |
@@ -391,6 +392,17 @@ Comments are anchored to the *content* of a line, not its number, so they stay
 put while Claude edits the file underneath you. A comment whose line disappears
 floats to the top of its file marked `(moved)` rather than silently attaching
 itself to the wrong code.
+
+You can leave **several comments on one line** - they are all shown under it,
+all numbered in the message, and `d` takes the one under the cursor. And `C`
+comments on *part* of a line: type or paste the words you mean, then the note,
+and the message tells Claude `about: "do(ctx, timeout)"` rather than pointing at
+the whole line. The fragment is checked against the line before it is queued, so
+a typo is caught while the line is still in front of you. It is stored as text
+rather than as a column range, because a range into a line Claude has since
+rewritten points at whatever now happens to sit there - and if the line survives
+an edit that removes those words, the note still travels and says the fragment is
+no longer in it.
 
 `t` narrows the diff to what changed since you last sent the session a
 prompt, and back. omatty takes the baseline when the prompt hook fires, as a
