@@ -28,8 +28,7 @@ import (
 // cursor is in them.
 type trackerList struct {
 	Project string
-	Cursor  int
-	Offset  int
+	listWindow
 	// The open item (#397): which row is being read in full, and how far down it
 	// is scrolled. Only meaningful while the view is ViewTrackerItem.
 	ItemPR     bool
@@ -167,16 +166,26 @@ func (m *Model) setTrackerFilter(query string) {
 // item, and a cursor resting on it would have nothing to act on.
 func (m *Model) moveTrackerCursor(delta int) {
 	rows := m.trackerRows()
-	if len(rows) == 0 {
-		return
+	// A narrowed list can be shorter than where the cursor stood (#399);
+	// move clamps it back onto the rows there are.
+	m.review.Tracker.move(delta, len(rows), m.reviewRows())
+	if len(rows) > 0 && rows[m.review.Tracker.Cursor].Kind == rowRule {
+		m.stepOffRule(rows, delta)
 	}
-	next := min(max(m.review.Tracker.Cursor+delta, 0), len(rows)-1)
-	// A narrowed list can be shorter than where the cursor stood (#399).
-	if rows[next].Kind == rowRule {
-		next = min(max(next+delta, 0), len(rows)-1)
+}
+
+// stepOffRule moves the cursor one row off the rule, the way it was going, or
+// back the other way when that is an end: g lands on the rule when there are
+// no issues above it, and a step past it that clamps would leave it there.
+func (m *Model) stepOffRule(rows []trackerRow, delta int) {
+	step := 1
+	if delta < 0 {
+		step = -1
 	}
-	m.review.Tracker.Cursor = next
-	m.review.Tracker.Offset = ScrollOffset(next, m.review.Tracker.Offset, m.reviewRows())
+	m.review.Tracker.move(step, len(rows), m.reviewRows())
+	if rows[m.review.Tracker.Cursor].Kind == rowRule {
+		m.review.Tracker.move(-2*step, len(rows), m.reviewRows())
+	}
 }
 
 // trackerRows is the project's open issues, then its open pull requests under a
@@ -350,7 +359,7 @@ func (m *Model) trackerLine(r trackerRow, selected bool) string {
 	lead, age := trackerParts(r, m.clock(), w)
 	text := m.fitContent(lead, w-len(trackerAgeGap)-trackerAgeCols) + trackerAgeGap + age
 	if selected {
-		return accentStyle.Render(text)
+		return cursorStyle.Render(text)
 	}
 	return text
 }

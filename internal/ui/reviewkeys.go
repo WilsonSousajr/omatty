@@ -10,7 +10,7 @@ import (
 )
 
 // ReviewCursor is the index of the highlighted row.
-func (m *Model) ReviewCursor() int { return m.review.Cursor }
+func (m *Model) ReviewCursor() int { return m.review.DiffList.Cursor }
 
 // PendingComments is how many notes the shown session has queued.
 func (m *Model) PendingComments() int { return m.commentsFor(m.review.SessionID).PendingLen() }
@@ -76,12 +76,7 @@ func (m *Model) commentKey(key string) bool {
 }
 
 func (m *Model) moveReviewCursor(delta int) {
-	n := len(m.review.Entries)
-	if n == 0 {
-		return
-	}
-	m.review.Cursor = min(max(m.review.Cursor+delta, 0), n-1)
-	m.review.Offset = ScrollOffset(m.review.Cursor, m.review.Offset, m.reviewRows())
+	m.review.DiffList.move(delta, len(m.review.Entries), m.reviewRows())
 }
 
 // reviewRows is how many entry rows the column shows: the pane minus its
@@ -112,10 +107,10 @@ func ScrollOffset(cursor, offset, rows int) int {
 }
 
 func (m *Model) cursorEntry() (review.Entry, bool) {
-	if m.review.Cursor >= len(m.review.Entries) {
+	if m.review.DiffList.Cursor >= len(m.review.Entries) {
 		return review.Entry{}, false
 	}
-	return m.review.Entries[m.review.Cursor], true
+	return m.review.Entries[m.review.DiffList.Cursor], true
 }
 
 // openNote starts a note on the line under the cursor, capturing its anchor

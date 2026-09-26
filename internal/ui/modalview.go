@@ -103,6 +103,8 @@ var claudeKeys = []keyHelp{
 // columnKeys work the same on every face.
 var columnKeys = []keyHelp{
 	{"j / k", "move the cursor, or scroll a preview or an item"},
+	{"g / G", "the first row, or the last"},
+	{"ctrl+d / ctrl+u", "half a page down, or up"},
 	{"h / l", "pan sideways"},
 	{"wheel sideways", "pan too - shift+wheel where the terminal sends it"},
 	{"0", "jump back to the left edge"},
@@ -122,7 +124,7 @@ var diffKeys = []keyHelp{
 var treeKeys = []keyHelp{
 	{"enter", "fold a directory, or preview a file"},
 	{"v", "mark the file read; ✓ stays until its diff changes, then ~"},
-	{"g", "show the generated files it folded away, or fold them again"},
+	{".", "show the generated files it folded away, or fold them again"},
 	{"/", "filter the tree as you type; enter keeps it, esc clears it"},
 	{"a", "attach the row or previewed file to the prompt as @path"},
 	{"o", "from a preview, jump to that file in the diff"},

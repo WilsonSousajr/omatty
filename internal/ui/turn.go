@@ -112,7 +112,7 @@ func (m *Model) toggleScope() tea.Cmd {
 	} else {
 		m.review.Scope = scopeTurn
 	}
-	m.review.Cursor, m.review.Offset, m.review.ColOffset = 0, 0, 0
+	m.review.DiffList.Cursor, m.review.DiffList.Offset, m.review.ColOffset = 0, 0, 0
 	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = review.Diff{}, nil, false
 	m.rebuildEntries()
 	// Both diffs: the turn view places and anchors comments through the

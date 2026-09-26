@@ -48,12 +48,12 @@ func (m *Model) withFilterLine(lines []string, w, rows int) []string {
 
 // treeLines draws the window of rows around the cursor.
 func (m *Model) treeLines(nodes []review.TreeNode, w, rows int) []string {
-	off := ScrollOffset(m.review.TreeCursor, m.review.TreeOffset, rows)
+	off := ScrollOffset(m.review.Files.Cursor, m.review.Files.Offset, rows)
 	out := make([]string, 0, rows)
 	for i := off; i < min(off+rows, len(nodes)); i++ {
 		mark := m.reviewMark(nodes[i].Path, nodes[i].IsDir)
 		text := m.fitContent(treeText(nodes[i], m.review.Tree.Collapsed(nodes[i].Path), mark), w)
-		out = append(out, treeStyle(nodes[i], i == m.review.TreeCursor, mark).Render(text))
+		out = append(out, treeStyle(nodes[i], i == m.review.Files.Cursor, mark).Render(text))
 	}
 	return out
 }

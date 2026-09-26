@@ -92,8 +92,7 @@ type ReviewPane struct {
 	TurnDiff  review.Diff
 	TurnErr   error
 	TurnReady bool
-	Cursor    int
-	Offset    int // first visible entry
+	DiffList  listWindow // the cursor over Entries (#424)
 	Err       string
 	Note      noteEditor
 	// Filter is the tree's type-to-filter line (#198): Active while it has
@@ -103,10 +102,9 @@ type ReviewPane struct {
 	// which is what the "listing files..." placeholder means. TreeErr is
 	// separate from Err so a failed listing never blanks the diff, and a
 	// failed diff never blanks the tree: the two load independently.
-	Tree       *review.Tree
-	TreeErr    string
-	TreeCursor int
-	TreeOffset int
+	Tree    *review.Tree
+	TreeErr string
+	Files   listWindow // the cursor over the tree's visible rows (#424)
 	// The gate view's state (#231). GateOpen is which steps are folded open,
 	// nil until one is - a step's output is hidden by default because four
 	// steps of test output would bury the summary the pane exists to show.
@@ -369,8 +367,8 @@ func (m *Model) rebuildEntries() {
 	}
 	m.review.Entries = review.Flatten(d, placed)
 	m.contentChanged()
-	if m.review.Cursor >= len(m.review.Entries) {
-		m.review.Cursor = max(len(m.review.Entries)-1, 0)
+	if m.review.DiffList.Cursor >= len(m.review.Entries) {
+		m.review.DiffList.Cursor = max(len(m.review.Entries)-1, 0)
 	}
 }
 

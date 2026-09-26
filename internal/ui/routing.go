@@ -80,6 +80,9 @@ func (m *Model) dispatch(target focusTarget, msg tea.KeyPressMsg) tea.Cmd {
 // onPaneKey picks the handler for the review column's current view: the three
 // views share a focus target but not a keymap (#24).
 func (m *Model) onPaneKey(key string) tea.Cmd {
+	if m.pageKey(key) {
+		return nil
+	}
 	switch m.review.View {
 	case ViewTree:
 		return m.onTreeKey(key)
