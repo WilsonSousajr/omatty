@@ -1,7 +1,11 @@
 // Package registry holds omatty's projects and sessions and persists them.
 package registry
 
-import "github.com/WilsonSousajr/omatty/internal/gate"
+import (
+	"time"
+
+	"github.com/WilsonSousajr/omatty/internal/gate"
+)
 
 // Version is the state.json schema version. Bump only with a migration.
 const Version = 1
@@ -30,6 +34,20 @@ type Project struct {
 	// migration and Version stays 1 (invariant 9). Each path is relative to
 	// Root; anything absolute or climbing out of it is refused when it runs.
 	Carry []string `json:"carry,omitempty"`
+	// GateRuns counts the gate runs that followed a turn and GateFirstPass how
+	// many of those passed, which together are #332's first-pass rate.
+	//
+	// Two ints rather than a struct because `omitempty` does not omit a struct:
+	// a project that has measured nothing must leave the keys out entirely, so
+	// a file written before this needs no migration and a review diff stays
+	// quiet. Absent means "nothing measured yet", which is the derivable empty
+	// value Gate and Carry above make the same argument for (invariant 9).
+	//
+	// Counters, not a history. #332 asks for two numbers and R9 says not to
+	// widen the surface; a list of runs would be a history browser nobody
+	// proposed.
+	GateRuns      int `json:"gate_runs,omitempty"`
+	GateFirstPass int `json:"gate_first_pass,omitempty"`
 }
 
 // Session is one Claude Code process in one directory.
@@ -64,6 +82,15 @@ type Session struct {
 	// every row written before #316 - derivable, so Version stays 1
 	// (invariant 9, the argument Base and Agent make above).
 	Conversation string `json:"conversation,omitempty"`
+	// Started is when omatty registered this session, which is where lead time
+	// is measured from (#332).
+	//
+	// Zero means unknown - every session written before #332 - and lead time
+	// reads as absent for it rather than as an implausible number. That is the
+	// derivable empty value Base, Agent, Conversation, Gate and Carry all rely
+	// on, so Version stays 1 (invariant 9). Not needed to relaunch a session,
+	// which is why it took a reason beyond curiosity to add.
+	Started time.Time `json:"started,omitempty"`
 }
 
 // ConversationID is the uuid to resume and the transcript to tail.

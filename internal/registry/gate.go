@@ -39,3 +39,35 @@ func editGate(s *Store, project string, steps []gate.Step) error {
 	}
 	return s.Save(st)
 }
+
+// TallyGateRun records one gate run that followed a turn: every call counts a
+// run, and a passing one counts towards the first-pass rate too (#332).
+//
+//	err := registry.TallyGateRun(store, "omatty", passed)
+//
+// "Passed without a send-back" is simplified to "passed", deliberately: a
+// send-back only ever happens on a report that failed, so a run that passed is
+// a run nothing was sent back from. Counting the sends separately would measure
+// the same thing twice.
+//
+// Two counters and no history. #332 asks for a rate, and a list of runs would
+// be the history browser R9 tells us not to build.
+func TallyGateRun(s *Store, project string, passed bool) error {
+	st, err := s.Load()
+	if err != nil {
+		return err
+	}
+	if _, err := findProject(&st, project); err != nil {
+		return err
+	}
+	for i := range st.Projects {
+		if st.Projects[i].Name != project {
+			continue
+		}
+		st.Projects[i].GateRuns++
+		if passed {
+			st.Projects[i].GateFirstPass++
+		}
+	}
+	return s.Save(st)
+}

@@ -18,6 +18,7 @@ import (
 //	omatty gate <project> --detect   print the proposal, write nothing
 //	omatty gate <project> --set      write the proposal without asking
 //	omatty gate <project> --clear    forget it
+//	omatty gate <project> --stats    lead time and first-pass rate (#332)
 //
 // The plain form is the confirm-once flow, and it is the same shape `discover`
 // and `adopt` already use: print what was found, read one answer, write only
@@ -28,6 +29,9 @@ func gateCommand(store *registry.Store, args []string, in io.Reader) error {
 	project, err := gateProject(store, args)
 	if err != nil {
 		return err
+	}
+	if hasFlag(args, "--stats") {
+		return reportStats(store, project)
 	}
 	if hasFlag(args, "--clear") {
 		if err := registry.ClearGate(store, project.Name); err != nil {
@@ -101,7 +105,7 @@ func reportGate(heading string, steps []gate.Step) {
 // the way namedProject names adopt.
 func gateProject(store *registry.Store, args []string) (registry.Project, error) {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		return registry.Project{}, fmt.Errorf("gate: want <project> [--detect|--set|--clear], got no project")
+		return registry.Project{}, fmt.Errorf("gate: want <project> [--detect|--set|--clear|--stats], got no project")
 	}
 	p, err := registry.NamedProject(store, args[0])
 	if err != nil {
