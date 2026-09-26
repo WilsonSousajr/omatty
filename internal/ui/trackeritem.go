@@ -167,15 +167,25 @@ func (m *Model) itemLines() []string {
 		return m.itemNote(key)
 	}
 	w := m.columnWidth()
-	lines := append(m.itemHead(item, w), wrapBlock(item.Body, w)...)
-	for _, c := range item.Comments {
-		lines = append(lines, "", fitLine(labelledRule(c.Author+" · "+AgeString(m.clock(), c.At), w), w))
-		lines = append(lines, wrapBlock(c.Body, w)...)
-	}
+	lines := append(m.itemHead(item, w), m.itemChecks(item)...)
+	lines = append(lines, markdownLines(item.Body, w)...)
+	lines = append(lines, m.commentLines(item.Comments, w)...)
 	if item.Truncated {
 		notice := "… the rest of this item was not read (over " + strconv.Itoa(forge.DetailMax>>10) + " KiB)."
 		lines = append(lines, "")
 		lines = append(lines, wrapBlock(notice, w)...)
+	}
+	return lines
+}
+
+// commentLines is each comment under its own muted rule naming who said it
+// when, its body drawn as the item's is (#433).
+func (m *Model) commentLines(comments []forge.Comment, w int) []string {
+	var lines []string
+	for _, c := range comments {
+		rule := fitLine(labelledRule(c.Author+" · "+AgeString(m.clock(), c.At), w), w)
+		lines = append(lines, "", mutedStyle.Render(rule))
+		lines = append(lines, markdownLines(c.Body, w)...)
 	}
 	return lines
 }
@@ -189,8 +199,9 @@ func (m *Model) itemHead(item forge.Detail, w int) []string {
 	if age := AgeString(m.clock(), item.Created); age != "" {
 		by += " · " + age + " ago"
 	}
-	head := wrapBlock("#"+strconv.Itoa(item.Number)+"  "+item.Title, w)
-	return append(append(head, wrapBlock(by, w)...), "")
+	// The title bold and the by-line muted, so the page reads as one (#433).
+	head := styleLines(wrapBlock("#"+strconv.Itoa(item.Number)+"  "+item.Title, w), headerStyle.Render)
+	return append(append(head, styleLines(wrapBlock(by, w), mutedStyle.Render)...), "")
 }
 
 // itemNote is the state before an item is held: reading, failed, or gh gone.
