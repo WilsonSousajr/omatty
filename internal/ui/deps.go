@@ -29,8 +29,8 @@ type StartFunc func(sess registry.Session, w, h int) (termwrap.Terminal, error)
 
 // RepoStatFunc reads a session's branch and diffstat for its sidebar card
 // (#180). Injected so ui never touches git (invariant 4). Nil is the switch,
-// as ModelName's is: with nothing wired the card draws its lane alone, which
-// is what every test's Deps gets.
+// as ModelName's is: with nothing wired the card's second line is blank,
+// which is what every test's Deps gets.
 type RepoStatFunc func(sess registry.Session, projectRoot string) (review.Stat, error)
 
 // TurnFuncs are the three calls #311 makes on a session's turn baseline,

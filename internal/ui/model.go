@@ -76,8 +76,8 @@ type Model struct {
 	// persisted, and correctly empty after a relaunch: whether a session
 	// still needs a name is derived from its title, not from this map.
 	namePending map[string]bool
-	// gates is each session's last gate report, display-only like the lane and
-	// repoStat and never persisted: state.json must suffice alone
+	// gates is each session's last gate report, display-only like repoStat
+	// and never persisted: state.json must suffice alone
 	// (invariant 9). Absent means no gate has run, which the card shows as a
 	// blank line rather than as a pass (#230).
 	gates map[string]gate.Report
@@ -130,10 +130,8 @@ type Model struct {
 	gateReports <-chan gate.Report
 	gateRun     GateRunFunc
 	gateAuto    bool
-	// lane is each session's recent-status trace for the sidebar (#128).
-	lane map[string]activityLane
 	// stat reads a card's branch and diffstat; repoStat is the last answer per
-	// session, display-only like the lane and never persisted - state.json
+	// session, display-only and never persisted - state.json
 	// must suffice alone (invariant 9). statPending guards one poll in flight
 	// per session; statFailed makes the warning once per outage (#180).
 	stat        RepoStatFunc
@@ -259,7 +257,6 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.notified = map[string]time.Time{}
 	m.comments = map[string]*review.Comments{}
 	m.namePending = map[string]bool{}
-	m.lane = map[string]activityLane{}
 	m.gates = map[string]gate.Report{}
 	m.gateRunning = map[string]bool{}
 	m.gateSent = map[string]gateSend{}
@@ -328,7 +325,7 @@ func (m *Model) Init() tea.Cmd {
 	}
 	// The first stat poll runs at start rather than a tick later, so a card
 	// names its branch before the operator has read the screen (#180).
-	cmds = append(cmds, scheduleTick(), m.onStatTick(), m.onPRTick(), m.onIssueTick(), m.scheduleSweep())
+	cmds = append(cmds, m.scheduleTick(), m.onStatTick(), m.onPRTick(), m.onIssueTick(), m.scheduleSweep())
 	return tea.Batch(cmds...)
 }
 
@@ -384,7 +381,7 @@ func (m *Model) routeMsg(msg tea.Msg) tea.Cmd {
 func (m *Model) onHeartbeat(msg tea.Msg) (tea.Cmd, bool) {
 	switch msg.(type) {
 	case TickMsg:
-		return scheduleTick(), true
+		return m.scheduleTick(), true
 	case StatTickMsg:
 		return m.onStatTick(), true
 	case PRTickMsg:

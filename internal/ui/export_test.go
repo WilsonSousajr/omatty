@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image/color"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/forge"
@@ -62,13 +63,8 @@ func StatusGlyphs() []string {
 	return out
 }
 
-// LaneBlocks is the status-to-cell table and LaneCells the lane's width.
-func LaneBlocks() map[watcher.Status]string { return laneBlock }
-func LaneCells() int                        { return laneCells }
-
-// LaneOf is a session's rendered lane; CardOf its whole two-line card (#176);
-// Rail the accent cursor cell a selected card's lines open with.
-func (m *Model) LaneOf(id string) string { return m.renderLane(id) }
+// CardOf is a session's whole card (#176); Rail the accent cursor cell a
+// selected card's lines open with.
 func (m *Model) CardOf(id string) []string {
 	for _, row := range m.sidebar.Rows() {
 		if row.Session != nil && row.Session.ID == id {
@@ -137,13 +133,11 @@ func RenderMeter(t watcher.Tokens) string {
 func MeterGlyphs() []string { return []string{meterFull, meterEmpty} }
 func MeterCells() int       { return meterCells }
 
-// Blend, LaneCellColor and MeterCellColor are the ramps; StatusColor and
-// MutedColor their endpoints (#154).
-func Blend(a, b color.Color, t float64) color.Color       { return blend(a, b, t) }
-func LaneCellColor(s watcher.Status, age int) color.Color { return laneCellColor(s, age) }
-func MeterCellColor(i int) color.Color                    { return meterCellColor(i) }
-func StatusColor(s watcher.Status) color.Color            { return statusColors[s] }
-func MutedColor() color.Color                             { return colorMuted }
+// Blend and MeterCellColor are the ramp; StatusColor a status's palette
+// entry (#154).
+func Blend(a, b color.Color, t float64) color.Color { return blend(a, b, t) }
+func MeterCellColor(i int) color.Color              { return meterCellColor(i) }
+func StatusColor(s watcher.Status) color.Color      { return statusColors[s] }
 
 // AccentColor, AmberColor and TextColor are the palette entries the colour
 // rule binds (#175); AllStatuses is every status the tables must cover.
@@ -258,3 +252,14 @@ func (m *Model) DiffSeq() uint64 { return m.diffSeq }
 
 // TurnSeq is DiffSeq for the turn diff.
 func (m *Model) TurnSeq() uint64 { return m.turnSeq }
+
+// SpinFrames is one turn of the working spinner, SpinEvery a frame's time on
+// screen and SpinFrameAt the frame at a moment (#410). TickInterval is how
+// long the heartbeat waits next.
+// MetaCols is card line two's width for the branch and the diffstat.
+func MetaCols() int { return metaCols }
+
+func SpinFrames() []string                   { return spinFrames[:] }
+func SpinEvery() time.Duration               { return spinEvery }
+func SpinFrameAt(now time.Time) string       { return spinnerFrame(now) }
+func (m *Model) TickInterval() time.Duration { return m.tickInterval() }

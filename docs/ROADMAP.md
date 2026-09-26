@@ -1091,6 +1091,17 @@ issues, M12 took them back:
 They are still not the reason to open the tool. They are what the reason
 needs once it is there, and `prior-art-findings.md` keeps their priorities.
 
+**Added** (2026-09-26, #410). The field signals "working" with one small
+moving mark - claude's own `✻`, a braille spinner in the agent TUIs, a busy
+dot in ccmanager and claude-squad - and none of them draws a history. omatty's
+activity lane (#128) did: six block cells whose height repeated line one's
+glyph and made every busy card the same grey wall. Line one's glyph now
+spins through braille frames at 100 ms while a session thinks or runs a
+tool, one spinner for both; a session with no process keeps its still glyph.
+The lane is gone and its seven columns went to the branch, 16 to 23. The
+heartbeat runs at spinner speed only while something spins, so an idle
+omatty ticks once a second as M13 left it.
+
 **Deliberately cut:**
 
 - **Widening the agent seam to match `ccmanager`'s eight.** #152 stays the

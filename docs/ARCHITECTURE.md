@@ -43,9 +43,9 @@ the only source that can tell "waiting for you" from "tool running"; the
 transcript is the truth on attach, self-healing, and the only source of age
 and tokens. Both go through the agent's `watcher.Adapter`, which turns one
 agent's lines and payloads into omatty's neutral `Event` vocabulary. Events
-arrive in the model as `ui.StatusMsg` and become the sidebar glyph, the
-activity lane, the token meter and, when omatty is in the background, a
-desktop notification.
+arrive in the model as `ui.StatusMsg` and become the sidebar glyph - a
+spinner while the session thinks or runs a tool (#410) - the token meter
+and, when omatty is in the background, a desktop notification.
 
 ```
 claude --settings ~/.omatty/hooks.json

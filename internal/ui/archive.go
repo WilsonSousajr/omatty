@@ -285,7 +285,6 @@ func (m *Model) forgetSessionMaps(id string) {
 	delete(m.notified, id)
 	delete(m.comments, id)
 	delete(m.namePending, id)
-	delete(m.lane, id)
 	delete(m.gates, id)
 	delete(m.gateRunning, id)
 	delete(m.gateSent, id)

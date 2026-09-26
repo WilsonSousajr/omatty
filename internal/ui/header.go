@@ -94,7 +94,7 @@ func (m *Model) paneParts(row Row, now time.Time, owns bool) headerParts {
 		Branch: m.breadcrumbBranch(row.Session.ID),
 	}
 	if st.Status != "" {
-		glyph := statusCell(st.Status)
+		glyph := m.glyphCell(row.Session.ID, st.Status, now)
 		p.State = strings.TrimSpace(glyph + " " + string(st.Status) + " " + AgeString(now, st.At))
 	}
 	p.Meter, p.Counts = meterPart(st.Tokens), countsPart(st.Tokens)
