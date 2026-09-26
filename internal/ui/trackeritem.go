@@ -160,13 +160,15 @@ func (m *Model) renderTrackerItem(_, h int) []string {
 // its own rule, all wrapped to the column. Wrapped rather than cut, because an
 // issue body is prose and prose read through a 35-cell window one line at a time
 // is not read at all.
-func (m *Model) itemLines() []string {
-	key := m.itemKeyAtCursor()
+func (m *Model) itemLines() []string { return m.itemLinesFor(m.itemKeyAtCursor(), m.columnWidth()) }
+
+// itemLinesFor is key's item drawn w wide: the open item's view, or the
+// tracker's preview beside its list (#434).
+func (m *Model) itemLinesFor(key itemKey, w int) []string {
 	item, held := m.items[key]
 	if !held {
-		return m.itemNote(key)
+		return m.itemNote(key, w)
 	}
-	w := m.columnWidth()
 	lines := append(m.itemHead(item, w), m.itemChecks(item)...)
 	lines = append(lines, markdownLines(item.Body, w)...)
 	lines = append(lines, m.commentLines(item.Comments, w)...)
@@ -206,9 +208,8 @@ func (m *Model) itemHead(item forge.Detail, w int) []string {
 
 // itemNote is the state before an item is held: reading, failed, or gh gone.
 // Distinct states, because an empty pane reads as "this issue says nothing".
-func (m *Model) itemNote(key itemKey) []string {
+func (m *Model) itemNote(key itemKey, w int) []string {
 	number := "#" + strconv.Itoa(key.Number)
-	w := m.columnWidth()
 	switch {
 	case m.ghMissing:
 		return wrapBlock("gh is not installed, so "+number+" cannot be read.", w)
