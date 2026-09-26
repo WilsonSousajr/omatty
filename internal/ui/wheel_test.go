@@ -320,3 +320,47 @@ func TestUpdate_TheWheelTargetShrinksWithTheReviewColumn_issue107(t *testing.T) 
 		t.Errorf("the wheel sent %v from a cell the review column now covers, want nothing", got)
 	}
 }
+
+// The sidebar was the one list on screen the wheel could not move: scrollPane
+// offered a notch to the review column, then to the pane, and dropped
+// everything else (#497).
+//
+// Both halves are asserted because a cursor-only implementation passes the
+// first and silently drops the second: the wheel goes through moveCursor, so a
+// notch sizes the terminal it lands on (#73) exactly as j/k and a click do.
+func TestUpdate_TheWheelOverTheSidebarMovesTheCursor_issue497(t *testing.T) {
+	m, fakes := modelWithFakes(t)
+	x, y := overSidebar()
+	before := m.Selected()
+
+	_, cmd := m.Update(wheel(x, y, tea.MouseWheelDown))
+	settle(m, cmd)
+
+	after := m.Selected()
+	if after == before {
+		t.Fatalf("Selected() = %q after a notch over the sidebar, want a different session", after)
+	}
+	if got := fakes[after].Sizes; len(got) == 0 {
+		t.Errorf("%s was never resized by the notch that selected it, Sizes = %v", after, got)
+	}
+}
+
+// One notch is one session, not one page: WheelNotchesPerPage exists because a
+// notch became a whole page of claude's scrollback (#107), and a list of rows
+// has no such mismatch to damp (#497).
+func TestUpdate_TheSidebarWheelMovesOneSessionPerNotch_issue497(t *testing.T) {
+	m, _ := modelWithFakes(t)
+	x, y := overSidebar()
+
+	m.Update(wheel(x, y, tea.MouseWheelDown))
+	down := m.Selected()
+	m.Update(wheel(x, y, tea.MouseWheelUp))
+	back := m.Selected()
+
+	if down != "s2" {
+		t.Errorf("Selected() = %q after one notch down, want s2 - the very next session", down)
+	}
+	if back != "s1" {
+		t.Errorf("Selected() = %q after one notch back up, want s1", back)
+	}
+}
