@@ -72,11 +72,12 @@ func TestCard_TheTitleIsClippedToEighteenColumns_issue176(t *testing.T) {
 }
 
 // A project header is one line: the rail column, then the name, muted; the
-// rail only on an empty project the cursor rests on (#158).
+// rail only on an empty project the cursor rests on (#158). A project with
+// sessions carries the fold arrow before its name (#505).
 func TestCard_AProjectHeaderIsOneLine_issue176(t *testing.T) {
 	m := modelWithEmptyProject(t, &recordCreate{})
 	lines := frameLines(m)
-	if got := stripSGR(lines[2]); !strings.HasPrefix(got, "  omatty") { // rail, gutter (#498)
+	if got := stripSGR(lines[2]); !strings.HasPrefix(got, "  ▾ omatty") { // rail, gutter (#498), arrow (#505)
 		t.Errorf("the first body line = %q, want the omatty header with no rail", got)
 	}
 	leader(m, key(']'))

@@ -127,10 +127,14 @@ const emptyTreeHint = "no files - the repository is empty; press r to list again
 // creating a session can only fail, so it points at `omatty add` instead.
 // emptyStateHint says what to do next. It names the project when the cursor
 // rests on an empty one, because with other projects' sessions on screen
-// "no sessions" alone reads as a lie (#158).
+// "no sessions" alone reads as a lie (#158) - and on a folded one it says
+// the sessions are there, only folded away (#505).
 func (m *Model) emptyStateHint() string {
 	if len(m.sidebar.Rows()) == 0 {
 		return "no projects - run `omatty add <dir>` to register one"
+	}
+	if p, ok := m.sidebar.SelectedFold(); ok {
+		return p + " is folded - press " + m.leader + " tab to unfold it"
 	}
 	p, _ := m.sidebar.SelectedHeader()
 	return "no sessions in " + p + " - press " + m.leader + " n to create one"

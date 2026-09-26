@@ -6,6 +6,7 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,7 +52,7 @@ const rail = "▎"
 //	▎  ✓✓✓✗ test       88.4%
 func (m *Model) renderRow(row Row, now time.Time) []string {
 	if row.Session == nil {
-		return []string{m.renderHeaderRow(row.Project)}
+		return []string{m.renderHeaderRow(row)}
 	}
 	r := m.rail(m.isSelected(row.Session.ID)) + cardGutter
 	id := row.Session.ID
@@ -63,21 +64,64 @@ func (m *Model) renderRow(row Row, now time.Time) []string {
 }
 
 // renderHeaderRow is a project's one line: the rail column, the name in muted,
-// then its open counts right-aligned (#395). The rail is drawn only on an empty
-// project the cursor rests on, the one header that can be selected (#158).
+// then its open counts right-aligned (#395). The rail is drawn on a header the
+// cursor rests on: an empty project's (#158) or a folded one's (#505).
+//
+// A project with sessions carries the tree's fold arrow before its name, ▾
+// open and ▸ folded (#505). A folded one adds, after the counts, how many
+// sessions it hides and the loudest of their glyphs - last on the line, so
+// the glyph's own colour ends the line instead of cutting the muted run.
 //
 // A project with nothing known keeps the old single-budget line rather than a
 // name one cell shorter beside an empty count: "exactly as it was" is what
 // unknown counts promise.
-func (m *Model) renderHeaderRow(project string) string {
-	p, ok := m.sidebar.SelectedHeader()
-	rail := m.rail(ok && p == project) + cardGutter
-	counts := m.forgeCounts(project)
-	if counts == "" {
-		return rail + mutedStyle.Render(fitLine(project, cardCols-1-gutterCols))
+func (m *Model) renderHeaderRow(row Row) string {
+	rail := m.rail(m.headerSelected(row.Project)) + cardGutter
+	name := m.foldArrow(row) + row.Project
+	right := joinSpaced(m.forgeCounts(row.Project), foldSummary(row))
+	if right == "" {
+		return rail + mutedStyle.Render(fitLine(name, cardCols-1-gutterCols))
 	}
-	name := fitLine(project, cardCols-1-gutterCols-1-lipgloss.Width(counts))
-	return rail + mutedStyle.Render(name+" "+counts)
+	name = fitLine(name, cardCols-1-gutterCols-1-lipgloss.Width(right))
+	return rail + mutedStyle.Render(name+" "+right)
+}
+
+// headerSelected is whether the cursor rests on project's header.
+func (m *Model) headerSelected(project string) bool {
+	if p, ok := m.sidebar.SelectedHeader(); ok {
+		return p == project
+	}
+	p, ok := m.sidebar.SelectedFold()
+	return ok && p == project
+}
+
+// foldArrow is the tree's directory arrow for a project header, or "" for a
+// project with nothing to fold.
+func (m *Model) foldArrow(row Row) string {
+	switch {
+	case len(row.Folded) > 0:
+		return "▸ "
+	case m.hasSessions(row.Project):
+		return "▾ "
+	}
+	return ""
+}
+
+// foldSummary is what a folded header says about what it hides: the count,
+// then the loudest status glyph. "" on an open header.
+func foldSummary(row Row) string {
+	if len(row.Folded) == 0 {
+		return ""
+	}
+	return strconv.Itoa(len(row.Folded)) + " " + statusCell(row.Status)
+}
+
+// joinSpaced joins the non-empty parts with one space.
+func joinSpaced(a, b string) string {
+	if a == "" || b == "" {
+		return a + b
+	}
+	return a + " " + b
 }
 
 // cardTop is line one past the rail: the glyph, the title, the age.

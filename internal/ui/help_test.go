@@ -82,8 +82,9 @@ func boundLeaderKeys(t *testing.T) []string {
 // now: nothing here asserts the modal is *exactly* this tall, and the test that
 // cares about scrolling uses a short window instead. #424's g / G and
 // ctrl+d / ctrl+u took the minimum to 71, and #427's z with #331's keys to
-// 73, so it is 80: room for a few more.
-const helpFitsHeight = 80
+// 73, so it is 80: room for a few more. #505's tab used the last of that
+// room, so it is 90.
+const helpFitsHeight = 90
 
 // Regression, issue #422: the help modal's review-column table was written for
 // the diff and the tree, and nothing tied it to the handlers, so the gate's

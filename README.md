@@ -203,6 +203,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 |---|---|
 | `ctrl+o j` / `ctrl+o k` | move between sessions |
 | `ctrl+o ]` / `ctrl+o [` | move between projects, including one with no sessions yet |
+| `ctrl+o tab` | fold or unfold the project the cursor is in; a click on its header does the same |
 | `ctrl+o n` | new session on the main checkout |
 | `ctrl+o N` | new session on a fresh worktree |
 | `ctrl+o d` | open or close the diff pane |
@@ -383,6 +384,13 @@ A project that has no sessions yet is selectable too: `ctrl+o ]` reaches
 it, the pane says which project is empty, and `ctrl+o n` creates its first
 session there. Archiving a project's last session leaves the cursor on that
 project for the same reason.
+
+A project you are not working in can be folded away with `ctrl+o tab`, or a
+click on its header, the way a directory folds in the file tree: its sessions
+go behind a `▸` header that still shows how many there are and the most urgent
+status among them, so one waiting on you is not hidden. The fold is kept in
+`state.json` across restarts. Jumping to a folded session with `ctrl+o /`, or
+creating one there, unfolds the project.
 
 A session created with `ctrl+o n` and a blank title is named by the first
 prompt you type into it. `ctrl+o N` asks for nothing either: the worktree is
