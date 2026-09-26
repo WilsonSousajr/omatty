@@ -136,6 +136,7 @@ func (m *Model) onPRs(msg PRsLoadedMsg) tea.Cmd {
 	}
 	delete(m.prFailed, msg.Project)
 	m.prs[msg.Project] = msg.PRs
+	m.settleTracker(msg.Project)
 	return nil
 }
 
