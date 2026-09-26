@@ -74,6 +74,75 @@ func boundLeaderKeys(t *testing.T) []string {
 	return keys
 }
 
+// helpFitsHeight is a window tall enough to show the whole help modal without
+// scrolling, for the tests that look for its last section. It grows with the
+// keymap; #422's per-face sections put it at 65.
+const helpFitsHeight = 66
+
+// Regression, issue #422: the help modal's review-column table was written for
+// the diff and the tree, and nothing tied it to the handlers, so the gate's
+// enter and S, the tracker's enter, n, a and b, and the diff's d all shipped
+// with no row. This is #103's tie for the column: every key a face's handler
+// switches on must appear in that face's table or in the shared one.
+func TestHelp_everyColumnKeyIsDocumented_issue422(t *testing.T) {
+	tables := ui.ColumnKeyTables()
+	shared := documentedSet(tables["column"])
+	for face, funcs := range columnHandlers {
+		documented := documentedSet(tables[face])
+		for _, bound := range boundKeysIn(t, funcs) {
+			canonical := arrowAliases[bound]
+			if canonical == "" {
+				canonical = bound
+			}
+			if !documented[canonical] && !shared[canonical] {
+				t.Errorf("%s: %q is handled but the help modal has no row for it", face, bound)
+			}
+		}
+	}
+}
+
+// columnHandlers is every function that switches on a review-column key, by
+// the face whose help section documents it. A handler split or renamed fails
+// findFunc loudly, which is the point: the list cannot quietly go stale.
+var columnHandlers = map[string]map[string][]string{
+	"column":  {"pan.go": {"panKey"}},
+	"diff":    {"reviewkeys.go": {"onReviewKey", "reviewAction"}},
+	"tree":    {"treekeys.go": {"onTreeKey", "treeActionKey", "treeCursorKey", "onPreviewKey"}},
+	"gate":    {"gatepane.go": {"onGateKey"}},
+	"tracker": {"tracker.go": {"onTrackerKey", "trackerCursorKey"}, "trackerwork.go": {"trackerAction"}, "trackeritem.go": {"onTrackerItemKey"}},
+}
+
+// arrowAliases are the arrow keys' spellings of j, k, h and l: one key an
+// operator presses, documented once under its letter.
+var arrowAliases = map[string]string{"down": "j", "up": "k", "left": "h", "right": "l"}
+
+// documentedSet splits help rows such as "j / k" into the keys they name.
+func documentedSet(rows []string) map[string]bool {
+	set := make(map[string]bool)
+	for _, row := range rows {
+		for _, part := range strings.Split(row, " / ") {
+			set[strings.TrimSpace(part)] = true
+		}
+	}
+	return set
+}
+
+// boundKeysIn is the case strings of the named functions, file by file.
+func boundKeysIn(t *testing.T, funcs map[string][]string) []string {
+	t.Helper()
+	var keys []string
+	for name, fns := range funcs {
+		file, err := parser.ParseFile(token.NewFileSet(), name, nil, 0)
+		if err != nil {
+			t.Fatalf("parsing %s: %v", name, err)
+		}
+		for _, fn := range fns {
+			keys = append(keys, caseStrings(findFunc(t, file, fn))...)
+		}
+	}
+	return keys
+}
+
 // findFunc returns the named method's body.
 func findFunc(t *testing.T, file *ast.File, name string) ast.Node {
 	t.Helper()
@@ -82,7 +151,7 @@ func findFunc(t *testing.T, file *ast.File, name string) ast.Node {
 			return fn.Body
 		}
 	}
-	t.Fatalf("routing.go has no func %s; the keymap test needs updating", name)
+	t.Fatalf("no func %s in the parsed file; the keymap test needs updating", name)
 	return nil
 }
 
