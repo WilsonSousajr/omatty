@@ -158,6 +158,9 @@ var trackerKeys = []keyHelp{
 type helpSection struct {
 	Title string
 	Keys  []keyHelp
+	// Prefix is written before every key: the leader, for the leader's own
+	// section, which #438 made a section like the others.
+	Prefix string
 }
 
 // helpSections is the modal's order below the leader keys: the column's shared
@@ -165,12 +168,12 @@ type helpSection struct {
 // the one list both helpBody and helpGutter walk, so a new section cannot be
 // drawn without also being measured.
 var helpSections = []helpSection{
-	{"anywhere in the review column", columnKeys},
-	{"in the diff", diffKeys},
-	{"in the file tree", treeKeys},
-	{"in the gate", gateKeys},
-	{"in the tracker", trackerKeys},
-	{"in the session", claudeKeys},
+	{Title: "anywhere in the review column", Keys: columnKeys},
+	{Title: "in the diff", Keys: diffKeys},
+	{Title: "in the file tree", Keys: treeKeys},
+	{Title: "in the gate", Keys: gateKeys},
+	{Title: "in the tracker", Keys: trackerKeys},
+	{Title: "in the session", Keys: claudeKeys},
 }
 
 // helpChrome is what helpLines spends on anything but a keymap row: the
@@ -195,53 +198,11 @@ func (m *Model) helpRows() int {
 // title of its own: the header row names the modal (#177, #188).
 func (m *Model) helpLines() []string {
 	w, _ := PaneSize(m.width, m.height, m.review.Open)
-	body, rows := helpBody(m.leader, w), m.helpRows()
+	body, rows := m.helpBody(w), m.helpRows()
 	start := min(max(m.modal.HelpOffset, 0), max(len(body)-rows, 0))
 	end := min(start+rows, len(body))
 	lines := append([]string{}, body[start:end]...)
-	if len(body) > rows {
-		return append(lines, "j/k scroll  esc close  ctrl+c quit")
-	}
-	return append(lines, "esc to close  ctrl+c quit")
-}
-
-// helpBody is one line per binding, keys padded into a column and descriptions
-// trimmed to the pane. A narrow pane loses the description rather than wrapping
-// the key away from what it does.
-func helpBody(leader string, width int) []string {
-	gutter := helpGutter(leader)
-	lines := make([]string, 0, len(leaderKeys)+4*len(helpSections))
-	for _, k := range leaderKeys {
-		lines = append(lines, helpRow(leader+" "+k.Key, k.Does, gutter, width))
-	}
-	for _, section := range helpSections {
-		lines = append(lines, "", section.Title)
-		for _, k := range section.Keys {
-			lines = append(lines, helpRow(k.Key, k.Does, gutter, width))
-		}
-	}
-	return lines
-}
-
-// helpRow draws one binding.
-func helpRow(key, does string, gutter, width int) string {
-	return fitLine("  "+padRight(key, gutter)+"  "+does, width)
-}
-
-// helpGutter is the key column's width: the longest key in any table, so a
-// new binding widens the column instead of pushing its description out of line
-// with every other one (#103).
-func helpGutter(leader string) int {
-	w := 0
-	for _, k := range leaderKeys {
-		w = max(w, lipgloss.Width(leader+" "+k.Key))
-	}
-	for _, section := range helpSections {
-		for _, k := range section.Keys {
-			w = max(w, lipgloss.Width(k.Key))
-		}
-	}
-	return w
+	return append(lines, m.helpFoot(w, len(body) > rows))
 }
 
 // confirmLines draws the question and one line per answer. The answers are
