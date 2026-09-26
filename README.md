@@ -338,7 +338,8 @@ icons = "plain"            # "nerd" draws every state mark with a Nerd Font's ic
 `ui.icons` is `"plain"` unless you ask: a Nerd Font glyph in a terminal without
 one is a box, which is worse than no icon. Set `"nerd"` if your terminal font is
 a Nerd Font and every state mark - a gate step's verdict, a card's gate strip, a
-pull request's CI - switches to its icon at once. Any other value is refused at
+pull request's CI - switches to its icon at once, and the file tree gains an
+icon per file type and folder. Any other value is refused at
 startup, naming the key.
 
 `sessions.lazy_start` is on because every `claude` costs a few hundred MB

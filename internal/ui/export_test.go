@@ -33,7 +33,7 @@ func SearchHit(s string) string { return searchStyle.Render(s) }
 
 // UseNerdIcons switches the model to the Nerd Font glyph set, as
 // [ui] icons = "nerd" does through Deps (#425).
-func (m *Model) UseNerdIcons() { m.glyphs = nerdGlyphs }
+func (m *Model) UseNerdIcons() { m.glyphs, m.nerdIcons = nerdGlyphs, true }
 
 // ColumnKeyTables is each review-column face's documented keys, by face, plus
 // "column" for the keys every face shares - the tables helpBody renders, so
