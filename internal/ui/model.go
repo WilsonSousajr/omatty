@@ -526,6 +526,8 @@ func (m *Model) onStreamMsg(msg tea.Msg) (tea.Cmd, bool) {
 	case generatedMsg:
 		m.onGenerated(typed)
 		return nil, true
+	case RevertedMsg:
+		return m.onReverted(typed), true
 	}
 	return nil, false
 }

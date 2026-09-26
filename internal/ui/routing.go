@@ -209,16 +209,20 @@ func (m *Model) columnCommand(key string) (tea.Cmd, bool) {
 	return nil, false
 }
 
-// lifecycleCommand is the two keys that end the focused session's process:
-// restart starts another at once (#15), stop leaves the pane waiting for
-// enter (#318). Split off paneCommand when the second pushed it past the
-// statement limit, and the pair belong together.
+// lifecycleCommand is the keys that act on the focused session's own state:
+// restart starts another process at once (#15), stop leaves the pane waiting
+// for enter (#318), and revert puts its worktree back to the start of its last
+// turn (#334). Split off paneCommand when the second pushed it past the
+// statement limit, and they belong together - each one throws something away
+// and asks first or says so.
 func (m *Model) lifecycleCommand(key string) (tea.Cmd, bool) {
 	switch key {
 	case "r":
 		return m.restartSelected(), true
 	case "s":
 		return m.stopSelected(), true
+	case "u":
+		return m.askRevert(), true
 	}
 	return nil, false
 }

@@ -48,6 +48,12 @@ type TurnFuncs struct {
 	Snap func(sess registry.Session) error
 	Diff DiffFunc
 	Drop func(sess registry.Session, projectRoot string) error
+	// Revert puts the worktree back to the baseline and says how many files it
+	// changed; Count is the same number read without writing anything, for the
+	// confirmation to name (#334). Unwired, both say there is no turn, which is
+	// the refusal the column already renders.
+	Revert func(sess registry.Session) (int, error)
+	Count  func(sess registry.Session) (int, error)
 }
 
 // Deps is everything a Model needs. Constructor injection, so no field is
@@ -224,6 +230,12 @@ func (d Deps) withTurnDefaults() Deps {
 	if d.Turn.Diff == nil {
 		d.Turn.Diff = func(registry.Session, string) (review.Diff, error) { return review.Diff{}, review.ErrNoTurn }
 	}
+	if d.Turn.Revert == nil {
+		d.Turn.Revert = noRevert
+	}
+	if d.Turn.Count == nil {
+		d.Turn.Count = noRevert
+	}
 	if d.Turn.Drop == nil {
 		d.Turn.Drop = func(registry.Session, string) error { return nil }
 	}
@@ -317,3 +329,7 @@ type GateRunFunc func(sessionID, dir string, steps []gate.Step)
 // direction - a file shown is a file the operator can judge, where a file
 // folded away by a broken detection is one they never see.
 func noGenerated(registry.Session, []string) (map[string]bool, error) { return nil, nil }
+
+// noRevert is the unwired Revert and Count: there is no baseline, which is the
+// refusal #311's own notice already has words for.
+func noRevert(registry.Session) (int, error) { return 0, review.ErrNoTurn }

@@ -169,6 +169,9 @@ func (m *Model) onConfirmKey(key string) tea.Cmd {
 		if c.Key != key {
 			continue
 		}
+		if m.modal.Kind == modalRevert {
+			return m.revertSession()
+		}
 		if m.modal.Confirm.Project != "" {
 			return m.removeProjectRow()
 		}

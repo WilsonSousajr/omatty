@@ -186,6 +186,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o s` | stop the selected session's claude, keeping the session; `enter` resumes it |
+| `ctrl+o u` | put the session's worktree back to the start of its last turn, after a confirmation |
 | `ctrl+o B` | rename a worktree session's branch |
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
@@ -403,6 +404,15 @@ rather than as a column range, because a range into a line Claude has since
 rewritten points at whatever now happens to sit there - and if the line survives
 an edit that removes those words, the note still travels and says the fragment is
 no longer in it.
+
+`ctrl+o u` puts the worktree back to where that baseline was taken - the start
+of the session's last turn. It asks first, and the question names how many files
+will be discarded. Files the turn created go with it; a gitignored file that
+existed before the turn - the `.env` the session needs to run - is in neither
+snapshot and is never touched, and your index, HEAD and stash are not moved
+either. It refuses mid-turn, and when no baseline has been taken yet. omatty
+does not tell the session what happened: sending anything is `S`'s job and needs
+you.
 
 `t` narrows the diff to what changed since you last sent the session a
 prompt, and back. omatty takes the baseline when the prompt hook fires, as a
