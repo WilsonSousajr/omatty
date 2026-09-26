@@ -71,6 +71,20 @@ type tuiEnv struct {
 	Height int
 }
 
+// turnFuncs is everything the review column does with a turn baseline: take
+// one, diff against it, count what would be discarded, put it back, and drop it
+// when the session is archived (#311, #334). Grouped here so tuiDeps stays a
+// list of assignments rather than a nested literal.
+func turnFuncs(src *review.Source) ui.TurnFuncs {
+	return ui.TurnFuncs{
+		Snap:   src.SnapTurn,
+		Diff:   src.LoadTurn,
+		Drop:   src.DropTurn,
+		Revert: src.RevertTurn,
+		Count:  src.TurnFileCount,
+	}
+}
+
 // tuiDeps wires the TUI's dependencies: the launcher, the terminal factory,
 // and the typed functions that reach git and the registry on ui's behalf,
 // because ui may do neither itself (invariants 4 and 10).
@@ -90,7 +104,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Name:      sessionNamer(home),
 		Diff:      src.Load,
 		Stat:      src.Stat,
-		Turn:      ui.TurnFuncs{Snap: src.SnapTurn, Diff: src.LoadTurn, Drop: src.DropTurn},
+		Turn:      turnFuncs(src),
 		Files:     git.ListFiles,
 		Generated: src.Generated,
 	}

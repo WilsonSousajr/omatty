@@ -18,7 +18,7 @@ func (m *Model) modalLines() []string {
 	switch m.modal.Kind {
 	case modalPrompt, modalRename:
 		return m.editorLines()
-	case modalConfirm:
+	case modalConfirm, modalRevert:
 		return m.confirmLines()
 	case modalList, modalPicker, modalAdopt:
 		return m.pickLines()
@@ -52,6 +52,7 @@ var leaderKeys = []keyHelp{
 	{"x", "archive the session, or forget an empty project"},
 	{"r", "restart a crashed session"},
 	{"s", "stop the session's process, keeping it; enter resumes it"},
+	{"u", "put the session's worktree back to the start of its last turn"},
 	{"d", "open or close the diff pane"},
 	{"f", "open or close the file tree"},
 	{"g", "open or close the gate pane"},
@@ -278,7 +279,7 @@ func modalFooter(md modal) string {
 	switch md.Kind {
 	case modalPrompt, modalRename, modalBranch:
 		return "enter confirm  esc cancel  ctrl+c quit"
-	case modalConfirm:
+	case modalConfirm, modalRevert:
 		// The answers are listed in full in the pane directly above, and they
 		// differ between a worktree session and a main-checkout one, so
 		// repeating them here would only risk disagreeing with them.
