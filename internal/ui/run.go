@@ -112,6 +112,8 @@ type RunDeps struct {
 	// worktree for the tree (#21, #24).
 	Diff  DiffFunc
 	Files ListFilesFunc
+	// Generated reports which of a session's files nobody wrote (#338).
+	Generated GeneratedFunc
 	// Ship is #331's push, open and merge.
 	Ship ShipFuncs
 	// Stat reads a session's branch and diffstat for its card (#180).
@@ -199,7 +201,7 @@ func modelFor(
 ) *Model {
 	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
-		Diff: d.Diff, Files: d.Files, Ship: d.Ship, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Issues: d.Issues, Item: d.Item, Browse: d.Browse, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
+		Diff: d.Diff, Files: d.Files, Generated: d.Generated, Ship: d.Ship, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Issues: d.Issues, Item: d.Item, Browse: d.Browse, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,

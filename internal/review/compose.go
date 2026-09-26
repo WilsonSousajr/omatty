@@ -17,7 +17,8 @@ func Compose(d Diff, comments []Comment) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Review comments (%d):\n", len(comments))
 	for i, c := range comments {
-		fmt.Fprintf(&b, "\n%d. %s\n   > %s\n   %s\n", i+1, locate(d, p, i, c), c.Quote, c.Note)
+		fmt.Fprintf(&b, "\n%d. %s\n   > %s\n%s   %s\n",
+			i+1, locate(d, p, i, c), c.Quote, about(c), c.Note)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -31,6 +32,25 @@ func locate(d Diff, p Placed, i int, c Comment) string {
 		return c.Anchor.File + " (line moved or removed)"
 	}
 	return fmt.Sprintf("%s:%d", c.Anchor.File, lineNumber(d.LineAt(pos)))
+}
+
+// about names the part of the line a note is about, or nothing for a note
+// about all of it (#339).
+//
+// It says when the fragment has gone. A line can survive an edit that removes
+// the words the note was written about, and quoting them as though they were
+// still there would be telling claude to look at something that is not on the
+// line - so the note travels with the truth attached. The operator wrote it
+// about something, and dropping it silently is worse than saying it moved,
+// which is the argument locate() already makes for a whole comment.
+func about(c Comment) string {
+	if c.Fragment == "" {
+		return ""
+	}
+	if !strings.Contains(c.Quote, c.Fragment) {
+		return fmt.Sprintf("   about: %q (no longer in this line)\n", c.Fragment)
+	}
+	return fmt.Sprintf("   about: %q\n", c.Fragment)
 }
 
 // lineNumber is the new-file number, or the old-file number of a removed

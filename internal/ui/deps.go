@@ -49,6 +49,12 @@ type TurnFuncs struct {
 	Snap func(sess registry.Session) error
 	Diff DiffFunc
 	Drop func(sess registry.Session, projectRoot string) error
+	// Revert puts the worktree back to the baseline and says how many files it
+	// changed; Count is the same number read without writing anything, for the
+	// confirmation to name (#334). Unwired, both say there is no turn, which is
+	// the refusal the column already renders.
+	Revert func(sess registry.Session) (int, error)
+	Count  func(sess registry.Session) (int, error)
 }
 
 // Deps is everything a Model needs. Constructor injection, so no field is
@@ -85,6 +91,11 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
+	// Generated reports which of a session's files nobody wrote, so the tree
+	// can fold them and the coverage markers can leave them alone (#338).
+	// Unwired, nothing is generated - which is what every tree looked like
+	// before this and is the safe direction to be wrong in.
+	Generated GeneratedFunc
 	// Ship is #331's push, open and merge. Unwired, each of them refuses.
 	Ship ShipFuncs
 	// Stat reads a session's branch and diffstat for its card; nil means no
@@ -185,6 +196,9 @@ func (d Deps) withReviewDefaults() Deps {
 	if d.Preview == nil {
 		d.Preview = review.ReadPreview
 	}
+	if d.Generated == nil {
+		d.Generated = noGenerated
+	}
 	d.Ship = withShipDefaults(d.Ship)
 	return d
 }
@@ -219,6 +233,12 @@ func (d Deps) withTurnDefaults() Deps {
 	}
 	if d.Turn.Diff == nil {
 		d.Turn.Diff = func(registry.Session, string) (review.Diff, error) { return review.Diff{}, review.ErrNoTurn }
+	}
+	if d.Turn.Revert == nil {
+		d.Turn.Revert = noRevert
+	}
+	if d.Turn.Count == nil {
+		d.Turn.Count = noRevert
 	}
 	if d.Turn.Drop == nil {
 		d.Turn.Drop = func(registry.Session, string) error { return nil }
@@ -307,6 +327,16 @@ func (d Deps) withDiscoveryDefaults() Deps {
 // model takes a function rather than the Runner itself (invariant: the UI
 // holds no concurrency of its own).
 type GateRunFunc func(sessionID, dir string, steps []gate.Step)
+
+// noGenerated is the unwired Generated: nothing is generated, so every file
+// stays in the tree and every coverage marker stands. Wrong in the safe
+// direction - a file shown is a file the operator can judge, where a file
+// folded away by a broken detection is one they never see.
+func noGenerated(registry.Session, []string) (map[string]bool, error) { return nil, nil }
+
+// noRevert is the unwired Revert and Count: there is no baseline, which is the
+// refusal #311's own notice already has words for.
+func noRevert(registry.Session) (int, error) { return 0, review.ErrNoTurn }
 
 // ShipFuncs is everything #331 needs to act on a pull request: read the
 // worktree, push it, open the pull request, check the base is not protected, and

@@ -28,6 +28,23 @@ func LeaderKeys() []string {
 	return out
 }
 
+// ColumnKeyTables is each review-column face's documented keys, by face, plus
+// "column" for the keys every face shares - the tables helpBody renders, so
+// the #422 test checks the handlers against what the operator actually sees.
+func ColumnKeyTables() map[string][]string {
+	keysOf := func(table []keyHelp) []string {
+		out := make([]string, 0, len(table))
+		for _, k := range table {
+			out = append(out, k.Key)
+		}
+		return out
+	}
+	return map[string][]string{
+		"column": keysOf(columnKeys), "diff": keysOf(diffKeys), "tree": keysOf(treeKeys),
+		"gate": keysOf(gateKeys), "tracker": keysOf(trackerKeys),
+	}
+}
+
 // Footers is every footer constant by name, so a width assertion measures the
 // constant rather than the rendered line - which fitLine has already capped to
 // the window and which therefore cannot fail for an over-long footer.
@@ -263,3 +280,9 @@ func SpinFrames() []string             { return spinFrames[:] }
 func SpinEvery() time.Duration         { return spinEvery }
 func SpinFrameAt(now time.Time) string { return spinnerFrame(now) }
 func (m *Model) SpinArmed() bool       { return m.spinArmed }
+
+// GeneratedMsgFor is the message the detection command produces, so a test can
+// deliver a classification the way Update receives one (#338).
+func GeneratedMsgFor(id string, gen map[string]bool) tea.Msg {
+	return generatedMsg{id: id, gen: gen}
+}

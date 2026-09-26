@@ -59,13 +59,14 @@ type Model struct {
 	paneOnly  bool
 	// comments is each session's pending review queue, kept across opening and
 	// closing the column; only submit drains it (#22).
-	comments map[string]*review.Comments
-	diff     DiffFunc
-	files    ListFilesFunc
-	ship     ShipFuncs
-	preview  PreviewFunc
-	rename   RenameFunc
-	rebind   RebindFunc // follows a /clear onto its new conversation (#316)
+	comments    map[string]*review.Comments
+	diff        DiffFunc
+	files       ListFilesFunc
+	generatedFn GeneratedFunc
+	ship        ShipFuncs
+	preview     PreviewFunc
+	rename      RenameFunc
+	rebind      RebindFunc // follows a /clear onto its new conversation (#316)
 	// renameBranch renames a worktree session's branch once its first prompt
 	// has said what the work is (#151).
 	renameBranch BranchRenameFunc
@@ -146,6 +147,17 @@ type Model struct {
 	statFailed  map[string]bool
 	// filesPending guards one worktree listing in flight per session (#195).
 	filesPending map[string]bool
+	// reviewed is, per session, the digest each file's diff had when the
+	// operator marked it read (#337). Keyed by session because the column
+	// keeps one Tree: a mark stored on the Tree would be dropped the moment
+	// they looked at another session, which is the review this exists to
+	// save. Display-only and never persisted, like covers and repoStat -
+	// state.json must suffice to relaunch a session (invariant 9), and what
+	// somebody has read is not part of that.
+	reviewed map[string]map[string]string
+	// generated is, per session, which of its files nobody wrote (#338).
+	// Display-only and never persisted, like reviewed above it.
+	generated map[string]map[string]bool
 	// reattached is Deps.Reattached: the panes to nudge once at boot (#191).
 	reattached map[string]bool
 	// The archive path's three halves: forget the session, stop its tailer,
@@ -224,7 +236,7 @@ func NewModel(deps Deps) *Model {
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
-	m.ship = d.Ship
+	m.generatedFn, m.ship = d.Generated, d.Ship
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse = d.PRs, d.Issues, d.Item, d.Browse
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
@@ -274,7 +286,17 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
-	return m.withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
+	return m.withReviewMaps().withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
+}
+
+// withReviewMaps allocates what the review column remembers per session that
+// nothing else does: which files have been read (#337) and which of them nobody
+// wrote (#338). Split from withRuntimeMaps when they took it past the statement
+// limit, the way withTurnMaps was.
+func (m *Model) withReviewMaps() *Model {
+	m.reviewed = map[string]map[string]string{}
+	m.generated = map[string]map[string]bool{}
+	return m
 }
 
 // withTurnMaps allocates the turn baseline's two maps (#311). Split from
@@ -502,6 +524,21 @@ func (m *Model) onStreamMsg(msg tea.Msg) (tea.Cmd, bool) {
 	case coverageMsg:
 		m.onCoverage(typed)
 		return nil, true
+	}
+	return m.onColumnMsg(msg)
+}
+
+// onColumnMsg is what the review column's own work reports back: a
+// classification (#338), a revert (#334) and a ship (#331). A table of its own
+// because onStreamMsg was already at the statement limit, and these three share
+// a subject - the same argument that split onStreamMsg off onDataMsg.
+func (m *Model) onColumnMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case generatedMsg:
+		m.onGenerated(typed)
+		return nil, true
+	case RevertedMsg:
+		return m.onReverted(typed), true
 	case ShippedMsg:
 		return m.onShipped(typed), true
 	}

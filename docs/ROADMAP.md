@@ -37,6 +37,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | — | **Released** | **v0.4.0**, 2026-09-25. M12's close-out promoted to `main` (#390). See "Releases". |
 | M14 | The Tracker | **Done.** Seven slices #393-#399 built 2026-09-25 as PRs #400-#406. Released in v0.5.0. |
 | — | **Released** | **v0.5.0**, 2026-09-26. M14 promoted to `main` (#407). See "Releases". |
+| M15 | The Polish | **Planned** 2026-09-26: three bugs and sixteen slices, #421-#439, in Sprint Backlog. See the M15 section. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -290,7 +291,8 @@ fits an ADE. Those converge on seven issues, one PR each, in build order:
   `NewNo`.
 
 **Cut**, and written down so it does not return sideways: Nerd Font
-file-type icons and a second theme, both refused in M8; wrapping long lines
+file-type icons and a second theme, both refused in M8 (icons came back
+opt-in in M15, #425/#431; the second theme is still cut); wrapping long lines
 in the preview, when panning already reaches them; a markdown renderer for
 the preview; watching the worktree with fsnotify, when the turn boundary is
 the moment the operator looks. Highlighting the diff view is deferred, not
@@ -542,7 +544,8 @@ Three things worth remembering from building it:
   slice the plan assigned them to.
 
 **Cut**, and written down so it does not return sideways: a second theme;
-background fills for any column; Nerd Font or provider glyphs; a
+background fills for any column; Nerd Font or provider glyphs (Nerd Font
+came back opt-in in M15, #425; provider glyphs did not); a
 context-window gauge like ade's (usage is known, the window size is not);
 plan, subagent or "changes" panes; blank margins between cards; tabs; a
 composer; a sidebar width other than 28. The gear and pause glyphs are not
@@ -1299,6 +1302,90 @@ project holding no sessions.
 history the forge already keeps; search across repositories; and a `[forge]`
 config section - the poll is zero-config, as #310's is.
 
+## M15 - The Polish
+
+**Delivers:** the review column's four faces and the help modal read as one
+product. The same cursor, the same keys, the same glyph and colour for the same
+state, the face's name in its own chrome, and room to read when you ask for it.
+Design: `docs/superpowers/specs/2026-09-26-omatty-m15-polish-design.md` (#420).
+
+**Why here.** Every face was built in its own milestone - the diff in M3, the
+tree in M5, the gate in M9, the tracker in M14 - and each chose its own
+conventions. By M14 there were four cursor styles, three glyph sets for state,
+a gate that drew its verdicts without colour, a column rule that said `review`
+on every face, and a help list that had been stale since M9. None of these is a
+feature gap. Together they make a daily tool feel assembled, and at five faces
+the cost of learning each one separately is paid every day.
+
+**Mapping the column found three bugs**, which land first:
+
+- **#421:** the gate view cannot scroll. `GateOffset` is only ever set to 0.
+- **#422:** help omits the gate's and the tracker's keys. The fix derives help
+  from the handlers' key tables so the two cannot drift again.
+- **#423:** the tracker's age is appended after the title instead of pinned to
+  the right edge, so it is off-screen on most rows.
+
+**The foundation**, which the other slices build on:
+
+- **#424:** one list window with one cursor style, `N/M` in the title, and
+  `g`/`G`/`ctrl+d`/`ctrl+u` and click-to-select on every face.
+- **#425:** one state vocabulary (a glyph and a colour per state), with Nerd
+  Font glyphs opt-in behind `[ui] icons = "nerd"`.
+- **#426:** the chrome names the face, and titles and footers shorten by
+  priority.
+- **#427:** `ctrl+o z` zooms the column over the pane.
+
+**Then each face** borrows from the tool that does it best:
+
+- **The gate reads like a CI check page:** summary counts in the title, the
+  first failure opened on arrival, durations; `r` re-runs and `/` searches the
+  opened output (#428, #429).
+- **The tree:** compact single-child folders, status rolled up to directories,
+  changed-only, and opt-in file-type icons (#430, #431).
+- **The tracker:** state, CI and review glyph columns; an item that reads like
+  a page; a preview beside the list when zoomed (#432-#434).
+- **The diff:** syntax and word-level highlighting, `]`/`[` between files and
+  `n`/`N` between hunks, and a file list when zoomed (#435-#437).
+- **Help:** opens on the face you are in, styled and filterable, and the footer
+  lists the next keys while the leader is armed (#438, #439).
+
+**Two earlier cuts move.** M5 and M8 refused Nerd Font glyphs. They come back
+**opt-in only**: a tofu box in a terminal without the font is worse than no
+icon, which is why the default stays plain Unicode. A second colour theme stays
+cut. M5 deferred diff highlighting until `internal/highlight` existed. It
+exists, and #435 is the caller.
+
+**Why zoom and not a resizable split.** A split needs a persisted width, a way
+to change it, and a layout that is right at every width. Zoom is one flag and
+two layouts that already exist. The views that need room (#434, #437) need it
+sometimes, and zoom is how you ask for it. Zoom is a viewing state and is not
+persisted (invariant 9).
+
+**Invariants held.** Every new key exists only while the column has focus, and
+the leader hints (#439) change what the footer *shows*, not what the router
+routes (invariant 1). Gate search and wrapping are display; the verdict is
+still the exit code (invariant 12).
+
+**Done when:** every face scrolls, moves and marks state the same way, names
+itself, and fits at 80x24. Zoomed at 200x50, the tracker and the diff show their
+second pane. The smoke run is read by a person at both sizes, and it includes
+`ctrl+o q` from inside a filtered help modal (M4's trap).
+
+**Deliberately out:**
+
+- A side-by-side diff: 160 columns to earn it, and a second copy of every diff
+  path.
+- A resizable column (above).
+- A second colour theme.
+- A command palette: #438's filter answers "what was that key", and fleet's
+  palette is its own bug source (fleet #139).
+- gh-dash's saved-search sections, which would configure a view M14 kept
+  zero-config.
+- Moved-code colouring.
+
+#337, #338 and #339 stay M12. #436 and #437 are built so as not to preclude
+#337.
+
 ## Not on the roadmap
 
 Considered and cut, so they do not creep back in through the side door.
@@ -1388,7 +1475,9 @@ faster pair.
   dtach sockets cover the case that matters - omatty's own sessions surviving
   a quit. Not to be confused with M4's project discovery (#91), which reads
   the transcript store and registers nothing by itself.
-- Themes beyond one, or keybinding customisation beyond the leader
+- Themes beyond one, or keybinding customisation beyond the leader. M15's
+  opt-in Nerd Font glyphs (#425) swap glyphs, not colours; they are not a
+  second theme.
 
 ## Rules
 

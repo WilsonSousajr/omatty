@@ -345,11 +345,14 @@ func (m *Model) trackerLine(r trackerRow, selected bool) string {
 		// one with nothing to say where the issues stopped.
 		return fitLine(labelledRule(r.Title, w), w)
 	}
-	text := trackerText(r, m.clock())
+	// Only the lead pans. The age is pinned to the right edge, so a title
+	// longer than the column is what gets cut - not the age after it (#423).
+	lead, age := trackerParts(r, m.clock(), w)
+	text := m.fitContent(lead, w-len(trackerAgeGap)-trackerAgeCols) + trackerAgeGap + age
 	if selected {
-		return m.fitStyled(accentStyle.Render(text), w)
+		return accentStyle.Render(text)
 	}
-	return m.fitContent(text, w)
+	return text
 }
 
 // trackerNumberCols and trackerLabelCols are the two fixed columns; the title
@@ -359,15 +362,34 @@ const (
 	trackerNumberCols = 6
 	trackerLabelCols  = 10
 	trackerAgeCols    = 4
+	trackerAgeGap     = "  "
+	// trackerMinTitle is the least a title keeps before the label gives way:
+	// about a word. Pinning the age at 80 columns left one cell for it (#423).
+	trackerMinTitle = 12
 )
 
-// trackerText is a row's plain text, measured by the pan clamp and drawn by the
-// renderer from one builder so the two can never disagree (#133).
-func trackerText(r trackerRow, now time.Time) string {
+// trackerText is a row's plain text, measured by the pan clamp. It comes from
+// the renderer's own builder so the two can never disagree (#133): the age is
+// a fixed trackerAgeCols wide, so the clamp's widest-minus-column is exactly
+// how far the lead must pan for the end of the longest title to show beside
+// the pinned age (#423).
+func trackerText(r trackerRow, now time.Time, w int) string {
+	lead, age := trackerParts(r, now, w)
+	return lead + trackerAgeGap + age
+}
+
+// trackerParts is a row split where the renderer splits it: the lead - number,
+// label and title - which pans, and the age, which stays at the right edge.
+// In a column too narrow for all four the label is left out, since it is the
+// least of them and the title is what a row is read for.
+func trackerParts(r trackerRow, now time.Time, w int) (lead, age string) {
 	number := padRight("#"+strconv.Itoa(r.Number), trackerNumberCols)
+	age = padLeft(clip(AgeString(now, r.Updated), trackerAgeCols), trackerAgeCols)
+	if w < trackerNumberCols+trackerLabelCols+trackerMinTitle+len(trackerAgeGap)+trackerAgeCols {
+		return number + r.Title, age
+	}
 	label := padRight(clip(r.Label, trackerLabelCols-1), trackerLabelCols)
-	age := padLeft(clip(AgeString(now, r.Updated), trackerAgeCols), trackerAgeCols)
-	return number + label + r.Title + "  " + age
+	return number + label + r.Title, age
 }
 
 // labelledRule is "── pull requests ─────": a rule that says what is under it.
@@ -388,7 +410,7 @@ func (m *Model) trackerMaxWidth() int {
 		if r.Kind == rowRule {
 			continue
 		}
-		widest = max(widest, lipgloss.Width(trackerText(r, m.clock())))
+		widest = max(widest, lipgloss.Width(trackerText(r, m.clock(), reviewContentWidth(m.width))))
 	}
 	return widest
 }

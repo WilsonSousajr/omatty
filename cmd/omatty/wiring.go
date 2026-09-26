@@ -71,6 +71,20 @@ type tuiEnv struct {
 	Height int
 }
 
+// turnFuncs is everything the review column does with a turn baseline: take
+// one, diff against it, count what would be discarded, put it back, and drop it
+// when the session is archived (#311, #334). Grouped here so tuiDeps stays a
+// list of assignments rather than a nested literal.
+func turnFuncs(src *review.Source) ui.TurnFuncs {
+	return ui.TurnFuncs{
+		Snap:   src.SnapTurn,
+		Diff:   src.LoadTurn,
+		Drop:   src.DropTurn,
+		Revert: src.RevertTurn,
+		Count:  src.TurnFileCount,
+	}
+}
+
 // shipFuncs is #331's push, open and merge: git for the worktree and the push,
 // gh for the pull request. omatty's first write to the forge, and it happens only
 // on a keypress, on one session, after a person has read the verdict.
@@ -94,19 +108,19 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 	src := review.NewSource(git)
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
-		Stop:    holder.Stop,
-		Notice:  holder.Notice(),
-		Launch:  supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
-		Agent:   env.Agent,
-		Factory: termwrap.Start,
-		Create:  sessionCreator(env.Cfg, store),
-		Leader:  env.Cfg.Leader,
-		Name:    sessionNamer(home),
-		Diff:    src.Load,
-		Stat:    src.Stat,
-		Turn:    ui.TurnFuncs{Snap: src.SnapTurn, Diff: src.LoadTurn, Drop: src.DropTurn},
-		Files:   git.ListFiles,
-		Ship:    shipFuncs(src, git),
+		Stop:      holder.Stop,
+		Notice:    holder.Notice(),
+		Launch:    supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
+		Agent:     env.Agent,
+		Factory:   termwrap.Start,
+		Create:    sessionCreator(env.Cfg, store),
+		Leader:    env.Cfg.Leader,
+		Name:      sessionNamer(home),
+		Diff:      src.Load,
+		Stat:      src.Stat,
+		Turn:      turnFuncs(src),
+		Files:     git.ListFiles,
+		Generated: src.Generated, Ship: shipFuncs(src, git),
 	}
 	return withStoreDeps(withTableDeps(withForgeDeps(deps), env.Cfg), store, home, git)
 }

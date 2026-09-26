@@ -76,6 +76,10 @@ func TestTracker_OpeningItReadsBothListsNow_issue396(t *testing.T) {
 // The issues, then the pull requests, each row naming its number and title.
 func TestTracker_ListsOpenIssuesThenOpenPullRequests_issue396(t *testing.T) {
 	m, _, _ := trackerModel(t)
+	// Wide enough for a whole title beside the age. Since #423 pinned the age
+	// to the right edge, a 35-cell column cuts "filter the tracker" rather
+	// than the age, and this test is about order and naming, not about fit.
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: 32})
 
 	openTracker(m)
 
@@ -330,5 +334,58 @@ func TestTracker_TheRuleDoesNotPanAway_issue396(t *testing.T) {
 	}
 	if body := trackerBody(t, m); !strings.Contains(body, "pull requests") {
 		t.Errorf("the panned tracker lost the rule between its two lists:\n%s", body)
+	}
+}
+
+// Regression, issue #423: the age was appended after the whole title, so on any
+// row whose title outran the column the age was cut off and reachable only by
+// panning - the opposite of what trackerText's comment promised. The age is
+// pinned to the right edge; the title is what gets cut, and what pans.
+func TestTracker_AgeStaysAtTheRightEdge_issue423(t *testing.T) {
+	m, fi, _ := trackerModel(t)
+	fi.Lists["/p/omatty"] = append(fi.Lists["/p/omatty"], forge.Issue{
+		Number: 400, Title: strings.Repeat("a very long issue title ", 12), Updated: fixedNow.Add(-72 * time.Hour),
+	})
+	openTracker(m)
+
+	if row := rowContaining(t, m, "#400"); !strings.HasSuffix(row, " 3d") {
+		t.Errorf("the long row does not end in its age:\n%q", row)
+	}
+	for range 5 {
+		pressDeliver(m, key('l'))
+	}
+	if row := rowContaining(t, m, "long issue"); !strings.HasSuffix(row, " 3d") {
+		t.Errorf("panned, the long row does not end in its age:\n%q", row)
+	}
+}
+
+// rowContaining is the one frame line holding needle, without styling or the
+// trailing padding, so its last cells are the column's right edge.
+func rowContaining(t *testing.T, m *ui.Model, needle string) string {
+	t.Helper()
+	for _, line := range frameLines(m) {
+		if plain := strings.TrimRight(stripSGR(line), " "); strings.Contains(plain, needle) {
+			return plain
+		}
+	}
+	t.Fatalf("no row holds %q:\n%s", needle, trackerBody(t, m))
+	return ""
+}
+
+// Regression, issue #423: pinning the age cost the title its room. At 80
+// columns the column is 23 cells, and number, label and age took 22 of them -
+// the real-PTY run showed a one-letter title beside every age. The label is the
+// least of the four, so it goes before the title is squeezed below a word.
+func TestTracker_NarrowColumnDropsTheLabelBeforeTheTitle_issue423(t *testing.T) {
+	m, _, _ := trackerModel(t)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	openTracker(m)
+
+	row := rowContaining(t, m, "#399")
+	if !strings.Contains(row, "filter the") || !strings.HasSuffix(row, " 2d") {
+		t.Errorf("at 80 columns the row should keep a readable title and its age:\n%q", row)
+	}
+	if strings.Contains(row, "feat") {
+		t.Errorf("at 80 columns the label should give way to the title:\n%q", row)
 	}
 }

@@ -58,6 +58,12 @@ type Git interface {
 	DiffTrees(dir, from, to string) (string, error)
 	// Head is the commit dir has checked out (#310).
 	Head(dir string) (string, error)
+	// Attr reports which of paths git resolves attr to set on, in one call
+	// (#338). Used for .gitattributes' linguist-generated.
+	Attr(dir, attr string, paths []string) (map[string]bool, error)
+	// RestoreTree writes tree over dir's working tree, removing what the tree
+	// does not hold (#334). SnapshotTree read backwards.
+	RestoreTree(dir, tree string) error
 }
 
 // CLI runs the real git binary.

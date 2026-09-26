@@ -27,6 +27,11 @@ type Tree struct {
 	nodes     []TreeNode // the full listing in display order
 	collapsed map[string]bool
 	filter    string // narrows Visible while non-empty (#198)
+	// generated is the files nobody wrote, folded out of Visible unless
+	// showGenerated is set (#338). Kept here rather than on TreeNode because
+	// it is detected asynchronously, after the listing is already on screen.
+	generated     map[string]bool
+	showGenerated bool
 }
 
 // NewTree builds the listing from paths, emitting a directory the first time
@@ -34,7 +39,7 @@ type Tree struct {
 // changed file. paths are sorted here rather than trusted, so a caller that
 // concatenates two git listings still gets a directory listing.
 func NewTree(paths []string, changes map[string]Change) *Tree {
-	t := &Tree{collapsed: map[string]bool{}}
+	t := &Tree{collapsed: map[string]bool{}, generated: map[string]bool{}}
 	t.rebuild(paths, changes)
 	return t
 }
@@ -147,12 +152,90 @@ func (t *Tree) Visible() []TreeNode {
 			continue
 		}
 		hidden = ""
+		if t.folded(n) {
+			continue
+		}
 		out = append(out, n)
 		if n.IsDir && t.collapsed[n.Path] {
 			hidden = n.Path + "/"
 		}
 	}
+	return t.withoutEmptyDirs(out)
+}
+
+// folded reports whether n is a generated file being kept out of the listing.
+// Only files: a directory goes when nothing under it survives, which
+// withoutEmptyDirs decides after the fact.
+func (t *Tree) folded(n TreeNode) bool {
+	return !t.showGenerated && !n.IsDir && t.generated[n.Path]
+}
+
+// withoutEmptyDirs drops a directory row that nothing visible sits under, so
+// folding every file in `coverage/` folds the directory with them rather than
+// leaving a row that opens onto nothing.
+//
+// It walks backwards because emptiness is inherited: `a/b` becoming empty can
+// empty `a`, and one reverse pass settles the whole chain where a forward pass
+// would need as many passes as the tree is deep.
+//
+// A *collapsed* directory is always kept. Its children are not in rows at all -
+// Visible skipped them - so "nothing under it" is true of every fold, and
+// dropping them made `enter` on a directory delete it from the listing.
+func (t *Tree) withoutEmptyDirs(rows []TreeNode) []TreeNode {
+	keep := make([]bool, len(rows))
+	for i := len(rows) - 1; i >= 0; i-- {
+		keep[i] = !rows[i].IsDir || t.collapsed[rows[i].Path] || hasChildKept(rows, keep, i)
+	}
+	out := make([]TreeNode, 0, len(rows))
+	for i, n := range rows {
+		if keep[i] {
+			out = append(out, n)
+		}
+	}
 	return out
+}
+
+// hasChildKept reports whether any kept row after i lies under rows[i].
+func hasChildKept(rows []TreeNode, keep []bool, i int) bool {
+	prefix := rows[i].Path + "/"
+	for j := i + 1; j < len(rows) && strings.HasPrefix(rows[j].Path, prefix); j++ {
+		if keep[j] {
+			return true
+		}
+	}
+	return false
+}
+
+// SetGenerated records which paths nobody wrote, so Visible can fold them
+// (#338). Replaces the previous set: detection is re-run whenever the listing
+// or the diff changes, and a file that stopped being generated must stop being
+// folded.
+//
+//	tree.SetGenerated(map[string]bool{"go.sum": true})
+func (t *Tree) SetGenerated(gen map[string]bool) { t.generated = gen }
+
+// ShowGenerated folds the generated files back in, or away again. They are
+// away by default: the point of #338 is that a lockfile does not belong in the
+// queue beside source, and the point of the key is that it is still reachable.
+func (t *Tree) ShowGenerated(show bool) { t.showGenerated = show }
+
+// GeneratedShown reports whether they are currently in the listing.
+func (t *Tree) GeneratedShown() bool { return t.showGenerated }
+
+// GeneratedHidden is how many rows the fold is keeping out, for the pane title:
+// an operator should know something is being withheld rather than wonder where
+// a file went. Zero while they are shown.
+func (t *Tree) GeneratedHidden() int {
+	if t.showGenerated {
+		return 0
+	}
+	n := 0
+	for _, node := range t.nodes {
+		if t.folded(node) {
+			n++
+		}
+	}
+	return n
 }
 
 // SetFilter narrows Visible to the files whose path fuzzy-matches query,
