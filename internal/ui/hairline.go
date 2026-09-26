@@ -134,9 +134,12 @@ func ruleSegment(s segment) string {
 // ruleLabel is width cells of dashes with " name " set into them after one
 // dash, or plain dashes when the column is too narrow to carry the name.
 func ruleLabel(name string, width int) string {
+	// Cells, not bytes: "diff · zoomed" (#427) was the first label with a
+	// multi-byte rune, and len() drew its rule one cell short.
 	label := " " + name + " "
-	if width < len(label)+2 {
+	cells := lipgloss.Width(label)
+	if width < cells+2 {
 		return strings.Repeat(ruleDash, width)
 	}
-	return ruleDash + label + strings.Repeat(ruleDash, width-1-len(label))
+	return ruleDash + label + strings.Repeat(ruleDash, width-1-cells)
 }

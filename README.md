@@ -183,6 +183,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o f` | open or close the file tree |
 | `ctrl+o g` | open or close the gate pane, and run the gate |
 | `ctrl+o i` | open or close this project's issues and pull requests |
+| `ctrl+o z` | zoom the review column over the session pane, or back; `esc` also brings the split back |
 | `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o s` | stop the selected session's claude, keeping the session; `enter` resumes it |

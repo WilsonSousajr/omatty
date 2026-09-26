@@ -186,6 +186,9 @@ func (m *Model) scrollReview(direction int) tea.Cmd {
 // overReview reports whether a window column falls inside the review column,
 // which is drawn flush to the window's right edge.
 func (m *Model) overReview(winX int) bool {
+	if m.zoomed() {
+		return winX >= sidebarContentCols // the column's hairline and everything right of it
+	}
 	w := ReviewWidth(m.width, m.review.Open)
 	return w > 0 && winX >= m.width-w
 }

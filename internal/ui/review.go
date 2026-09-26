@@ -119,6 +119,10 @@ type ReviewPane struct {
 	// line wider than the column can still be read (issue #94). One offset
 	// serves all three views, so h and l behave the same wherever you are.
 	ColOffset int
+	// Zoomed widens the column over the session pane (#427). A viewing state
+	// on the pane, so every reset of the pane drops it and nothing persists it
+	// (invariant 9); it shows only while the column has the keys - see zoomed.
+	Zoomed bool
 	// Stale marks content loaded before a turn that ended while the column
 	// was closed. A hidden pane does not fork git; the reopen does (#124).
 	Stale bool
@@ -271,7 +275,7 @@ func (m *Model) reloadIfNeeded(id string, fresh bool) tea.Cmd {
 // leader refocus instead of close, to spare that reload; the cache answers
 // the reload, and the refocus made esc-then-leader an endless loop (#124).
 func (m *Model) closeColumn() tea.Cmd {
-	m.review.Open, m.review.Focused = false, false
+	m.review.Open, m.review.Focused, m.review.Zoomed = false, false, false
 	return m.resizeSelected()
 }
 

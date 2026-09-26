@@ -57,6 +57,7 @@ var leaderKeys = []keyHelp{
 	{"f", "open or close the file tree"},
 	{"g", "open or close the gate pane"},
 	{"i", "open or close this project's issues and pull requests"},
+	{"z", "zoom the review column over the session, or back"},
 	{"m", "hand the mouse back to your terminal, or take it back"},
 	{"?", "this list"},
 	{"q", "quit"},

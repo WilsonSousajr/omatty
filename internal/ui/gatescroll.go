@@ -100,7 +100,7 @@ func gateWindowOffset(offset, lines, h int) int {
 func (m *Model) gateView(report gate.Report, h int) []string {
 	plain, styled := m.gateLines(report), m.gateLinesWith(report, m.glyphs.cell)
 	off := gateWindowOffset(m.review.GateOffset, len(plain), h)
-	cursor, w := -1, reviewContentWidth(m.width)
+	cursor, w := -1, m.columnWidth()
 	if spans := m.gateSpans(report); m.review.GateCursor < len(spans) {
 		cursor = spans[m.review.GateCursor].start
 	}
