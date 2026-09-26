@@ -253,13 +253,13 @@ func (m *Model) DiffSeq() uint64 { return m.diffSeq }
 // TurnSeq is DiffSeq for the turn diff.
 func (m *Model) TurnSeq() uint64 { return m.turnSeq }
 
-// SpinFrames is one turn of the working spinner, SpinEvery a frame's time on
-// screen and SpinFrameAt the frame at a moment (#410). TickInterval is how
-// long the heartbeat waits next.
 // MetaCols is card line two's width for the branch and the diffstat.
 func MetaCols() int { return metaCols }
 
-func SpinFrames() []string                   { return spinFrames[:] }
-func SpinEvery() time.Duration               { return spinEvery }
-func SpinFrameAt(now time.Time) string       { return spinnerFrame(now) }
-func (m *Model) TickInterval() time.Duration { return m.tickInterval() }
+// SpinFrames is one turn of the working spinner, SpinEvery a frame's time on
+// screen and SpinFrameAt the frame at a moment (#410). SpinArmed is whether
+// a spin tick is pending (#412).
+func SpinFrames() []string             { return spinFrames[:] }
+func SpinEvery() time.Duration         { return spinEvery }
+func SpinFrameAt(now time.Time) string { return spinnerFrame(now) }
+func (m *Model) SpinArmed() bool       { return m.spinArmed }
