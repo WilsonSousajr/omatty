@@ -496,6 +496,7 @@ when it already shows that view.
 | `0` | jump back to the left edge |
 | `r` | re-list the worktree |
 | `/` | filter the tree as you type; `enter` keeps the filter, `esc` clears it |
+| `c` | only the files the session changed and the folders above them, or the whole tree again |
 | `a` | attach the row, or the previewed file, to the prompt as `@path` and go back to typing |
 | `v` | mark the file read: `✓` while its diff is unchanged, `~` once the session changes it again |
 | `.` | show the generated files the tree folded away, or fold them again |

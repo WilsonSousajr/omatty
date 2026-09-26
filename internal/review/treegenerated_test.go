@@ -44,7 +44,9 @@ func TestTree_GeneratedFilesAreFoldedAwayByDefault_issue338(t *testing.T) {
 			t.Errorf("%s is visible by default; rows = %v", gone, got)
 		}
 	}
-	for _, kept := range []string{"go.mod", "internal/ui/model.go", "internal", "internal/ui"} {
+	// "internal" and "internal/ui" are one row since #430 compacted the chain;
+	// its path is the deepest directory's.
+	for _, kept := range []string{"go.mod", "internal/ui/model.go", "internal/ui"} {
 		if !slicesContains(got, kept) {
 			t.Errorf("%s went with the generated files; rows = %v", kept, got)
 		}
