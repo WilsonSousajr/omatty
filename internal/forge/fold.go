@@ -110,6 +110,12 @@ type check struct {
 	Status     string `json:"status"`
 	Conclusion string `json:"conclusion"`
 	State      string `json:"state"`
+	// Name (a CheckRun) or Context (a StatusContext) and the two times are
+	// read only by an item's view, which lists each check (#433).
+	Name        string    `json:"name"`
+	Context     string    `json:"context"`
+	StartedAt   time.Time `json:"startedAt"`
+	CompletedAt time.Time `json:"completedAt"`
 }
 
 // Fold turns `gh pr list --json` output into PRs.

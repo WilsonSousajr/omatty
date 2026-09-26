@@ -18,6 +18,10 @@ import (
 // issue and a pull request answer to the same names, so one fold serves both.
 const detailFields = "number,title,body,author,createdAt,comments,url"
 
+// prDetailFields adds a pull request's checks, which the item lists (#433). Not
+// in detailFields: gh refuses statusCheckRollup on an issue.
+const prDetailFields = detailFields + ",statusCheckRollup"
+
 // DetailMax bounds an item's text. Someone else's issue can be any size, and a
 // pane must not hold megabytes of it - the preview's argument (#24), at the same
 // 64 KiB the preview draws plain above.
@@ -42,6 +46,16 @@ type Detail struct {
 	// Truncated says the body or the comments were cut at DetailMax. A short
 	// item must never read as the whole one.
 	Truncated bool
+	// Checks is a pull request's CI, one per check, in gh's order (#433).
+	Checks []Check
+}
+
+// Check is one CI check on a pull request: its name, how it stands, and how
+// long it ran - zero for one still running or never started.
+type Check struct {
+	Name  string
+	State CIState
+	Took  time.Duration
 }
 
 // ghDetail is `gh <kind> view --json` with the fields detailFields asks for.
@@ -53,6 +67,7 @@ type ghDetail struct {
 	CreatedAt time.Time   `json:"createdAt"`
 	Comments  []ghComment `json:"comments"`
 	URL       string      `json:"url"`
+	Checks    []check     `json:"statusCheckRollup"`
 }
 
 type ghComment struct {
@@ -65,22 +80,22 @@ type ghComment struct {
 //
 //	item, err := forge.NewCLI().ViewIssue("/p/omatty", 397)
 func (c *CLI) ViewIssue(repoRoot string, number int) (Detail, error) {
-	return c.view(repoRoot, "issue", number)
+	return c.view(repoRoot, "issue", number, detailFields)
 }
 
 // ViewPR is one pull request in full. A separate call rather than a guess: gh
 // has two subcommands, and the tracker knows which list its row came from.
 func (c *CLI) ViewPR(repoRoot string, number int) (Detail, error) {
-	return c.view(repoRoot, "pr", number)
+	return c.view(repoRoot, "pr", number, prDetailFields)
 }
 
-func (c *CLI) view(repoRoot, kind string, number int) (Detail, error) {
+func (c *CLI) view(repoRoot, kind string, number int, fields string) (Detail, error) {
 	ctx, cancel, err := c.bounded()
 	if err != nil {
 		return Detail{}, err
 	}
 	defer cancel()
-	out, err := c.run(ctx, repoRoot, kind, "view", strconv.Itoa(number), "--json", detailFields)
+	out, err := c.run(ctx, repoRoot, kind, "view", strconv.Itoa(number), "--json", fields)
 	if err != nil {
 		return Detail{}, err
 	}
@@ -102,7 +117,27 @@ func FoldDetail(raw []byte) (Detail, error) {
 		Number: in.Number, Title: cleanLine(in.Title), Author: cleanLine(in.Author.Login),
 		Body: body, Comments: comments, URL: cleanLine(in.URL), Created: in.CreatedAt,
 		Truncated: dropped || len(body) < len(clean(in.Body)),
+		Checks:    foldChecks(in.Checks),
 	}, nil
+}
+
+// foldChecks is each check as omatty's own type: its name - a CheckRun's, or a
+// StatusContext's context - cleaned as every forge string is (#483), its state
+// by the card's own rules, and how long it ran when it has finished.
+func foldChecks(in []check) []Check {
+	out := make([]Check, 0, len(in))
+	for _, c := range in {
+		name := c.Name
+		if name == "" {
+			name = c.Context
+		}
+		var took time.Duration
+		if !c.StartedAt.IsZero() && c.CompletedAt.After(c.StartedAt) {
+			took = c.CompletedAt.Sub(c.StartedAt)
+		}
+		out = append(out, Check{Name: cleanLine(name), State: rollup([]check{c}), Took: took})
+	}
+	return out
 }
 
 // foldComments takes comments while budget lasts, and says whether any was
