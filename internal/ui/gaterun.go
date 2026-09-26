@@ -41,8 +41,12 @@ func (m *Model) onGate(msg GateMsg) tea.Cmd {
 		return m.waitForGate()
 	}
 	delete(m.gateRunning, report.ID)
+	delete(m.gateStarted, report.ID)
 	delete(m.gateSent, report.ID) // a fresh report's failures have not been sent
 	m.gates[report.ID] = report
+	if m.review.SessionID == report.ID {
+		m.openFirstFailure(report)
+	}
 	m.tallyRun(report)
 	return tea.Batch(m.waitForGate(), m.gateNotice(report), m.loadCoverage(report.ID))
 }
@@ -73,7 +77,7 @@ func (m *Model) runGate(id string) {
 	if !found {
 		return
 	}
-	m.gateRunning[id] = true
+	m.gateRunning[id], m.gateStarted[id] = true, m.clock()
 	m.gateRun(id, sess.Dir, steps)
 }
 

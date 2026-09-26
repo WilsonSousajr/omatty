@@ -129,18 +129,6 @@ func (m *Model) foldMarker() string {
 	return ""
 }
 
-// gateTitle is "gate · <session>", the name shortened in its middle to fit, as
-// treeTitle's is (#285), and dropped when too little of it would be left. It had
-// no budget until #426 and was cut at the column edge mid-name.
-func (m *Model) gateTitle(budget int) string {
-	const head = "gate · "
-	room := budget - lipgloss.Width(head)
-	if room < minNameCells {
-		return strings.TrimSuffix(head, " · ")
-	}
-	return head + elideMiddle(m.sessionTitle(m.review.SessionID), room)
-}
-
 // faceName is the face on show, as the column's rule names it (#426).
 func (m *Model) faceName() string {
 	switch m.review.View {

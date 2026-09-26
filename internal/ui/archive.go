@@ -290,6 +290,7 @@ func (m *Model) forgetSessionMaps(id string) {
 	delete(m.namePending, id)
 	delete(m.gates, id)
 	delete(m.gateRunning, id)
+	delete(m.gateStarted, id)
 	delete(m.gateSent, id)
 	delete(m.covers, id)
 	delete(m.coverFailed, id)

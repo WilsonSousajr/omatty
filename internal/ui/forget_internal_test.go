@@ -98,6 +98,7 @@ func filledModel() *Model {
 	m.namePending[forgottenID] = true
 	m.gates[forgottenID] = gate.Report{}
 	m.gateRunning[forgottenID] = true
+	m.gateStarted[forgottenID] = time.Now()
 	m.gateSent[forgottenID] = gateSentOnce
 	m.turnPending[forgottenID] = true
 	m.turnErr[forgottenID] = errors.New("disk full")
