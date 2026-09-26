@@ -97,7 +97,7 @@ func TestModel_pasteWithTheColumnOrAModalFocusedIsDropped_issue190(t *testing.T)
 // reporting took the host's plain drag away (#107) and nothing gives it back.
 func TestModel_helpSaysHowToCopyOutOfAPane_issue190(t *testing.T) {
 	m, _ := modelWithFakes(t)
-	m.Update(tea.WindowSizeMsg{Width: 160, Height: 50})
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: helpFitsHeight})
 	leader(m, key('?'))
 	lineWith(t, m.View().Content, "shift/opt+drag")
 	lineWith(t, m.View().Content, "paste")
