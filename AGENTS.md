@@ -420,11 +420,32 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
   before anything publishes. Nothing is created by hand. Semantic versioning; below 1.0 the `ctrl+o` key table,
   `~/.omatty/config.toml` keys and the `state.json` schema are explicitly not
   frozen, so a breaking change to any of them is a minor bump, not a major.
+- **When a release happens: at every milestone close** (#329). Closing a
+  milestone includes its promotion pull request and its tag, under the same
+  standing approval as that milestone's merges - so the release is part of
+  finishing the work, not a separate thing to remember. The documents said
+  *how* a release happens and never *when*, and combined with the approval
+  rule below the default was that nothing shipped: v0.1.0 took nine days of
+  milestones to arrive, and twelve days after it five more sat on `develop`
+  (#328). The trigger is what changed - **the gate above is untouched.**
+
+  **It is a floor, not a ceiling.** A milestone close must produce a release; a
+  release may happen without one. v0.1.0, v0.2.0 and v0.5.0 went out at
+  milestone closes, and v0.3.0 and v0.4.0 went out mid-M12 because the work was
+  worth shipping before M12 finished. That stays allowed, and stays asked about.
+
+  A milestone whose standing approval says nothing about its release is asked
+  once, at the close. Not at each release: the point is to ask a question that
+  has an answer rather than one that recurs.
 - **`main` is protected:** a pull request is required, both `gate` checks must
   pass, and force-pushes and deletion are refused. This applies to the
   repository owner too — that is the point of it.
 - Still, and this is not softened by any of the above: **no version bump and
-  no release tag without explicit approval.**
+  no release tag without explicit approval.** What the bullet on timing
+  changes is *when the approval is asked for*, not whether: it is granted once
+  per milestone, at its close, and covers that milestone's release. A release
+  no milestone's approval covers is still asked about, and never assumed from
+  a cadence, a green gate, or the fact that `develop` has moved.
 
 ## Documentation map
 
