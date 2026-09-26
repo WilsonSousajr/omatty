@@ -57,8 +57,9 @@ func TestModel_SidebarShowsTheSelectedRowPastTheFold_issue129(t *testing.T) {
 	}
 }
 
-// F2's regression test: the lane is the first non-ASCII thing in the row
-// expression, where len(age) was a byte count (#128, constraint 4).
+// F2's regression test: the lane was the first non-ASCII thing in the row
+// expression, where len(age) was a byte count (#128, constraint 4). The lane
+// went with #410; the glyph, a spinner frame while s1 works, is that now.
 func TestRenderRow_EveryRowIsExactlySidebarWidth_issue128(t *testing.T) {
 	st := twoProjectState()
 	st.Sessions[1].Title = "日本語のタイトルです"

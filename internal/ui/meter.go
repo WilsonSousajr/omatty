@@ -15,11 +15,10 @@ import (
 // session feeds claude comes back from cache, as a bar in the focused pane's
 // rule beside the counts that were already there. A ratio says something
 // worth money at a glance that two numbers do not. Display-only, like the
-// lane: derived from the tailer's cumulative Tokens, never persisted.
+// status glyph: derived from the tailer's cumulative Tokens, never persisted.
 
 // meterCells is the bar's width. Eight: the rule has the room the sidebar
-// does not (the lane went to six for its title budget, #155), and an eighth
-// per cell is a step a glance can read.
+// does not, and an eighth per cell is a step a glance can read.
 const meterCells = 8
 
 // meterFull and meterEmpty are the cells: two glyphs, the filled ones
@@ -52,7 +51,7 @@ func cacheShare(t watcher.Tokens) (float64, bool) {
 func renderMeter(share float64) string {
 	filled := int(math.Round(share * meterCells))
 	var b strings.Builder
-	b.Grow(meterCells * laneCellBudget)
+	b.Grow(meterCells * styledCellBudget)
 	for i := range filled {
 		b.WriteString(meterFilled()[i])
 	}
@@ -71,9 +70,9 @@ var meterFilled = sync.OnceValue(func() [meterCells]string {
 	return cells
 })
 
-// laneCellBudget is a generous guess at one styled cell's bytes, used only to
+// styledCellBudget is a generous guess at one styled cell's bytes, used only to
 // size a builder: an SGR pair around a single glyph.
-const laneCellBudget = 24
+const styledCellBudget = 24
 
 // tokensPart is the usage segment whole: the meter and its percentage when
 // there is input to measure, then the in/out counts (#39, #153). The header

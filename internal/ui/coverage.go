@@ -1,8 +1,8 @@
 // A session's coverage overlay (#254): which of the lines in its tree are
 // exercised, read out of the profile its own gate just wrote.
 //
-// Held per session and display-only, like the lane and repoStat, and never
-// persisted - state.json must suffice to relaunch a session on its own
+// Held per session and display-only, like repoStat and the gate report, and
+// never persisted - state.json must suffice to relaunch a session on its own
 // (invariant 9). An overlay is re-read the next time the gate runs.
 //
 // Stale by construction, deliberately. It describes the tree as the gate found

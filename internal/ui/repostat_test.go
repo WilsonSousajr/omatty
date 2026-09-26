@@ -106,20 +106,22 @@ func TestModel_AFailedPollKeepsTheLastStatAndWarnsOnce_issue180(t *testing.T) {
 	}
 }
 
-func TestCard_LineTwoSharesSixteenColumnsBetweenBranchAndDiffstat_issue180(t *testing.T) {
+// Sixteen columns until #410 removed the activity lane and gave its seven to
+// the branch; the cases are the same, re-derived at 23.
+func TestCard_LineTwoSharesTwentyThreeColumnsBetweenBranchAndDiffstat_issue180(t *testing.T) {
 	m, _ := modelWithStat(t)
 	for _, tt := range []struct {
 		stat review.Stat
-		want string // the 16 columns between the rail's two spaces and the lane
+		want string // the 23 columns between the rail's two spaces and the blank
 	}{
-		{review.Stat{Branch: "main", Added: 12, Removed: 3}, "main      +12 −3"},
-		{review.Stat{Branch: "feature/very-long-branch-name", Added: 1, Removed: 0}, "feature/ve +1 −0"},
-		{review.Stat{Branch: "main"}, "main            "},
-		{review.Stat{Branch: "main", Added: 1234, Removed: 5}, "main    +1.2k −5"},
+		{review.Stat{Branch: "main", Added: 12, Removed: 3}, "main             +12 −3"},
+		{review.Stat{Branch: "feature/very-long-branch-name", Added: 1, Removed: 0}, "feature/very-long +1 −0"},
+		{review.Stat{Branch: "main"}, "main                   "},
+		{review.Stat{Branch: "main", Added: 1234, Removed: 5}, "main           +1.2k −5"},
 	} {
 		m.Update(ui.RepoStatMsg{SessionID: "s1", Stat: tt.stat})
 		line := []rune(stripSGR(m.CardOf("s1")[1])) // runes: the rail and the minus sign are multi-byte
-		if got := string(line[3 : 3+16]); got != tt.want {
+		if got := string(line[3 : 3+ui.MetaCols()]); got != tt.want {
 			t.Errorf("stat %+v: line two middle = %q, want %q (line %q)", tt.stat, got, tt.want, string(line))
 		}
 		if lipgloss.Width(m.CardOf("s1")[1]) != ui.SidebarWidth-1 {
@@ -128,10 +130,10 @@ func TestCard_LineTwoSharesSixteenColumnsBetweenBranchAndDiffstat_issue180(t *te
 	}
 }
 
-func TestCard_AnUnknownBranchLeavesLineTwoToTheLane_issue180(t *testing.T) {
+func TestCard_AnUnknownBranchLeavesLineTwoBlank_issue180(t *testing.T) {
 	m, _ := modelWithStat(t)
 	if got := stripSGR(m.CardOf("s2")[1]); strings.TrimSpace(got) != "" {
-		t.Errorf("line two of an unpolled session = %q, want blanks and the empty lane", got)
+		t.Errorf("line two of an unpolled session = %q, want blanks", got)
 	}
 }
 

@@ -96,7 +96,6 @@ func filledModel() *Model {
 	m.notified[forgottenID] = time.Unix(0, 0)
 	m.comments[forgottenID] = &review.Comments{}
 	m.namePending[forgottenID] = true
-	m.lane[forgottenID] = activityLane{}
 	m.gates[forgottenID] = gate.Report{}
 	m.gateRunning[forgottenID] = true
 	m.gateSent[forgottenID] = gateSentOnce
