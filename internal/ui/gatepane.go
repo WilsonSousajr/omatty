@@ -41,8 +41,7 @@ func (m *Model) renderGate(_, h int) []string {
 	case ran && report.Err != nil:
 		return []string{"the gate could not run:", "  " + report.Err.Error()}
 	case ran:
-		lines := m.gateLines(report)
-		return window(lines, gateWindowOffset(m.review.GateOffset, len(lines), h), h)
+		return m.gateView(report, h)
 	case len(m.gateFor(id)) > 0:
 		return m.pendingGateLines(id)
 	}
@@ -90,7 +89,7 @@ func (m *Model) gateLines(report gate.Report) []string {
 	w := nameWidth(steps)
 	var lines []string
 	for i, result := range report.Results {
-		lines = append(lines, m.gateStepLine(i, result, w))
+		lines = append(lines, gateStepLine(result, w))
 		if m.review.GateOpen[i] {
 			lines = append(lines, indent(result.Output)...)
 		}
@@ -98,14 +97,12 @@ func (m *Model) gateLines(report gate.Report) []string {
 	return lines
 }
 
-// gateStepLine is one step's row: the cursor, its mark, its name and the
-// command it ran, so the pane says what was actually executed.
-func (m *Model) gateStepLine(i int, result gate.StepResult, nameW int) string {
-	cursor := "  "
-	if i == m.review.GateCursor {
-		cursor = "▸ "
-	}
-	return stepRow(cursor, verdictMark[result.Verdict], result.Step, nameW, elapsed(result))
+// gateStepLine is one step's row: its mark, its name and the command it ran,
+// so the pane says what was actually executed. The two leading cells were the
+// "▸ " cursor until #424 made reverse video the cursor on every face; they stay
+// so a row does not shift against the pending view's, which spends them too.
+func gateStepLine(result gate.StepResult, nameW int) string {
+	return stepRow("  ", verdictMark[result.Verdict], result.Step, nameW, elapsed(result))
 }
 
 // stepRow lays out one step for both the pending and the verdict view, so the

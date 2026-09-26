@@ -60,21 +60,21 @@ func TestModel_theTreeFoldsGeneratedFilesAway_issue338(t *testing.T) {
 	}
 }
 
-// Still listed, still reviewable: g is what makes the fold a fold rather than a
+// Still listed, still reviewable: . is what makes the fold a fold rather than a
 // deletion.
-func TestModel_gShowsTheFoldedFilesAndFoldsThemAgain_issue338(t *testing.T) {
+func TestModel_dotShowsTheFoldedFilesAndFoldsThemAgain_issue338(t *testing.T) {
 	m, _ := modelWithGenerated(t, map[string]bool{"go.sum": true})
 
-	press(m, key('g'))
+	press(m, key('.'))
 
 	if !strings.Contains(m.View().Content, "go.sum") {
-		t.Errorf("g did not bring the folded files back:\n%s", m.View().Content)
+		t.Errorf(". did not bring the folded files back:\n%s", m.View().Content)
 	}
 
-	press(m, key('g'))
+	press(m, key('.'))
 
 	if strings.Contains(m.View().Content, "go.sum") {
-		t.Error("a second g did not fold them away again")
+		t.Error("a second . did not fold them away again")
 	}
 }
 
@@ -88,7 +88,7 @@ func TestModel_theTitleSaysHowManyAreFolded_issue338(t *testing.T) {
 		t.Errorf("the title does not say two rows are withheld: %q", title)
 	}
 
-	press(m, key('g'))
+	press(m, key('.'))
 
 	if title := lineWith(t, m.View().Content, "files ·"); strings.Contains(title, "⊞") {
 		t.Errorf("the marker survived showing them: %q", title)

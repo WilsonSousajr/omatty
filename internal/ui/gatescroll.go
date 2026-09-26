@@ -93,3 +93,74 @@ func (m *Model) clampGateOffset() {
 func gateWindowOffset(offset, lines, h int) int {
 	return min(offset, max(lines-h, 0))
 }
+
+// gateView is the report's rows in the window, panned like every face's
+// (#447: it was the one face whose rows ignored h and l) and with the cursor's
+// row in reverse video (#424).
+func (m *Model) gateView(report gate.Report, h int) []string {
+	lines := m.gateLines(report)
+	off := gateWindowOffset(m.review.GateOffset, len(lines), h)
+	cursor, w := -1, reviewContentWidth(m.width)
+	if spans := m.gateSpans(report); m.review.GateCursor < len(spans) {
+		cursor = spans[m.review.GateCursor].start
+	}
+	out := make([]string, 0, h)
+	for i, line := range window(lines, off, h) {
+		out = append(out, m.gateRow(line, off+i == cursor, w))
+	}
+	return out
+}
+
+// gateRow is one drawn line of the gate, panned and fitted to the column.
+func (m *Model) gateRow(line string, cursor bool, w int) string {
+	row := m.fitContent(line, w)
+	if cursor {
+		return cursorStyle.Render(row)
+	}
+	return row
+}
+
+// pageGate moves the gate by delta presses of j or k, bounded by how many
+// presses could possibly change anything: every line once, every step once.
+func (m *Model) pageGate(delta int) {
+	spans := m.gateSpans(m.gates[m.review.SessionID])
+	if len(spans) == 0 {
+		return
+	}
+	step, n := 1, delta
+	if delta < 0 {
+		step, n = -1, -delta
+	}
+	for range min(n, spans[len(spans)-1].end+len(spans)) {
+		m.moveGateCursor(step)
+	}
+}
+
+// gatePosition is the cursor's step of how many, or nothing while there is no
+// report on show: a run in flight or a failed one has no rows to be among.
+func (m *Model) gatePosition() (n, total int) {
+	id := m.review.SessionID
+	report, ran := m.gates[id]
+	if !ran || m.gateRunning[id] || report.Err != nil {
+		return 0, 0
+	}
+	return m.review.GateCursor + 1, len(report.Results)
+}
+
+// clickGate puts the cursor on the step drawn at window row winY - the step
+// whose row or opened output is there - and reports whether one was.
+func (m *Model) clickGate(winY int) bool {
+	spans, rows := m.gateSpans(m.gates[m.review.SessionID]), m.gateRows()
+	line := winY - reviewTop()
+	if len(spans) == 0 || line < 0 || line >= rows {
+		return false
+	}
+	at := gateWindowOffset(m.review.GateOffset, spans[len(spans)-1].end+1, rows) + line
+	for i, s := range spans {
+		if at >= s.start && at <= s.end {
+			m.review.GateCursor = i
+			return true
+		}
+	}
+	return false
+}

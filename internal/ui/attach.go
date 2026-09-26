@@ -12,10 +12,10 @@ import (
 // attachSelected attaches the row under the tree cursor.
 func (m *Model) attachSelected() tea.Cmd {
 	rows := m.treeRows()
-	if m.review.TreeCursor >= len(rows) {
+	if m.review.Files.Cursor >= len(rows) {
 		return nil
 	}
-	n := rows[m.review.TreeCursor]
+	n := rows[m.review.Files.Cursor]
 	return m.attachPath(n.Path, n.IsDir)
 }
 

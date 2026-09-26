@@ -18,10 +18,10 @@ const (
 // about a change rather than about a path (#337).
 func (m *Model) toggleReviewed() {
 	rows := m.treeRows()
-	if m.review.TreeCursor >= len(rows) {
+	if m.review.Files.Cursor >= len(rows) {
 		return
 	}
-	n := rows[m.review.TreeCursor]
+	n := rows[m.review.Files.Cursor]
 	// A directory is not a review, and enter already means something on it.
 	if n.IsDir {
 		return

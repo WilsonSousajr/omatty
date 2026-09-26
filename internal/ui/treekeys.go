@@ -48,7 +48,9 @@ func (m *Model) treeMarkKey(key string) bool {
 	switch key {
 	case "v":
 		m.toggleReviewed()
-	case "g":
+	case ".":
+		// Not g, which #424 made "the top" on every face; "." is what lf,
+		// ranger, yazi and nnn toggle hidden files with.
 		m.toggleGenerated()
 	default:
 		return false
@@ -82,12 +84,11 @@ func (m *Model) leaveTree() {
 // onPreviewKey scrolls the preview; esc returns to the tree, which is where
 // the operator came from, rather than all the way to the terminal.
 func (m *Model) onPreviewKey(key string) tea.Cmd {
-	last := previewLast(m.review.Preview, m.reviewRows())
 	switch key {
 	case "j", "down":
-		m.review.PreviewOffset = min(m.review.PreviewOffset+1, last)
+		m.scrollPreview(1)
 	case "k", "up":
-		m.review.PreviewOffset = max(m.review.PreviewOffset-1, 0)
+		m.scrollPreview(-1)
 	case "a":
 		return m.attachPath(m.review.Preview.Path, false)
 	case "o":

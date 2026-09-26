@@ -80,8 +80,9 @@ func boundLeaderKeys(t *testing.T) []string {
 // that costs a row - #337's v and #338's g took it past 66, which is how
 // TestModel_helpSaysHowToCopyOutOfAPane_issue190 noticed. Deliberately generous
 // now: nothing here asserts the modal is *exactly* this tall, and the test that
-// cares about scrolling uses a short window instead.
-const helpFitsHeight = 72
+// cares about scrolling uses a short window instead. #424's g / G and
+// ctrl+d / ctrl+u took the minimum to 71, so it is 80: room for a few more.
+const helpFitsHeight = 80
 
 // Regression, issue #422: the help modal's review-column table was written for
 // the diff and the tree, and nothing tied it to the handlers, so the gate's
@@ -109,9 +110,9 @@ func TestHelp_everyColumnKeyIsDocumented_issue422(t *testing.T) {
 // the face whose help section documents it. A handler split or renamed fails
 // findFunc loudly, which is the point: the list cannot quietly go stale.
 var columnHandlers = map[string]map[string][]string{
-	"column":  {"pan.go": {"panKey"}},
+	"column":  {"pan.go": {"panKey"}, "listwindow.go": {"pageDelta"}},
 	"diff":    {"reviewkeys.go": {"onReviewKey", "reviewAction"}},
-	"tree":    {"treekeys.go": {"onTreeKey", "treeActionKey", "treeCursorKey", "onPreviewKey"}},
+	"tree":    {"treekeys.go": {"onTreeKey", "treeActionKey", "treeCursorKey", "treeMarkKey", "onPreviewKey"}},
 	"gate":    {"gatepane.go": {"onGateKey"}},
 	"tracker": {"tracker.go": {"onTrackerKey", "trackerCursorKey"}, "trackerwork.go": {"trackerAction"}, "trackeritem.go": {"onTrackerItemKey"}},
 }
