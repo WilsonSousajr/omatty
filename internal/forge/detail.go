@@ -96,12 +96,12 @@ func FoldDetail(raw []byte) (Detail, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return Detail{}, fmt.Errorf("forge: reading gh's view of an item: %w", err)
 	}
-	body, left := bound(in.Body, DetailMax)
+	body, left := bound(clean(in.Body), DetailMax)
 	comments, dropped := foldComments(in.Comments, left)
 	return Detail{
-		Number: in.Number, Title: in.Title, Author: in.Author.Login,
-		Body: body, Comments: comments, URL: in.URL, Created: in.CreatedAt,
-		Truncated: dropped || len(body) < len(in.Body),
+		Number: in.Number, Title: cleanLine(in.Title), Author: cleanLine(in.Author.Login),
+		Body: body, Comments: comments, URL: cleanLine(in.URL), Created: in.CreatedAt,
+		Truncated: dropped || len(body) < len(clean(in.Body)),
 	}, nil
 }
 
@@ -111,11 +111,12 @@ func FoldDetail(raw []byte) (Detail, error) {
 func foldComments(in []ghComment, budget int) ([]Comment, bool) {
 	out := make([]Comment, 0, len(in))
 	for _, c := range in {
-		if len(c.Body) > budget {
+		body := clean(c.Body) // #483
+		if len(body) > budget {
 			return out, true
 		}
-		budget -= len(c.Body)
-		out = append(out, Comment{Author: c.Author.Login, Body: c.Body, At: c.CreatedAt})
+		budget -= len(body)
+		out = append(out, Comment{Author: cleanLine(c.Author.Login), Body: body, At: c.CreatedAt})
 	}
 	return out, false
 }
