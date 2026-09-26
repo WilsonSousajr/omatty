@@ -1099,7 +1099,9 @@ glyph and made every busy card the same grey wall. Line one's glyph now
 spins through braille frames at 100 ms while a session thinks or runs a
 tool, one spinner for both; a session with no process keeps its still glyph.
 The lane is gone and its seven columns went to the branch, 16 to 23. The
-heartbeat runs at spinner speed only while something spins, so an idle
+frames come from a spin tick of their own, armed by whichever message makes
+a session spin and stopped when nothing does (#412: speeding up the
+heartbeat instead left the glyph still for up to a second), so an idle
 omatty ticks once a second as M13 left it.
 
 **Deliberately cut:**
