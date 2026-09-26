@@ -12,6 +12,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -116,7 +117,9 @@ func gateStepLine(mark string, result gate.StepResult, nameW int) string {
 // command starts in the same column in each and a row does not shift when its
 // verdict replaces the pending mark (#342). took is blank while pending.
 func stepRow(cursor, mark string, step gate.Step, nameW int, took string) string {
-	return fmt.Sprintf("%s%s %-*s %-6s $ %s", cursor, mark, nameW, step.Name, took, step.Run)
+	// took is right-aligned in its six cells (#428), so durations read as one
+	// column and a slow step stands out by its length.
+	return fmt.Sprintf("%s%s %-*s %6s $ %s", cursor, mark, nameW, step.Name, took, step.Run)
 }
 
 // nameWidth is the widest step name, and never less than six, so "fmt" and
@@ -129,12 +132,18 @@ func nameWidth(steps []gate.Step) int {
 	return w
 }
 
-// elapsed is how long a step took, blank for one that never ran.
+// elapsed is how long a step took, blank for one that never ran: seconds to a
+// tenth under a minute, minutes and seconds past one (#428), so a long step
+// fits the six-cell column and reads as long.
 func elapsed(result gate.StepResult) string {
-	if result.Elapsed <= 0 {
+	d := result.Elapsed
+	if d <= 0 {
 		return ""
 	}
-	return fmt.Sprintf("%.1fs", result.Elapsed.Seconds())
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	return fmt.Sprintf("%dm%02ds", int(d.Minutes()), int(d.Seconds())%60)
 }
 
 // indent sets a step's output apart from the rows, and drops the trailing

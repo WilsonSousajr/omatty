@@ -110,7 +110,9 @@ func TestColumn_GAndgReachTheEndsOnEveryFace_issue424(t *testing.T) {
 // ctrl+d and ctrl+u move half a page, the pager keys every terminal reader knows.
 func TestColumn_CtrlDAndCtrlUMoveHalfAPage_issue424(t *testing.T) {
 	m, _, _ := modelWithDiff(t)
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24}) // 21 rows: half is 10
+	// 21 rows, so half is 10; 120 wide so the title keeps its position beside
+	// the run's counts (#428).
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 24})
 	m.SetGateReport("s1", longGate(40))
 	leader(m, key('g'))
 

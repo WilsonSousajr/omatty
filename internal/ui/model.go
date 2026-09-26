@@ -133,7 +133,8 @@ type Model struct {
 	gateReports <-chan gate.Report
 	gateRun     GateRunFunc
 	gateAuto    bool
-	glyphs      glyphSet // every state mark, plain or Nerd Font (#425)
+	gateStarted map[string]time.Time // when the run in flight began, for its title (#428)
+	glyphs      glyphSet             // every state mark, plain or Nerd Font (#425)
 	// spinArmed is whether a spin tick is pending, so there is one spin
 	// chain at most however many sessions start working; spinTick schedules
 	// it (#412).
@@ -272,6 +273,7 @@ func (m *Model) withWindow() *Model {
 // reports channel, or auto-run with no Runner, would each be a half-wiring.
 func (m *Model) withGate(d Deps) *Model {
 	m.gateReports, m.gateRun, m.gateAuto = d.GateReports, d.GateRun, d.GateAuto
+	m.gateStarted = map[string]time.Time{}
 	return m
 }
 

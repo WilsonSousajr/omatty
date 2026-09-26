@@ -78,6 +78,9 @@ type SpinTickMsg time.Time
 
 // anySpins is whether any session's glyph is turning.
 func (m *Model) anySpins() bool {
+	if len(m.gateRunning) > 0 {
+		return true // the gate's title spins while a run is in flight (#428)
+	}
 	for id, st := range m.status {
 		if m.spins(id, st.Status) {
 			return true

@@ -29,7 +29,9 @@ func TestColumn_TheRuleNamesTheFace_issue426(t *testing.T) {
 // shortens the session name the way the tree's title does (#285).
 func TestGate_TitleShortensTheSessionName_issue426(t *testing.T) {
 	m := modelWithNamedTree(t, "a-very-long-session-name-that-cannot-fit-here")
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	// 100 columns: since #428 the run's counts come before the name, and at 80
+	// they leave too little of it to be worth shortening.
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
 	m.SetGateReport("s1", gateReport(gate.Pass))
 	leader(m, key('g'))
 
