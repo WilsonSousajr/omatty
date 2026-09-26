@@ -136,6 +136,9 @@ var treeKeys = []keyHelp{
 var gateKeys = []keyHelp{
 	{"enter", "fold a step's output open or shut"},
 	{"S", "send the failures to the session; S twice more resends"},
+	{"r", "run the gate again"},
+	{"/", "search the opened output; enter keeps it, esc clears it"},
+	{"n / N", "the next search match, or the one before"},
 }
 
 var trackerKeys = []keyHelp{

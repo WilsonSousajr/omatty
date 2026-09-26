@@ -43,7 +43,7 @@ func (m *Model) focus() (focusTarget, bool) {
 	if m.review.Note.Active {
 		return focusNote, true
 	}
-	if m.review.Filter.Active {
+	if m.activeFilter().Active {
 		return focusFilter, true
 	}
 	if m.review.Focused {

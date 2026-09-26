@@ -99,7 +99,7 @@ func (m *Model) gateLinesWith(report gate.Report, mark func(markState) string) [
 	for i, result := range report.Results {
 		lines = append(lines, gateStepLine(mark(verdictState(result.Verdict)), result, w))
 		if m.review.GateOpen[i] {
-			lines = append(lines, indent(result.Output)...)
+			lines = append(lines, m.gateOutput(result.Output)...)
 		}
 	}
 	return lines
@@ -146,15 +146,23 @@ func elapsed(result gate.StepResult) string {
 	return fmt.Sprintf("%dm%02ds", int(d.Minutes()), int(d.Seconds())%60)
 }
 
-// indent sets a step's output apart from the rows, and drops the trailing
-// blank a captured stream always ends with.
-func indent(out string) []string {
+// outputIndent sets a step's output apart from the rows.
+const outputIndent = "      "
+
+// gateOutput is a step's output as drawn: indented, without the trailing blank
+// a captured stream always ends with, and wrapped to the column (#429) - output
+// is prose read top to bottom, and at 23 cells a panned failure line is not
+// read at all. The step's command still pans; its output no longer has to.
+// gateLines and gateSpans both count through here, so the frame and the
+// scroll cannot disagree about how many lines an opened step holds.
+func (m *Model) gateOutput(out string) []string {
 	if out == "" {
 		return nil
 	}
+	width := max(m.columnWidth()-len(outputIndent), 1)
 	var lines []string
-	for _, l := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
-		lines = append(lines, "      "+l)
+	for _, l := range wrapBlock(strings.TrimRight(out, "\n"), width) {
+		lines = append(lines, outputIndent+l)
 	}
 	return lines
 }
@@ -183,13 +191,12 @@ func window(lines []string, offset, h int) []string {
 // j/k to walk, enter to open, esc to leave - so the column's modes do not each
 // need learning.
 func (m *Model) onGateKey(key string) tea.Cmd {
+	if m.gateCursorKey(key) {
+		return nil
+	}
 	switch key {
-	case "j", "down":
-		m.moveGateCursor(1)
-	case "k", "up":
-		m.moveGateCursor(-1)
-	case "enter":
-		m.toggleGateStep()
+	case "r", "/", "n", "N", "shift+n", "shift+N":
+		m.gateSearchKey(key)
 	case "S", "shift+s", "shift+S":
 		// Three spellings, all of which occur: a terminal reporting the
 		// modifier sends "shift+s", a legacy one the bare "S", and one that
@@ -198,14 +205,32 @@ func (m *Model) onGateKey(key string) tea.Cmd {
 		return m.submitGate()
 	case "esc", "ctrl+c":
 		// The diff and the tree both hand the keys back rather than close the
-		// column; the gate does the same so esc means one thing everywhere.
-		m.review.Focused = false
+		// column; the gate does the same so esc means one thing everywhere -
+		// after lifting a kept search, as the tree lifts its filter (#429).
+		m.leaveGate()
 	default:
 		// h/l/0, shared by every view (#94). A step's command is the widest
 		// thing here and is cut at the column edge, so it has to be reachable.
 		m.panKey(key)
 	}
 	return nil
+}
+
+// gateCursorKey is j, k and enter - the keys that move through the steps or
+// fold one - reporting whether key was one. Split off onGateKey when #429's
+// search keys took it past the statement limit.
+func (m *Model) gateCursorKey(key string) bool {
+	switch key {
+	case "j", "down":
+		m.moveGateCursor(1)
+	case "k", "up":
+		m.moveGateCursor(-1)
+	case "enter":
+		m.toggleGateStep()
+	default:
+		return false
+	}
+	return true
 }
 
 // moveGateCursor walks the steps, stopping at the ends rather than wrapping:
