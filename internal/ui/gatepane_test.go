@@ -141,6 +141,9 @@ func TestModel_escLeavesTheGatePane_issue231(t *testing.T) {
 // carry the reason rather than show an empty list.
 func TestModel_gatePaneShowsAFailedRun_issue231(t *testing.T) {
 	m, _, _ := modelWithDiff(t)
+	// Wide enough that the message is not wrapped: what is under test is that
+	// the error reaches the pane at all, not where a narrow column folds it.
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m.SetGateReport("s1", gate.Report{ID: "s1", Err: errRun("working directory is gone")})
 
 	leader(m, key('g'))

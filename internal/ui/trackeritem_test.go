@@ -56,7 +56,10 @@ func itemModel(t *testing.T) (*ui.Model, *FakeItems) {
 	d.Item = ui.ForgeItemFuncs{Issue: items.issue, PR: items.pr}
 	d.Clock = func() time.Time { return fi.Now }
 	m := ui.NewModel(d)
-	m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	// 122, not 120: the column is a fraction of what the sidebar leaves, so it
+	// takes two more window columns to keep the 35 cells #397 wrote these
+	// expectations against past #498's gutter.
+	m.Update(tea.WindowSizeMsg{Width: 122, Height: 32})
 	openTracker(m)
 	return m, items
 }

@@ -32,7 +32,8 @@ func glyphOf(t *testing.T, m *ui.Model, id string) string {
 	if len(card) == 0 {
 		t.Fatalf("no card for %s", id)
 	}
-	return string([]rune(stripSGR(card[0]))[1])
+	// Past the rail and the gutter after it (#498).
+	return string([]rune(stripSGR(card[0]))[1+ui.GutterCols()])
 }
 
 func TestSpinnerFrame_StepsEverySpinEveryAndWraps_issue410(t *testing.T) {

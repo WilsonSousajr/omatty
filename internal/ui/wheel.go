@@ -85,7 +85,40 @@ func (m *Model) scrollPane(msg tea.MouseWheelMsg) tea.Cmd {
 	if !ok {
 		return nil
 	}
+	if m.overSidebar(msg.X) {
+		return m.scrollSidebar(direction)
+	}
 	return m.scrollTerminal(direction, msg.X, msg.Y)
+}
+
+// scrollSidebar moves the session cursor one row per notch.
+//
+// The cursor, not an offset of its own: Sidebar.Window recomputes the offset
+// from the cursor on every call, deliberately, so that a resize cannot leave
+// the selection off screen (#129). An offset the wheel set would be discarded
+// by the next frame, and scrolling the list away from the selection is a
+// different feature from this one (#497).
+//
+// Through moveCursor, because a notch must do what j/k and a click already do:
+// size the terminal it lands on (#73) and drag an open review column with it
+// (#21). sidebarclick.go's rule was that the ways to change the selection must
+// not do three amounts of work; this is the fourth, through the same door.
+//
+// One notch is one session, with no accumulator. wheelAccumulator exists
+// because scrollTerminal turns a notch into a whole page of claude's
+// scrollback and a momentum flick then overshot by tens of pages (#107); a
+// list of rows has no such mismatch to damp.
+func (m *Model) scrollSidebar(direction int) tea.Cmd {
+	if m.modalOpen() {
+		return nil // a modal owns the pane surface; the rows under it are not on screen
+	}
+	return m.moveCursor(func() {
+		if direction > 0 {
+			m.sidebar.MoveDown()
+			return
+		}
+		m.sidebar.MoveUp()
+	})
 }
 
 // wheelReview drives one of the review column's two axes with a notch:

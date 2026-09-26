@@ -42,7 +42,11 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.6.0**, 2026-09-26 — the review column starts remembering things. `v` marks
+**v0.7.0**, 2026-09-26 — two pieces of polish you feel on every frame: the
+session list answers the mouse wheel, and neither column starts hard against its
+own edge any more (#497, #498).
+
+v0.6.0, the same day — the review column starts remembering things. `v` marks
 a file read and says `~` when its diff changes under you; the files nobody wrote
 are folded away; a line takes more than one comment, and `C` comments on part of
 one. `ctrl+o u` puts a session back to the start of its last turn, and `ctrl+o p`
@@ -217,6 +221,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o /` | jump to a session by typing part of its name |
 | `ctrl+o a` | register a project claude already knows you use |
 | `ctrl+o A` | adopt a claude session already in this project |
+| `ctrl+o ?` | show every key, starting with the ones for the face in front of you; `/` filters them |
 | `ctrl+o q` | quit |
 
 `ctrl+o s` ends a session's `claude` process and frees its memory (a few

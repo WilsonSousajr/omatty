@@ -155,3 +155,32 @@ func TestModel_OrphanedCommentIsMarkedMoved_issue22(t *testing.T) {
 		t.Errorf("orphan does not float above its file's hunks:\n%s", view)
 	}
 }
+
+// Every face of the review column began in the cell straight after the
+// hairline, so the diff, the tree, the gate and the tracker all read as
+// pressed against the seam (#498).
+//
+// Asserted on the frame rather than on a face's own lines, because the gutter
+// is applied once in renderReview: a face added later must get it for nothing,
+// and a test that asked a face directly would not notice if one did not.
+func TestView_TheReviewColumnHasAGutterAfterTheHairline_issue498(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	leader(m, key('d'))
+
+	// The hairline column, then the gutter immediately right of it.
+	seam := 160 - ui.ReviewWidth(160, true)
+	rows := strings.Split(m.View().Content, "\n")
+	// Past the header row and the rule, and short of the footer: those carry
+	// chrome of their own rather than a face's rows.
+	for i, row := range rows[2 : len(rows)-1] {
+		cells := []rune(stripSGR(row))
+		if len(cells) <= seam+1 {
+			t.Fatalf("body row %d is %d cells, too short to hold the seam at %d", i, len(cells), seam)
+		}
+		if got := string(cells[seam+1]); got != " " {
+			t.Errorf("body row %d has %q immediately right of the hairline, want a blank gutter:\n%s",
+				i, got, stripSGR(row))
+		}
+	}
+}

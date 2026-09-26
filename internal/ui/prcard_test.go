@@ -20,7 +20,9 @@ func cardMiddle(t *testing.T, m *ui.Model, id string) string {
 	if w := lipgloss.Width(line); w != ui.SidebarWidth-1 {
 		t.Errorf("line two is %d cells, want %d", w, ui.SidebarWidth-1)
 	}
-	return string([]rune(stripSGR(line))[3 : 3+ui.MetaCols()])
+	// Past the rail, the gutter (#498) and the two-space indent.
+	start := 1 + ui.GutterCols() + 2
+	return string([]rune(stripSGR(line))[start : start+ui.MetaCols()])
 }
 
 // modelWithCard has s2 on a worktree (branch parser-fix) and s1 on the main

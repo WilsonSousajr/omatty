@@ -31,15 +31,16 @@ func TestCard_HasTheSpecsColumns_issue176(t *testing.T) {
 		t.Fatalf("a card is %d lines, want %d", len(card), ui.CardLines())
 	}
 	one, two, three := stripSGR(card[0]), stripSGR(card[1]), stripSGR(card[2])
-	if want := "▎✓ main" + strings.Repeat(" ", 14) + "   4m "; one != want {
+	// "▎ " - the rail, then the gutter column #498 put after it.
+	if want := "▎ ✓ main" + strings.Repeat(" ", 14) + "   4m "; one != want {
 		t.Errorf("line one = %q\nwant       %q", one, want)
 	}
-	if want := "▎  " + strings.Repeat(" ", ui.MetaCols()) + " "; two != want {
+	if want := "▎   " + strings.Repeat(" ", ui.MetaCols()) + " "; two != want {
 		t.Errorf("line two = %q\nwant       %q", two, want)
 	}
 	// No gate has run, so the strip is blank - it must read as nothing, not
 	// as a gate that passed.
-	if want := "▎  " + strings.Repeat(" ", 23) + " "; three != want {
+	if want := "▎   " + strings.Repeat(" ", 23) + " "; three != want {
 		t.Errorf("line three = %q\nwant       %q", three, want)
 	}
 	for i, l := range card {
@@ -75,11 +76,11 @@ func TestCard_TheTitleIsClippedToEighteenColumns_issue176(t *testing.T) {
 func TestCard_AProjectHeaderIsOneLine_issue176(t *testing.T) {
 	m := modelWithEmptyProject(t, &recordCreate{})
 	lines := frameLines(m)
-	if got := stripSGR(lines[2]); !strings.HasPrefix(got, " omatty") {
+	if got := stripSGR(lines[2]); !strings.HasPrefix(got, "  omatty") { // rail, gutter (#498)
 		t.Errorf("the first body line = %q, want the omatty header with no rail", got)
 	}
 	leader(m, key(']'))
-	if got := stripSGR(m.View().Content); !strings.Contains(got, "▎wstech") {
+	if got := stripSGR(m.View().Content); !strings.Contains(got, "▎ wstech") {
 		t.Errorf("the selected empty project's header carries no rail:\n%s", got)
 	}
 }
@@ -108,4 +109,34 @@ func allHavePrefix(lines []string, prefix string) bool {
 		}
 	}
 	return true
+}
+
+// Nothing in the sidebar had any air on its left: a card's content began in
+// the cell straight after the rail, so it read as cramped against the cursor
+// bar (#498).
+//
+// The rail itself stays flush - it is the cursor, and a cursor that is
+// indented is not on the edge it marks.
+func TestCard_HasAGutterColumnAfterTheRail_issue498(t *testing.T) {
+	m, _ := modelWithFakes(t)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	for i, line := range m.CardOf("s1") {
+		plain := stripSGR(line)
+		if got := []rune(plain)[0:2]; string(got[1]) != " " {
+			t.Errorf("card line %d = %q, want a blank gutter column after the rail", i, plain)
+		}
+	}
+}
+
+// The gutter is paid for by SidebarWidth 28 -> 29, not by the card's content:
+// every budget is exactly what it was, so no title or branch got shorter to
+// buy the breathing room (#498).
+func TestCard_TheGutterCostsNoContentColumns_issue498(t *testing.T) {
+	if got := ui.TitleCols(); got != 18 {
+		t.Errorf("TitleCols() = %d, want 18 - unchanged by the gutter", got)
+	}
+	if got := ui.MetaCols(); got != 23 {
+		t.Errorf("MetaCols() = %d, want 23 - unchanged by the gutter", got)
+	}
 }

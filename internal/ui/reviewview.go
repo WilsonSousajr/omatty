@@ -39,7 +39,24 @@ func (m *Model) renderReview(w, h int) string {
 	}
 	// Which column owns the keys - and so wears the accent hairline - is
 	// decided once, in keyboardEdge (#174); the title is the header row's.
-	return fitBlock(lines, w, h)
+	return indentBlock(fitBlock(lines, w, h), gutterCols)
+}
+
+// indentBlock pushes a rendered block right by n blank columns, so the block
+// is n cells wider than it was.
+//
+// The review column's gutter is applied here, once, rather than in each of
+// the six faces (#498): columnWidth already hands every face the narrowed
+// budget, so a face added later gets its breathing room for nothing - and
+// cannot forget it. The block is sized exactly by fitBlock before the indent,
+// which is the bargain joinColumns and joinRows trade on (#174).
+func indentBlock(block string, n int) string {
+	pad := strings.Repeat(" ", n)
+	lines := strings.Split(block, "\n")
+	for i, l := range lines {
+		lines[i] = pad + l
+	}
+	return strings.Join(lines, "\n")
 }
 
 // reviewTitle names what the column is showing, so a glance at the top row

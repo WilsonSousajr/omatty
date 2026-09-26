@@ -2,7 +2,17 @@ package ui
 
 // SidebarWidth is the sidebar box's outer width, borders included. Fixed for
 // M1; the terminal takes whatever remains.
-const SidebarWidth = 28
+//
+// 29 rather than 28 since #498: the extra column pays for gutterCols, so the
+// gutter costs the card's content nothing and titleCols and metaCols are
+// exactly what they were. The pane gives up one column for it.
+const SidebarWidth = 29
+
+// gutterCols is the blank column of breathing room a column keeps inside its
+// own left edge: after the sidebar's rail, and after the review column's
+// hairline (#498). One place, so the two cannot drift and a third column
+// added later has a name to reach for.
+const gutterCols = 1
 
 // footerRows is the keymap line below both panes.
 const footerRows = 1
@@ -75,15 +85,16 @@ func ReviewWidth(width int, open bool) int {
 }
 
 // reviewContentWidth is the review column's content: its outer width minus
-// its own left hairline. Named once because the renderer and the pan clamp
-// both need it and a literal in each drifted before (#94, #174).
-func reviewContentWidth(width int) int { return ReviewWidth(width, true) - 1 }
+// its own left hairline and the gutter inside it (#498). Named once because
+// the renderer and the pan clamp both need it and a literal in each drifted
+// before (#94, #174).
+func reviewContentWidth(width int) int { return ReviewWidth(width, true) - 1 - gutterCols }
 
 // columnWidth is the review column's content width as drawn: the split's, or
 // with the zoom everything right of the sidebar and its hairline (#427).
 func (m *Model) columnWidth() int {
 	if m.zoomed() {
-		return m.width - SidebarWidth
+		return m.width - SidebarWidth - gutterCols
 	}
 	return reviewContentWidth(m.width)
 }
