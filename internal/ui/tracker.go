@@ -363,7 +363,8 @@ func (m *Model) renderTracker(_, h int) []string {
 	for i, r := range rows {
 		lines = append(lines, m.trackerLine(r, i == m.review.Tracker.Cursor))
 	}
-	return m.withFilterLine(window(lines, m.review.Tracker.Offset, h), m.columnWidth(), h)
+	list := m.withFilterLine(window(lines, m.review.Tracker.Offset, h), m.trackerListWidth(), h)
+	return m.withPreview(list, h)
 }
 
 // trackerNote is the "nothing to show" state, or nil when there are rows. Each
@@ -392,7 +393,7 @@ func (m *Model) trackerNote() []string {
 // long since it last moved. The cursor row is drawn in the accent, the way a
 // selected card's rail is (#174).
 func (m *Model) trackerLine(r trackerRow, selected bool) string {
-	w := m.columnWidth()
+	w := m.trackerListWidth()
 	if r.Kind == rowRule {
 		// The rule does not pan. It is a label rather than content, so it fits
 		// its own column the way a diff's file header does (#291): panned right
@@ -470,7 +471,7 @@ func (m *Model) trackerMaxWidth() int {
 		if r.Kind == rowRule {
 			continue
 		}
-		widest = max(widest, lipgloss.Width(trackerText(r, m.clock(), m.columnWidth())))
+		widest = max(widest, lipgloss.Width(trackerText(r, m.clock(), m.trackerListWidth())))
 	}
 	return widest
 }
