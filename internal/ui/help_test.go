@@ -76,8 +76,12 @@ func boundLeaderKeys(t *testing.T) []string {
 
 // helpFitsHeight is a window tall enough to show the whole help modal without
 // scrolling, for the tests that look for its last section. It grows with the
-// keymap; #422's per-face sections put it at 65.
-const helpFitsHeight = 66
+// keymap; #422's per-face sections put it at 65, and every key documented after
+// that costs a row - #337's v and #338's g took it past 66, which is how
+// TestModel_helpSaysHowToCopyOutOfAPane_issue190 noticed. Deliberately generous
+// now: nothing here asserts the modal is *exactly* this tall, and the test that
+// cares about scrolling uses a short window instead.
+const helpFitsHeight = 72
 
 // Regression, issue #422: the help modal's review-column table was written for
 // the diff and the tree, and nothing tied it to the handlers, so the gate's

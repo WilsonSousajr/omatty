@@ -79,9 +79,10 @@ func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
 	} else {
 		m.relistUnderCursor(msg.Paths)
 	}
+	m.applyGenerated() // fold with whatever was detected before this listing
 	m.contentChanged()
 	m.moveTreeCursor(0)
-	return nil
+	return m.detectGenerated(msg.SessionID)
 }
 
 // relistUnderCursor replaces the listing and keeps the cursor on the path it
@@ -123,6 +124,17 @@ func (m *Model) retouchTree() {
 		m.review.Tree.Retouch(m.changes())
 		m.contentChanged()
 	}
+}
+
+// classifyAfterDiff re-runs the generated detection once a diff has landed: the
+// diff names files the listing does not - a deleted one is in the diff and gone
+// from the worktree - and the coverage markers it suppresses are the diff's own
+// (#338).
+func (m *Model) classifyAfterDiff(id string) tea.Cmd {
+	if m.review.Tree == nil && len(m.review.Diff.Files) == 0 {
+		return nil
+	}
+	return m.detectGenerated(id)
 }
 
 // treeRows is the visible listing, empty until it has been loaded.

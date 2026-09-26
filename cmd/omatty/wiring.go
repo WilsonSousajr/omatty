@@ -80,18 +80,19 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 	src := review.NewSource(git)
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
-		Stop:    holder.Stop,
-		Notice:  holder.Notice(),
-		Launch:  supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
-		Agent:   env.Agent,
-		Factory: termwrap.Start,
-		Create:  sessionCreator(env.Cfg, store),
-		Leader:  env.Cfg.Leader,
-		Name:    sessionNamer(home),
-		Diff:    src.Load,
-		Stat:    src.Stat,
-		Turn:    ui.TurnFuncs{Snap: src.SnapTurn, Diff: src.LoadTurn, Drop: src.DropTurn},
-		Files:   git.ListFiles,
+		Stop:      holder.Stop,
+		Notice:    holder.Notice(),
+		Launch:    supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
+		Agent:     env.Agent,
+		Factory:   termwrap.Start,
+		Create:    sessionCreator(env.Cfg, store),
+		Leader:    env.Cfg.Leader,
+		Name:      sessionNamer(home),
+		Diff:      src.Load,
+		Stat:      src.Stat,
+		Turn:      ui.TurnFuncs{Snap: src.SnapTurn, Diff: src.LoadTurn, Drop: src.DropTurn},
+		Files:     git.ListFiles,
+		Generated: src.Generated,
 	}
 	return withStoreDeps(withTableDeps(withForgeDeps(deps), env.Cfg), store, home, git)
 }

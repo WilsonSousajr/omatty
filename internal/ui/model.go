@@ -59,12 +59,13 @@ type Model struct {
 	paneOnly  bool
 	// comments is each session's pending review queue, kept across opening and
 	// closing the column; only submit drains it (#22).
-	comments map[string]*review.Comments
-	diff     DiffFunc
-	files    ListFilesFunc
-	preview  PreviewFunc
-	rename   RenameFunc
-	rebind   RebindFunc // follows a /clear onto its new conversation (#316)
+	comments    map[string]*review.Comments
+	diff        DiffFunc
+	files       ListFilesFunc
+	generatedFn GeneratedFunc
+	preview     PreviewFunc
+	rename      RenameFunc
+	rebind      RebindFunc // follows a /clear onto its new conversation (#316)
 	// renameBranch renames a worktree session's branch once its first prompt
 	// has said what the work is (#151).
 	renameBranch BranchRenameFunc
@@ -153,6 +154,9 @@ type Model struct {
 	// state.json must suffice to relaunch a session (invariant 9), and what
 	// somebody has read is not part of that.
 	reviewed map[string]map[string]string
+	// generated is, per session, which of its files nobody wrote (#338).
+	// Display-only and never persisted, like reviewed above it.
+	generated map[string]map[string]bool
 	// reattached is Deps.Reattached: the panes to nudge once at boot (#191).
 	reattached map[string]bool
 	// The archive path's three halves: forget the session, stop its tailer,
@@ -231,6 +235,7 @@ func NewModel(deps Deps) *Model {
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
+	m.generatedFn = d.Generated
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse = d.PRs, d.Issues, d.Item, d.Browse
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
@@ -280,8 +285,17 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
+	return m.withReviewMaps().withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
+}
+
+// withReviewMaps allocates what the review column remembers per session that
+// nothing else does: which files have been read (#337) and which of them nobody
+// wrote (#338). Split from withRuntimeMaps when they took it past the statement
+// limit, the way withTurnMaps was.
+func (m *Model) withReviewMaps() *Model {
 	m.reviewed = map[string]map[string]string{}
-	return m.withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
+	m.generated = map[string]map[string]bool{}
+	return m
 }
 
 // withTurnMaps allocates the turn baseline's two maps (#311). Split from
@@ -508,6 +522,9 @@ func (m *Model) onStreamMsg(msg tea.Msg) (tea.Cmd, bool) {
 		return m.onGate(typed), true
 	case coverageMsg:
 		m.onCoverage(typed)
+		return nil, true
+	case generatedMsg:
+		m.onGenerated(typed)
 		return nil, true
 	}
 	return nil, false

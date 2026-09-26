@@ -29,6 +29,11 @@ type DiffLoadedMsg struct {
 // reaches git itself (invariant 4, #24).
 type ListFilesFunc func(dir string) ([]string, error)
 
+// GeneratedFunc reports which of paths nobody wrote (#338). Injected like
+// ListFilesFunc, because the detection asks git about .gitattributes and reads
+// file headers, and ui does neither.
+type GeneratedFunc func(sess registry.Session, paths []string) (map[string]bool, error)
+
 // PreviewFunc reads one file for the preview view, so a test never touches
 // the filesystem.
 type PreviewFunc func(dir, rel string) (review.Preview, error)
@@ -327,7 +332,7 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 	m.commentsFor(msg.SessionID).PruneSent(msg.Diff)
 	m.rebuildEntries()
 	m.retouchTree()
-	return nil
+	return m.classifyAfterDiff(msg.SessionID)
 }
 
 // rebuildEntries re-places the comments against the current diff and keeps the

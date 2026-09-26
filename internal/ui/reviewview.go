@@ -89,7 +89,7 @@ func (m *Model) viewTitle(budget int) string {
 // mechanism over both would hide which applies where.
 func (m *Model) treeTitle(budget int) string {
 	const head = "files · "
-	marker := m.filterMarker()
+	marker := m.foldMarker() + m.filterMarker()
 	room := budget - lipgloss.Width(head) - lipgloss.Width(marker)
 	if room < minNameCells {
 		if marker == "" {
@@ -98,6 +98,23 @@ func (m *Model) treeTitle(budget int) string {
 		return head + strings.TrimSpace(marker)
 	}
 	return head + elideMiddle(m.sessionTitle(m.review.SessionID), room) + marker
+}
+
+// foldMarker says how many generated files the tree is keeping out of the
+// listing, or nothing when it is keeping none (#338).
+//
+// It is a marker rather than a count that may be dropped, for the reason the
+// filter marker is: a listing that is short because rows were withheld reads
+// exactly like a complete one, and nothing else on screen says otherwise. The
+// number is small and so is the marker.
+func (m *Model) foldMarker() string {
+	if m.review.Tree == nil {
+		return ""
+	}
+	if n := m.review.Tree.GeneratedHidden(); n > 0 {
+		return fmt.Sprintf(" ⊞%d", n)
+	}
+	return ""
 }
 
 // previewTitle is the file's path, shortened from the *front* (#287).
@@ -371,7 +388,14 @@ func (m *Model) uncovered(e review.Entry) bool {
 	if line.Kind != review.LineAdded {
 		return false
 	}
-	covered, known := m.overlay().Files[m.shownDiff().Files[e.Pos.File].Path].Lines[line.NewNo]
+	path := m.shownDiff().Files[e.Pos.File].Path
+	// A generated file has no test and never will, so an uncovered marker on
+	// it says something true about the file and nothing at all about the
+	// change - it only makes the file look worse than it is (#338).
+	if m.isGenerated(path) {
+		return false
+	}
+	covered, known := m.overlay().Files[path].Lines[line.NewNo]
 	return known && !covered
 }
 
@@ -400,6 +424,9 @@ func signPrefix(k review.LineKind) string {
 // nothing at all when there is nothing to report - a note on every file would
 // be decoration rather than a finding.
 func (m *Model) uncoveredNote(fi int) string {
+	if m.isGenerated(m.shownDiff().Files[fi].Path) {
+		return "" // #338, the same argument uncovered makes
+	}
 	lines := m.overlay().Files[m.shownDiff().Files[fi].Path].Lines
 	if len(lines) == 0 {
 		return ""

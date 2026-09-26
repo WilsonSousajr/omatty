@@ -119,6 +119,7 @@ var diffKeys = []keyHelp{
 var treeKeys = []keyHelp{
 	{"enter", "fold a directory, or preview a file"},
 	{"v", "mark the file read; ✓ stays until its diff changes, then ~"},
+	{"g", "show the generated files it folded away, or fold them again"},
 	{"/", "filter the tree as you type; enter keeps it, esc clears it"},
 	{"a", "attach the row or previewed file to the prompt as @path"},
 	{"o", "from a preview, jump to that file in the diff"},

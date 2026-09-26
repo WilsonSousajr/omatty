@@ -280,3 +280,9 @@ func SpinFrames() []string             { return spinFrames[:] }
 func SpinEvery() time.Duration         { return spinEvery }
 func SpinFrameAt(now time.Time) string { return spinnerFrame(now) }
 func (m *Model) SpinArmed() bool       { return m.spinArmed }
+
+// GeneratedMsgFor is the message the detection command produces, so a test can
+// deliver a classification the way Update receives one (#338).
+func GeneratedMsgFor(id string, gen map[string]bool) tea.Msg {
+	return generatedMsg{id: id, gen: gen}
+}
