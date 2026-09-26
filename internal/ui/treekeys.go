@@ -22,7 +22,8 @@ func (m *Model) onTreeKey(key string) tea.Cmd {
 	return nil
 }
 
-// treeActionKey runs enter, r, / and a, reporting whether key was one.
+// treeActionKey runs enter, r, / and a, then the two marking keys, reporting
+// whether key was one.
 func (m *Model) treeActionKey(key string) (tea.Cmd, bool) {
 	switch key {
 	case "enter":
@@ -35,7 +36,24 @@ func (m *Model) treeActionKey(key string) (tea.Cmd, bool) {
 	case "a":
 		return m.attachSelected(), true
 	}
-	return nil, false
+	return nil, m.treeMarkKey(key)
+}
+
+// treeMarkKey runs the two keys that change what the listing shows about
+// itself rather than moving through it: v marks a file read (#337) and g folds
+// the generated files in or away (#338). A second table for the reason
+// routing.go has several - one switch over every key here is past the
+// statement limit, and the split is along a real seam.
+func (m *Model) treeMarkKey(key string) bool {
+	switch key {
+	case "v":
+		m.toggleReviewed()
+	case "g":
+		m.toggleGenerated()
+	default:
+		return false
+	}
+	return true
 }
 
 // treeCursorKey moves the cursor for j/k, reporting whether key was one.

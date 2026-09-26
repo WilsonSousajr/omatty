@@ -71,6 +71,10 @@ func (f *FakeGit) DiffTrees(string, string, string) (string, error) { return "",
 
 func (f *FakeGit) Head(string) (string, error) { return "", nil }
 
+func (f *FakeGit) Attr(string, string, []string) (map[string]bool, error) { return nil, nil }
+
+func (f *FakeGit) RestoreTree(string, string) error { return nil }
+
 func (f *FakeGit) AddWorktree(repoRoot, dir, branch, base string) error {
 	if f.AddErr != nil {
 		return fmt.Errorf("FakeGit: refusing to add worktree %q on %q: %w", dir, branch, f.AddErr)

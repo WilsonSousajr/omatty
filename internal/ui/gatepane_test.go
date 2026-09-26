@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -330,5 +331,118 @@ func TestModel_gateRowsKeepOneCommandColumn_issue342(t *testing.T) {
 		if verdict[run] != want {
 			t.Errorf("verdict: $ %s at column %d, want %d, where it sat while pending", run, verdict[run], want)
 		}
+	}
+}
+
+// Regression, issue #421: the gate could not scroll. moveGateCursor set
+// GateOffset to 0 on every move and nothing else wrote it, so an opened step's
+// output was readable only as far as the first screen - j went straight to the
+// next step. j now reads down through an opened step before moving on.
+func TestModel_gatePaneReachesTheEndOfAnOpenedStep_issue421(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	rep := gateReport(gate.Fail, gate.Pass)
+	rep.Results[0].Output = numberedLines(200)
+	m.SetGateReport("s1", rep)
+	leader(m, key('g'))
+	press(m, special(13)) // open fmt, the step under the cursor
+
+	if !pressUntil(m, key('j'), 300, "line 199") {
+		t.Fatalf("j never reached the opened step's last line:\n%s", m.View().Content)
+	}
+	if !pressUntil(m, key('j'), 3, "▸ ✓ vet") {
+		t.Errorf("past the output, j did not move on to the next step:\n%s", m.View().Content)
+	}
+	if !pressUntil(m, key('k'), 300, "▸ ✗ fmt") {
+		t.Errorf("k never read back up to the opened step's row:\n%s", m.View().Content)
+	}
+}
+
+// Regression, issue #421: a gate with more steps than the column has rows
+// walked its cursor off the bottom of the window, where nobody could see it.
+func TestModel_gateCursorStaysVisibleInALongGate_issue421(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	results := make([]gate.StepResult, 40)
+	for i := range results {
+		name := fmt.Sprintf("s%02d", i)
+		results[i] = gate.StepResult{Step: gate.Step{Name: name, Run: "true"}, Verdict: gate.Pass}
+	}
+	m.SetGateReport("s1", gate.Report{ID: "s1", Results: results})
+	leader(m, key('g'))
+
+	for range 39 {
+		press(m, key('j'))
+	}
+	if body := m.View().Content; !strings.Contains(body, "▸ ✓ s39") {
+		t.Errorf("the cursor on the last step is not on screen:\n%s", body)
+	}
+	for range 39 {
+		press(m, key('k'))
+	}
+	if body := m.View().Content; !strings.Contains(body, "▸ ✓ s00") {
+		t.Errorf("k did not bring the first step back:\n%s", body)
+	}
+}
+
+// numberedLines is n lines of step output, "line 0" to "line n-1", so a test
+// can ask for one by number.
+func numberedLines(n int) string {
+	var b strings.Builder
+	for i := range n {
+		fmt.Fprintf(&b, "line %d\n", i)
+	}
+	return b.String()
+}
+
+// pressUntil presses k up to limit times and reports whether want appeared in
+// the frame - before the first press or after any of them.
+func pressUntil(m *ui.Model, k tea.KeyPressMsg, limit int, want string) bool {
+	for range limit {
+		if strings.Contains(m.View().Content, want) {
+			return true
+		}
+		press(m, k)
+	}
+	return strings.Contains(m.View().Content, want)
+}
+
+// Folding a step shut while reading deep in its output must not leave the
+// window past the end of what is left: the pane shows the step's row, with the
+// cursor on it, rather than blank space (#421).
+func TestModel_foldingShutFromDeepInTheOutputShowsTheStep_issue421(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	rep := gateReport(gate.Fail, gate.Pass)
+	rep.Results[0].Output = numberedLines(200)
+	m.SetGateReport("s1", rep)
+	leader(m, key('g'))
+	press(m, special(13))
+	pressUntil(m, key('j'), 300, "line 199")
+
+	press(m, special(13)) // fold it shut again
+
+	if body := m.View().Content; !strings.Contains(body, "▸ ✗ fmt") || !strings.Contains(body, "✓ vet") {
+		t.Errorf("after folding shut, the pane should show both steps with the cursor on fmt:\n%s", body)
+	}
+}
+
+// A new report shorter than where the window stood is drawn from its top, not
+// from past its end, which would be a blank pane saying nothing (#421).
+func TestModel_aShorterReportIsNotDrawnBlank_issue421(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	rep := gateReport(gate.Fail, gate.Pass)
+	rep.Results[0].Output = numberedLines(200)
+	m.SetGateReport("s1", rep)
+	leader(m, key('g'))
+	press(m, special(13))
+	pressUntil(m, key('j'), 300, "line 199")
+
+	m.SetGateReport("s1", gateReport(gate.Pass, gate.Pass))
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24}) // drop the memoised frame
+
+	if body := m.View().Content; !strings.Contains(body, "✓ fmt") {
+		t.Errorf("the shorter report was not drawn:\n%s", body)
 	}
 }

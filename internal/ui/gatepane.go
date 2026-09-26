@@ -41,7 +41,8 @@ func (m *Model) renderGate(_, h int) []string {
 	case ran && report.Err != nil:
 		return []string{"the gate could not run:", "  " + report.Err.Error()}
 	case ran:
-		return window(m.gateLines(report), m.review.GateOffset, h)
+		lines := m.gateLines(report)
+		return window(lines, gateWindowOffset(m.review.GateOffset, len(lines), h), h)
 	case len(m.gateFor(id)) > 0:
 		return m.pendingGateLines(id)
 	}
@@ -195,14 +196,19 @@ func (m *Model) onGateKey(key string) tea.Cmd {
 }
 
 // moveGateCursor walks the steps, stopping at the ends rather than wrapping:
-// a gate is a short list read top to bottom.
+// a gate is a short list read top to bottom. An opened step is read through
+// before the cursor leaves it (#421, gatescroll.go).
 func (m *Model) moveGateCursor(by int) {
-	steps := len(m.gates[m.review.SessionID].Results)
-	if steps == 0 {
+	spans := m.gateSpans(m.gates[m.review.SessionID])
+	if len(spans) == 0 {
 		return
 	}
-	m.review.GateCursor = clampTo(m.review.GateCursor+by, 0, steps-1)
-	m.review.GateOffset = 0
+	m.review.GateCursor = clampTo(m.review.GateCursor, 0, len(spans)-1)
+	if by > 0 {
+		m.gateDown(spans)
+		return
+	}
+	m.gateUp(spans)
 }
 
 // toggleGateStep folds the step under the cursor open or shut. Output is
@@ -213,6 +219,7 @@ func (m *Model) toggleGateStep() {
 		m.review.GateOpen = map[int]bool{}
 	}
 	m.review.GateOpen[m.review.GateCursor] = !m.review.GateOpen[m.review.GateCursor]
+	m.clampGateOffset()
 }
 
 // clampTo keeps n within [lo, hi].

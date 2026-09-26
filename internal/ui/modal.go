@@ -44,6 +44,11 @@ const (
 	// selects the commit, and a branch reaches git and the filesystem where a
 	// title reaches neither.
 	modalBranch
+	// modalRevert asks before putting a session's worktree back to the start of
+	// its last turn, opened with u (#334). A kind of its own rather than a flag
+	// on modalConfirm, because Kind is what selects the commit and this one
+	// rewrites a working tree where archiving edits the registry.
+	modalRevert
 	// modalHelp lists every leader key, opened with ? (#103). It takes no text:
 	// esc closes it, and the leader closes it and arms the next key.
 	modalHelp
@@ -121,7 +126,7 @@ func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch m.modal.Kind {
 	case modalPrompt, modalRename, modalBranch:
 		return m.onEditorKey(msg)
-	case modalConfirm:
+	case modalConfirm, modalRevert:
 		return m.onConfirmKey(msg.Keystroke())
 	case modalList, modalPicker, modalAdopt:
 		return m.onListKey(msg)

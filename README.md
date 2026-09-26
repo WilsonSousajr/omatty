@@ -198,6 +198,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o m` | hand the mouse back to your terminal, or take it back |
 | `ctrl+o r` | restart a crashed session |
 | `ctrl+o s` | stop the selected session's claude, keeping the session; `enter` resumes it |
+| `ctrl+o u` | put the session's worktree back to the start of its last turn, after a confirmation |
 | `ctrl+o B` | rename a worktree session's branch |
 | `ctrl+o R` | rename the selected session |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
@@ -388,6 +389,7 @@ The pane takes the keys while it is open.
 | `h` / `l` | pan left and right along a line too wide for the column |
 | `0` | jump back to the left edge |
 | `c` | comment on the line under the cursor |
+| `C` | comment on *part* of the line: type the words, then the note |
 | `d` | delete the comment under the cursor |
 | `r` | reload the diff |
 | `t` | switch between the whole session and only this turn |
@@ -403,6 +405,26 @@ Comments are anchored to the *content* of a line, not its number, so they stay
 put while Claude edits the file underneath you. A comment whose line disappears
 floats to the top of its file marked `(moved)` rather than silently attaching
 itself to the wrong code.
+
+You can leave **several comments on one line** - they are all shown under it,
+all numbered in the message, and `d` takes the one under the cursor. And `C`
+comments on *part* of a line: type or paste the words you mean, then the note,
+and the message tells Claude `about: "do(ctx, timeout)"` rather than pointing at
+the whole line. The fragment is checked against the line before it is queued, so
+a typo is caught while the line is still in front of you. It is stored as text
+rather than as a column range, because a range into a line Claude has since
+rewritten points at whatever now happens to sit there - and if the line survives
+an edit that removes those words, the note still travels and says the fragment is
+no longer in it.
+
+`ctrl+o u` puts the worktree back to where that baseline was taken - the start
+of the session's last turn. It asks first, and the question names how many files
+will be discarded. Files the turn created go with it; a gitignored file that
+existed before the turn - the `.env` the session needs to run - is in neither
+snapshot and is never touched, and your index, HEAD and stash are not moved
+either. It refuses mid-turn, and when no baseline has been taken yet. omatty
+does not tell the session what happened: sending anything is `S`'s job and needs
+you.
 
 `t` narrows the diff to what changed since you last sent the session a
 prompt, and back. omatty takes the baseline when the prompt hook fires, as a
@@ -424,7 +446,25 @@ Comments live in memory: quitting omatty drops them.
 A letter marks every file the session changed - `M` modified, `A` added, `D`
 deleted, `R` renamed - in the colour the diff gives that state, and a directory
 holding one reads as `M`, so you can see the shape of a change before reading
-it. A deleted file keeps its row, in red, until the next listing without it. The two views share one column:
+it. A deleted file keeps its row, in red, until the next listing without it.
+
+Files nobody wrote are **folded out of the listing**: lockfiles, protobuf
+output, `build/`, `dist/`, `coverage/`, `vendor/`, `node_modules/`, and anything
+the repository's own `.gitattributes` marks `linguist-generated`. A lockfile does
+not belong in the queue beside source, and a generated file has no test and never
+will - so the coverage markers leave it alone too, rather than making it look
+worse than it is. The title says how many are folded (`⊞3`) and `g` brings them
+back: they are folded, not hidden. Detection is the repository's declaration
+first, then the name, then the Go `// Code generated ... DO NOT EDIT.` header.
+
+`v` marks the file under the cursor as read. It keeps a `✓` and goes quiet
+until its diff changes, at which point it reads `~` - changed since you read
+it. On a long session that is the difference between reviewing the turn and
+reviewing everything again from the top. What is compared is the file's diff
+*content*, never its modification time: the agent rewrites files while you are
+reading them, so a timestamp only says that something was written. The marks
+are one session's, they are not written to disk, and quitting omatty drops
+them. The two views share one column:
 `ctrl+o d` and `ctrl+o f` switch between them, and either key closes the column
 when it already shows that view.
 
@@ -437,6 +477,8 @@ when it already shows that view.
 | `r` | re-list the worktree |
 | `/` | filter the tree as you type; `enter` keeps the filter, `esc` clears it |
 | `a` | attach the row, or the previewed file, to the prompt as `@path` and go back to typing |
+| `v` | mark the file read: `✓` while its diff is unchanged, `~` once the session changes it again |
+| `g` | show the generated files the tree folded away, or fold them again |
 | `o` | from a preview, jump to the diff at that line; from a diff line, `o` opens the preview there |
 | `esc` | from a preview back to the tree; from the tree, lift the filter, then back to Claude |
 

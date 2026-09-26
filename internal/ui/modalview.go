@@ -18,7 +18,7 @@ func (m *Model) modalLines() []string {
 	switch m.modal.Kind {
 	case modalPrompt, modalRename:
 		return m.editorLines()
-	case modalConfirm:
+	case modalConfirm, modalRevert:
 		return m.confirmLines()
 	case modalList, modalPicker, modalAdopt:
 		return m.pickLines()
@@ -52,6 +52,7 @@ var leaderKeys = []keyHelp{
 	{"x", "archive the session, or forget an empty project"},
 	{"r", "restart a crashed session"},
 	{"s", "stop the session's process, keeping it; enter resumes it"},
+	{"u", "put the session's worktree back to the start of its last turn"},
 	{"d", "open or close the diff pane"},
 	{"f", "open or close the file tree"},
 	{"g", "open or close the gate pane"},
@@ -87,24 +88,78 @@ var claudeKeys = []keyHelp{
 	{"paste", "goes to this pane as pasted text; it does not submit"},
 }
 
-// reviewKeys are the review column's own bindings. They live here because the
-// two review footers are truncated to the window just as the main one is, and
+// The review column's own bindings, one table per face. They live here because
+// the column's footers are truncated to the window just as the main one is, and
 // these are the keys that came off the end when reviewFooter was cut to fit
 // (#103).
-var reviewKeys = []keyHelp{
-	{"j / k", "move the cursor, or scroll a preview"},
-	{"r", "reload the diff, or re-list the tree"},
-	{"h / l", "pan the diff, tree or preview sideways"},
+//
+// One table per face, not one for the column: a single table written for the
+// diff and the tree went stale as the gate (M9) and the tracker (M14) added
+// their own keys, and a key another face happened to document - S, a - hid
+// that its own face had none (#422). TestHelp_everyColumnKeyIsDocumented_issue422
+// checks each face's handlers against its table.
+
+// columnKeys work the same on every face.
+var columnKeys = []keyHelp{
+	{"j / k", "move the cursor, or scroll a preview or an item"},
+	{"h / l", "pan sideways"},
 	{"wheel sideways", "pan too - shift+wheel where the terminal sends it"},
 	{"0", "jump back to the left edge"},
-	{"M A D R", "a tree row the session modified, added, deleted or renamed"},
-	{"/", "filter the tree as you type; enter keeps it, esc clears it"},
-	{"a", "attach the tree row or previewed file to the prompt as @path"},
-	{"o", "jump between a diff line and the file at that line, both ways"},
+	{"esc", "back a step: a filter, a preview or an item, then the column"},
+}
+
+var diffKeys = []keyHelp{
 	{"c", "comment on the line under the cursor"},
+	{"C", "comment on part of the line: type the words, then the note"},
+	{"d", "delete the comment under the cursor"},
 	{"S", "submit the queued comments"},
-	{"t", "diff: the whole session, or only this turn"},
-	{"esc", "leave the column"},
+	{"t", "the whole session, or only this turn"},
+	{"o", "open the file at the line under the cursor"},
+	{"r", "reload the diff"},
+}
+
+var treeKeys = []keyHelp{
+	{"enter", "fold a directory, or preview a file"},
+	{"v", "mark the file read; ✓ stays until its diff changes, then ~"},
+	{"g", "show the generated files it folded away, or fold them again"},
+	{"/", "filter the tree as you type; enter keeps it, esc clears it"},
+	{"a", "attach the row or previewed file to the prompt as @path"},
+	{"o", "from a preview, jump to that file in the diff"},
+	{"r", "re-list the tree"},
+	{"M A D R", "a file the session modified, added, deleted or renamed"},
+}
+
+var gateKeys = []keyHelp{
+	{"enter", "fold a step's output open or shut"},
+	{"S", "send the failures to the session; S twice more resends"},
+}
+
+var trackerKeys = []keyHelp{
+	{"enter", "read the issue or pull request in full"},
+	{"/", "filter by number, title or label"},
+	{"n", "start a session named and branched after it"},
+	{"a", "attach its reference to the prompt"},
+	{"b", "open it in the browser"},
+	{"r", "read the list, or the open item, again"},
+}
+
+// helpSection is one titled block of the help modal below the leader keys.
+type helpSection struct {
+	Title string
+	Keys  []keyHelp
+}
+
+// helpSections is the modal's order below the leader keys: the column's shared
+// keys, each face's own, then the keys that reach the session untouched. It is
+// the one list both helpBody and helpGutter walk, so a new section cannot be
+// drawn without also being measured.
+var helpSections = []helpSection{
+	{"anywhere in the review column", columnKeys},
+	{"in the diff", diffKeys},
+	{"in the file tree", treeKeys},
+	{"in the gate", gateKeys},
+	{"in the tracker", trackerKeys},
+	{"in the session", claudeKeys},
 }
 
 // helpChrome is what helpLines spends on anything but a keymap row: the
@@ -144,19 +199,13 @@ func (m *Model) helpLines() []string {
 // the key away from what it does.
 func helpBody(leader string, width int) []string {
 	gutter := helpGutter(leader)
-	lines := make([]string, 0, len(leaderKeys)+len(reviewKeys)+len(claudeKeys)+4)
+	lines := make([]string, 0, len(leaderKeys)+4*len(helpSections))
 	for _, k := range leaderKeys {
 		lines = append(lines, helpRow(leader+" "+k.Key, k.Does, gutter, width))
 	}
-	for _, section := range []struct {
-		title string
-		keys  []keyHelp
-	}{
-		{"in the review column", reviewKeys},
-		{"in the session", claudeKeys},
-	} {
-		lines = append(lines, "", section.title)
-		for _, k := range section.keys {
+	for _, section := range helpSections {
+		lines = append(lines, "", section.Title)
+		for _, k := range section.Keys {
 			lines = append(lines, helpRow(k.Key, k.Does, gutter, width))
 		}
 	}
@@ -168,7 +217,7 @@ func helpRow(key, does string, gutter, width int) string {
 	return fitLine("  "+padRight(key, gutter)+"  "+does, width)
 }
 
-// helpGutter is the key column's width: the longest key in either table, so a
+// helpGutter is the key column's width: the longest key in any table, so a
 // new binding widens the column instead of pushing its description out of line
 // with every other one (#103).
 func helpGutter(leader string) int {
@@ -176,8 +225,8 @@ func helpGutter(leader string) int {
 	for _, k := range leaderKeys {
 		w = max(w, lipgloss.Width(leader+" "+k.Key))
 	}
-	for _, table := range [][]keyHelp{reviewKeys, claudeKeys} {
-		for _, k := range table {
+	for _, section := range helpSections {
+		for _, k := range section.Keys {
 			w = max(w, lipgloss.Width(k.Key))
 		}
 	}
@@ -275,7 +324,7 @@ func modalFooter(md modal) string {
 	switch md.Kind {
 	case modalPrompt, modalRename, modalBranch:
 		return "enter confirm  esc cancel  ctrl+c quit"
-	case modalConfirm:
+	case modalConfirm, modalRevert:
 		// The answers are listed in full in the pane directly above, and they
 		// differ between a worktree session and a main-checkout one, so
 		// repeating them here would only risk disagreeing with them.

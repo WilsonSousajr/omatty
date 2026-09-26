@@ -10,6 +10,16 @@ type Comment struct {
 	Quote  string
 	Note   string
 	Sent   time.Time
+	// Fragment is the part of the line the note is about, empty for a note
+	// about the whole line (#339).
+	//
+	// Text, not a column range: offsets into a line the agent has since
+	// rewritten point at whatever now happens to sit there, while the text can
+	// be looked for. And deliberately NOT part of Anchor - invariant 7 makes the
+	// anchor the line's *identity*, and a fragment is a property of the note, so
+	// two notes on one line with different fragments must resolve to the same
+	// line. There is a test saying exactly that.
+	Fragment string
 }
 
 // Comments is one session's in-memory queue. Submitting marks what it sent

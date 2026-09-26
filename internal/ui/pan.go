@@ -125,7 +125,7 @@ func (m *Model) previewMaxWidth() int {
 func (m *Model) treeMaxWidth() int {
 	widest := 0
 	for _, n := range m.treeRows() {
-		widest = max(widest, lipgloss.Width(treeText(n, m.review.Tree.Collapsed(n.Path))))
+		widest = max(widest, lipgloss.Width(treeText(n, m.review.Tree.Collapsed(n.Path), m.reviewMark(n.Path, n.IsDir))))
 	}
 	return widest
 }
