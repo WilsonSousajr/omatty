@@ -119,6 +119,9 @@ var diffKeys = []keyHelp{
 	{"S", "submit the queued comments"},
 	{"t", "the whole session, or only this turn"},
 	{"o", "open the file at the line under the cursor"},
+	{"] / [", "the next file, or the one before"},
+	{"n / N", "the next hunk, or the one before"},
+	{"enter", "on a file's header: fold the file to it, or open it"},
 	{"r", "reload the diff"},
 }
 

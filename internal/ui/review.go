@@ -128,6 +128,9 @@ type ReviewPane struct {
 	// line wider than the column can still be read (issue #94). One offset
 	// serves all three views, so h and l behave the same wherever you are.
 	ColOffset int
+	// FoldedFiles is the diff's files folded to their header (#436), by path
+	// so a reload keeps them. A viewing state: nothing persists it.
+	FoldedFiles map[string]bool
 	// HunkStyles memoises each hunk's syntax colours and changed words (#435),
 	// dropped whenever the entries are rebuilt.
 	HunkStyles map[hunkKey]hunkStyle
@@ -376,7 +379,7 @@ func (m *Model) rebuildEntries() {
 		// does not place is elsewhere in the session, not moved (#311).
 		placed = review.PlaceIn(m.review.Diff, d, comments)
 	}
-	m.review.Entries = review.Flatten(d, placed)
+	m.review.Entries = m.withoutFolded(review.Flatten(d, placed), d)
 	m.review.HunkStyles = nil // the hunks may be another diff's now (#435)
 	m.contentChanged()
 	if m.review.DiffList.Cursor >= len(m.review.Entries) {
