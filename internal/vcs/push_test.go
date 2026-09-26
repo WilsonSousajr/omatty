@@ -1,6 +1,7 @@
 package vcs_test
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -92,5 +93,36 @@ func TestHasRemote_TellsAnOriginlessCheckoutApart_issue331(t *testing.T) {
 
 	if has, err = vcs.NewCLI().HasRemote(dir); err != nil || !has {
 		t.Errorf("HasRemote = %v, %v; want true once origin exists", has, err)
+	}
+}
+
+// Regression, issue #472: git prompts for credentials on the *controlling
+// terminal*, which is the terminal omatty is drawing on. In a real PTY the
+// bottom of the screen became `sername for 'https://github.com':` - git's own
+// half-scrolled prompt over omatty's frame. Invariant 5 says stdout belongs to
+// the TUI; a subprocess that prompts takes it anyway.
+//
+// With prompts disabled git fails immediately instead, with a sentence Push
+// already wraps and the footer already shows.
+func TestPush_DisablesGitsTerminalPrompt_issue472(t *testing.T) {
+	dir := t.TempDir()
+	log := filepath.Join(dir, "env")
+	bin := filepath.Join(dir, "git")
+	script := "#!/bin/sh\nprintenv > '" + log + "'\nexit 0\n"
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := vcs.NewCLIWithBin(bin).Push(dir, "main"); err != nil {
+		t.Fatal(err)
+	}
+
+	env, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatalf("the fake git recorded no environment: %v", err)
+	}
+	if !strings.Contains(string(env), "GIT_TERMINAL_PROMPT=0") {
+		t.Errorf("the push does not disable git's terminal prompt, so a remote "+
+			"needing credentials writes over the TUI; env was:\n%s", env)
 	}
 }

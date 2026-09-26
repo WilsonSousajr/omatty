@@ -318,3 +318,63 @@ func TestModel_pShipsASessionThatHasReportedNoStatus_issue331(t *testing.T) {
 			sh.Pushed, footerOf(m))
 	}
 }
+
+// Regression, issue #471: `readyToShip` is three facts and none of them is the
+// gate - its one previous caller reached it only after firstNotPassed had found
+// nothing, so #331 inherited a promise the function never made. A project with
+// no gate configured produced no report, `readyToShip` said yes, and omatty
+// pushed.
+func TestModel_pRefusesWithNoGateReportAtAll_issue471(t *testing.T) {
+	sh := &shipper{State: review.Shippable{Commits: 2}}
+	st := shipState()
+	st.Projects[0].Gate = nil // no gate configured for this project
+	d := baseDeps(st, fakeTermsFor(st))
+	d.Ship = sh.funcs()
+	m := ui.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.SetRepoStat("s1", review.Stat{Branch: "feat/parser", Added: 12, Removed: 3, Head: "abc123"})
+
+	leaderDeliver(m, key('p'))
+
+	if len(sh.Pushed) != 0 {
+		t.Fatalf("pushed %v with no gate verdict at all; footer says %q", sh.Pushed, footerOf(m))
+	}
+	if got := m.View().Content; !strings.Contains(got, "gate is not green") {
+		t.Errorf("the refusal does not name the gate:\n%s", got)
+	}
+}
+
+// The other half of #471, and the worse one: a gate that ran and *failed* also
+// satisfied readyToShip, so a red verdict shipped.
+func TestModel_pRefusesAFailedGate_issue471(t *testing.T) {
+	sh := &shipper{State: review.Shippable{Commits: 2}}
+	m := modelReadyToShip(t, sh, nil)
+
+	deliver(m, second(m.Update(ui.GateMsg(failingReport()))))
+
+	leaderDeliver(m, key('p'))
+
+	if len(sh.Pushed) != 0 {
+		t.Fatalf("pushed %v on a failing gate; footer says %q", sh.Pushed, footerOf(m))
+	}
+	if got := m.View().Content; !strings.Contains(got, "gate is not green") {
+		t.Errorf("the refusal does not name the gate:\n%s", got)
+	}
+}
+
+// A merge must not happen on a red or absent local verdict either, for the same
+// reason: both halves of #331 promise "already green".
+func TestModel_pRefusesToMergeOnAFailedGate_issue471(t *testing.T) {
+	sh := &shipper{State: review.Shippable{Commits: 2}}
+	m := modelReadyToShip(t, sh, []forge.PR{
+		{Number: 443, Branch: "feat/parser", State: forge.Open, CI: forge.CIPassing, Head: "abc123"},
+	})
+
+	deliver(m, second(m.Update(ui.GateMsg(failingReport()))))
+
+	leaderDeliver(m, key('p'))
+
+	if len(sh.Merged) != 0 {
+		t.Fatalf("merged %v on a failing gate", sh.Merged)
+	}
+}
