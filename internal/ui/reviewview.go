@@ -353,6 +353,9 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 	if e.Kind == review.EntryComment && !comments[e.Comment].Sent.IsZero() {
 		return mutedStyle.Render(text) // sent: context for this turn, not a to-do (#335)
 	}
+	if e.Kind == review.EntryLine {
+		return m.styledLine(e, w) // syntax and changed words (#435)
+	}
 	return entryStyle(e, m.shownDiff()).Render(text)
 }
 

@@ -128,6 +128,9 @@ type ReviewPane struct {
 	// line wider than the column can still be read (issue #94). One offset
 	// serves all three views, so h and l behave the same wherever you are.
 	ColOffset int
+	// HunkStyles memoises each hunk's syntax colours and changed words (#435),
+	// dropped whenever the entries are rebuilt.
+	HunkStyles map[hunkKey]hunkStyle
 	// Zoomed widens the column over the session pane (#427). A viewing state
 	// on the pane, so every reset of the pane drops it and nothing persists it
 	// (invariant 9); it shows only while the column has the keys - see zoomed.
@@ -374,6 +377,7 @@ func (m *Model) rebuildEntries() {
 		placed = review.PlaceIn(m.review.Diff, d, comments)
 	}
 	m.review.Entries = review.Flatten(d, placed)
+	m.review.HunkStyles = nil // the hunks may be another diff's now (#435)
 	m.contentChanged()
 	if m.review.DiffList.Cursor >= len(m.review.Entries) {
 		m.review.DiffList.Cursor = max(len(m.review.Entries)-1, 0)

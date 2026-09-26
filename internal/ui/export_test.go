@@ -41,6 +41,10 @@ func SearchHit(s string) string { return searchStyle.Render(s) }
 // [ui] icons = "nerd" does through Deps (#425).
 func (m *Model) UseNerdIcons() { m.glyphs, m.nerdIcons = nerdGlyphs, true }
 
+// EmphasisAdded and EmphasisRemoved are the changed words of a pair (#435).
+func EmphasisAdded(s string) string   { return emphasisStyle(review.LineAdded).Render(s) }
+func EmphasisRemoved(s string) string { return emphasisStyle(review.LineRemoved).Render(s) }
+
 // ColumnKeyTables is each review-column face's documented keys, by face, plus
 // "column" for the keys every face shares - the tables helpBody renders, so
 // the #422 test checks the handlers against what the operator actually sees.
