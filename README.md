@@ -217,6 +217,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o /` | jump to a session by typing part of its name |
 | `ctrl+o a` | register a project claude already knows you use |
 | `ctrl+o A` | adopt a claude session already in this project |
+| `ctrl+o ?` | show every key, starting with the ones for the face in front of you; `/` filters them |
 | `ctrl+o q` | quit |
 
 `ctrl+o s` ends a session's `claude` process and frees its memory (a few

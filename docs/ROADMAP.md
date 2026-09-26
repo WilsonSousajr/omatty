@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-09-10, when v0.1.0 promoted `develop` to `main` (#134).
+Last revised 2026-09-26, when v0.6.0 promoted `develop` to `main` (#480).
 Every milestone is built; what is left is under "What is left", and how a
 release reaches `main` is under "Releases".
 
