@@ -62,6 +62,7 @@ type Model struct {
 	comments map[string]*review.Comments
 	diff     DiffFunc
 	files    ListFilesFunc
+	tally    TallyFunc
 	preview  PreviewFunc
 	rename   RenameFunc
 	rebind   RebindFunc // follows a /clear onto its new conversation (#316)
@@ -145,6 +146,9 @@ type Model struct {
 	statFailed  map[string]bool
 	// filesPending guards one worktree listing in flight per session (#195).
 	filesPending map[string]bool
+	// turnGated marks the sessions whose gate run was started by a turn
+	// ending rather than by hand, which is the set #332's rate is over.
+	turnGated map[string]bool
 	// reattached is Deps.Reattached: the panes to nudge once at boot (#191).
 	reattached map[string]bool
 	// The archive path's three halves: forget the session, stop its tailer,
@@ -223,6 +227,7 @@ func NewModel(deps Deps) *Model {
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
+	m.tally = d.Tally
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse = d.PRs, d.Issues, d.Item, d.Browse
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
@@ -272,6 +277,7 @@ func (m *Model) withRuntimeMaps() *Model {
 	m.statPending = map[string]bool{}
 	m.statFailed = map[string]bool{}
 	m.filesPending = map[string]bool{}
+	m.turnGated = map[string]bool{}
 	return m.withTurnMaps().withPRMaps().withIssueMaps().withItemMaps()
 }
 

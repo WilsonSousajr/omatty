@@ -29,6 +29,11 @@ type DiffLoadedMsg struct {
 // reaches git itself (invariant 4, #24).
 type ListFilesFunc func(dir string) ([]string, error)
 
+// TallyFunc records one gate run that followed a turn, and whether it passed
+// (#332). Injected because it writes state.json, which ui may not touch itself
+// (invariant 10).
+type TallyFunc func(project string, passed bool) error
+
 // PreviewFunc reads one file for the preview view, so a test never touches
 // the filesystem.
 type PreviewFunc func(dir, rel string) (review.Preview, error)

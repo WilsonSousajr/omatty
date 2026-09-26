@@ -47,6 +47,10 @@ type PR struct {
 	Head     string // the head commit, which says whether a merged PR is this work
 	Draft    bool   // opened as a draft: not ready to be read as work offered
 	Updated  time.Time
+	// MergedAt is when it merged, zero for one that has not (#332). The thing
+	// itself rather than Updated as a proxy for it: a merged pull request can be
+	// commented on afterwards, which moves Updated and not the merge.
+	MergedAt time.Time
 }
 
 // ghPR is one element of `gh pr list --json` with the fields ListPRs asks for.
@@ -61,6 +65,7 @@ type ghPR struct {
 	StatusCheckRollup []check   `json:"statusCheckRollup"`
 	IsDraft           bool      `json:"isDraft"`
 	UpdatedAt         time.Time `json:"updatedAt"`
+	MergedAt          time.Time `json:"mergedAt"`
 }
 
 // check is a CheckRun (status, conclusion) or a StatusContext (state); the
@@ -82,20 +87,27 @@ func Fold(raw []byte) ([]PR, error) {
 	}
 	out := make([]PR, len(in))
 	for i, p := range in {
-		out[i] = PR{
-			Number:   p.Number,
-			Title:    p.Title,
-			Branch:   p.HeadRefName,
-			State:    stateOf(p.State),
-			CI:       rollup(p.StatusCheckRollup),
-			Conflict: p.MergeStateStatus == "DIRTY" || p.MergeStateStatus == "BEHIND",
-			Fork:     p.IsCrossRepository,
-			Head:     p.HeadRefOid,
-			Draft:    p.IsDraft,
-			Updated:  p.UpdatedAt,
-		}
+		out[i] = foldOne(p)
 	}
 	return out, nil
+}
+
+// foldOne is one element of gh's list as omatty's own type. Split from Fold when
+// #332's mergedAt took the loop past the length limit.
+func foldOne(p ghPR) PR {
+	return PR{
+		Number:   p.Number,
+		Title:    p.Title,
+		Branch:   p.HeadRefName,
+		State:    stateOf(p.State),
+		CI:       rollup(p.StatusCheckRollup),
+		Conflict: p.MergeStateStatus == "DIRTY" || p.MergeStateStatus == "BEHIND",
+		Fork:     p.IsCrossRepository,
+		Head:     p.HeadRefOid,
+		Draft:    p.IsDraft,
+		Updated:  p.UpdatedAt,
+		MergedAt: p.MergedAt,
+	}
 }
 
 func stateOf(s string) PRState {

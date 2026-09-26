@@ -302,6 +302,7 @@ func (m *Model) forgetCardMaps(id string) {
 	delete(m.statPending, id)
 	delete(m.statFailed, id)
 	delete(m.filesPending, id)
+	delete(m.turnGated, id) // whether its gate run followed a turn (#332)
 	delete(m.reattached, id)
 	delete(m.activeAt, id)    // the idle sweep's floor (#319)
 	delete(m.turnPending, id) // the turn baseline's bookkeeping (#311)

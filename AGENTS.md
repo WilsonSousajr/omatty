@@ -75,6 +75,7 @@ internal/
 ├── golist/         [M11] OUR interface over `go list` (invariant 4 in spirit).
 ├── crap/           [M11] per-function complexity x coverage -> a C.R.A.P. score.
 ├── depgraph/       [M11] the internal import graph -> Ca, Ce, instability, SDP.
+├── tally/          [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.

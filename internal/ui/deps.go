@@ -84,6 +84,9 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
+	// Tally records one gate run that followed a turn, for #332's first-pass
+	// rate. Unwired, nothing is measured, which is what every test sees.
+	Tally TallyFunc
 	// Stat reads a session's branch and diffstat for its card; nil means no
 	// git to ask (#180).
 	Stat RepoStatFunc
@@ -181,6 +184,9 @@ func (d Deps) withReviewDefaults() Deps {
 	// rather than an error: only a test replaces it (#24).
 	if d.Preview == nil {
 		d.Preview = review.ReadPreview
+	}
+	if d.Tally == nil {
+		d.Tally = noTally
 	}
 	return d
 }
@@ -303,3 +309,8 @@ func (d Deps) withDiscoveryDefaults() Deps {
 // model takes a function rather than the Runner itself (invariant: the UI
 // holds no concurrency of its own).
 type GateRunFunc func(sessionID, dir string, steps []gate.Step)
+
+// noTally is the unwired Tally: nothing is measured. A measurement is not worth
+// a nil check at the call site, and a run nobody counted is the state every
+// project was in before #332.
+func noTally(string, bool) error { return nil }

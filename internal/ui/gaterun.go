@@ -8,6 +8,8 @@
 package ui
 
 import (
+	"log/slog"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
@@ -41,6 +43,7 @@ func (m *Model) onGate(msg GateMsg) tea.Cmd {
 	delete(m.gateRunning, report.ID)
 	delete(m.gateSent, report.ID) // a fresh report's failures have not been sent
 	m.gates[report.ID] = report
+	m.tallyRun(report)
 	return tea.Batch(m.waitForGate(), m.gateNotice(report), m.loadCoverage(report.ID))
 }
 
@@ -100,6 +103,49 @@ func (m *Model) sessionByID(id string) (registry.Session, bool) {
 	return registry.Session{}, false
 }
 
+// tallyRun counts a gate run that followed a turn (#332).
+//
+// Only the runs autoGate started, because that is what #332's rate is over -
+// "of the gate runs that followed a turn, the share that passed". A run the
+// operator asked for by hand would measure how often somebody re-ran a gate
+// they already knew was red.
+//
+// A failure to record is logged and nothing else. Measuring must never be able
+// to disturb a session: the report has already landed, and a number nobody can
+// see is worth less than the run it describes.
+func (m *Model) tallyRun(report gate.Report) {
+	if !m.turnGated[report.ID] {
+		return
+	}
+	delete(m.turnGated, report.ID)
+	sess, ok := m.session(report.ID)
+	if !ok {
+		return
+	}
+	if err := m.tally(sess.Project, passedWholly(report)); err != nil {
+		slog.Warn("recording a gate run", "project", sess.Project, "err", err)
+	}
+}
+
+// passedWholly reports whether every step of a run passed, which is #332's
+// first pass.
+//
+// "Passed without a send-back" is simplified to "passed", and the simplification
+// is exact rather than convenient: a send-back only ever happens on a report
+// that failed (Compose returns "" for a green one), so a run that passed is a
+// run nothing was sent back from.
+func passedWholly(report gate.Report) bool {
+	if report.Err != nil || len(report.Results) == 0 {
+		return false
+	}
+	for _, r := range report.Results {
+		if r.Verdict != gate.Pass {
+			return false
+		}
+	}
+	return true
+}
+
 // autoGate runs a session's gate when its turn ends, if the operator asked
 // for that. The thesis in one behaviour: the agent says it is done, and
 // omatty checks.
@@ -115,6 +161,9 @@ func (m *Model) autoGate(id string, before, after watcher.Status) {
 	if !m.gateAuto || before == after || !atRest(after) {
 		return
 	}
+	// Marked before the run rather than inferred after it: by the time the
+	// report lands, nothing distinguishes it from one the operator asked for.
+	m.turnGated[id] = true
 	m.runGate(id)
 }
 
