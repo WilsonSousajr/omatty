@@ -28,6 +28,12 @@ func LeaderKeys() []string {
 	return out
 }
 
+// Bold is s as a heading or a title is drawn (#433).
+func Bold(s string) string { return headerStyle.Render(s) }
+
+// Strong is s as a body's **strong** run is drawn (#433).
+func Strong(s string) string { return strongStyle.Render(s) }
+
 // SearchHit is s as the gate draws a search match (#429).
 func SearchHit(s string) string { return searchStyle.Render(s) }
 

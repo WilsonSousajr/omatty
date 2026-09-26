@@ -135,8 +135,11 @@ func nameWidth(steps []gate.Step) int {
 // elapsed is how long a step took, blank for one that never ran: seconds to a
 // tenth under a minute, minutes and seconds past one (#428), so a long step
 // fits the six-cell column and reads as long.
-func elapsed(result gate.StepResult) string {
-	d := result.Elapsed
+func elapsed(result gate.StepResult) string { return durationText(result.Elapsed) }
+
+// durationText is a duration as the gate's column and an item's checks draw it
+// (#428, #433), blank for none.
+func durationText(d time.Duration) string {
 	if d <= 0 {
 		return ""
 	}
