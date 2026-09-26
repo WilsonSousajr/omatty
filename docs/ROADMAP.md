@@ -969,6 +969,30 @@ own CHANGELOG section (#327). A pull request already checks the release
 configuration and builds it as a snapshot, so a tag cannot be the first thing
 to find it broken.
 
+**When a release happens: at every milestone close** (#329). This section and
+AGENTS.md said *how* for three weeks and never *when*, and with "no version
+bump and no release tag without explicit approval" standing over them, the
+default was that nothing shipped - v0.1.0 took nine days of finished
+milestones to arrive, and twelve days after it five more were waiting on
+`develop` (#328). Merges already ran on a standing approval granted per
+milestone; releases had no equivalent, so each one depended on somebody
+remembering to ask.
+
+So closing a milestone now *includes* its promotion pull request and its tag,
+under the same standing approval as that milestone's merges. The release is
+part of finishing the work.
+
+**A floor, not a ceiling.** A milestone close must produce a release; a release
+does not require one. v0.1.0, v0.2.0 and v0.5.0 went out at milestone closes;
+v0.3.0 and v0.4.0 went out in the middle of M12, because a verification core
+and a close-out were each worth having on `main` before the milestone around
+them finished. Both stay allowed and both stay asked about.
+
+**The checks did not move.** The gate above is exactly the same gate - CI green
+on both runners plus the smoke test a person reads. #329 was a question about
+the trigger, and the reason to settle it in writing is that a decision made by
+default, once per release, is the one that quietly stops being made at all.
+
 Below 1.0 the `ctrl+o` key table, `~/.omatty/config.toml` keys and the
 `state.json` schema are explicitly not frozen; the embedded terminal library
 underneath is itself pre-1.0 (invariant 4). A break in any of them is a minor
@@ -1401,4 +1425,6 @@ faster pair.
    AGENTS.md says so in its commit message.
 5. **A milestone ends on `develop`; a release ends on `main`.** The promotion
    is a PR clearing rule 2's gate, and it is tagged. See "Releases". #134 is
-   what nine days without this rule cost.
+   what nine days without this rule cost. And closing a milestone *includes*
+   that promotion and that tag (#329) - a milestone is not finished while its
+   work is only on `develop`.
