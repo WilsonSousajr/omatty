@@ -104,6 +104,7 @@ var reviewKeys = []keyHelp{
 	{"g", "tree: show the generated files it folded away, or fold them again"},
 	{"o", "jump between a diff line and the file at that line, both ways"},
 	{"c", "comment on the line under the cursor"},
+	{"C", "comment on part of the line: type the words, then the note"},
 	{"S", "submit the queued comments"},
 	{"t", "diff: the whole session, or only this turn"},
 	{"esc", "leave the column"},

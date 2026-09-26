@@ -289,7 +289,7 @@ func (m *Model) reviewBody(w, rows int) []string {
 		return m.renderEntries(w, rows)
 	}
 	out := m.renderEntries(w, rows-1)
-	return append(out, editLine("note", m.review.Note.Buffer, w))
+	return append(out, editLine(noteLabel(m.review.Note), m.review.Note.Buffer, w))
 }
 
 // renderEntries draws the rows-high window around the cursor. The offset is
@@ -476,4 +476,12 @@ func noticeLines(lines []string, isErr bool, w int) []string {
 		}
 	}
 	return out
+}
+
+// noteLabel says which of the note editor's two prompts is showing (#339).
+func noteLabel(n noteEditor) string {
+	if n.Stage == stageFragment {
+		return "fragment"
+	}
+	return "note"
 }

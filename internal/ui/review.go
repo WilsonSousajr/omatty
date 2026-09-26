@@ -171,7 +171,24 @@ type noteEditor struct {
 	Anchor review.Anchor
 	Quote  string
 	Buffer string
+	// Fragment is the part of Quote the note is about, and Stage says which of
+	// the two things the buffer is collecting (#339). A whole-line note opened
+	// with c never leaves stageNote and never sets Fragment, so it behaves
+	// exactly as it did.
+	Fragment string
+	Stage    noteStage
 }
+
+// noteStage is which prompt the note editor is showing.
+type noteStage int
+
+const (
+	// stageNote is the note itself, and the zero value: c opens straight into
+	// it, which is the whole-line path this feature must not disturb.
+	stageNote noteStage = iota
+	// stageFragment collects the part of the line first, for C (#339).
+	stageFragment
+)
 
 // noDiff is the Deps.Diff default: it names the missing wiring rather than
 // showing an empty diff, which would read as "this session changed nothing".
