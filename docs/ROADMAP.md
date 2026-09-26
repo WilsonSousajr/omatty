@@ -38,6 +38,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M14 | The Tracker | **Done.** Seven slices #393-#399 built 2026-09-25 as PRs #400-#406. Released in v0.5.0. |
 | — | **Released** | **v0.5.0**, 2026-09-26. M14 promoted to `main` (#407). See "Releases". |
 | M15 | The Polish | **Planned** 2026-09-26: three bugs and sixteen slices, #421-#439, in Sprint Backlog. See the M15 section. |
+| M16 | The Forges | **Planned** 2026-09-26: GitLab, Azure DevOps, Gitea/Forgejo/Codeberg and Bitbucket at GitHub's parity, #449-#465, in Backlog. See the M16 section. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -1326,6 +1327,10 @@ project holding no sessions.
 history the forge already keeps; search across repositories; and a `[forge]`
 config section - the poll is zero-config, as #310's is.
 
+*Amended by M16 (#451):* `[forge.hosts]` exists only to name a self-hosted
+forge omatty cannot recognise by its host. The poll stays zero-config for
+every host omatty already knows.
+
 ## M15 - The Polish
 
 **Delivers:** the review column's four faces and the help modal read as one
@@ -1410,6 +1415,70 @@ second pane. The smoke run is read by a person at both sizes, and it includes
 #337, #338 and #339 stay M12. #436 and #437 are built so as not to preclude
 #337.
 
+## M16 - The Forges
+
+**Delivers:** every forge omatty's users are on, at the parity GitHub has
+today. That means GitLab (gitlab.com and self-managed), Azure DevOps (Services
+and Server), Gitea, Forgejo and Codeberg, and Bitbucket (Cloud and Data
+Center). Each gets open PRs (MRs) with a CI rollup on the card, open issues
+(work items) in the tracker, an item's body and comments, and browse.
+Design: `docs/superpowers/specs/2026-09-26-omatty-m16-forges-design.md` (#448).
+
+**Why here.** #310 and M14 made the forge part of the window, but only for
+GitHub. Everyone else gets "not on GitHub" and a browser tab. The seam already
+exists: the UI depends on four func types, not on `gh`. So widening
+`internal/forge` behind a router touches one package and the wiring, not the
+UI.
+
+**Decided with the user:**
+
+- **Transport is CLI first, REST fallback.** omatty runs `glab`, `az` or `tea`
+  on the operator's own auth when it is installed. Otherwise it calls REST
+  with a token read from the environment per call and never stored. Bitbucket
+  has no official CLI, so it is REST only.
+- **Boards are out**, GitHub Projects included. M16 is issues and PRs.
+- **Every slice sits in Backlog.** M16 is designed, not scheduled.
+
+**The foundation** comes first, and GitHub is the first backend:
+
+- **#449:** a forge-neutral vocabulary: `MissingToolError`, `ErrNoForge`, and
+  the PR/MR noun in the copy.
+- **#450:** read the remote (`vcs.RemoteURL`) and name its forge from the
+  host.
+- **#451:** `[forge.hosts]` names self-hosted forges, which also covers
+  GitHub Enterprise.
+- **#452:** `forge.Router` dispatches per project to an unexported backend,
+  and every forge CLI is fenced to `internal/forge`.
+- **#453:** the REST transport: bounded bodies, redacted tokens, and a
+  `net/http` fence. Labelled `invariant`.
+
+**Then a backend per forge,** CLI then REST: GitLab (#454, #455), Azure DevOps
+(#456, #457), Gitea/Forgejo (#458, #459), Bitbucket Cloud and Data Center (#460,
+#461), and GitHub's own REST fallback (#462).
+
+**Then the close-out:** a real probe per forge (#463), #331's ship actions on
+every forge once #331 ships (#464), and a support matrix that claims only what
+the probes showed (#465).
+
+**Why one package and not one per forge.** A package per forge would add five
+`os/exec` importers to an allowlist where adding one "is a decision", and
+would make `ui` choose between five packages. One package with a backend file
+per forge is how the agent seam grows (#46).
+
+**Invariants held.** git stays in `vcs` and every forge CLI stays in `forge`
+(invariant 4). Nothing is persisted, and a project's forge is derived from its
+remote (invariant 9). M16 adds no forge write, and #464 only carries #331's
+bounded three.
+
+**Done when:** a project on each of the five forges shows its PRs with CI on
+the card and its issues in `ctrl+o i`, through both the CLI and the REST path.
+Each is verified by a real `forgeprobe` run read by a person (#463). Any forge
+not probed is named as untested, not claimed.
+
+**Deliberately out:** boards on every forge; Jira; forge writes beyond #331;
+OAuth, device flow, or any login or token store in omatty; several remotes per
+project; per-check CI detail; SourceHut, Gerrit, Phabricator and CodeCommit.
+
 ## Not on the roadmap
 
 Considered and cut, so they do not creep back in through the side door.
@@ -1471,6 +1540,13 @@ bounded to what a person asks for while reading:
 Using the operator's existing `git` remote and `gh` auth is not "cloud,
 accounts, sync" - there is no account, no token and no sync. It is the
 credential the operator already uses by hand, on a keypress they pressed.
+
+*Amended by M16 (#453):* when a forge's CLI is absent, omatty may read a
+token the operator already put in the environment (`GITLAB_TOKEN`,
+`GH_TOKEN`, ...), per call. It still **stores** no token: nothing is written
+to config, `state.json` or a log, there is no login and no account, and
+nothing syncs. "Holds no token" above now reads "stores no token". The
+refusal of cloud, accounts and sync is unchanged.
 
 One idea found in the field is **not** refused, only unanswered: **forking a
 session's conversation** (`fleet`'s `f`). Invariant 9 asks the first question —
