@@ -239,6 +239,9 @@ func joinColumns(cols []string) string {
 // title go to the same column: the one keyboardEdge names.
 func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segment) {
 	edge := m.keyboardEdge()
+	if m.zoomed() {
+		return m.zoomedColumns(termH, now)
+	}
 	cols := []string{m.renderSidebar(termH, now), hairlineColumn(edge == edgePane, termH), m.renderTerminal(termW, termH)}
 	// termW-2: the leading space headerRow adds and one blank before the
 	// hairline, so the right-aligned usage never touches it (#177).
@@ -249,9 +252,26 @@ func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segmen
 	if !m.review.Open {
 		return cols, segs
 	}
-	rw := reviewContentWidth(m.width)
+	rw := m.columnWidth()
 	cols = append(cols, hairlineColumn(edge == edgeReview, termH), m.renderReview(rw, termH))
-	return cols, append(segs, segment{title: m.reviewTitle(rw), width: rw, owns: edge == edgeReview, closable: true, label: m.faceName()})
+	return cols, append(segs, m.columnSegment(rw, edge == edgeReview))
+}
+
+// zoomedColumns is the body with the column drawn over the session pane: the
+// sidebar, the column's own hairline, then the column to the edge (#427).
+func (m *Model) zoomedColumns(termH int, now time.Time) ([]string, []segment) {
+	rw := m.columnWidth()
+	cols := []string{m.renderSidebar(termH, now), hairlineColumn(true, termH), m.renderReview(rw, termH)}
+	return cols, []segment{{title: m.sidebarSegment(), width: sidebarContentCols}, m.columnSegment(rw, true)}
+}
+
+// columnSegment is the review column's header and rule segment.
+func (m *Model) columnSegment(rw int, owns bool) segment {
+	label := m.faceName()
+	if m.zoomed() {
+		label += " · zoomed"
+	}
+	return segment{title: m.reviewTitle(rw), width: rw, owns: owns, closable: true, label: label}
 }
 
 // renderSidebar draws the project/session rows in the sidebar's content

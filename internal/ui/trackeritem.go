@@ -166,7 +166,7 @@ func (m *Model) itemLines() []string {
 	if !held {
 		return m.itemNote(key)
 	}
-	w := reviewContentWidth(m.width)
+	w := m.columnWidth()
 	lines := append(m.itemHead(item, w), wrapBlock(item.Body, w)...)
 	for _, c := range item.Comments {
 		lines = append(lines, "", fitLine(labelledRule(c.Author+" · "+AgeString(m.clock(), c.At), w), w))
@@ -197,7 +197,7 @@ func (m *Model) itemHead(item forge.Detail, w int) []string {
 // Distinct states, because an empty pane reads as "this issue says nothing".
 func (m *Model) itemNote(key itemKey) []string {
 	number := "#" + strconv.Itoa(key.Number)
-	w := reviewContentWidth(m.width)
+	w := m.columnWidth()
 	switch {
 	case m.ghMissing:
 		return wrapBlock("gh is not installed, so "+number+" cannot be read.", w)

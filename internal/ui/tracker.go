@@ -310,14 +310,14 @@ func plural(n int, noun string) string {
 // wrapped onto a row the cursor would then have to account for.
 func (m *Model) renderTracker(_, h int) []string {
 	if note := m.trackerNote(); note != nil {
-		return m.withFilterLine(note, reviewContentWidth(m.width), h)
+		return m.withFilterLine(note, m.columnWidth(), h)
 	}
 	rows := m.trackerRows()
 	lines := make([]string, 0, len(rows))
 	for i, r := range rows {
 		lines = append(lines, m.trackerLine(r, i == m.review.Tracker.Cursor))
 	}
-	return m.withFilterLine(window(lines, m.review.Tracker.Offset, h), reviewContentWidth(m.width), h)
+	return m.withFilterLine(window(lines, m.review.Tracker.Offset, h), m.columnWidth(), h)
 }
 
 // trackerNote is the "nothing to show" state, or nil when there are rows. Each
@@ -346,7 +346,7 @@ func (m *Model) trackerNote() []string {
 // long since it last moved. The cursor row is drawn in the accent, the way a
 // selected card's rail is (#174).
 func (m *Model) trackerLine(r trackerRow, selected bool) string {
-	w := reviewContentWidth(m.width)
+	w := m.columnWidth()
 	if r.Kind == rowRule {
 		// The rule does not pan. It is a label rather than content, so it fits
 		// its own column the way a diff's file header does (#291): panned right
@@ -419,7 +419,7 @@ func (m *Model) trackerMaxWidth() int {
 		if r.Kind == rowRule {
 			continue
 		}
-		widest = max(widest, lipgloss.Width(trackerText(r, m.clock(), reviewContentWidth(m.width))))
+		widest = max(widest, lipgloss.Width(trackerText(r, m.clock(), m.columnWidth())))
 	}
 	return widest
 }

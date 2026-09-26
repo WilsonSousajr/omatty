@@ -41,7 +41,7 @@ func (m *Model) panReview(delta int) {
 		m.review.ColOffset = max(m.review.ColOffset+delta, 0)
 		return
 	}
-	w := reviewContentWidth(m.width)
+	w := m.columnWidth()
 	last := max(m.reviewMaxWidth()-w, 0)
 	m.review.ColOffset = min(m.review.ColOffset+delta, last)
 }

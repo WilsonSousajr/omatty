@@ -208,6 +208,9 @@ func (m *Model) columnCommand(key string) (tea.Cmd, bool) {
 		return m.toggleView(ViewGate), true
 	case "i":
 		return m.toggleTracker(), true
+	case "z":
+		m.toggleZoom()
+		return nil, true
 	}
 	return nil, false
 }

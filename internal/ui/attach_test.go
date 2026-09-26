@@ -92,7 +92,8 @@ func TestModel_TheAttachKeyIsDocumented_issue199(t *testing.T) {
 		t.Errorf("treeFooter does not name the attach key: %q", got)
 	}
 	m, _, _, _ := modelWithTree(t)
-	m.Update(tea.WindowSizeMsg{Width: 160, Height: 50})
+	// The whole keymap, which outgrew 50 rows once #331 and #424 added keys.
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: helpFitsHeight})
 	leader(m, key('?'))
 	lineWith(t, m.View().Content, "@path")
 }

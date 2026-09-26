@@ -116,7 +116,7 @@ func TestModel_TheFilterKeyIsDocumented_issue198(t *testing.T) {
 		t.Errorf("treeFooter does not name the filter key: %q", got)
 	}
 	m, _, _, _ := modelWithTree(t)
-	m.Update(tea.WindowSizeMsg{Width: 160, Height: 50})
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: helpFitsHeight}) // the whole keymap
 	leader(m, key('?'))
 	lineWith(t, m.View().Content, "filter the tree")
 }
