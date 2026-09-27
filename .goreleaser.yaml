@@ -53,15 +53,17 @@ homebrew_casks:
     repository:
       owner: WilsonSousajr
       name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
-    hooks:
-      post:
-        # The binary is not signed; without this Gatekeeper refuses to run a
-        # freshly installed copy.
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/omatty"]
-          end
+    # Rendered into dist/homebrew/Casks/omatty.rb, never uploaded (#369). The
+    # install hook - the binary is unsigned, so Gatekeeper refuses a freshly
+    # installed copy without it - is not here: this GoReleaser can only render
+    # it as a raw `postflight` block, which Homebrew deprecates, and every
+    # install printed a warning asking the user to report a bug in our tap.
+    # scripts/cask-steps.sh writes it as `postflight_steps` instead, and
+    # release.yml publishes the result with HOMEBREW_TAP_TOKEN, which this
+    # file therefore no longer names. `repository` stays: without it
+    # GoReleaser renders nothing at all. Move the hook back here once a
+    # GoReleaser release can emit install steps (goreleaser#6873).
+    skip_upload: true
