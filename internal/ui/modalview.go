@@ -42,6 +42,7 @@ type keyHelp struct {
 var leaderKeys = []keyHelp{
 	{"j / k", "next / previous session, wrapping"},
 	{"] / [", "next / previous project"},
+	{"tab", "fold or unfold the project, keeping its sessions"},
 	{"/", "jump to a session by name or project"},
 	{"n", "new session on the main checkout"},
 	{"N", "new session on a fresh worktree"},

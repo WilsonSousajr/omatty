@@ -7,6 +7,9 @@
 > the script that produces them is in "Reproducing the table" so the next pass
 > re-runs rather than re-invents it.
 >
+> **Refreshed 2026-09-27 in §7** (#513). §1-6 are the 09-18 capture, unedited;
+> where §7 contradicts them, §7 is current.
+>
 > **Analysis only.** No implementation decision is made in this file, and no
 > recommendation in §5 binds the roadmap. What omatty should *do* about any of
 > it is decided in `docs/ROADMAP.md`, in the open.
@@ -396,6 +399,242 @@ its `docs/issues-*.md` set, read 2026-09-18.
 any: `abralo.com/alternatives`, `runpane.com/alternatives/claude-squad`,
 `nimbalyst.com/blog/*`, `codeagentswarm.com/guides/*`, `munderdiffl.in/blog/*`.
 Each is published by a vendor that appears in its own ranking.
+
+## 7. Refresh, 2026-09-27
+
+> Captured **2026-09-27**, against `develop` at v0.7.0 plus #505, nine days
+> after §1-6. Every load-bearing claim in this section was checked against a
+> live primary page on that date, not remembered. §1-6 are left as they were
+> written, so the two captures can be compared; where this section contradicts
+> them, this section is the current one. Analysis only, like the rest of the
+> file: the recommendations below are inputs to `docs/ROADMAP.md` and #330.
+>
+> **Coverage.** The signal table and the field-size probes were re-run with the
+> script under "Reproducing the table". New candidates came from `gh search
+> repos` by topic and keyword, and from `andyrewlee/awesome-agent-orchestrators`
+> used as a list of names only. Gate claims were checked by fetching each
+> repository's file tree (`git/trees/HEAD?recursive=1`), grepping paths for
+> check, verify, gate, lint and test, and opening the files that matched. That
+> is a probe, not a read: a gate under an unexpected name would be missed.
+
+### 7.1 The signal table moved, in one place a lot
+
+| Project | Stars 09-18 → 09-27 | Last push | Latest release | Open issues |
+|---|---:|---|---|---:|
+| `stablyai/orca` | 71,802 → **79,236** | 09-27 | v1.4.215 (09-27) | 3,301 |
+| `BloopAI/vibe-kanban` | 28,123 → 28,201 | **09-19** | v0.1.44 (04-24) | 387 |
+| `smtg-ai/claude-squad` | 8,495 → 8,537 | 08-20 | v1.0.20 (08-20) | 16 |
+| `dagger/container-use` | 4,047 → 4,046 | 09-21 | v0.4.2 (2025-08-19) | 47 |
+| `stravu/crystal` | 3,118 → 3,122 | 2026-02-26 | v0.3.5 (02-26) | 60 |
+| `nimbalyst/nimbalyst` | 1,737 → 1,785 | 09-24 | v0.78.5 (09-24) | 595 |
+| `kbwo/ccmanager` | 1,246 → 1,250 | 09-27 | v4.4.4 (09-27) | 4 |
+| `akitaonrails/ai-jail` | 1,229 → 1,300 | 09-24 | v2.2.0 (09-24) | 0 |
+| `devflowinc/uzi` | 583 → 583 | 2025-06-04 | v0.0.2 | 6 |
+| `imbue-ai/sculptor` | 233 → 232 | 09-26 | v0.48.0 (09-21) | 0 |
+| `ykdojo/safeclaw` | 184 → 184 | 09-18 | v0.7.0 (07-24) | 0 |
+| `brizzai/fleet` | 53 → 54 | 09-23 | v2.45.0 (09-23) | 13 |
+| `jesseduffield/lazygit` | 82,458 → 82,707 | 09-27 | v0.65.1 (09-13) | 864 |
+| `dandavison/delta` | 32,227 → 32,355 | 09-19 | 0.19.2 (03-28) | 312 |
+| `Wilfred/difftastic` | 25,915 → 25,938 | 09-22 | 0.71.0 (09-18) | 247 |
+| `WilsonSousajr/omatty` | 0 → 1 | 09-26 | v0.7.0 (09-26) | 25 |
+
+- Orca added 7,434 stars in nine days, most of claude-squad's lifetime total,
+  and published nine releases in the window.
+- **vibe-kanban is winding down, not busy.** §2 read its daily commits as
+  activity. Its README now opens "Vibe Kanban is sunsetting"; the banner
+  went in on 2026-04-24, the date of its last full release, and the last push
+  is 09-19. It was already true on 09-18 and §2 missed it.
+- claude-squad is five weeks without a commit.
+
+Field-size probes: `topic:parallel-agents` 184 → 200;
+`claude code parallel in:description stars:>10` 205 → 205;
+`coding agent orchestrator in:description stars:>10` 462 → 472;
+`multiple claude code sessions in:description` 446 → 451;
+`claude code worktree in:description` 1,300 → 1,370.
+
+### 7.2 What §1 missed: the largest terminal sibling, and eight more
+
+This is the finding of the refresh, and it is a correction, not news. Every
+project below existed before 2026-09-18, overlaps camp A or B, and appears
+nowhere in `docs/` or `README.md`. Several are larger than anything §1
+listed in camp A.
+
+| Project | Camp | Stars | Created | Latest release | Licence |
+|---|---|---:|---|---|---|
+| `herdrdev/herdr` | A | 40,951 | 2026-03-27 | v0.9.1 (09-16) | Apache-2.0 |
+| `manaflow-ai/cmux` | B | 27,431 | 2026-01-28 | v0.64.25 (09-17) | GPL (README) |
+| `getpaseo/paseo` | B | 18,674 | 2025-10-13 | v0.9.2 (09-24) | none declared |
+| `NanmiCoder/cc-haha` | B | 14,730 | 2026-03-31 | v0.6.6 (09-22) | MIT |
+| `superset-sh/superset` | B | 14,670 | 2025-10-21 | desktop-v1.30.2 (09-22) | none declared |
+| `Untrivial-ai/agent-orchestrator` | B/C | 12,412 | 2026-02-13 | v0.13.1 (09-26) | Apache-2.0 |
+| `generalaction/emdash` | B | 5,850 | 2025-08-28 | v1.2.7 (09-27) | Apache-2.0 |
+| `xintaofei/codeg` | B | 3,703 | 2026-02-09 | v0.32.2 (09-24) | Apache-2.0 |
+| `greenfield-inc/Pane` | A/B | 492 | 2026-02-27 | v2.4.133 (09-27) | none declared |
+
+Why they were missed matters more than that they were: §1 found candidates
+by searching for *Claude Code* and *parallel*, and the largest of these
+describe themselves without either word ("the runtime your coding agents
+live on", "a Ghostty-based macOS terminal"). The next pass should search by
+shape (PTY, terminal, worktree, agents) as well as by name.
+
+**`herdrdev/herdr` is omatty's nearest large sibling**, and the one that
+changes the most. From its README: a single Rust binary, "no electron"; it
+"owns their terminals" rather than wrapping the agents; "detach without
+stopping work" and "can resume supported agent sessions"; "several machines,
+one window" over SSH; each pane "marked working, blocked, or idle"; a
+Homebrew formula; a plugin marketplace. Its plugin
+`persiyanov/herdr-reviewr` (778 stars, v0.39.0 on 09-23) is "a code review +
+file viewer sidebar for herdr. Comment on a diff and send back to agent",
+with a last-turn diff scope and a read-only PR tab. Taken together, herdr
+plus one plugin covers most of omatty's M1-M6 and M3 headline in a terminal,
+at forty thousand stars. What its core does not have is a gate (the tree
+holds only its own dev scripts, `scripts/*_check.py`); see 7.4 for its
+plugins.
+
+The others, one line each, from their READMEs:
+
+- **cmux**: a macOS-only terminal; the sidebar shows branch, PR number and
+  status, cwd and listening ports. No gate found.
+- **paseo**: a daemon with desktop, mobile, web and CLI clients. Its checks
+  are a change request's CI:
+  `packages/app/src/components/sidebar/workspace-meta-row/check-summary.ts`.
+- **cc-haha**: a desktop Claude Code workspace that runs its own
+  `./bin/claude-haha`, not the stock binary. Gate not checked at code level.
+- **superset**: a worktree per task, a diff viewer whose selected lines go
+  "to a running or new agent session". Its checks are GitHub's:
+  `computeChecksStatus.ts` ("GitHub's status × conclusion grid").
+- **agent-orchestrator**: a Go daemon and a desktop Kanban whose cards move
+  "from session, pull request, CI, and review facts", and which can "send CI
+  and review feedback back to the same agent". Remote CI only.
+- **emdash** (YC W26): a worktree per task, SSH remotes, "inspect CI checks,
+  and merge". It "installs marker-tagged entries in the agent's user-level
+  config" for its hooks, which is the thing invariant 3 exists to refuse.
+- **codeg**: aggregates sessions from fifteen agent CLIs; a to-do board with
+  worktrees. No gate found.
+- **Pane**: "Vim for agent management". It is the vendor behind the
+  `runpane.com` "alternatives" pages this file bans as sources; its own
+  repository is a primary source for Pane itself. Its nearest thing to a gate
+  is a bundled agent skill, `skills/quick-verify/`, which asks the agent to
+  verify; the tool computes no verdict.
+
+### 7.3 New since 09-01, small and close in shape
+
+| Project | Stars | Created | Lang | What it is |
+|---|---:|---|---|---|
+| `nccapo/stvena` | 10 | 09-08 | Go | "A live review workspace for Codex and Claude Code"; selected lines go back to the agent; runs a check (7.4). |
+| `xseman/pando` | 5 | 09-18 | Go | "one daemon owns PTY sessions in git worktrees, the TUI and CLI are clients over a unix socket"; several projects; no check runner in its 127 files. |
+| `axonel/axonel` | 52 | 09-12 | Rust | Missions in worktrees, "independently verify their changes", human approval before integration. Linux x86_64 only. |
+
+`r2luna/floe`, `kerim0x1/bettercode`, `emircan-sahin/gitviber`,
+`TennnisAI/Agency`, `icesword0760/matou` and `YuvalSarel1/cones` were also
+created in September, are under 100 stars, and have no gate.
+
+### 7.4 The gate: still empty among the session managers, no longer empty
+
+§3.2 said the gate was "nobody else's feature". As a literal claim that is
+now false. Four small tools each do part of it, and each decides pass or fail
+by exit status, as invariant 12 does:
+
+- **stvena**, `internal/checks/checks.go`: checks a captured tree out into a
+  temporary directory, runs one user command under `sh -c`, and sets
+  `Status = "Passed"` if and only if it exits 0. One command per keypress; no
+  multi-step line, no pending or missing state.
+- **axonel**, `crates/plexis-runtime/src/verifier.rs`: runs one verification
+  command per mission and compares the exit code with an expected one;
+  `VerificationVerdict {Passed, Failed, Inconclusive}`. A tool that fails to
+  spawn is `Failed`: there is no missing state.
+- **`jpolec/herdr-plugin-odysseus`** (4 stars), `src/checks/mod.rs` and
+  `src/engine/steps.rs`: named `tests`, `lint` and `security` checks, taken
+  from config or detected from `Cargo.toml`, `package.json`, `go.mod` or
+  `pyproject.toml`, judged by exit status. The closest thing to omatty's
+  gate, but it is one step inside an autonomous worktree-to-draft-PR
+  pipeline, not a verdict on a session you are watching.
+- **`shindakun/herdr-testrun`** (1 star): runs a project's tests in a pane and
+  sends the failures to the agent on one key. Its results come from parsing
+  runner output (`go test -json`'s `Action=fail`), which is the opposite of
+  invariant 12.
+
+What still holds, and is the defensible form of the claim: **no session
+manager or workspace above about a hundred stars runs the project's own
+multi-step check line per session and puts per-step verdicts on the
+session's card.** Every larger tool's answer is the *remote* verdict, PR and
+CI state from the forge (Orca, superset, paseo, agent-orchestrator, emdash,
+cmux, and now agent view; see 7.5). Orca, vibe-kanban, claude-squad,
+ccmanager, fleet, Nimbalyst, Sculptor and herdr's core were each checked and
+have no local gate (file evidence in the refresh notes behind #513).
+
+The square is still empty among the tools people use. It is no longer empty
+on GitHub, all four entrants appeared between 09-08 and 09-23, and two of them
+are plugins for the largest terminal sibling. That is an expiry date on the
+claim, not a refutation of it.
+
+### 7.5 First party
+
+Claude Code 2.1.276 to 2.1.283 (09-18 to 09-25, `anthropics/claude-code`
+`CHANGELOG.md`) shipped nothing like a gate. Relevant lines:
+
+- 2.1.277: "in a project with no CLAUDE.md, Claude Code reads AGENTS.md
+  instead".
+- 2.1.281: `--setting-sources` forwarded to `/bg`, `claude agents` and
+  `--worktree --tmux`; `/batch` works with WorktreeCreate-hook worktrees.
+- 2.1.282: fixed pasted multi-line text submitting line by line after
+  bracketed paste mode was reset. That is the failure invariant 8 guards
+  against, on claude's side of the pipe.
+- 2.1.283: `/tasks` status icons; `/ultrareview` warns that it may upload
+  uncommitted changes.
+
+**§3.1 is wrong about agent view, and was probably wrong on 09-18.** Its
+documentation (`code.claude.com/docs/en/agent-view`, read today) says "the
+list shows every background session you've started, across all your
+projects … regardless of which directory you opened agent view from", and
+colours each session's pull request number by its checks status (yellow for
+failed, green for passed). No changelog entry in the window announces either,
+so §3.1's "scoped to one working directory" was more likely a misreading than
+a change. Two of §3.1's three "still has" points are therefore gone:
+several repositories is first-party, and so is the remote verdict on the row.
+One remains: agent view does not run the project's own check line. Its
+sessions are also background sessions you attach to one at a time, not
+several live panes side by side.
+
+### 7.6 What §5 became
+
+- R3 (a fresh worktree you can run) shipped as #309, `omatty carry`.
+- R4 (PR and CI state on the card) shipped as #310.
+- R5 (review since the last turn) shipped as #311.
+- R1 (rewrite the README's opening) was done, and 7.2 and 7.5 have already
+  outdated it; see R11.
+
+### 7.7 What this means for omatty
+
+Numbered on from §5. Inputs, not decisions.
+
+**R10. Deep-dive herdr and herdr-reviewr before any launch post.** It is the
+tool a reader of a Show HN thread is most likely to name, and the only one
+that is terminal-native, owns the PTYs and sends diff comments back. A
+`docs/research/herdr.md` on the §3 skeleton (session model, status source,
+anchoring of review comments, what "resume supported agent sessions"
+means) is what `comparison.md` needs before it can name it fairly.
+
+**R11. Stop leading with "several repositories" and "works over SSH".**
+Agent view spans all projects; herdr, cmux and emdash reach remote machines;
+Orca runs headless with `orca serve`. Those are no longer distinctions a
+reader will grant. The claims that survived this refresh are narrower: the
+real `claude` binary in several live panes at once, review comments anchored
+on content, and the gate. The #513 fact-check lists each sentence in
+`README.md`, `comparison.md` and omatty.com that needs to change.
+
+**R12. State the gate claim in its defensible form, with its date.** "No
+session manager runs your own check line on every session's card" survives;
+"nobody else does this" does not, and a stranger can falsify it with
+stvena's README. A dated, narrow claim is also the one that ages visibly.
+
+**R13. Re-run this refresh at a month, not at a milestone.** Four partial
+gates appeared in fifteen days, and Orca gains most of a claude-squad every nine days.
+§7.4's claim has the shortest shelf life of anything in this file.
+
+**R14. Search by shape, not by name.** Add `terminal agents`, `pty agents`,
+`agent runtime` and `worktree tui` to the candidate queries, and treat an
+awesome-list as a list of names to check, never as a source.
 
 ## Reproducing the table
 

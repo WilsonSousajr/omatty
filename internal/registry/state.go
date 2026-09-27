@@ -48,6 +48,11 @@ type Project struct {
 	// proposed.
 	GateRuns      int `json:"gate_runs,omitempty"`
 	GateFirstPass int `json:"gate_first_pass,omitempty"`
+	// Collapsed folds the project's sessions away behind its sidebar header
+	// (#505). Persisted because a project put away should stay put away
+	// across a restart; false is "unfolded", which is what every project was
+	// before, so the key is omitted and Version stays 1 (invariant 9).
+	Collapsed bool `json:"collapsed,omitempty"`
 }
 
 // Session is one Claude Code process in one directory.

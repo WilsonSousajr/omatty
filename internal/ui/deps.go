@@ -144,6 +144,8 @@ type Deps struct {
 	TailStop       func(sessionID string)
 	// RemoveProject forgets a registered project that holds no sessions (#159).
 	RemoveProject RemoveProjectFunc
+	// Fold persists whether a project is folded in the sidebar (#505).
+	Fold FoldFunc
 	// Discover proposes repositories to register and AddProject registers one
 	// (#91).
 	Discover   DiscoverFunc
@@ -269,6 +271,9 @@ func (d Deps) withLifecycleDefaults() Deps {
 	}
 	if d.RemoveProject == nil {
 		d.RemoveProject = noRemoveProject
+	}
+	if d.Fold == nil {
+		d.Fold = noFold
 	}
 	if d.RemoveWorktree == nil {
 		d.RemoveWorktree = noRemoveWorktree

@@ -153,6 +153,8 @@ func (m *Model) navigate(key string) tea.Cmd {
 	// upper-case "shift+N" spelling never occurs and was dead (issue #87).
 	case "shift+n", "shift+N", "N":
 		m.openModal(modal{Kind: modalPrompt, Editor: lineEditor{Worktree: true}})
+	case "tab":
+		return m.toggleFold(m.sidebar.CursorProject())
 	default:
 		return m.paneCommand(key)
 	}

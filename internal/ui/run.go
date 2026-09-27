@@ -145,6 +145,8 @@ type RunDeps struct {
 	Archive        ArchiveFunc
 	RemoveWorktree RemoveWorktreeFunc
 	RemoveProject  RemoveProjectFunc
+	// Fold persists a project's sidebar fold (#505).
+	Fold FoldFunc
 	// Discover proposes repositories to register and AddProject registers one
 	// (#91).
 	Discover   DiscoverFunc
@@ -206,7 +208,7 @@ func modelFor(
 	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
 		Diff: d.Diff, Files: d.Files, Generated: d.Generated, Ship: d.Ship, Tally: d.Tally, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Issues: d.Issues, Item: d.Item, Browse: d.Browse, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
-		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject,
+		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject, Fold: d.Fold,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,
 		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader, Reattached: held,

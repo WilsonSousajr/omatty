@@ -176,8 +176,8 @@ func withStoreDeps(
 	return withPickerDeps(withLifecycleDeps(deps, store, git), store, home, git)
 }
 
-// withLifecycleDeps adds rename, rebind, archive, worktree removal and project
-// removal (#40, #41, #159, #316).
+// withLifecycleDeps adds rename, rebind, archive, worktree removal, project
+// removal and the sidebar fold (#40, #41, #159, #316, #505).
 func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui.RunDeps {
 	deps.Rename = sessionRenamer(store)
 	deps.Rebind = sessionRebinder(store)
@@ -185,6 +185,7 @@ func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui
 	deps.Archive = sessionArchiver(store)
 	deps.RemoveWorktree = git.RemoveWorktree
 	deps.RemoveProject = projectRemover(store)
+	deps.Fold = projectFolder(store)
 	deps.Tally = gateTallier(store)
 	return deps
 }
@@ -200,6 +201,13 @@ func gateTallier(store *registry.Store) ui.TallyFunc {
 func projectRemover(store *registry.Store) ui.RemoveProjectFunc {
 	return func(name string) (registry.Project, error) {
 		return registry.RemoveProject(store, name)
+	}
+}
+
+// projectFolder adapts registry.SetCollapsed to ui.FoldFunc (#505).
+func projectFolder(store *registry.Store) ui.FoldFunc {
+	return func(project string, collapsed bool) error {
+		return registry.SetCollapsed(store, project, collapsed)
 	}
 }
 

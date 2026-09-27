@@ -8,10 +8,16 @@ import (
 
 // Row is one line in the sidebar: a project header, or a session under it.
 // Session is nil on a header row.
+//
+// Folded is set only on the header of a folded project (#505): the sessions
+// its fold hides, so the switcher can still list them. Status on that header
+// is the loudest of theirs, so a session waiting on the operator cannot
+// vanish behind the fold.
 type Row struct {
 	Project string
 	Session *registry.Session
 	Status  watcher.Status
+	Folded  []*registry.Session
 }
 
 // SidebarRows flattens state into display order: each project followed by
@@ -22,8 +28,13 @@ type Row struct {
 func SidebarRows(st registry.State, status map[string]watcher.Status) []Row {
 	rows := make([]Row, 0, len(st.Projects)+len(st.Sessions))
 	for _, p := range st.Projects {
+		sessions := sessionRows(st, p.Name, status)
+		if p.Collapsed && len(sessions) > 0 {
+			rows = append(rows, foldedHeader(p.Name, sessions))
+			continue
+		}
 		rows = append(rows, Row{Project: p.Name})
-		rows = append(rows, sessionRows(st, p.Name, status)...)
+		rows = append(rows, sessions...)
 	}
 	return rows
 }
@@ -149,8 +160,22 @@ func (s *Sidebar) Selected() (Row, bool) {
 // is on a session or on nothing.
 //
 //	if p, ok := sb.SelectedHeader(); ok { /* ctrl+o x may forget p */ }
+//
+// A folded header is not one: its project has sessions, and ctrl+o x must
+// not offer to forget it (#505). SelectedFold names that row instead.
 func (s *Sidebar) SelectedHeader() (string, bool) {
-	if !s.onRow() || s.rows[s.cursor].Session != nil {
+	if !s.onRow() || s.rows[s.cursor].Session != nil || len(s.rows[s.cursor].Folded) > 0 {
+		return "", false
+	}
+	return s.rows[s.cursor].Project, true
+}
+
+// SelectedFold is the project whose folded header the cursor rests on (#505).
+// ok is false on a session and on an empty project's header.
+//
+//	if p, ok := sb.SelectedFold(); ok { /* ctrl+o tab unfolds p */ }
+func (s *Sidebar) SelectedFold() (string, bool) {
+	if !s.onRow() || len(s.rows[s.cursor].Folded) == 0 {
 		return "", false
 	}
 	return s.rows[s.cursor].Project, true

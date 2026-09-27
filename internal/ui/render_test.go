@@ -52,7 +52,7 @@ func TestModel_SidebarShowsTheSelectedRowPastTheFold_issue129(t *testing.T) {
 	for range 13 {
 		leader(m, key('k'))
 	}
-	if m.Selected() != "p0-s0" || !strings.HasPrefix(stripSGR(frameLines(m)[2]), "  p0") {
+	if m.Selected() != "p0-s0" || !strings.HasPrefix(stripSGR(frameLines(m)[2]), "  ▾ p0") {
 		t.Errorf("after 13 k presses Selected() = %q and the top project is not drawn", m.Selected())
 	}
 }

@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-09-26, when v0.7.0 promoted `develop` to `main` (#502).
+Last revised 2026-09-27, when v0.8.0 promoted `develop` to `main` (#553).
 Every milestone is built; what is left is under "What is left", and how a
 release reaches `main` is under "Releases".
 
@@ -37,8 +37,9 @@ not only the coverage gate. See "Rules" at the end for why.
 | — | **Released** | **v0.4.0**, 2026-09-25. M12's close-out promoted to `main` (#390). See "Releases". |
 | M14 | The Tracker | **Done.** Seven slices #393-#399 built 2026-09-25 as PRs #400-#406. Released in v0.5.0. |
 | — | **Released** | **v0.5.0**, 2026-09-26. M14 promoted to `main` (#407). See "Releases". |
-| M15 | The Polish | **Done.** Nineteen issues #421-#439 and two bugs found building them (#447, #483), merged 2026-09-26 as PRs #444-#491; closed out in #492. Released in v0.6.0, with two found after the close-out - the sidebar's wheel (#497) and its gutter (#498) - in v0.7.0. See the M15 section. |
+| M15 | The Polish | **Done.** Nineteen issues #421-#439 and two bugs found building them (#447, #483), merged 2026-09-26 as PRs #444-#491; closed out in #492. Released in v0.6.0, with two found after the close-out - the sidebar's wheel (#497) and its gutter (#498) - in v0.7.0, and folding a project (#505) in v0.8.0. See the M15 section. |
 | — | **Released** | **v0.7.0**, 2026-09-26. The sidebar wheel and a column of gutter promoted to `main` (#502). See "Releases". |
+| — | **Released** | **v0.8.0**, 2026-09-27. Folding a project (#505) and the go-to-market docs pass (#513-#515, #548, #549) promoted to `main` (#553). See "Releases". |
 | M16 | The Forges | **Planned** 2026-09-26: GitLab, Azure DevOps, Gitea/Forgejo/Codeberg and Bitbucket at GitHub's parity, #449-#465, in Backlog. See the M16 section. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
@@ -1013,6 +1014,7 @@ in a hurry to make it.
 | v0.5.0 | 2026-09-26 | M14 The Tracker: a project's open issues and pull requests in the review column, read through the operator's own `gh` and never written to (#393-#399). 15 commits. (#407) |
 | v0.6.0 | 2026-09-26 | M12's remainder - the review pane's memory (#337, #338, #339, #334), shipping and measuring a green session (#331, #332, #333), when a release happens (#329) - plus all of M15 (#420-#439, #447, #483, #492) and the M16 spec (#448). 37 issues. (#480) |
 | v0.7.0 | 2026-09-26 | The wheel over the sidebar (#497) and a column of gutter in the sidebar and the review column (#498), plus the spots v0.6.0 left stale (#495). 3 issues. (#502) |
+| v0.8.0 | 2026-09-27 | Folding a project behind its sidebar header (#505); the README opened on the workspace with a recording (#549), the comparison corrected against primary sources (#515) with a herdr deep dive (#548), and the research refresh and go-to-market pass (#513, #514). 6 issues. (#553) |
 
 ## M12 - The Field
 
