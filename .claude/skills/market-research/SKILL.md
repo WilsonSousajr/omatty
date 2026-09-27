@@ -59,6 +59,7 @@ labelled `docs`, and stopping after any of them leaves the repository better.
 | 5 | `docs/research/prior-art-findings.md` | Everything against our own code. P0/P1/P2 + **Ideas Not To Copy**. |
 | 6 | `docs/research/competitive-parity.md` | The self-critical audit. Migration bar, verified moat, honest gaps, per-competitor verdicts. |
 | 7 | `docs/comparison.md` + `README.md` + `AGENTS.md` + `docs/ROADMAP.md` + issues | Publish and decide. |
+| — | `docs/research/go-to-market.md` | Before a launch: how the camp found its users, the objections on their threads, each venue's rules (#514). |
 
 ### The deep-dive skeleton (artifact 2)
 
@@ -147,6 +148,22 @@ queries return nothing surprisingly often; try narrower ones and go by topic.
   `docs/ROADMAP.md`'s "Not on the roadmap".
 - **`gh issue create` does not put an issue on the board**, and neither does
   labelling it. Adding is always a second step.
+- **Search by shape, not only by name.** M12 searched for *Claude Code* and
+  *parallel* and missed herdr at 40,951 stars, which calls itself "the
+  runtime your coding agents live on" (#513). Add PTY, terminal, worktree
+  and agent-runtime queries, and use an awesome-list as a list of names to
+  check, never as a source.
+- **The stargazer API will not give you a launch curve.** The
+  `application/vnd.github.star+json` stargazers endpoint returns 404 for a
+  repository you do not own. Wayback captures of the GitHub page give dated
+  points; say that is what they are (#514).
+- **Reddit is not reachable directly from here.** PullPush stands in, with
+  scores that are lower bounds, until it rate-limits. HN is the reliable
+  one: `hn.algolia.com/api/v1/items/<id>`. State an Algolia query exactly,
+  because a quoted phrase and bare words give different counts.
+- **Subagents cannot write report files.** Have them return findings as
+  text, save the text yourself, and re-check the load-bearing numbers: #513
+  caught an agent reporting 52 releases where there were 9.
 - **Check the first party first.** M12 nearly missed that `claude agents`
   shipped the category's core feature, which mattered more than any competitor
   in the table.
