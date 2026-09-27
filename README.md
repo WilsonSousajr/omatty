@@ -1,16 +1,39 @@
 # omatty
 
-A terminal ADE: multiple projects and multiple parallel Claude Code sessions
-in one window.
+**Run Claude Code in parallel. Know which sessions got it right.**
 
-omatty is terminal-native — it works over SSH on a headless box — and shows
-sessions from *several* repositories side by side. Other terminal managers do
-the second part; the desktop apps do neither. What none of them do, and what
-Claude Code's own `claude agents` does not do either, is run the project's own
-check line in each session's worktree and put the verdict on the card.
+Starting three Claude Code sessions takes seconds. Knowing which of them
+actually did the work (ran your linter, passed your tests, in its own
+worktree, against its own changes) is where the time goes. Validation is the
+bottleneck, not generation.
 
-`docs/comparison.md` is the fair version of that claim, with the places other
-tools are ahead.
+omatty runs your project's own check line inside each session's worktree and
+puts the verdict on the session's card. One key sends the failures back into
+the session that caused them. Your review comments anchor to the *content* of
+a line, so they stay on the right code while Claude keeps editing it.
+
+![omatty running a gate on two sessions: one session's test fails, the failure goes back, and the fix goes green](docs/media/hero.gif)
+
+<sub>Real omatty running a real gate on two Go repositories. The agent in each
+session is a scripted stand-in, so the recording is the same every time.
+More at [omatty.com](https://omatty.com).</sub>
+
+```bash
+brew install WilsonSousajr/tap/omatty
+```
+
+- **Your checks, not a vendor's.** The gate is the `fmt`/`vet`/`lint`/`test`/coverage
+  line your project already uses. A step passes if and only if it exits 0.
+- **The real `claude` binary**, in live panes you type into, several side by
+  side, across your repositories.
+- **Nothing leaves your machine.** No telemetry, no account. omatty never
+  writes your `~/.claude/settings.json`; its hooks go on each session's
+  command line.
+- **One Go binary, MIT**, for macOS and Linux.
+
+`docs/comparison.md` is the fair version of how this compares to herdr,
+claude-squad, Orca, `claude agents` and the rest, including where they are
+ahead.
 
 ## What omatty is
 
