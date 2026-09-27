@@ -74,7 +74,10 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.8.0**, 2026-09-27 — `ctrl+o tab` folds a project's sessions behind its
+**v0.8.1**, 2026-09-27 — the recording above is real Claude Code, showing
+the whole workspace (#556).
+
+v0.8.0, the same day — `ctrl+o tab` folds a project's sessions behind its
 sidebar header, showing how many it hides and the loudest status among them
 (#505). And this page opens on what omatty is (#549), with a comparison
 corrected against each tool's own source (#515, #548).
