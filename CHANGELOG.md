@@ -11,6 +11,19 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.8.1] — 2026-09-27
+
+The recording at the top of the README is now real Claude Code.
+
+### Changed
+
+- **The README's recording is real omatty and real Claude Code** (#556), in two
+  Go repositories: both sessions work at once, the file tree marks what
+  changed, the gate's verdict per step lands on each card, and a review comment
+  goes back as one message and stays on its line while Claude inserts lines
+  above it. The keys and the two prompts are scripted; the rest is not. The same
+  recording is the hero on omatty.com. No code changed since v0.8.0.
+
 ## [v0.8.0] — 2026-09-27
 
 A project folds away behind its header, and the page a stranger lands on
