@@ -26,10 +26,12 @@ a count in a document is stale by the time anyone reads it.
 One sentence: **omatty runs your project's own check line inside each session's
 worktree and puts the verdict on the session's card.**
 
-That is the part no other tool in this space does. Everything else it does —
-several repositories in one window, the real `claude` binary in an embedded
-terminal, a diff pane with comments anchored to line content — is either
-available elsewhere or a detail.
+State it in its narrow, dated form: as of 2026-09-27, no session manager or
+agent workspace above about a hundred stars does it (`comparison.md`, "The
+short version", names the small tools that do part of it). "Nobody else does
+this" is false, and a commenter can show it with stvena's README. Several
+repositories in one window is not a distinction any more: `claude agents`
+and herdr both do it.
 
 The frame that makes it land: every other tool optimises *how much agent work
 you can have in flight*. Fleets, queues, boards, coordinators. omatty optimises
@@ -54,8 +56,8 @@ reintroduce them in a post, where they cannot be corrected by a commit.
   verification in each session's directory and show the verdict.
 
 And state the limits in the post itself, not in a reply after someone finds
-them: pre-1.0, no Windows, `claude` plus a half-spiked Codex, `dtach` and `gh`
-optional but the experience is thinner without them.
+them: pre-1.0, no Windows, `claude` only (a second agent is Backlog, #152),
+`dtach` and `gh` optional but the experience is thinner without them.
 
 ## Where to post
 
