@@ -7,11 +7,13 @@ work lives somewhere else: panes in tmux, files in an editor, the diff in a
 git client, the tests in one more terminal per worktree, the pull request in
 a browser tab. omatty puts the whole loop in one window.
 
-![omatty running a gate on two sessions: one session's test fails, the failure goes back, and the fix goes green](docs/media/hero.gif)
+![Two real Claude Code sessions in omatty: the file tree marks what changed, the gate passes on both cards, and a review comment goes back and stays on its line while Claude edits](docs/media/hero.gif)
 
-<sub>Real omatty running a real gate on two Go repositories. The agent in each
-session is a scripted stand-in, so the recording is the same every time.
-More at [omatty.com](https://omatty.com).</sub>
+<sub>Real omatty and real Claude Code, in two Go repositories: both sessions
+work at once, the file tree marks what changed, the gate lands on each card,
+and a review comment goes back and stays on its line while Claude edits. The
+keys and the two prompts are scripted; the rest is not. Long waits are
+shortened. More at [omatty.com](https://omatty.com).</sub>
 
 ```bash
 brew install WilsonSousajr/tap/omatty
