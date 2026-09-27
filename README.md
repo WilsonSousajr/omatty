@@ -72,7 +72,12 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.7.0**, 2026-09-26 — two pieces of polish you feel on every frame: the
+**v0.8.0**, 2026-09-27 — `ctrl+o tab` folds a project's sessions behind its
+sidebar header, showing how many it hides and the loudest status among them
+(#505). And this page opens on what omatty is (#549), with a comparison
+corrected against each tool's own source (#515, #548).
+
+v0.7.0, 2026-09-26 — two pieces of polish you feel on every frame: the
 session list answers the mouse wheel, and neither column starts hard against its
 own edge any more (#497, #498).
 
