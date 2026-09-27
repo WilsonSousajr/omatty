@@ -7,11 +7,13 @@ work lives somewhere else: panes in tmux, files in an editor, the diff in a
 git client, the tests in one more terminal per worktree, the pull request in
 a browser tab. omatty puts the whole loop in one window.
 
-![omatty running a gate on two sessions: one session's test fails, the failure goes back, and the fix goes green](docs/media/hero.gif)
+![Two real Claude Code sessions in omatty: the file tree marks what changed, the gate passes on both cards, and a review comment goes back and stays on its line while Claude edits](docs/media/hero.gif)
 
-<sub>Real omatty running a real gate on two Go repositories. The agent in each
-session is a scripted stand-in, so the recording is the same every time.
-More at [omatty.com](https://omatty.com).</sub>
+<sub>Real omatty and real Claude Code, in two Go repositories: both sessions
+work at once, the file tree marks what changed, the gate lands on each card,
+and a review comment goes back and stays on its line while Claude edits. The
+keys and the two prompts are scripted; the rest is not. Long waits are
+shortened. More at [omatty.com](https://omatty.com).</sub>
 
 ```bash
 brew install WilsonSousajr/tap/omatty
@@ -72,7 +74,10 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.8.0**, 2026-09-27 — `ctrl+o tab` folds a project's sessions behind its
+**v0.8.1**, 2026-09-27 — the recording above is real Claude Code, showing
+the whole workspace (#556).
+
+v0.8.0, the same day — `ctrl+o tab` folds a project's sessions behind its
 sidebar header, showing how many it hides and the loudest status among them
 (#505). And this page opens on what omatty is (#549), with a comparison
 corrected against each tool's own source (#515, #548).
