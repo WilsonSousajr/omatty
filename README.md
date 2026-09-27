@@ -1,16 +1,11 @@
 # omatty
 
-**Run Claude Code in parallel. Know which sessions got it right.**
+**A real engineering workspace for Claude Code. In your terminal.**
 
-Starting three Claude Code sessions takes seconds. Knowing which of them
-actually did the work (ran your linter, passed your tests, in its own
-worktree, against its own changes) is where the time goes. Validation is the
-bottleneck, not generation.
-
-omatty runs your project's own check line inside each session's worktree and
-puts the verdict on the session's card. One key sends the failures back into
-the session that caused them. Your review comments anchor to the *content* of
-a line, so they stay on the right code while Claude keeps editing it.
+You already run Claude Code in parallel. Everything you need to judge the
+work lives somewhere else: panes in tmux, files in an editor, the diff in a
+git client, the tests in one more terminal per worktree, the pull request in
+a browser tab. omatty puts the whole loop in one window.
 
 ![omatty running a gate on two sessions: one session's test fails, the failure goes back, and the fix goes green](docs/media/hero.gif)
 
@@ -22,14 +17,26 @@ More at [omatty.com](https://omatty.com).</sub>
 brew install WilsonSousajr/tap/omatty
 ```
 
-- **Your checks, not a vendor's.** The gate is the `fmt`/`vet`/`lint`/`test`/coverage
-  line your project already uses. A step passes if and only if it exits 0.
-- **The real `claude` binary**, in live panes you type into, several side by
-  side, across your repositories.
+- **Live panes.** Each session is the real `claude` binary in a pane you type
+  into, in a worktree of its own, several side by side across your
+  repositories. The sidebar says which is working, which is waiting for you
+  and which is done, from Claude's hooks, never from the screen.
+- **A file tree that follows each session.** `ctrl+o f` shows the worktree of
+  the session you are on and moves with you to the next. When a turn ends it
+  re-lists itself and marks what Claude added, changed or deleted.
+- **A diff you can answer.** Syntax-highlighted, with the lines no test
+  covers marked. Comments anchor to a line's *content*, so they stay on the
+  right code while Claude keeps editing, and go back as one message.
+- **Your gate on every session.** Your own `fmt`/`vet`/`lint`/`test`/coverage
+  line runs in each session's worktree, with a verdict per step on its card.
+  A step passes if and only if it exits 0; one key sends the failures back.
+- **Ship it or take it back.** `ctrl+o p` pushes, opens the pull request, or
+  merges when your gate and the forge's checks are both green. `ctrl+o u`
+  puts the worktree back to where the last turn began. `ctrl+o i` shows the
+  project's issues and pull requests in the same column.
 - **Nothing leaves your machine.** No telemetry, no account. omatty never
   writes your `~/.claude/settings.json`; its hooks go on each session's
-  command line.
-- **One Go binary, MIT**, for macOS and Linux.
+  command line. One Go binary, MIT, for macOS and Linux.
 
 `docs/comparison.md` is the fair version of how this compares to herdr,
 claude-squad, Orca, `claude agents` and the rest, including where they are
