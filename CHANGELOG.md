@@ -11,6 +11,41 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.8.0] — 2026-09-27
+
+A project folds away behind its header, and the page a stranger lands on
+says what omatty is. The README now opens on the whole workspace, with the
+recording, and the comparison says exactly where each tool in the field is
+ahead.
+
+### Added
+
+- **Fold a project's sessions behind its sidebar header** (#505). `ctrl+o tab`
+  folds the project the cursor is in, or unfolds it; a click on a project
+  header does the same, the way a directory folds in the file tree. A folded
+  header shows how many sessions it hides and the loudest status among them,
+  so a session waiting for you is never hidden. Reaching a folded session
+  from the switcher, or creating or adopting one, unfolds its project. The
+  fold is `Project.Collapsed` in `state.json`, omitted when false, so there is
+  no migration.
+
+### Changed
+
+- **The README opens on the workspace** (#549): live panes, the file tree that
+  follows each session, a diff you can answer, the gate on every session,
+  shipping or undoing a turn, and the footprint (no telemetry, never writes
+  `~/.claude/settings.json`). The recording from omatty.com is under the
+  tagline as `docs/media/hero.gif`.
+- **`docs/comparison.md` corrected against primary sources** (#515). The gate
+  claim is narrower and dated; herdr is named, from a code-level deep dive
+  (`docs/research/herdr.md`, #548); several repositories and SSH are facts
+  rather than distinctions, because `claude agents` and herdr have them too.
+
+### Documentation
+
+- The field capture refreshed nine days on (#513), and go-to-market research
+  on how this camp found its users (#514).
+
 ## [v0.7.0] — 2026-09-26
 
 Two pieces of polish you feel on every frame. The session list answers the
