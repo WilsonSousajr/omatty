@@ -74,3 +74,15 @@ func repoMissing(err error) error {
 	}
 	return err
 }
+
+// restAPI is the same paths over HTTP, under base, with a borrowed token.
+type restAPI struct {
+	rest restClient
+	base string
+	auth auth
+	env  string
+}
+
+func (r restAPI) get(ctx context.Context, path string) ([]byte, error) {
+	return r.rest.get(ctx, r.base+"/"+path, r.auth, r.env)
+}
