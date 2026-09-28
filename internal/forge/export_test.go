@@ -2,7 +2,9 @@ package forge
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -76,3 +78,55 @@ func RESTGet(srv *httptest.Server, url string, a Auth, tokenEnv string, bound ti
 
 // ErrNotFound is a 404, for the backend to judge.
 var ErrNotFound = errNotFound
+
+// TestEnv is everything a test stands in for around a Router (#462).
+type TestEnv struct {
+	Options
+	// GH is the gh binary; empty is no gh on PATH.
+	GH string
+	// Env is the environment tokens are borrowed from.
+	Env map[string]string
+	// API is a test server every HTTP request is sent to, whatever its host;
+	// the host it was meant for arrives as X-Original-Host.
+	API string
+	// Open stands in for the browser.
+	Open func(url string) error
+}
+
+// NewTestRouter is a Router over e.
+func NewTestRouter(e TestEnv) *Router {
+	r := NewRouter(e.Options)
+	r.bins[KindGitHub] = e.GH
+	if e.GH == "" {
+		r.bins[KindGitHub] = "/nonexistent/gh-is-not-installed"
+	}
+	r.getenv = func(k string) string { return e.Env[k] }
+	if e.API != "" {
+		r.rest = restTo(e.API)
+	}
+	if e.Open != nil {
+		r.open = e.Open
+	}
+	return r
+}
+
+// restTo is the REST client with every request sent to api, so production
+// keeps no base-URL override and a test still sees the host it was meant for.
+func restTo(api string) restClient {
+	base, err := url.Parse(api)
+	if err != nil {
+		panic(err)
+	}
+	c := newREST()
+	c.http.Transport = toServer{base: base}
+	return c
+}
+
+type toServer struct{ base *url.URL }
+
+func (t toServer) RoundTrip(req *http.Request) (*http.Response, error) {
+	out := req.Clone(req.Context())
+	out.Header.Set("X-Original-Host", req.URL.Host)
+	out.URL.Scheme, out.URL.Host, out.Host = t.base.Scheme, t.base.Host, t.base.Host
+	return http.DefaultTransport.RoundTrip(out)
+}

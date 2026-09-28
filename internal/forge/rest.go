@@ -71,24 +71,46 @@ var errNotFound = errors.New("forge: not found")
 // get is one bounded GET of url, sorted into a body or the error the UI acts
 // on. tokenEnv names the variable a refusal is about.
 func (c restClient) get(ctx context.Context, url string, a auth, tokenEnv string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	return c.send(ctx, http.MethodGet, url, nil, a, tokenEnv)
+}
+
+// post is get with a JSON body: GitHub's GraphQL reads are POSTs (#462).
+func (c restClient) post(ctx context.Context, url string, body io.Reader, a auth, tokenEnv string) ([]byte, error) {
+	return c.send(ctx, http.MethodPost, url, body, a, tokenEnv)
+}
+
+func (c restClient) send(ctx context.Context, method, url string, body io.Reader, a auth, tokenEnv string) ([]byte, error) {
+	req, err := request(ctx, method, url, body, a, tokenEnv)
 	if err != nil {
-		return nil, fmt.Errorf("forge: building GET %s: %w", url, err)
-	}
-	req.Header.Set("Accept", "application/json")
-	a(req)
-	if req.URL.Scheme != "https" && carriesCredential(req.Header) {
-		return nil, fmt.Errorf("forge: refusing to send %s's token to %s over plain http; the remote must be https", tokenEnv, req.URL.Host)
+		return nil, err
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("forge: GET %s gave no answer: %w", url, err)
+		return nil, fmt.Errorf("forge: %s %s gave no answer: %w", method, url, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if err := answerError(resp, tokenEnv); err != nil {
 		return nil, err
 	}
 	return readBounded(resp.Body, url)
+}
+
+// request builds one call with its auth applied, and refuses one that would
+// carry a token over plain http, where the path or an HTTP_PROXY reads it.
+func request(ctx context.Context, method, url string, body io.Reader, a auth, tokenEnv string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return nil, fmt.Errorf("forge: building %s %s: %w", method, url, err)
+	}
+	req.Header.Set("Accept", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	a(req)
+	if req.URL.Scheme != "https" && carriesCredential(req.Header) {
+		return nil, fmt.Errorf("forge: refusing to send %s's token to %s over plain http; the remote must be https", tokenEnv, req.URL.Host)
+	}
+	return req, nil
 }
 
 // carriesCredential is whether a request holds a token, in any scheme's header.

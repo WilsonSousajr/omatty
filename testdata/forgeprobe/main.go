@@ -5,6 +5,7 @@
 //	go run ./testdata/forgeprobe
 //	go run ./testdata/forgeprobe /path/to/a/checkout
 //	go run ./testdata/forgeprobe -forge gitlab /path/to/a/checkout
+//	go run ./testdata/forgeprobe -transport rest /path/to/a/checkout
 //
 // It reads through the same Router the TUI builds (#452): the checkout's
 // origin names its forge, and -forge names it instead, as a [forge.hosts] line
@@ -35,18 +36,34 @@ import (
 
 func main() {
 	kind := flag.String("forge", "", "name origin's host as this forge, as [forge.hosts] would")
+	transport := flag.String("transport", "", "cli or rest: read that way alone (default: CLI first, REST fallback)")
 	flag.Parse()
 	root := "."
 	if flag.NArg() > 0 {
 		root = flag.Arg(0)
 	}
-	r := forge.NewRouter(forge.Options{Remote: vcs.NewCLI().RemoteURL, Hosts: hostsFor(root, *kind)})
+	r := forge.NewRouter(forge.Options{Remote: vcs.NewCLI().RemoteURL, Hosts: hostsFor(root, *kind), Transport: transportOf(*transport)})
+	fmt.Println("transport:", map[string]string{"": "auto (CLI first)", "cli": "cli", "rest": "rest"}[*transport])
 	fmt.Println("repository:", root)
 	issues := probeIssues(r, root)
 	probePRs(r, root)
 	probeDetail(r, root, issues)
 	fmt.Printf("\nforge: %+v\n", r.Label(root))
 	fmt.Println("\nRead it: every title non-empty, every date this decade, labels present.")
+}
+
+// transportOf reads -transport.
+func transportOf(s string) forge.Transport {
+	switch s {
+	case "":
+		return forge.TransportAuto
+	case "cli":
+		return forge.TransportCLI
+	case "rest":
+		return forge.TransportREST
+	}
+	exitOn(fmt.Errorf("-transport %q, want cli or rest", s))
+	return forge.TransportAuto
 }
 
 // hostsFor is the one-line [forge.hosts] -forge stands for, or none.
