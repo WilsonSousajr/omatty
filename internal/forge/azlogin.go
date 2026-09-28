@@ -3,7 +3,9 @@ package forge
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"os/exec"
 	"strings"
 	"time"
@@ -32,16 +34,42 @@ func (r *Router) pickAzure(remote Remote) (backend, error) {
 		return nil, err
 	}
 	b := azBackend{rest: r.rest, base: base, project: project, repo: repo, host: remote.Host, ci: r.ci, open: r.open}
-	bin, ok := r.cli(KindAzure)
-	if !ok {
-		return nil, &MissingToolError{Tool: "az"}
+	var azErr error = &MissingToolError{Tool: "az"}
+	if bin, ok := r.cli(KindAzure); ok {
+		tok, err := azToken(bin, r.azWait)
+		if err == nil {
+			b.auth, b.env = noSignIn(bearer(tok)), "az's login"
+			return b, nil
+		}
+		azErr = err
 	}
-	tok, err := azToken(bin, r.azWait)
-	if err != nil {
-		return nil, err
+	// Without az's token, the PAT az devops itself reads, as Basic auth with
+	// an empty user (#457).
+	if pat, env := r.borrow([]string{"AZURE_DEVOPS_EXT_PAT"}); pat != "" && r.transport != TransportCLI {
+		b.auth, b.env = noSignIn(basicAuth("", pat)), env
+		return b, nil
 	}
-	b.auth, b.env = bearer(tok), "az's login"
-	return b, nil
+	return nil, withPAT(azErr)
+}
+
+// withPAT is a missing az's note with the PAT beside it: either half fixes it.
+// An az that gave no answer in time stays the outage it is.
+func withPAT(err error) error {
+	var missing *MissingToolError
+	if !errors.As(err, &missing) {
+		return err
+	}
+	return &MissingToolError{Tool: missing.Tool, NoLoginFor: missing.NoLoginFor, TokenEnv: "AZURE_DEVOPS_EXT_PAT"}
+}
+
+// noSignIn asks Azure to answer a refused credential with a 401 rather than a
+// redirect to its interactive sign-in page, which is HTML a terminal has no
+// use for (#457). An answer that is still HTML is a refusal all the same.
+func noSignIn(a auth) auth {
+	return func(r *http.Request) {
+		a(r)
+		r.Header.Set("X-TFS-FedAuthRedirect", "Suppress")
+	}
 }
 
 // azureServices is whether host is Azure DevOps Services - dev.azure.com, an

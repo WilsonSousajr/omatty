@@ -1,6 +1,7 @@
 package forge_test
 
 import (
+	"encoding/base64"
 	"errors"
 	"io"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -22,9 +24,11 @@ type FakeAzureAPI struct {
 	ContentType string
 	First       []giteaAnswer // answers tried before the fixtures
 	Policy      string        // when set, the policy evaluations every pull request has
+	WIQL        string        // when set, the answer to a WIQL query
 	mu          sync.Mutex
 	Got         []FakeRequest
 	Bodies      []string
+	FedAuth     []string // each request's X-TFS-FedAuthRedirect
 }
 
 var azureRoutes = []struct{ match, file string }{
@@ -48,6 +52,7 @@ func (f *FakeAzureAPI) serve(t *testing.T) string {
 		f.mu.Lock()
 		f.Got = append(f.Got, FakeRequest{Host: r.Header.Get("X-Original-Host"), Path: pq, Auth: r.Header.Get("Authorization")})
 		f.Bodies = append(f.Bodies, string(body))
+		f.FedAuth = append(f.FedAuth, r.Header.Get("X-TFS-FedAuthRedirect"))
 		f.mu.Unlock()
 		f.answer(t, w, pq)
 	}))
@@ -70,6 +75,10 @@ func (f *FakeAzureAPI) answer(t *testing.T, w http.ResponseWriter, pq string) {
 	}
 	if f.Policy != "" && strings.Contains(pq, "/policy/evaluations") {
 		_, _ = w.Write([]byte(f.Policy))
+		return
+	}
+	if f.WIQL != "" && strings.Contains(pq, "/wit/wiql") {
+		_, _ = w.Write([]byte(f.WIQL))
 		return
 	}
 	for _, route := range azureRoutes {
@@ -242,13 +251,83 @@ func TestAzure_EveryRemoteShapeReachesTheRepository_issue456(t *testing.T) {
 	}
 }
 
-// Without az there is nothing to ask until #457's PAT; the note names az.
+// Without az or a PAT the note names both halves of the fix.
 func TestAzure_WithoutAzIsAMissingTool_issue456(t *testing.T) {
 	_, err := azureRouter(t, "", nil, &FakeAzureAPI{}).ListPRs(t.TempDir())
 
 	var missing *forge.MissingToolError
-	if !errors.As(err, &missing) || missing.Tool != "az" {
-		t.Errorf("error = %v, want az missing", err)
+	if !errors.As(err, &missing) || missing.Tool != "az" || missing.TokenEnv != "AZURE_DEVOPS_EXT_PAT" {
+		t.Errorf("error = %v, want az missing and AZURE_DEVOPS_EXT_PAT unset", err)
+	}
+}
+
+var azurePAT = map[string]string{"AZURE_DEVOPS_EXT_PAT": secret}
+
+// Without az: the PAT az devops itself reads, as Basic auth with an empty
+// user, and every call asks Azure not to redirect to its sign-in page (#457).
+func TestAzureREST_ReadsWithAPATFromTheEnvironment_issue457(t *testing.T) {
+	api := &FakeAzureAPI{}
+
+	if _, err := azureRouter(t, "", azurePAT, api).ListIssues(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	want := "Basic " + base64.StdEncoding.EncodeToString([]byte(":"+secret))
+	for i, got := range api.Got {
+		if got.Auth != want || api.FedAuth[i] != "Suppress" {
+			t.Errorf("request %d sent %+v with FedAuthRedirect %q, want the PAT and Suppress", i, got, api.FedAuth[i])
+		}
+	}
+}
+
+// A bad PAT gets Azure's sign-in page - a 203 of HTML - and that is the token
+// refused, naming the variable.
+func TestAzureREST_ASignInPageIsARefusal_issue457(t *testing.T) {
+	api := &FakeAzureAPI{Status: 203, ContentType: "text/html; charset=utf-8"}
+
+	_, err := azureRouter(t, "", azurePAT, api).ListPRs(t.TempDir())
+
+	var refused *forge.AuthError
+	if !errors.As(err, &refused) || refused.TokenEnv != "AZURE_DEVOPS_EXT_PAT" {
+		t.Errorf("error = %v, want AZURE_DEVOPS_EXT_PAT refused", err)
+	}
+}
+
+// The WIQL answer's ids are fetched in one batch of at most a hundred, #358's
+// window, whatever the query returned.
+func TestAzureREST_WorkItemsComeInOneBatchOfAtMostAHundred_issue457(t *testing.T) {
+	ids := make([]string, 150)
+	for i := range ids {
+		ids[i] = `{"id":` + strconv.Itoa(1000+i) + `}`
+	}
+	api := &FakeAzureAPI{WIQL: `{"workItems":[` + strings.Join(ids, ",") + `]}`}
+
+	_, _ = azureRouter(t, "", azurePAT, api).ListIssues(t.TempDir())
+
+	batches := 0
+	for _, got := range api.Got {
+		if strings.Contains(got.Path, "/wit/workitems?ids=") {
+			batches++
+			if n := strings.Count(got.Path[strings.Index(got.Path, "ids="):strings.Index(got.Path, "&")], ",") + 1; n > 100 {
+				t.Errorf("one batch asked %d ids, want at most 100", n)
+			}
+		}
+	}
+	if batches != 1 {
+		t.Errorf("asked %d batches, want one", batches)
+	}
+}
+
+// forgeprobe's -transport rest reads with the PAT though az is installed.
+func TestAzureREST_ARESTTransportSkipsAz_issue457(t *testing.T) {
+	az, calls := fakeAz(t, "not-this-one")
+	api := &FakeAzureAPI{}
+	r := forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: azureRemote}).url, Transport: forge.TransportREST},
+		Bins:    map[forge.Kind]string{forge.KindAzure: az}, Env: azurePAT, API: api.serve(t),
+	})
+
+	if _, err := r.ListPRs(t.TempDir()); err != nil || ranGh(t, calls) {
+		t.Errorf("ListPRs = %v, ran az %v; want the PAT alone", err, ranGh(t, calls))
 	}
 }
 

@@ -76,9 +76,11 @@ func (a azBackend) itemURL(number int) string {
 	return a.base + "/" + url.PathEscape(a.project) + "/_workitems/edit/" + strconv.Itoa(number)
 }
 
+// ids is the first hundred work items' ids, one batch's worth: #358's window,
+// whatever the query returned.
 func (w azWIQL) ids() string {
 	ids := make([]string, 0, len(w.WorkItems))
-	for _, it := range w.WorkItems {
+	for _, it := range w.WorkItems[:min(len(w.WorkItems), 100)] {
 		ids = append(ids, strconv.Itoa(it.ID))
 	}
 	return strings.Join(ids, ",")
