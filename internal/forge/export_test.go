@@ -1,6 +1,8 @@
 package forge
 
 import (
+	"context"
+	"net/http/httptest"
 	"strings"
 	"time"
 )
@@ -47,3 +49,30 @@ func FinishedFieldsInclude(name string) bool {
 	}
 	return false
 }
+
+// Auth and its builders are the REST transport's, named for the tests (#453).
+type Auth = auth
+
+var (
+	PrivateToken = privateToken
+	Bearer       = bearer
+	TokenAuth    = tokenAuth
+	BasicAuth    = basicAuth
+	Anonymous    = anonymous
+)
+
+// BodyMax is the cap on one REST answer.
+const BodyMax = bodyMax
+
+// RESTGet is one GET through the REST transport inside bound, as a backend
+// makes it, trusting srv's test certificate.
+func RESTGet(srv *httptest.Server, url string, a Auth, tokenEnv string, bound time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), bound)
+	defer cancel()
+	c := newREST()
+	c.http.Transport = srv.Client().Transport
+	return c.get(ctx, url, a, tokenEnv)
+}
+
+// ErrNotFound is a 404, for the backend to judge.
+var ErrNotFound = errNotFound
