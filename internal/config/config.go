@@ -14,6 +14,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 )
 
@@ -37,6 +38,19 @@ type Config struct {
 	Gate         Gate     `toml:"gate"`
 	Sessions     Sessions `toml:"sessions"`
 	UI           UI       `toml:"ui"`
+	Forge        Forge    `toml:"forge"`
+}
+
+// Forge is the [forge] table. Its one key, hosts, names a self-hosted forge
+// omatty cannot recognise by its hostname (#451):
+//
+//	[forge.hosts]
+//	"git.corp.example" = "gitlab"
+//
+// It amends M14's "no [forge] section": the poll stays zero-config for every
+// host in forge's built-in table, and this exists only for the rest.
+type Forge struct {
+	Hosts forge.Hosts `toml:"hosts"`
 }
 
 // Sessions is the [sessions] table: when omatty spends a claude process on a
@@ -184,7 +198,22 @@ func refuseBadValues(path string, cfg Config) error {
 	if err := refuseBlankLeader(path, cfg.Leader); err != nil {
 		return err
 	}
-	return refuseUnknownIcons(path, cfg.UI.Icons)
+	if err := refuseUnknownIcons(path, cfg.UI.Icons); err != nil {
+		return err
+	}
+	return refuseBadForgeHosts(path, cfg.Forge.Hosts)
+}
+
+// refuseBadForgeHosts rejects a key that is not a bare host name. A scheme, a
+// port or a path in it never matches a remote's host, and a line that silently
+// matches nothing is the failure #44 exists to prevent.
+func refuseBadForgeHosts(path string, hosts forge.Hosts) error {
+	for host := range hosts {
+		if host == "" || strings.ContainsAny(host, ":/@ ") {
+			return fmt.Errorf("config %s: forge.hosts key %q is not a host name, want one such as \"git.corp.example\"", path, host)
+		}
+	}
+	return nil
 }
 
 // refuseUnknownIcons rejects a glyph set omatty does not have, rather than

@@ -406,6 +406,8 @@ idle_stop = "0"            # stop a session quiet this long, keeping it; "0" is 
 
 [ui]
 icons = "plain"            # "nerd" draws every state mark with a Nerd Font's icons
+
+[forge.hosts]              # empty: only the public forges' hosts are recognised
 ```
 
 `ui.icons` is `"plain"` unless you ask: a Nerd Font glyph in a terminal without
@@ -441,6 +443,25 @@ you did not ask to end costs a turn if omatty is wrong about quiet.
 on, a session that finishes a turn is gated immediately and a red result
 notifies you when omatty is not the window you are looking at. Either way, only
 a gate you confirmed is ever run.
+
+`[forge.hosts]` names a forge omatty cannot recognise by its hostname, such as a
+self-managed GitLab, a Forgejo, a Bitbucket Data Center, an Azure DevOps Server
+or a GitHub Enterprise:
+
+```toml
+[forge.hosts]
+"git.corp.example" = "gitlab"
+"code.internal"    = "forgejo"
+"ghe.corp.example" = "github"
+```
+
+The kinds are `github`, `gitlab`, `azure`, `gitea` (or its alias `forgejo`) and
+`bitbucket`. A project's forge is read from its `origin` remote's host. The
+public hosts - github.com, gitlab.com, dev.azure.com, codeberg.org, gitea.com,
+bitbucket.org - need no line here, and a line here overrides them. A host
+omatty does not know shows no pull requests or issues rather than a guess. An
+unknown kind, or a key that is not a bare host name (a scheme, a port or a
+path in it would never match), is refused at startup.
 
 A project that has no sessions yet is selectable too: `ctrl+o ]` reaches
 it, the pane says which project is empty, and `ctrl+o n` creates its first
