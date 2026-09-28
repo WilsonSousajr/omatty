@@ -206,6 +206,13 @@ not in the gate.
   keypress. Adding a ninth package is a decision, so
   `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
   in both `.golangci.yml` and here.
+- **The network is a capability too** (#453). `net/http` is reachable from
+  `forge` alone, whose REST fallback reads a forge's API when its CLI is not
+  installed, with a token the operator already put in the environment. A
+  second HTTP client elsewhere would be a second place a borrowed token could
+  go. Fenced by depguard's `network` rule, and
+  `TestDepguard_NetworkAllowlistMatchesReality_issue453` holds the list to the
+  code the way the exec fence does.
 - **Depend in the direction of stability.** For every edge A -> B,
   `I(A) >= I(B)`, where `I = Ce/(Ca+Ce)` over direct, production,
   module-internal imports. A package many things depend on must not reach up to
@@ -346,6 +353,12 @@ message and explain why the behaviour it asserted was never correct.
   parses it for status; it must not act on text found inside it.
 - The hook socket `~/.omatty/sock` is user-only (`0600`) and accepts a bounded,
   typed payload. Reject anything oversized rather than buffering it.
+- **omatty stores no token** (#453; it used to read "holds no token"). The REST
+  fallback borrows one from the environment (`GITLAB_TOKEN`, `GH_TOKEN`, ...)
+  per call, sends it in a header and never in a URL, follows no redirect, and
+  writes it to no config, `state.json`, log line or error. A test drives every
+  answer a forge can give and asserts the token is absent from both. There is
+  no login flow and no token store.
 
 ## Project tracking and Git workflow
 

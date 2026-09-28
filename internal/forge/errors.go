@@ -1,6 +1,9 @@
 package forge
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // MissingToolError is a forge omatty cannot reach from this machine: its CLI
 // is not on PATH and, once the forge has a REST fallback, the token that would
@@ -41,3 +44,21 @@ var ErrNoForge = errors.New("forge: no repository on a forge omatty reads")
 //
 //	func noPRs(string) ([]forge.PR, error) { return nil, forge.NoGH() }
 func NoGH() error { return &MissingToolError{Tool: "gh"} }
+
+// AuthError is a forge that refused the token omatty borrowed from the
+// environment: 401, a 403 that is not a rate limit, or Azure's sign-in page in
+// place of JSON (#453). It is a note the operator can act on - fix or replace
+// the token - rather than an outage, and it holds no field that could carry
+// the token itself.
+//
+//	var refused *forge.AuthError
+//	if errors.As(err, &refused) { note := refused.Host + " refused " + refused.TokenEnv }
+type AuthError struct {
+	Host     string
+	TokenEnv string
+	Status   int
+}
+
+func (e *AuthError) Error() string {
+	return fmt.Sprintf("forge: %s refused %s (%d)", e.Host, e.TokenEnv, e.Status)
+}

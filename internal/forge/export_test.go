@@ -1,6 +1,7 @@
 package forge
 
 import (
+	"context"
 	"strings"
 	"time"
 )
@@ -46,4 +47,26 @@ func FinishedFieldsInclude(name string) bool {
 		}
 	}
 	return false
+}
+
+// Auth and its builders are the REST transport's, named for the tests (#453).
+type Auth = auth
+
+var (
+	PrivateToken = privateToken
+	Bearer       = bearer
+	TokenAuth    = tokenAuth
+	BasicAuth    = basicAuth
+	Anonymous    = anonymous
+)
+
+// BodyMax is the cap on one REST answer.
+const BodyMax = bodyMax
+
+// RESTGet is one GET through the REST transport inside bound, as a backend
+// makes it.
+func RESTGet(url string, a Auth, tokenEnv string, bound time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), bound)
+	defer cancel()
+	return newREST().get(ctx, url, a, tokenEnv)
 }

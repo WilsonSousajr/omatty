@@ -24,19 +24,27 @@ func unwiredLabel(string) forge.Label { return forge.GitHub }
 // label is the project's forge words, looked up by its name.
 func (m *Model) label(project string) forge.Label { return m.labelOf(m.projectRoot(project)) }
 
-// stopsForge sorts a failed forge call. A missing tool, or a checkout on no
-// forge omatty reads, stops that project for the rest of the run and reports
-// true; anything else is an outage the caller keeps as a stale list.
+// stopsForge sorts a failed forge call. A missing tool, a token the forge
+// refused, or a checkout on no forge omatty reads stops that project for the
+// rest of the run and reports true: none of them changes while omatty runs,
+// the environment included. Anything else is an outage the caller keeps as a
+// stale list.
 //
 // Per project, not per machine: with several forges a missing glab says
 // nothing about a GitHub project, which is why #449 retired the global flag.
 func (m *Model) stopsForge(project string, err error) bool {
-	var missing *forge.MissingToolError
-	if !errors.As(err, &missing) && !errors.Is(err, forge.ErrNoForge) {
+	if !stopping(err) {
 		return false
 	}
 	m.loseForge(project, err)
 	return true
+}
+
+// stopping is whether err is one of the answers that stop a project.
+func stopping(err error) bool {
+	var missing *forge.MissingToolError
+	var refused *forge.AuthError
+	return errors.As(err, &missing) || errors.As(err, &refused) || errors.Is(err, forge.ErrNoForge)
 }
 
 // loseForge stops both lists for one project and drops what either had read,
@@ -57,14 +65,28 @@ func (m *Model) loseForge(project string, err error) {
 }
 
 // stoppedNote is the tracker's note for a stopped project: the tool that is
-// missing with its fix, or the forge the checkout is not on.
+// missing with its fix, the token the forge refused, or the forge the checkout
+// is not on.
 func (m *Model) stoppedNote(project string, err error) string {
-	var missing *forge.MissingToolError
-	if errors.As(err, &missing) {
-		return missingPhrase(missing) + ", so omatty cannot read this project's issues or " +
-			m.label(project).Change + "s."
+	why, cannotRead := stoppedPhrase(err)
+	if !cannotRead {
+		return offForge(m.label(project))
 	}
-	return offForge(m.label(project))
+	return why + ", so omatty cannot read this project's issues or " + m.label(project).Change + "s."
+}
+
+// stoppedPhrase says why a stopped project cannot be read, and whether it is
+// a reason the operator can fix; a checkout on no forge is not.
+func stoppedPhrase(err error) (string, bool) {
+	var missing *forge.MissingToolError
+	var refused *forge.AuthError
+	switch {
+	case errors.As(err, &missing):
+		return missingPhrase(missing), true
+	case errors.As(err, &refused):
+		return refused.Host + " refused " + refused.TokenEnv + " (" + strconv.Itoa(refused.Status) + ")", true
+	}
+	return "", false
 }
 
 // missingPhrase is "install X or set Y" said as a fact: what is missing, both

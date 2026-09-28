@@ -9,7 +9,6 @@
 package ui
 
 import (
-	"errors"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -225,10 +224,10 @@ func (m *Model) itemHead(key itemKey, item forge.Detail, w int) []string {
 // issue says nothing".
 func (m *Model) itemNote(key itemKey, w int) []string {
 	number := m.itemRef(key.Project, key.PR, key.Number)
-	var missing *forge.MissingToolError
+	why, cannotRead := stoppedPhrase(m.forgeStopped[key.Project])
 	switch {
-	case errors.As(m.forgeStopped[key.Project], &missing):
-		return wrapBlock(missingPhrase(missing)+", so "+number+" cannot be read.", w)
+	case cannotRead:
+		return wrapBlock(why+", so "+number+" cannot be read.", w)
 	case m.forgeStopped[key.Project] != nil:
 		return wrapBlock(offForge(m.label(key.Project)), w)
 	case m.itemFailed[key]:
