@@ -171,15 +171,20 @@ func (r *Router) pick(repoRoot string, res resolved) (backend, error) {
 }
 
 // pickGitLab is glab when it is installed (#454), else GitLab's REST API with
-// GITLAB_TOKEN, the variable glab itself reads (#455) - the same paths either
-// way, so the same fold.
+// a token glab itself reads (#455) - the same paths either way, so the same
+// fold.
 func (r *Router) pickGitLab(repoRoot string, remote Remote) (backend, error) {
 	var f fetcher
 	if bin, ok := r.cli(KindGitLab); ok {
 		// The bare host: glab refuses a --hostname with a port ("invalid
 		// hostname") and takes the API's port from its own per-host config.
 		f = cliAPI{bin: bin, host: remote.Host, dir: repoRoot, timeout: r.timeout}
-	} else if tok, env := r.borrow([]string{"GITLAB_TOKEN"}); tok != "" && r.transport != TransportCLI {
+	} else if remote.Scheme == "http" {
+		// A token never crosses plain http, so only glab, which keeps its own
+		// per-host protocol, can read an http remote: a note, not a request
+		// that fails every poll (#584).
+		return nil, &MissingToolError{Tool: "glab"}
+	} else if tok, env := r.borrow([]string{"GITLAB_TOKEN", "GITLAB_ACCESS_TOKEN"}); tok != "" && r.transport != TransportCLI {
 		f = restAPI{rest: r.rest, base: webBase(remote) + "/api/v4", auth: privateToken(tok), env: env}
 	} else {
 		return nil, &MissingToolError{Tool: "glab", TokenEnv: "GITLAB_TOKEN"}

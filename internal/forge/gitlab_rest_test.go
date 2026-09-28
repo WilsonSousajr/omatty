@@ -43,7 +43,9 @@ func (f *FakeGitLabAPI) serve(t *testing.T) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
-		f.Got = append(f.Got, FakeRequest{Host: r.Header.Get("X-Original-Host"), Path: r.URL.EscapedPath(), Auth: r.Header.Get("PRIVATE-TOKEN")})
+		f.Got = append(f.Got, FakeRequest{
+			Host: r.Header.Get("X-Original-Host"), Path: r.URL.EscapedPath(), Query: r.URL.RawQuery, Auth: r.Header.Get("PRIVATE-TOKEN"),
+		})
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		if f.Status != 0 {
@@ -150,4 +152,87 @@ func TestGitLabREST_WithNeitherNamesBoth_issue455(t *testing.T) {
 	if !errors.As(err, &missing) || missing.Tool != "glab" || missing.TokenEnv != "GITLAB_TOKEN" {
 		t.Errorf("error = %v, want glab missing and GITLAB_TOKEN unset", err)
 	}
+}
+
+// An http remote is one only glab can read: the token never crosses plain
+// http, so with no glab the project stops with a note rather than asking
+// every poll for an answer that cannot come. A port-less one included - it
+// was once asked over https instead, a dial error on an http-only host.
+func TestGitLabREST_AnHTTPRemoteStopsWithANote_issue584(t *testing.T) {
+	hosts := forge.Hosts{"git.corp.example": forge.KindGitLab}
+	for _, url := range []string{"http://git.corp.example:8080/g/p.git", "http://git.corp.example/g/p.git"} {
+		api := &FakeGitLabAPI{}
+		_, err := restGitLab(t, url, api, hosts).ListIssues(t.TempDir())
+
+		var missing *forge.MissingToolError
+		if !errors.As(err, &missing) || missing.Tool != "glab" || missing.TokenEnv != "" {
+			t.Errorf("%s: error = %v, want glab missing, with no token that could help", url, err)
+		}
+		if len(api.Got) != 0 {
+			t.Errorf("%s: asked %+v, want nothing sent", url, api.Got)
+		}
+	}
+}
+
+// GITLAB_ACCESS_TOKEN is glab's other name for the same token.
+func TestGitLabREST_BorrowsGlabsOtherName_issue455(t *testing.T) {
+	api := &FakeGitLabAPI{}
+	r := forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: "git@gitlab.com:gitlab-org/cli.git"}).url},
+		Env:     map[string]string{"GITLAB_ACCESS_TOKEN": secret}, API: api.serve(t),
+	})
+
+	if _, err := r.ListIssues(t.TempDir()); err != nil || api.Got[0].Auth != secret {
+		t.Errorf("ListIssues = %v, sent %+v; want GITLAB_ACCESS_TOKEN in PRIVATE-TOKEN", err, api.Got)
+	}
+}
+
+// forgeprobe's transports: REST forced reads REST with glab installed, and
+// CLI forced never falls back to REST with the token set (#463).
+func TestGitLabREST_ATransportByNameIsHonoured_issue455(t *testing.T) {
+	glab, calls := fakeGlab(t)
+	env := func(tr forge.Transport, api *FakeGitLabAPI, bins map[forge.Kind]string) forge.TestEnv {
+		return forge.TestEnv{
+			Options: forge.Options{Remote: (&FakeRemote{URL: "git@gitlab.com:gitlab-org/cli.git"}).url, Transport: tr},
+			Bins:    bins, Env: map[string]string{"GITLAB_TOKEN": secret}, API: api.serve(t),
+		}
+	}
+	api := &FakeGitLabAPI{}
+	withGlab := map[forge.Kind]string{forge.KindGitLab: glab}
+	if _, err := forge.NewTestRouter(env(forge.TransportREST, api, withGlab)).ListIssues(t.TempDir()); err != nil || len(api.Got) == 0 {
+		t.Errorf("REST forced: %v, %d requests; want REST read with glab installed", err, len(api.Got))
+	}
+	if b, _ := os.ReadFile(calls); len(b) != 0 {
+		t.Errorf("REST forced ran glab: %s", b)
+	}
+	var missing *forge.MissingToolError
+	if _, err := forge.NewTestRouter(env(forge.TransportCLI, &FakeGitLabAPI{}, nil)).ListIssues(t.TempDir()); !errors.As(err, &missing) {
+		t.Errorf("CLI forced with no glab: %v, want glab missing though GITLAB_TOKEN is set", err)
+	}
+}
+
+// Every list asks as many as the card and tracker show, in one page.
+func TestGitLabREST_ListsAskAWholePage_issue455(t *testing.T) {
+	api := &FakeGitLabAPI{}
+	r := restGitLab(t, "git@gitlab.com:gitlab-org/cli.git", api, nil)
+	_, _ = r.ListPRs(t.TempDir())
+	_, _ = r.ListIssues(t.TempDir())
+
+	for _, want := range []string{
+		"/merge_requests?state=opened&per_page=100", "/merge_requests?state=merged&per_page=30",
+		"/merge_requests?state=closed&per_page=30", "/issues?state=opened&per_page=100",
+	} {
+		if !asked(api.Got, want) {
+			t.Errorf("no request asked %q in %+v", want, api.Got)
+		}
+	}
+}
+
+func asked(got []FakeRequest, pathAndQuery string) bool {
+	for _, g := range got {
+		if strings.Contains(g.Path+"?"+g.Query, pathAndQuery) {
+			return true
+		}
+	}
+	return false
 }
