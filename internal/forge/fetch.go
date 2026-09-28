@@ -95,14 +95,35 @@ func (c teaAPI) get(ctx context.Context, path string) ([]byte, error) {
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("forge: tea api %s gave no answer in %v: %w", path, c.timeout, ctx.Err())
 	}
-	m := statusLine.FindStringSubmatch(stderr.String())
-	if err != nil || m == nil {
-		return nil, fmt.Errorf("forge: tea api on %s: %s: %v", c.host, strings.TrimSpace(stderr.String()), err)
+	return teaVerdict(c.host, out, stderr.String(), err)
+}
+
+// teaVerdict sorts one finished tea call by the status line it printed.
+func teaVerdict(host string, out []byte, stderr string, err error) ([]byte, error) {
+	m := statusLine.FindStringSubmatch(stderr)
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("forge: tea api on %s: %s: %w", host, said(stderr), err)
+	case m == nil:
+		return nil, fmt.Errorf("forge: tea api on %s printed no status line: %s", host, said(stderr))
 	}
 	if status, _ := strconv.Atoi(m[1]); status >= 300 {
-		return nil, statusError(c.host, "tea", status, strings.TrimSpace(string(out)))
+		return nil, statusError(host, "tea", status, said(string(out)))
 	}
 	return out, nil
+}
+
+// saidMax bounds what an error repeats of a CLI's words: a proxy's error
+// page can be kilobytes, and the error reaches the log (#458's review).
+const saidMax = 200
+
+// said is a CLI's words on one line, cut at saidMax.
+func said(s string) string {
+	line := cleanLine(strings.TrimSpace(s))
+	if r := []rune(line); len(r) > saidMax {
+		return string(r[:saidMax]) + "…"
+	}
+	return line
 }
 
 // repoMissing is a list's 404 as ErrNoForge: a list is the repository's, so

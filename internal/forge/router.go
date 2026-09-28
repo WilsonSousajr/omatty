@@ -34,7 +34,8 @@ type Router struct {
 
 	mu        sync.Mutex
 	seen      map[string]resolved
-	teaLogins map[string]string // host -> the tea login that reads it, once found
+	teaLogins map[string]string // remote's instance -> the tea login that reads it, once found
+	teaAPIs   map[string]bool   // tea binary -> it has `tea api` (0.12+), once seen
 }
 
 // Options is what a Router is built from.
@@ -78,7 +79,7 @@ func NewRouter(o Options) *Router {
 		remote: o.Remote, hosts: o.Hosts, transport: o.Transport,
 		bins: map[Kind]string{KindGitHub: "gh", KindGitLab: "glab", KindGitea: "tea"}, sshBin: "ssh",
 		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(), open: openInBrowser,
-		ci: newCICache(), timeout: listTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{},
+		ci: newCICache(), timeout: listTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{}, teaAPIs: map[string]bool{},
 	}
 }
 

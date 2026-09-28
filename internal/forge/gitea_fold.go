@@ -68,7 +68,7 @@ func foldGTPRs(in []gtPR) []PR {
 		out[i] = PR{
 			Number: p.Number, Title: cleanLine(p.Title), Branch: cleanLine(p.Head.Ref),
 			State: gtState(p), Head: p.Head.SHA, Draft: p.Draft,
-			Conflict: p.State == "open" && !p.Mergeable, Fork: gtFork(p),
+			Conflict: gtConflict(p), Fork: gtFork(p),
 			Updated: p.UpdatedAt, MergedAt: p.MergedAt,
 		}
 	}
@@ -85,20 +85,25 @@ func gtState(p gtPR) PRState {
 	return Open
 }
 
+// gtConflict is an open pull request that cannot merge. Gitea reports every
+// draft as not mergeable, so a draft is not a conflict (#458's review).
+func gtConflict(p gtPR) bool { return p.State == "open" && !p.Mergeable && !p.Draft }
+
 // gtFork is whether the head lives in another repository; a head whose
 // repository was deleted is a fork's that is gone.
 func gtFork(p gtPR) bool {
 	return p.Head.Repo == nil || p.Base.Repo == nil || p.Head.Repo.ID != p.Base.Repo.ID
 }
 
-// giteaCI is a commit status as the card's CI mark. Gitea's warning is a
-// check that passed with a note; a status omatty does not know is running,
-// never passing.
+// giteaCI is a commit status as the card's CI mark. A warning is not a pass:
+// Gitea's own Combine() makes it a failure, and Forgejo ranks it worse than
+// pending, so a combined "warning" can hide a check still running (#458's
+// review). A status omatty does not know is running, never passing.
 func giteaCI(status string) CIState {
 	switch status {
-	case "success", "skipped", "warning":
+	case "success", "skipped":
 		return CIPassing
-	case "failure", "error":
+	case "failure", "error", "warning":
 		return CIFailing
 	}
 	return CIRunning

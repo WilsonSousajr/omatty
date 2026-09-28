@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -37,17 +38,38 @@ func giteaFixture(t *testing.T, name string) string {
 // answers each path from the fixtures with its status line on stderr, as the
 // real one does - and answers a path it has no fixture for with a 404 body
 // and exit 0, as the real one does too.
-func fakeTea(t *testing.T, logins string) (bin, calls string) {
+func fakeTea(t *testing.T, logins string) (bin, calls string) { return fakeTeaWith(t, logins, nil, 0) }
+
+// teaAnswer is one scripted answer, tried before the fixtures: the status
+// line tea prints on stderr ("" prints none) and the body on stdout. A match
+// ending in "$" must end the arguments.
+type teaAnswer struct{ match, status, body string }
+
+// fakeTeaWith is fakeTea with answers of its own first, and `api --help`
+// exiting help - a tea older than 0.12 has no api command.
+func fakeTeaWith(t *testing.T, logins string, first []teaAnswer, help int) (bin, calls string) {
 	t.Helper()
 	dir := t.TempDir()
 	calls = filepath.Join(dir, "calls")
 	var cases strings.Builder
+	for i, a := range first {
+		body := filepath.Join(dir, "body"+strconv.Itoa(i))
+		if err := os.WriteFile(body, []byte(a.body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		pattern, end := strings.CutSuffix(a.match, "$")
+		if !end {
+			pattern += "'*'"
+		}
+		cases.WriteString("  *'" + pattern + "') [ -n '" + a.status + "' ] && echo '" + a.status + "' >&2; cat '" + body + "' ;;\n")
+	}
 	for _, r := range giteaRoutes {
 		cases.WriteString("  *'" + r.match + "'*) echo 'HTTP/1.1 200 OK' >&2; cat '" + giteaFixture(t, r.file) + "' ;;\n")
 	}
 	script := "#!/bin/sh\n" +
 		`printf '%s\n' "$*" >> '` + calls + "'\n" +
 		`if [ "$1 $2" = "logins list" ]; then echo '` + logins + `'; exit 0; fi` + "\n" +
+		`if [ "$1 $2" = "api --help" ]; then exit ` + strconv.Itoa(help) + `; fi` + "\n" +
 		`case "$*" in` + "\n" + cases.String() +
 		`  *) echo 'HTTP/1.1 404 Not Found' >&2; echo '{"message":"not found"}' ;;` + "\n" + "esac\n"
 	bin = filepath.Join(dir, "tea")
@@ -105,11 +127,14 @@ func TestGitea_ListsTheRecentlyMerged_issue458(t *testing.T) {
 	}
 }
 
-// A commit status maps to the card's CI mark; unknown is running, never passing.
+// A commit status maps to the card's CI mark; unknown is running, never
+// passing. A warning is not a pass: Gitea's own Combine() makes it a failure,
+// and Forgejo ranks it worse than pending, so a combined "warning" can hide a
+// check still running (#458's review; this test first said passing).
 func TestGitea_StatusIsTheCIMark_issue458(t *testing.T) {
 	for status, want := range map[string]forge.CIState{
-		"success": forge.CIPassing, "skipped": forge.CIPassing, "warning": forge.CIPassing,
-		"failure": forge.CIFailing, "error": forge.CIFailing,
+		"success": forge.CIPassing, "skipped": forge.CIPassing,
+		"failure": forge.CIFailing, "error": forge.CIFailing, "warning": forge.CIFailing,
 		"pending": forge.CIRunning, "something-new": forge.CIRunning,
 	} {
 		if got := forge.GiteaCI(status); got != want {

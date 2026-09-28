@@ -2,6 +2,7 @@ package forge
 
 import (
 	"context"
+	"errors"
 	"strconv"
 )
 
@@ -32,15 +33,28 @@ func (g gtBackend) repo() string { return "repos/" + g.remote.Slug() }
 func (g gtBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
 	open, err := pages[gtPR](ctx, g.f, g.repo()+"/pulls?state=open", 100)
 	if err != nil {
-		return nil, repoMissing(err)
+		return nil, g.listErr(ctx, err)
 	}
 	finished, err := getJSON[[]gtPR](ctx, g.f, g.repo()+"/pulls?state=closed&sort=recentupdate&limit="+finishedWindow)
 	if err != nil {
-		return nil, repoMissing(err)
+		return nil, g.listErr(ctx, err)
 	}
 	prs := append(foldGTPRs(open), foldGTPRs(finished)...)
 	g.ci.fill(ctx, prs, g.ciKey, g.statusCI)
 	return prs, nil
+}
+
+// listErr sorts a list's failure. Gitea answers a list whose unit is off - a
+// mirror's issues, a repository with an outside tracker - with 404, so a 404
+// on a repository that is there is an empty list (nil), and only one on a
+// repository that is gone is no forge (#458's review).
+func (g gtBackend) listErr(ctx context.Context, err error) error {
+	if errors.Is(err, errNotFound) {
+		if _, repoErr := g.f.get(ctx, g.repo()); repoErr == nil {
+			return nil
+		}
+	}
+	return repoMissing(err)
 }
 
 func (g gtBackend) ciKey(pr PR) string {
@@ -50,7 +64,7 @@ func (g gtBackend) ciKey(pr PR) string {
 // statusCI is the head commit's combined status, which Gitea and Forgejo
 // Actions and any external CI all report to.
 func (g gtBackend) statusCI(ctx context.Context, pr PR) (CIState, error) {
-	st, err := getJSON[gtStatus](ctx, g.f, g.repo()+"/commits/"+pr.Head+"/status")
+	st, err := getJSON[gtStatus](ctx, g.f, g.statusPath(pr.Head))
 	if err != nil || st.TotalCount == 0 {
 		return CINone, err
 	}
@@ -60,7 +74,7 @@ func (g gtBackend) statusCI(ctx context.Context, pr PR) (CIState, error) {
 func (g gtBackend) listIssues(ctx context.Context, _ string) ([]Issue, error) {
 	issues, err := pages[gtIssue](ctx, g.f, g.repo()+"/issues?state=open&type=issues", 100)
 	if err != nil {
-		return nil, repoMissing(err)
+		return nil, g.listErr(ctx, err)
 	}
 	return foldGTIssues(issues), nil
 }
@@ -70,7 +84,7 @@ func (g gtBackend) viewIssue(ctx context.Context, _ string, number int) (Detail,
 	if err != nil {
 		return Detail{}, err
 	}
-	return foldDetail(item.flat(g.comments(ctx, number), nil)), nil
+	return g.detail(ctx, item, number, nil), nil
 }
 
 func (g gtBackend) viewPR(ctx context.Context, _ string, number int) (Detail, error) {
@@ -78,15 +92,23 @@ func (g gtBackend) viewPR(ctx context.Context, _ string, number int) (Detail, er
 	if err != nil {
 		return Detail{}, err
 	}
-	st, _ := getJSON[gtStatus](ctx, g.f, g.repo()+"/commits/"+item.Head.SHA+"/status")
-	return foldDetail(item.flat(g.comments(ctx, number), st.Statuses)), nil
+	st, _ := getJSON[gtStatus](ctx, g.f, g.statusPath(item.Head.SHA))
+	return g.detail(ctx, item, number, st.Statuses), nil
 }
 
-// comments is an item's discussion; a pull request's lives on its issue.
-// None when it cannot be read: the body is still worth reading.
-func (g gtBackend) comments(ctx context.Context, number int) []gtComment {
-	comments, _ := getJSON[[]gtComment](ctx, g.f, g.repo()+"/issues/"+strconv.Itoa(number)+"/comments")
-	return comments
+// statusPath is a commit's combined status, a whole page of checks at once:
+// Forgejo combines only the page it returns, thirty by default (#458).
+func (g gtBackend) statusPath(sha string) string {
+	return g.repo() + "/commits/" + sha + "/status?limit=" + strconv.Itoa(giteaPage)
+}
+
+// detail folds an item with its comments; comments that cannot be read leave
+// it marked as not whole, never as an item nobody discussed (#397).
+func (g gtBackend) detail(ctx context.Context, item gtItem, number int, checks []gtCommitCheck) Detail {
+	comments, err := getJSON[[]gtComment](ctx, g.f, g.repo()+"/issues/"+strconv.Itoa(number)+"/comments")
+	d := foldDetail(item.flat(comments, checks))
+	d.Truncated = d.Truncated || err != nil
+	return d
 }
 
 func (g gtBackend) browse(_ context.Context, _ string, number int, pr bool) error {
