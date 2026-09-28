@@ -120,7 +120,7 @@ The list that makes the rest of the page worth reading.
 | Windows | herdr, ccmanager | omatty is Unix-only; the release builds darwin and linux only. |
 | Several machines in one window | herdr | omatty runs in the terminal you SSH into; it does not aggregate machines. |
 | Upgrading without ending sessions | herdr (`update --handoff`, experimental) | A new omatty binary reattaches to dtach; it does not hand off live PTYs. |
-| Installing without Homebrew or Go | herdr, claude-squad (one-line installers) | omatty has a Homebrew cask and release archives, but no `curl \| sh` and no Linux package (apt, AUR, nix). |
+| Distribution breadth | herdr (a core Homebrew formula, `mise`, a Nix flake) | omatty has a Homebrew tap, release archives and a one-line installer (`curl -fsSL https://omatty.com/install.sh \| sh`, #517), but no core formula and no Linux package (apt, AUR, nix). |
 | Scrollback of the pane's own | Orca, herdr (`pane_history`, experimental) | omatty's pane keeps none. With Claude Code that costs nothing, since its pager holds the conversation and survives a reattach (#336); a program that keeps no history of its own would lose it. |
 | Diff rendering | lazygit, delta, difftastic | They are better at this, by a wide margin. |
 

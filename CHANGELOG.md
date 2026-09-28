@@ -11,6 +11,38 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+### Added
+
+- **Install in one line on macOS or Linux** (#517):
+  `curl -fsSL https://omatty.com/install.sh | sh`. With `brew` on PATH it
+  hands off to the tap; otherwise it downloads the release archive for the
+  machine, refuses it unless its sha256 matches `checksums.txt`, and installs
+  to `~/.local/bin` without sudo. `OMATTY_VERSION` pins a release,
+  `OMATTY_INSTALL_DIR` picks the directory, and running it again upgrades.
+  The body is one function called on the last line, so a truncated download
+  runs nothing. The script is `scripts/install.sh`; `shellcheck` now runs over
+  `scripts/*.sh` in the gate, and CI runs the installer against the real
+  latest release on both runners, with a tampered `checksums.txt` as the
+  negative control.
+
+### Fixed
+
+- **`brew install` no longer asks you to report a bug in our tap** (#369).
+  GoReleaser wrote the cask's quarantine hook as a raw `postflight` block,
+  which Homebrew deprecates, so every install printed a warning. The hook is
+  now `postflight_steps`, written by `scripts/cask-steps.sh` after GoReleaser
+  renders the cask; the release publishes the result to the tap itself. Every
+  pull request lints that cask with `brew style` and installs it for real on
+  macOS with deprecations made fatal. When GoReleaser can emit install steps
+  itself (goreleaser#6873), the script goes.
+- **A project reached through a symlink finds its transcript** (#564).
+  Claude Code files a session's transcript under its working directory as the
+  kernel reports it, every link resolved, so a project registered as `/tmp/x`
+  writes under `-private-tmp-x` on macOS. omatty looked under the path as
+  registered: status came from hooks alone, a crash restart used
+  `--session-id` where claude had to be resumed, and the session was never
+  named from its first prompt. Found by running real Claude Code under `/tmp`.
+
 ### Documentation
 
 - **Scrollback survives a reattach, and always did** (#336). The pane keeps no

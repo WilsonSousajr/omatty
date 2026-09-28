@@ -115,7 +115,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Factory:   termwrap.Start,
 		Create:    sessionCreator(env.Cfg, store),
 		Leader:    env.Cfg.Leader,
-		Name:      sessionNamer(home),
+		Name:      sessionNamer(home, env.Agent),
 		Diff:      src.Load,
 		Stat:      src.Stat,
 		Turn:      turnFuncs(src),
@@ -354,11 +354,13 @@ func modelNamer(cfg config.Config) (ui.ModelNameFunc, func()) {
 
 // sessionNamer adapts discover.FirstPromptTitle to ui.NameFunc, so the model
 // can name a session from its transcript without reading one itself (#127).
-func sessionNamer(home string) ui.NameFunc {
+// The path is the agent's, not paths.Transcript's: claude files a transcript
+// under its resolved working directory, which differs behind a symlink (#564).
+func sessionNamer(home string, profile agent.Profile) ui.NameFunc {
 	return func(sess registry.Session) (string, error) {
 		// The conversation, not the ID: after /clear the row's first
 		// transcript is the one it left behind (#316).
-		return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()))
+		return discover.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()))
 	}
 }
 

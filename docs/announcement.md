@@ -49,8 +49,9 @@ reintroduce them in a post, where they cannot be corrected by a commit.
 - **"Roughly a hundred and fifty agent orchestrators."** Unsourced, and softened
   in the documents for that reason.
 - **Anything about distribution beyond what exists.** A Homebrew cask, four
-  release archives with checksums, and `go install`. There is no `curl | sh` and
-  no Linux package (apt, AUR, nix).
+  release archives with checksums, the one-line installer
+  (`curl -fsSL https://omatty.com/install.sh | sh`, #517), and `go install`.
+  There is no Linux package (apt, AUR, nix).
 - **`claude agents` does not exist / does not do this.** It exists and it
   overlaps. The honest line is what it does *not* do: run the project's own
   verification in each session's directory and show the verdict.

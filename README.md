@@ -124,17 +124,31 @@ not yet frozen. `docs/ROADMAP.md` has the reasoning and what was cut;
 
 ## Install
 
-On macOS, with Homebrew:
+On macOS or Linux, in one line:
+
+```bash
+curl -fsSL https://omatty.com/install.sh | sh
+```
+
+With `brew` on your PATH it hands off to the Homebrew tap, so upgrades stay in
+one place. Otherwise it downloads the release archive for your platform
+(darwin or linux, amd64 or arm64), refuses it unless it matches the release's
+`checksums.txt`, and puts `omatty` in `~/.local/bin`, without sudo.
+`OMATTY_VERSION=vX.Y.Z` picks a release and `OMATTY_INSTALL_DIR` another
+directory. Running it again upgrades. It is
+[`scripts/install.sh`](scripts/install.sh); read it before you pipe it into a
+shell.
+
+With Homebrew directly:
 
 ```bash
 brew install WilsonSousajr/tap/omatty
 ```
 
-On Linux, or anywhere without Homebrew, take the archive for your platform
-(darwin or linux, amd64 or arm64) from the
+Or by hand: take the archive for your platform from the
 [latest release](https://github.com/WilsonSousajr/omatty/releases/latest),
 check it against `checksums.txt`, and put `omatty` on your PATH. No Go needed
-either way.
+any of these ways.
 
 From source, with Go 1.26:
 
