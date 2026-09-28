@@ -191,3 +191,19 @@ func TestBitbucketDC_KeepsAContextPathAndRefusesOtherShapes_issue461(t *testing.
 		t.Errorf("a three-part path: error = %v, want ErrNoForge", err)
 	}
 }
+
+// A Data Center remote over plain http cannot be read: a token is never sent
+// there and Bitbucket has no CLI to hand it to. The project stops with a note
+// saying so instead of failing every poll with "?" (#584).
+func TestBitbucketDC_AnHTTPRemoteStopsWithANote_issue584(t *testing.T) {
+	api := &FakeBitbucketDCAPI{}
+	_, err := dcRouter(t, "http://git.corp.example/scm/ops/platform.git", dcToken, api).ListPRs(t.TempDir())
+
+	var plain *forge.PlainHTTPError
+	if !errors.As(err, &plain) || plain.TokenEnv != "BITBUCKET_TOKEN" || plain.Host != "git.corp.example" {
+		t.Errorf("error = %v, want BITBUCKET_TOKEN refused over http to git.corp.example", err)
+	}
+	if len(api.Got) != 0 {
+		t.Errorf("sent %+v, want nothing", api.Got)
+	}
+}

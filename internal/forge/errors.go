@@ -38,6 +38,25 @@ func (e *MissingToolError) Error() string {
 	return "forge: " + tool + " and " + e.TokenEnv + " is unset"
 }
 
+// PlainHTTPError is a token omatty will not send: the remote is plain http,
+// where anyone on the path, or an HTTP_PROXY, reads the headers. It stops the
+// project with a note, as a missing tool does - no poll changes a remote's
+// scheme, and an untyped refusal was asked again every poll (#584).
+//
+//	var plain *forge.PlainHTTPError
+//	if errors.As(err, &plain) { note := plain.TokenEnv + " is sent only over https" }
+type PlainHTTPError struct {
+	// Host is the http host the token would have gone to.
+	Host string
+	// TokenEnv is the variable the token was borrowed from.
+	TokenEnv string
+}
+
+// Error says what was refused and what would fix it.
+func (e *PlainHTTPError) Error() string {
+	return "forge: refusing to send " + e.TokenEnv + "'s token to " + e.Host + " over plain http; the remote must be https"
+}
+
 // ErrNoForge is the answer for a checkout omatty cannot map to a repository on
 // a forge it reads - no remote, another host, or not a repository at all. It
 // is quiet: the project simply has no pull requests or issues to show.

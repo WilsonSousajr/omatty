@@ -59,3 +59,34 @@ func TestTracker_ACLIWithNoLoginSaysSo_issue586(t *testing.T) {
 		t.Errorf("the tracker reads %q, want tea's missing login named", got)
 	}
 }
+
+// A token omatty will not send over plain http is a note naming the fix, and
+// the project stops: no poll changes a remote's scheme (#584).
+func TestTracker_APlainHTTPRemoteSaysHTTPSOnly_issue584(t *testing.T) {
+	m, fi, fp := modelWithBothLists(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	plain := &forge.PlainHTTPError{Host: "git.corp.example", TokenEnv: "BITBUCKET_TOKEN"}
+	for _, root := range []string{"/p/omatty", "/p/api-svc", "/p/empty"} {
+		fi.Errs[root], fp.Errs[root] = plain, plain
+	}
+
+	openTracker(m)
+
+	if got := columnText(m); !strings.Contains(got, "omatty sends BITBUCKET_TOKEN only over https, and git.corp.example is http") {
+		t.Errorf("the tracker reads %q, want the https-only fix named", got)
+	}
+}
+
+func TestModel_APlainHTTPRemoteStopsItsProject_issue584(t *testing.T) {
+	m, f := modelWithPRs(t)
+	f.Errs["/p/omatty"] = &forge.PlainHTTPError{Host: "git.corp.example", TokenEnv: "BITBUCKET_TOKEN"}
+	deliver(m, m.PollPRs())
+	f.Asked = nil
+	f.later()
+
+	deliver(m, m.PollPRs())
+
+	if got := f.asked(); got != "/p/api-svc" {
+		t.Errorf("the second poll asked %q, want only /p/api-svc", got)
+	}
+}
