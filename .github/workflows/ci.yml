@@ -22,6 +22,9 @@ env:
   # Equal to release.yml's, so a pull request checks the release configuration
   # with the GoReleaser a tag will publish with (#327).
   GORELEASER_VERSION: v2.18.2
+  # Pinned like the linters: the scripts are code, and scripts/install.sh is
+  # the one a stranger pipes into sh (#517).
+  SHELLCHECK_VERSION: v0.11.0
 
 jobs:
   gate:
@@ -45,6 +48,19 @@ jobs:
         run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${{ env.GOLANGCI_VERSION }}
       - name: lint
         run: "$(go env GOPATH)/bin/golangci-lint run"
+      - name: install shellcheck
+        run: |
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64) build=linux.x86_64 ;;
+            Linux-ARM64) build=linux.aarch64 ;;
+            macOS-X64) build=darwin.x86_64 ;;
+            macOS-ARM64) build=darwin.aarch64 ;;
+          esac
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/$SHELLCHECK_VERSION/shellcheck-$SHELLCHECK_VERSION.$build.tar.xz" |
+            tar -xJ -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/shellcheck-$SHELLCHECK_VERSION" >> "$GITHUB_PATH"
+      - name: shellcheck
+        run: shellcheck scripts/*.sh
       # Before the test suite: a go list and an AST walk cost seconds, and an
       # architectural violation should surface before four minutes of -race.
       # Same cheapest-first rule internal/gate's Detect already documents.
@@ -65,6 +81,59 @@ jobs:
         run: ./scripts/check-crap.sh 12
       - name: build
         run: go build ./...
+
+  # scripts/install.sh against the real latest release (#517), in a scratch
+  # HOME: the hermetic tests in scripts/install_test.go never touch GitHub,
+  # so this is what shows the one-liner still installs what was published.
+  # The tampered checksum is the negative control; the archives are mirrored
+  # so that the checksum is the only thing that can fail.
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: the archive, into a scratch HOME
+        env:
+          OMATTY_NO_BREW: 1
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          mkdir -p "$HOME"
+          sh scripts/install.sh
+          "$HOME/.local/bin/omatty" --version | grep '^omatty v'
+          sh scripts/install.sh
+          "$HOME/.local/bin/omatty" --version | grep '^omatty v'
+      - name: a tampered checksum installs nothing
+        env:
+          OMATTY_NO_BREW: 1
+        run: |
+          mirror="$RUNNER_TEMP/mirror/latest/download"
+          mkdir -p "$mirror"
+          latest=https://github.com/WilsonSousajr/omatty/releases/latest/download
+          curl -fsSL -o "$mirror/checksums.txt" "$latest/checksums.txt"
+          for archive in $(awk '{ print $2 }' "$mirror/checksums.txt"); do
+            curl -fsSL -o "$mirror/$archive" "$latest/$archive"
+          done
+          sed -i.orig 's/^[0-9a-f]*/0000000000000000000000000000000000000000000000000000000000000000/' "$mirror/checksums.txt"
+          export HOME="$RUNNER_TEMP/tampered"
+          mkdir -p "$HOME"
+          if OMATTY_RELEASE_URL="file://$RUNNER_TEMP/mirror" sh scripts/install.sh 2> "$RUNNER_TEMP/tampered.txt"; then
+            echo "install.sh installed an archive whose checksum does not match" >&2
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/tampered.txt"
+          grep -q checksum "$RUNNER_TEMP/tampered.txt"
+          test ! -e "$HOME/.local/bin/omatty"
+      # Twice: the second run is the upgrade path, `brew upgrade --cask`.
+      - name: the Homebrew hand-off
+        if: runner.os == 'macOS'
+        run: |
+          sh scripts/install.sh
+          brew list --cask omatty
+          sh scripts/install.sh
+          omatty --version | grep '^omatty v'
 
   # The release configuration, checked and built as a snapshot on every pull
   # request so a broken .goreleaser.yaml fails here rather than on a tag.
