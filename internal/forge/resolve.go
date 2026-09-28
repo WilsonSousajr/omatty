@@ -14,6 +14,12 @@ type backend interface {
 	viewIssue(ctx context.Context, repoRoot string, number int) (Detail, error)
 	viewPR(ctx context.Context, repoRoot string, number int) (Detail, error)
 	browse(ctx context.Context, repoRoot string, number int, pr bool) error
+}
+
+// shipper is a backend that can carry #331's three actions. Separate from
+// backend because not every transport has them yet (#464), and a backend
+// without them is refused by name rather than given stubs that pretend.
+type shipper interface {
 	createPR(ctx context.Context, repoRoot, head, base, title string) (int, error)
 	mergePR(ctx context.Context, repoRoot string, number int) error
 	branchProtected(ctx context.Context, repoRoot, branch string) (bool, error)

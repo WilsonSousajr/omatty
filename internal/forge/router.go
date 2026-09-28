@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -19,12 +20,16 @@ import (
 // that reads it is found on PATH per call, so installing one mid-run is picked
 // up on the next poll.
 type Router struct {
-	remote   func(repoRoot string) (string, error)
-	hosts    Hosts
-	bins     map[Kind]string
-	sshBin   string
-	lookPath func(string) (string, error)
-	timeout  time.Duration
+	remote    func(repoRoot string) (string, error)
+	hosts     Hosts
+	transport Transport
+	bins      map[Kind]string
+	sshBin    string
+	lookPath  func(string) (string, error)
+	getenv    func(string) string
+	rest      restClient
+	open      func(url string) error
+	timeout   time.Duration
 
 	mu   sync.Mutex
 	seen map[string]resolved
@@ -37,7 +42,23 @@ type Options struct {
 	Remote func(repoRoot string) (string, error)
 	// Hosts is the operator's [forge.hosts]; nil is the built-in table alone.
 	Hosts Hosts
+	// Transport is TransportAuto - CLI first, REST fallback - except in
+	// forgeprobe, which reads each transport by name (#463).
+	Transport Transport
 }
+
+// Transport is which way a Router may read a forge.
+type Transport int
+
+const (
+	// TransportAuto is the forge's CLI when it is on PATH, else its REST API
+	// with a token borrowed from the environment.
+	TransportAuto Transport = iota
+	// TransportCLI is the CLI alone.
+	TransportCLI
+	// TransportREST is the REST API alone, even with the CLI installed.
+	TransportREST
+)
 
 // resolved is what a project's remote says: its forge, and where on it.
 type resolved struct {
@@ -52,10 +73,10 @@ var labels = map[Kind]Label{KindGitHub: GitHub}
 // NewRouter builds a Router that runs each forge's own CLI from PATH.
 func NewRouter(o Options) *Router {
 	return &Router{
-		remote: o.Remote, hosts: o.Hosts,
+		remote: o.Remote, hosts: o.Hosts, transport: o.Transport,
 		bins: map[Kind]string{KindGitHub: "gh"}, sshBin: "ssh",
-		lookPath: exec.LookPath, timeout: listTimeout,
-		seen: map[string]resolved{},
+		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(), open: openInBrowser,
+		timeout: listTimeout, seen: map[string]resolved{},
 	}
 }
 
@@ -142,38 +163,39 @@ func (r *Router) pick(res resolved) (backend, error) {
 	if res.kind != KindGitHub {
 		return nil, fmt.Errorf("forge: omatty does not read %s yet: %w", res.kind, ErrNoForge)
 	}
-	bin := r.bins[KindGitHub]
-	if _, err := r.lookPath(bin); err != nil {
-		return nil, &MissingToolError{Tool: "gh"}
+	return r.pickGitHub(res.remote)
+}
+
+// pickGitHub is gh when it is installed, else GitHub's HTTP API with a token
+// gh itself would read, else the note naming both halves of the fix (#462).
+func (r *Router) pickGitHub(remote Remote) (backend, error) {
+	if bin, ok := r.cli(KindGitHub); ok {
+		return ghCLI{bin: bin, timeout: r.timeout}, nil
 	}
-	return ghCLI{bin: bin, timeout: r.timeout}, nil
-}
-
-// CreatePR opens a pull request for head against base and returns its number
-// (#331).
-func (r *Router) CreatePR(repoRoot, head, base, title string) (int, error) {
-	return call(r, repoRoot, func(ctx context.Context, b backend) (int, error) {
-		return b.createPR(ctx, repoRoot, head, base, title)
-	})
-}
-
-// MergePR merges a pull request with the repository's own method (#331).
-func (r *Router) MergePR(repoRoot string, number int) error {
-	_, err := call(r, repoRoot, func(ctx context.Context, b backend) (struct{}, error) {
-		return struct{}{}, b.mergePR(ctx, repoRoot, number)
-	})
-	return err
-}
-
-// BranchProtected reports whether branch is protected on the project's forge.
-// It fails closed: every error, the Router's own included, comes back beside
-// true, so a caller reading the bool alone still refuses (#331).
-func (r *Router) BranchProtected(repoRoot, branch string) (bool, error) {
-	protected, err := call(r, repoRoot, func(ctx context.Context, b backend) (bool, error) {
-		return b.branchProtected(ctx, repoRoot, branch)
-	})
-	if err != nil {
-		return true, err
+	envs := gitHubTokens(remote.Host)
+	if tok, env := r.borrow(envs); tok != "" && r.transport != TransportCLI {
+		return ghHTTP{rest: r.rest, auth: bearer(tok), env: env, remote: remote, open: r.open}, nil
 	}
-	return protected, nil
+	return nil, &MissingToolError{Tool: "gh", TokenEnv: envs[0]}
+}
+
+// cli is kind's CLI, when this Router may run it and it is on PATH.
+func (r *Router) cli(kind Kind) (string, bool) {
+	if r.transport == TransportREST {
+		return "", false
+	}
+	bin := r.bins[kind]
+	_, err := r.lookPath(bin)
+	return bin, err == nil
+}
+
+// borrow is the first of envs that is set, and its name. Read on every call
+// and kept by nothing: omatty stores no token (#453).
+func (r *Router) borrow(envs []string) (string, string) {
+	for _, env := range envs {
+		if tok := r.getenv(env); tok != "" {
+			return tok, env
+		}
+	}
+	return "", ""
 }

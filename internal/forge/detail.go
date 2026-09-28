@@ -105,6 +105,11 @@ func FoldDetail(raw []byte) (Detail, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return Detail{}, fmt.Errorf("forge: reading gh's view of an item: %w", err)
 	}
+	return foldDetail(in), nil
+}
+
+// foldDetail is FoldDetail past the decoding, shared with the HTTP path (#462).
+func foldDetail(in ghDetail) Detail {
 	body, left := bound(clean(in.Body), DetailMax)
 	comments, dropped := foldComments(in.Comments, left)
 	return Detail{
@@ -112,7 +117,7 @@ func FoldDetail(raw []byte) (Detail, error) {
 		Body: body, Comments: comments, URL: cleanLine(in.URL), Created: in.CreatedAt,
 		Truncated: dropped || len(body) < len(clean(in.Body)),
 		Checks:    foldChecks(in.Checks),
-	}, nil
+	}
 }
 
 // foldChecks is each check as omatty's own type: its name - a CheckRun's, or a

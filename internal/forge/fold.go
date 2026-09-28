@@ -126,11 +126,17 @@ func Fold(raw []byte) ([]PR, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return nil, fmt.Errorf("forge: reading gh's pull request list: %w", err)
 	}
+	return foldPRs(in), nil
+}
+
+// foldPRs is Fold past the decoding, shared with the HTTP path, which decodes
+// GitHub's GraphQL answer into the same ghPR gh itself answers with (#462).
+func foldPRs(in []ghPR) []PR {
 	out := make([]PR, len(in))
 	for i, p := range in {
 		out[i] = foldOne(p)
 	}
-	return out, nil
+	return out
 }
 
 // foldOne is one element of gh's list as omatty's own type. Split from Fold when

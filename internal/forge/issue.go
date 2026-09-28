@@ -61,6 +61,11 @@ func FoldIssues(raw []byte) ([]Issue, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return nil, fmt.Errorf("forge: reading gh's issue list: %w", err)
 	}
+	return foldIssues(in), nil
+}
+
+// foldIssues is FoldIssues past the decoding, shared with the HTTP path (#462).
+func foldIssues(in []ghIssue) []Issue {
 	out := make([]Issue, len(in))
 	for i, is := range in {
 		out[i] = Issue{
@@ -73,7 +78,7 @@ func FoldIssues(raw []byte) ([]Issue, error) {
 			URL:      cleanLine(is.URL),
 		}
 	}
-	return out, nil
+	return out
 }
 
 func labelNames(in []ghLabel) []string {
