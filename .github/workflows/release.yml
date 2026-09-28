@@ -42,4 +42,24 @@ jobs:
           args: release --clean --release-notes ${{ runner.temp }}/notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      # GoReleaser renders the cask but does not upload it (#369): it can only
+      # write the install hook as a raw postflight block, which Homebrew
+      # deprecates. cask-steps.sh writes the hook as postflight_steps - the
+      # same step ci.yml lints and installs on every pull request - and the
+      # tap is written here instead, with the token GoReleaser used to use.
+      - name: cask steps
+        run: ./scripts/cask-steps.sh dist/homebrew/Casks/omatty.rb
+      - uses: actions/checkout@v4
+        with:
+          repository: WilsonSousajr/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+      - name: publish the cask
+        run: |
+          cp dist/homebrew/Casks/omatty.rb homebrew-tap/Casks/omatty.rb
+          cd homebrew-tap
+          git config user.name goreleaserbot
+          git config user.email bot@goreleaser.com
+          git add Casks/omatty.rb
+          git commit -m "Brew cask update for omatty version $GITHUB_REF_NAME"
+          git push
