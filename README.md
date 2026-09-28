@@ -171,7 +171,8 @@ brew install dtach     # or: apt install dtach
 
 With it, quitting omatty *detaches* from your sessions instead of ending them,
 and relaunching reattaches to the same running `claude` — a turn in flight
-keeps going while omatty is closed. Without it omatty works exactly as before
+keeps going while omatty is closed, and `pgup` still reaches the whole
+conversation afterwards, because the history is Claude Code's own. Without it omatty works exactly as before
 and says so once at startup; quitting ends each session, and relaunching
 resumes the conversation from its transcript rather than the turn.
 
