@@ -97,8 +97,8 @@ func (c ghCLI) list(ctx context.Context, repoRoot, state, limit, fields string) 
 	return Fold(out)
 }
 
-// run is one gh invocation in repoRoot, and the only place this package starts
-// a process. Both lists share it so neither can drift from the other's
+// run is one gh invocation in repoRoot, and the only place the gh backend
+// starts a process. Both lists share it so neither can drift from the other's
 // bounding, classification or diagnostics.
 func (c ghCLI) run(ctx context.Context, repoRoot string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, c.bin, args...)

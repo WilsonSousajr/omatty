@@ -191,12 +191,15 @@ func sshSays(t *testing.T, hostname string) (bin, calls string) {
 // alias too, or those projects go quiet the day #452 lands.
 func TestRouter_AnSSHAliasReachesItsForge_issue576(t *testing.T) {
 	gh, ghCalls := fakeGH(t, "[]", "", 0)
-	ssh, _ := sshSays(t, "github.com")
+	ssh, sshCalls := sshSays(t, "github.com")
 	r := forge.NewRouterWithSSH(forge.Options{Remote: (&FakeRemote{URL: "git@github-work:acme/app.git"}).url}, gh, ssh)
 	root := t.TempDir()
 
 	if _, err := r.ListPRs(root); err != nil || !ranGh(t, ghCalls) {
 		t.Fatalf("ListPRs = %v, ran gh %v; want the alias read as github.com", err, ranGh(t, ghCalls))
+	}
+	if b, _ := os.ReadFile(sshCalls); !strings.Contains(string(b), "|-G -- github-work") {
+		t.Errorf("ssh was asked %q, want -G -- github-work", b)
 	}
 	if got := r.Label(root); got != forge.GitHub {
 		t.Errorf("Label = %+v, want GitHub's", got)
@@ -235,6 +238,59 @@ func TestRouter_SSHIsAskedOnlyWhenNothingElseCan_issue576(t *testing.T) {
 
 		if ranGh(t, sshCalls) {
 			t.Errorf("%s: ssh was asked", tt.url)
+		}
+	}
+}
+
+// ghKnows is a fake gh whose `auth token --hostname` succeeds for host alone,
+// recording each call, as gh answers from its own config and keyring.
+func ghKnows(t *testing.T, host string) (bin, calls string) {
+	t.Helper()
+	dir := t.TempDir()
+	calls = dir + "/calls"
+	script := "#!/bin/sh\n" +
+		`printf '%s\n' "$*" >> '` + calls + "'\n" +
+		`if [ "$1 $2 $3 $4" = "auth token --hostname ` + host + `" ]; then echo gho_notATokenAtAll; exit 0; fi` + "\n" +
+		`case "$*" in *"pr list"*) echo '[]' ;; *"issue list"*) echo '[]' ;; *) exit 1 ;; esac` + "\n"
+	bin = dir + "/gh"
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return bin, calls
+}
+
+// Regression, #579: gh serves any GitHub Enterprise host it is logged into, so
+// before #452 such a project showed its pull requests with no configuration.
+// A host nothing else names, that gh holds a login for, is GitHub.
+func TestRouter_AHostGhIsLoggedIntoIsGitHub_issue579(t *testing.T) {
+	gh, calls := ghKnows(t, "ghe.corp.example")
+	r := routerOn(&FakeRemote{URL: "https://ghe.corp.example/team/app.git"}, gh, nil)
+	root := t.TempDir()
+
+	if _, err := r.ListPRs(root); err != nil {
+		t.Fatalf("ListPRs = %v, want the host read as GitHub Enterprise", err)
+	}
+	if got := r.Label(root); got != forge.GitHub {
+		t.Errorf("Label = %+v, want GitHub's", got)
+	}
+	if b, _ := os.ReadFile(calls); !strings.Contains(string(b), "auth token --hostname ghe.corp.example") {
+		t.Errorf("gh was asked %q, want its login for the host", b)
+	}
+}
+
+// A host gh has no login for stays no forge, and one that is not a host name
+// is never handed to gh.
+func TestRouter_AHostGhDoesNotKnowIsErrNoForge_issue579(t *testing.T) {
+	for _, url := range []string{"https://git.corp.example/o/r.git", "git@-oProxyCommand=x:o/r.git"} {
+		gh, calls := ghKnows(t, "ghe.corp.example")
+
+		_, err := routerOn(&FakeRemote{URL: url}, gh, nil).ListPRs(t.TempDir())
+
+		if !errors.Is(err, forge.ErrNoForge) {
+			t.Errorf("%s: error = %v, want ErrNoForge", url, err)
+		}
+		if b, _ := os.ReadFile(calls); strings.Contains(string(b), "oProxyCommand") {
+			t.Errorf("%s: an option-shaped host reached gh: %q", url, b)
 		}
 	}
 }

@@ -164,7 +164,7 @@ func TestTracker_AProjectOffItsForgeSaysWhichForge_issue449(t *testing.T) {
 		want  string
 	}{
 		{gitLab, "not on GitLab"},
-		{forge.Neutral, "not on a forge omatty reads"},
+		{forge.Neutral, "not on a forge omatty reads; name its host in [forge.hosts]."},
 	} {
 		terms, _ := fakeTerms(t)
 		off := fmt.Errorf("forge: no git remotes found: %w", forge.ErrNoForge)

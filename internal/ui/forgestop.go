@@ -82,7 +82,7 @@ func missingPhrase(e *forge.MissingToolError) string {
 // offForge names the forge a checkout is not on, or says none is known.
 func offForge(l forge.Label) string {
 	if l.Forge == "" {
-		return "this project is not on a forge omatty reads."
+		return "this project is not on a forge omatty reads; name its host in [forge.hosts]."
 	}
 	return "this project is not on " + l.Forge + "."
 }
