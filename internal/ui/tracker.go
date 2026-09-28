@@ -53,6 +53,17 @@ type trackerRow struct {
 	Label   string // an issue's first label, or a pull request's CI mark
 	Title   string
 	Updated time.Time
+	// Sigil writes a change's number its forge's way, "!" on GitLab (#449);
+	// empty means "#", which is how every issue is written.
+	Sigil string
+}
+
+// ref is the row's number as drawn: "#399", or "!400" for a GitLab change.
+func (r trackerRow) ref() string {
+	if r.Sigil == "" {
+		return "#" + strconv.Itoa(r.Number)
+	}
+	return r.Sigil + strconv.Itoa(r.Number)
 }
 
 // TrackerCursor is the highlighted item's place among the items, from 0 -
@@ -246,7 +257,7 @@ func (m *Model) trackerRows() []trackerRow {
 	// (#432); a lone list needs no name.
 	if len(rows) > 0 {
 		rows = append([]trackerRow{{Kind: rowRule, Title: "issues"}}, rows...)
-		rows = append(rows, trackerRow{Kind: rowRule, Title: "pull requests"})
+		rows = append(rows, trackerRow{Kind: rowRule, Title: m.label(project).Change + "s"})
 	}
 	return append(rows, prs...)
 }
@@ -276,7 +287,7 @@ func (m *Model) openPRs(project string) []trackerRow {
 		}
 		row := trackerRow{
 			Kind: rowPR, Number: pr.Number, Label: m.prMark(pr),
-			Title: pr.Title, Updated: pr.Updated,
+			Title: pr.Title, Updated: pr.Updated, Sigil: m.label(project).Sigil,
 		}
 		if m.matchesFilter(row, nil) {
 			rows = append(rows, row)
@@ -324,7 +335,7 @@ func (m *Model) trackerTitleParts() []titlePart {
 		parts = append(parts, titlePart{text: plural(len(issues), "issue"), priority: dropFiles})
 	}
 	if n, polled := m.openPRCount(project); polled {
-		parts = append(parts, titlePart{text: plural(n, "pr"), priority: dropFirst})
+		parts = append(parts, titlePart{text: plural(n, strings.ToLower(m.label(project).Short)), priority: dropFirst})
 	}
 	if q := m.review.Filter.Query; q != "" {
 		// keepAlways, not keepFlag: a filtered list is short *because* a filter
@@ -355,8 +366,10 @@ func plural(n int, noun string) string {
 // view to the column, and a title truncated at the edge is more useful than one
 // wrapped onto a row the cursor would then have to account for.
 func (m *Model) renderTracker(_, h int) []string {
-	if note := m.trackerNote(); note != nil {
-		return m.withFilterLine(note, m.columnWidth(), h)
+	// Wrapped, not cut: a note drawn as fixed lines lost its tail at the
+	// column's edge, and the tail was the part that said what to do (#572).
+	if note := m.trackerNote(); note != "" {
+		return m.withFilterLine(wrapBlock(note, m.columnWidth()), m.columnWidth(), h)
 	}
 	rows := m.trackerRows()
 	lines := make([]string, 0, len(rows))
@@ -367,26 +380,24 @@ func (m *Model) renderTracker(_, h int) []string {
 	return m.withPreview(list, h)
 }
 
-// trackerNote is the "nothing to show" state, or nil when there are rows. Each
+// trackerNote is the "nothing to show" state, or "" when there are rows. Each
 // state is distinct because each calls for something different from the
 // operator, which is renderGate's argument (#231).
-func (m *Model) trackerNote() []string {
+func (m *Model) trackerNote() string {
 	project := m.review.Tracker.Project
 	_, issuesPolled := m.issues[project]
 	_, prsPolled := m.prs[project]
 	switch {
-	case m.ghMissing:
-		return []string{"gh is not installed, so omatty cannot read this project's", "issues or pull requests."}
-	case m.notGitHub[project]:
-		return []string{"this project is not on GitHub."}
+	case m.forgeStopped[project] != nil:
+		return m.stoppedNote(project, m.forgeStopped[project])
 	case !issuesPolled && !prsPolled:
-		return []string{"reading " + project + "'s issues and pull requests..."}
+		return "reading " + project + "'s issues and " + m.label(project).Change + "s..."
 	case len(m.trackerRows()) == 0 && m.review.Filter.Query != "":
-		return []string{"nothing here matches /" + m.review.Filter.Query}
+		return "nothing here matches /" + m.review.Filter.Query
 	case len(m.trackerRows()) == 0:
-		return []string{"nothing open in " + project + "."}
+		return "nothing open in " + project + "."
 	}
-	return nil
+	return ""
 }
 
 // trackerLine is one row: the number, one label or CI mark, the title, and how
@@ -439,7 +450,7 @@ func trackerText(r trackerRow, now time.Time, w int) string {
 // In a column too narrow for all four the label is left out, since it is the
 // least of them and the title is what a row is read for.
 func trackerParts(r trackerRow, now time.Time, w int) (lead, age string) {
-	number := padRight("#"+strconv.Itoa(r.Number), trackerNumberCols)
+	number := padRight(r.ref(), trackerNumberCols)
 	age = padLeft(clip(AgeString(now, r.Updated), trackerAgeCols), trackerAgeCols)
 	if r.Kind == rowPR {
 		// Three glyph cells, never given up: they fit where a label does not,

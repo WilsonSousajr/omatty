@@ -3,23 +3,15 @@ package forge
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
 	"time"
 )
 
-// ErrNoGH is ListPRs' answer when gh is not installed: nothing to ask, and
-// not a failure to report again on every poll.
-var ErrNoGH = errors.New("forge: gh is not on PATH")
-
-// ErrNotGitHub is ListPRs' answer for a checkout gh cannot map to a GitHub
-// repository - no remote, another host, or not a repository at all.
-var ErrNotGitHub = errors.New("forge: not a GitHub repository")
-
 // notGitHub is gh's stderr for each way a checkout has no GitHub repository,
-// read off gh 2.87.3.
+// read off gh 2.87.3. Each is ErrNoForge: gh was ErrNotGitHub's only source
+// until #449 named the answer for every forge.
 var notGitHub = []string{
 	"no git remotes found",
 	"none of the git remotes configured for this repository point to a known GitHub host",
@@ -115,7 +107,7 @@ func (c *CLI) ListIssues(repoRoot string) ([]Issue, error) {
 // thirty seconds for each half of it (#356).
 func (c *CLI) bounded() (context.Context, context.CancelFunc, error) {
 	if _, err := exec.LookPath(c.bin); err != nil {
-		return nil, nil, ErrNoGH
+		return nil, nil, &MissingToolError{Tool: "gh"}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	return ctx, cancel, nil
@@ -166,7 +158,7 @@ func called(args []string) string {
 func classify(repoRoot, call, stderr string, err error) error {
 	for _, s := range notGitHub {
 		if strings.Contains(stderr, s) {
-			return fmt.Errorf("forge: %s: %w", stderr, ErrNotGitHub)
+			return fmt.Errorf("forge: %s: %w", stderr, ErrNoForge)
 		}
 	}
 	return fmt.Errorf("forge: gh %s in %q: %s: %w", call, repoRoot, stderr, err)

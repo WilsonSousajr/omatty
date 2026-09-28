@@ -246,8 +246,8 @@ func TestTracker_SaysWhyItHasNothingToShow_issue396(t *testing.T) {
 		err  error
 		want string
 	}{
-		{"gh is missing", forge.ErrNoGH, "gh"},
-		{"not on GitHub", fmt.Errorf("forge: no git remotes found: %w", forge.ErrNotGitHub), "not on GitHub"},
+		{"gh is missing", noGH, "gh"},
+		{"not on GitHub", fmt.Errorf("forge: no git remotes found: %w", forge.ErrNoForge), "not on GitHub"},
 		{"nothing open", nil, "nothing open"},
 	} {
 		m, fi, fp := modelWithBothLists(t)

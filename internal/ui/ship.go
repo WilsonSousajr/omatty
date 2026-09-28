@@ -67,7 +67,7 @@ func (m *Model) openPullRequest(sess registry.Session) tea.Cmd {
 	// session has none, and there is nothing to guess - nobody opened a branch
 	// for this work.
 	if sess.Base == "" || sess.Branch == "" {
-		m.lastErr = sess.Title + " is not on a worktree branch, so there is nothing to open a pull request from"
+		m.lastErr = sess.Title + " is not on a worktree branch, so there is nothing to open a " + m.label(sess.Project).Change + " from"
 		return nil
 	}
 	return m.pushAndOpen(sess)
@@ -120,7 +120,7 @@ func notPushable(sess registry.Session, state review.Shippable) string {
 // last because it costs a gh call, and it is the one that fails closed.
 func (m *Model) mergeIfGreen(sess registry.Session, pr forge.PR) tea.Cmd {
 	if reason := notMergeable(m.gateGreen(sess.ID) && m.readyToShip(sess.ID), pr); reason != "" {
-		m.lastErr = "cannot merge #" + strconv.Itoa(pr.Number) + ": " + reason
+		m.lastErr = "cannot merge " + m.changeRef(sess.Project, pr.Number) + ": " + reason
 		return nil
 	}
 	return m.mergeUnlessProtected(sess, pr)
@@ -147,9 +147,10 @@ func notMergeable(gateGreen bool, pr forge.PR) string {
 func (m *Model) mergeUnlessProtected(sess registry.Session, pr forge.PR) tea.Cmd {
 	protected, merge := m.ship.BranchProtected, m.ship.MergePR
 	root, id, number, base := m.projectRoot(sess.Project), sess.ID, pr.Number, sess.Base
+	change := m.label(sess.Project).Change
 	return func() tea.Msg {
 		if isProtected, err := protected(root, base); err != nil || isProtected {
-			return ShippedMsg{SessionID: id, Number: number, Err: protectedRefusal(base, err)}
+			return ShippedMsg{SessionID: id, Number: number, Err: protectedRefusal(base, change, err)}
 		}
 		return ShippedMsg{SessionID: id, Number: number, Merged: true, Err: merge(root, number)}
 	}
@@ -160,11 +161,11 @@ func (m *Model) mergeUnlessProtected(sess registry.Session, pr forge.PR) tea.Cmd
 // A protection flag it could not read refuses too, and says so differently: the
 // operator can merge on the forge, and being told why is more use than being
 // told no.
-func protectedRefusal(base string, err error) error {
+func protectedRefusal(base, change string, err error) error {
 	if err != nil {
 		return errShip("cannot tell whether " + base + " is protected, so refusing to merge: " + err.Error())
 	}
-	return errShip(base + " is protected; omatty moves a protected branch only by a promotion pull request")
+	return errShip(base + " is protected; omatty moves a protected branch only by a promotion " + change)
 }
 
 // errShip is a refusal the footer shows. A string is enough: nothing branches on
@@ -181,13 +182,14 @@ func (m *Model) onShipped(msg ShippedMsg) tea.Cmd {
 		m.lastErr = msg.Err.Error()
 		return nil
 	}
+	sess, ok := m.session(msg.SessionID)
+	ref := m.changeRef(sess.Project, msg.Number)
 	if msg.Merged {
-		m.notice = "merged #" + strconv.Itoa(msg.Number)
+		m.notice = "merged " + ref
 	} else {
-		m.notice = "pushed, and opened #" + strconv.Itoa(msg.Number)
+		m.notice = "pushed, and opened " + ref
 	}
 	// The card's pull request state is now a poll behind what just happened.
-	sess, ok := m.session(msg.SessionID)
 	if !ok {
 		return nil
 	}

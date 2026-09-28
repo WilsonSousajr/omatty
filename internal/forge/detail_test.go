@@ -1,7 +1,6 @@
 package forge_test
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -146,11 +145,11 @@ func TestCLI_BrowseRunsGhBrowseInTheRepoRoot_issue398(t *testing.T) {
 	}
 }
 
-func TestCLI_BrowseWithoutGhIsErrNoGH_issue398(t *testing.T) {
+func TestCLI_BrowseWithoutGhIsAMissingTool_issue398(t *testing.T) {
 	err := forge.NewCLIWithBin(filepath.Join(t.TempDir(), "no-such-gh")).Browse(t.TempDir(), 1)
 
-	if !errors.Is(err, forge.ErrNoGH) {
-		t.Errorf("error = %v, want ErrNoGH", err)
+	if !missingTool(err, "gh") {
+		t.Errorf("error = %v, want a missing gh", err)
 	}
 }
 

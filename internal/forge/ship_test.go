@@ -1,7 +1,6 @@
 package forge_test
 
 import (
-	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -128,13 +127,13 @@ func TestBranchProtected_FailsClosed_issue331(t *testing.T) {
 func TestShipCalls_SayWhenGhIsMissing_issue331(t *testing.T) {
 	cli := forge.NewCLIWithBin("gh-that-is-not-installed-anywhere")
 
-	if _, err := cli.CreatePR(t.TempDir(), "feat/a", "develop", "t"); !errors.Is(err, forge.ErrNoGH) {
-		t.Errorf("CreatePR err = %v, want ErrNoGH", err)
+	if _, err := cli.CreatePR(t.TempDir(), "feat/a", "develop", "t"); !missingTool(err, "gh") {
+		t.Errorf("CreatePR err = %v, want a missing gh", err)
 	}
-	if err := cli.MergePR(t.TempDir(), 1); !errors.Is(err, forge.ErrNoGH) {
-		t.Errorf("MergePR err = %v, want ErrNoGH", err)
+	if err := cli.MergePR(t.TempDir(), 1); !missingTool(err, "gh") {
+		t.Errorf("MergePR err = %v, want a missing gh", err)
 	}
-	if _, err := cli.BranchProtected(t.TempDir(), "main"); !errors.Is(err, forge.ErrNoGH) {
-		t.Errorf("BranchProtected err = %v, want ErrNoGH", err)
+	if _, err := cli.BranchProtected(t.TempDir(), "main"); !missingTool(err, "gh") {
+		t.Errorf("BranchProtected err = %v, want a missing gh", err)
 	}
 }

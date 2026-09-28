@@ -5,7 +5,6 @@
 package ui
 
 import (
-	"errors"
 	"log/slog"
 	"time"
 
@@ -19,9 +18,8 @@ import (
 // itself; the argument is the project's root.
 type PRListFunc func(projectRoot string) ([]forge.PR, error)
 
-// noPRs is the Deps.PRs default: with nothing wired there is no gh to ask,
-// which is exactly what forge says when gh is missing.
-func noPRs(string) ([]forge.PR, error) { return nil, forge.ErrNoGH }
+// noPRs is the Deps.PRs default: with nothing wired there is no gh to ask.
+func noPRs(string) ([]forge.PR, error) { return nil, forge.NoGH() }
 
 // PRsLoadedMsg carries one project's answer into Update. Exported so tests
 // can send one.
@@ -54,9 +52,9 @@ func (m *Model) onPRTick() tea.Cmd { return tea.Batch(m.pollPRs(), schedulePRTic
 
 // pollPRs is one call per project holding a session. Nothing is asked while
 // omatty is blurred, the diffstat poll's rule (#314) - onWindowFocus polls on
-// the way back in - and nothing at all once gh has been found missing.
+// the way back in - and nothing for a project whose forge has been lost.
 func (m *Model) pollPRs() tea.Cmd {
-	if m.ghMissing || !m.hasFocus {
+	if !m.hasFocus {
 		return nil
 	}
 	var cmds []tea.Cmd
@@ -92,13 +90,13 @@ func (m *Model) pollProjectPRs(project string) tea.Cmd {
 
 // mayAsk reports whether project can be asked for a forge list now, and records
 // the call when it can. Both lists share it (#394), which is the only way the
-// four refusals cannot drift apart: no gh at all, a checkout gh cannot map to
-// GitHub, a call already in flight, and the thirty-second floor the README
-// promises. pending and asked are the caller's own - what is in flight and when
-// it last asked are per list - while ghMissing and notGitHub are facts about
-// the machine and the checkout, so they are shared.
+// three refusals cannot drift apart: a project whose forge is lost, a call
+// already in flight, and the thirty-second floor the README promises. pending
+// and asked are the caller's own - what is in flight and when it last asked are
+// per list - while forgeStopped is a fact about the checkout and the machine,
+// so it is shared.
 func (m *Model) mayAsk(pending map[string]bool, asked map[string]time.Time, project string) bool {
-	if m.ghMissing || m.notGitHub[project] || pending[project] {
+	if m.forgeStopped[project] != nil || pending[project] {
 		return false
 	}
 	now := m.clock()
@@ -123,9 +121,9 @@ func (m *Model) refreshPRs(id string, before, after watcher.Status) tea.Cmd {
 	return m.pollProjectPRs(sess.Project)
 }
 
-// onPRs stores an answer. gh missing stops every poll and a project gh cannot
-// map to GitHub stops its own, each said once in the log and nowhere else:
-// the card simply keeps its branch. Any other failure keeps the last list and
+// onPRs stores an answer. A missing tool or a checkout on no forge stops that
+// project's polls, said once in the log and nowhere else: the card simply
+// keeps its branch. Any other failure keeps the last list and
 // marks the project failed, so the card says it does not know rather than
 // showing the last verdict as current.
 func (m *Model) onPRs(msg PRsLoadedMsg) tea.Cmd {
@@ -140,48 +138,15 @@ func (m *Model) onPRs(msg PRsLoadedMsg) tea.Cmd {
 	return nil
 }
 
-// prFailure sorts a failed call into gh missing, not GitHub, or an outage.
+// prFailure sorts a failed call into a lost forge or an outage.
 func (m *Model) prFailure(project string, err error) {
-	switch {
-	case errors.Is(err, forge.ErrNoGH):
-		m.loseGH()
-	case errors.Is(err, forge.ErrNotGitHub):
-		m.loseGitHub(project)
-	default:
-		if !m.prFailed[project] {
-			slog.Warn("reading pull requests", "project", project, "err", err)
-		}
-		m.prFailed[project] = true
-	}
-}
-
-// loseGitHub stops both lists for one project and drops what either had read,
-// said once in the log and nowhere else: the card keeps its branch and the
-// header its bare name. Shared, because it is a fact about the checkout rather
-// than about the list that happened to find it (#394).
-func (m *Model) loseGitHub(project string) {
-	if m.notGitHub[project] {
+	if m.stopsForge(project, err) {
 		return
 	}
-	m.notGitHub[project] = true
-	delete(m.prs, project)
-	delete(m.prFailed, project)
-	delete(m.issues, project)
-	delete(m.issueFailed, project)
-	slog.Info("project is not on GitHub; it will show no pull requests or issues", "project", project)
-}
-
-// loseGH stops every poll and sends every card back to its branch: a verdict
-// nothing will refresh must not stand as current for the rest of the run.
-func (m *Model) loseGH() {
-	if !m.ghMissing {
-		slog.Info("gh is not on PATH; cards will not show pull requests")
+	if !m.prFailed[project] {
+		slog.Warn("reading pull requests", "project", project, "err", err)
 	}
-	m.ghMissing = true
-	clear(m.prs)
-	clear(m.prFailed)
-	clear(m.issues)
-	clear(m.issueFailed)
+	m.prFailed[project] = true
 }
 
 // withPRMaps allocates the pull request state (#310). Keyed by project, so
@@ -190,7 +155,7 @@ func (m *Model) withPRMaps() *Model {
 	m.prs = map[string][]forge.PR{}
 	m.prPending = map[string]bool{}
 	m.prFailed = map[string]bool{}
-	m.notGitHub = map[string]bool{}
+	m.forgeStopped = map[string]error{}
 	m.prAsked = map[string]time.Time{}
 	return m
 }

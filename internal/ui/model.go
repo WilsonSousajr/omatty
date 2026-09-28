@@ -100,9 +100,10 @@ type Model struct {
 	// prs is each project's pull requests (#310) and issues its open issues
 	// (#394), keyed by project name like their Pending (a call in flight),
 	// Failed (the last call failed) and Asked (when it was last asked, for the
-	// gap) maps. notGitHub (gh cannot map the checkout to GitHub) and ghMissing
-	// (no gh at all) are shared by both lists: they are facts about the
-	// checkout and the machine, not about a list. None persisted.
+	// gap) maps. forgeStopped (the forge's tool is missing, or the checkout is
+	// on no forge omatty reads) is shared by both lists: it is a fact about the
+	// checkout and the machine, not about a list (#449). labelOf names each
+	// project's forge for the copy. None persisted.
 	prList       PRListFunc
 	prs          map[string][]forge.PR
 	prPending    map[string]bool
@@ -118,8 +119,8 @@ type Model struct {
 	issuePending map[string]bool
 	issueFailed  map[string]bool
 	issueAsked   map[string]time.Time
-	notGitHub    map[string]bool
-	ghMissing    bool
+	forgeStopped map[string]error
+	labelOf      LabelFunc
 	turnPending  map[string]bool
 	turnErr      map[string]error
 	// covers is each session's coverage overlay, read when its gate finishes
@@ -248,7 +249,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
 	m.generatedFn, m.ship, m.tally = d.Generated, d.Ship, d.Tally
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
-	m.prList, m.issueList, m.itemFuncs, m.browse = d.PRs, d.Issues, d.Item, d.Browse
+	m.prList, m.issueList, m.itemFuncs, m.browse, m.labelOf = d.PRs, d.Issues, d.Item, d.Browse, d.Label
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
 	m.rebind = d.Rebind
 	m.renameBranch = d.RenameBranch

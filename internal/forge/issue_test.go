@@ -109,11 +109,11 @@ func TestFoldIssues_MalformedJSONIsAnError_issue393(t *testing.T) {
 
 // The same three answers ListPRs gives, because they are the same checkout's:
 // no gh at all, and a checkout gh cannot map to a GitHub repository.
-func TestCLI_ListIssuesWithoutGhIsErrNoGH_issue393(t *testing.T) {
+func TestCLI_ListIssuesWithoutGhIsAMissingTool_issue393(t *testing.T) {
 	_, err := forge.NewCLIWithBin(filepath.Join(t.TempDir(), "no-such-gh")).ListIssues(t.TempDir())
 
-	if !errors.Is(err, forge.ErrNoGH) {
-		t.Errorf("error = %v, want ErrNoGH", err)
+	if !missingTool(err, "gh") {
+		t.Errorf("error = %v, want a missing gh", err)
 	}
 }
 
@@ -122,8 +122,8 @@ func TestCLI_ListIssuesRecognisesARepoThatIsNotOnGitHub_issue393(t *testing.T) {
 
 	_, err := forge.NewCLIWithBin(bin).ListIssues(t.TempDir())
 
-	if !errors.Is(err, forge.ErrNotGitHub) {
-		t.Errorf("error = %v, want ErrNotGitHub", err)
+	if !errors.Is(err, forge.ErrNoForge) {
+		t.Errorf("error = %v, want ErrNoForge", err)
 	}
 }
 
