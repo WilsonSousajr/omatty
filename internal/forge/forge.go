@@ -41,10 +41,11 @@ const finishedFields = "number,headRefName,headRefOid,isCrossRepository,state,me
 // set is asked for whole rather than through this window (#358).
 const finishedWindow = "30"
 
-// CLI runs the gh binary.
-//
-//	prs, err := forge.NewCLI().ListPRs("/p/omatty")
-type CLI struct {
+// ghCLI is the GitHub backend: the operator's own gh, run in the project's
+// root, which resolves the repository from the remote and authenticates as the
+// operator. omatty holds nothing. The Router finds gh on PATH before it builds
+// one, and gives each call its context.
+type ghCLI struct {
 	bin     string
 	timeout time.Duration
 }
@@ -55,22 +56,15 @@ type CLI struct {
 // (#356).
 const listTimeout = 30 * time.Second
 
-// NewCLI returns a CLI that invokes "gh" from PATH.
-func NewCLI() *CLI { return &CLI{bin: "gh", timeout: listTimeout} }
-
 // ListPRs is the repository's open pull requests, then its most recently
 // finished ones: two calls for the whole project, never one per pull request,
 // which is what tripped GitHub's secondary rate limit before. One `--state
 // all` call ordered by creation dropped an open pull request older than the
 // newest hundred off its card (#358). gh resolves the repository from
 // repoRoot's remote and uses the operator's own authentication; omatty holds
-// nothing.
-func (c *CLI) ListPRs(repoRoot string) ([]PR, error) {
-	ctx, cancel, err := c.bounded()
-	if err != nil {
-		return nil, err
-	}
-	defer cancel()
+// nothing. Both calls share ctx: the promise is an answer inside thirty
+// seconds, not thirty seconds for each half of it (#356).
+func (c ghCLI) listPRs(ctx context.Context, repoRoot string) ([]PR, error) {
 	open, err := c.list(ctx, repoRoot, "open", "100", openFields)
 	if err != nil {
 		return nil, err
@@ -86,14 +80,7 @@ func (c *CLI) ListPRs(repoRoot string) ([]PR, error) {
 // #358's rule applied to the other list. Closed issues are not read at all -
 // the tracker answers "what is open", and a closed one is history the forge
 // already keeps.
-//
-//	issues, err := forge.NewCLI().ListIssues("/p/omatty")
-func (c *CLI) ListIssues(repoRoot string) ([]Issue, error) {
-	ctx, cancel, err := c.bounded()
-	if err != nil {
-		return nil, err
-	}
-	defer cancel()
+func (c ghCLI) listIssues(ctx context.Context, repoRoot string) ([]Issue, error) {
 	out, err := c.run(ctx, repoRoot, "issue", "list", "--state", "open", "--limit", issueWindow, "--json", issueFields)
 	if err != nil {
 		return nil, err
@@ -101,20 +88,8 @@ func (c *CLI) ListIssues(repoRoot string) ([]Issue, error) {
 	return FoldIssues(out)
 }
 
-// bounded refuses when gh is not installed and otherwise returns the context
-// one exported call is given. One context per call and not per gh invocation:
-// ListPRs makes two, and the promise is an answer inside thirty seconds, not
-// thirty seconds for each half of it (#356).
-func (c *CLI) bounded() (context.Context, context.CancelFunc, error) {
-	if _, err := exec.LookPath(c.bin); err != nil {
-		return nil, nil, &MissingToolError{Tool: "gh"}
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	return ctx, cancel, nil
-}
-
 // list is one `gh pr list` in repoRoot. gh's "closed" includes merged.
-func (c *CLI) list(ctx context.Context, repoRoot, state, limit, fields string) ([]PR, error) {
+func (c ghCLI) list(ctx context.Context, repoRoot, state, limit, fields string) ([]PR, error) {
 	out, err := c.run(ctx, repoRoot, "pr", "list", "--state", state, "--limit", limit, "--json", fields)
 	if err != nil {
 		return nil, err
@@ -125,7 +100,7 @@ func (c *CLI) list(ctx context.Context, repoRoot, state, limit, fields string) (
 // run is one gh invocation in repoRoot, and the only place this package starts
 // a process. Both lists share it so neither can drift from the other's
 // bounding, classification or diagnostics.
-func (c *CLI) run(ctx context.Context, repoRoot string, args ...string) ([]byte, error) {
+func (c ghCLI) run(ctx context.Context, repoRoot string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, c.bin, args...)
 	cmd.Dir = repoRoot
 	// A grandchild holding stdout must not outlive the kill (#356), the same

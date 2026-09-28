@@ -25,13 +25,13 @@ import (
 // on yes. Detection proposes and confirming is a separate act, which is what
 // stops a cloned repository getting a command run because omatty looked at it
 // (#226).
-func gateCommand(store *registry.Store, args []string, in io.Reader) error {
+func gateCommand(store *registry.Store, args []string, in io.Reader, prs prLister) error {
 	project, err := gateProject(store, args)
 	if err != nil {
 		return err
 	}
 	if hasFlag(args, "--stats") {
-		return reportStats(store, project)
+		return reportStats(store, project, prs)
 	}
 	if hasFlag(args, "--clear") {
 		if err := registry.ClearGate(store, project.Name); err != nil {

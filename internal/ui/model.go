@@ -111,7 +111,7 @@ type Model struct {
 	prAsked      map[string]time.Time
 	issueList    IssueListFunc
 	itemFuncs    ForgeItemFuncs
-	browse       BrowseFunc
+	browse       ForgeBrowseFuncs
 	items        map[itemKey]forge.Detail
 	itemPending  map[itemKey]bool
 	itemFailed   map[itemKey]bool

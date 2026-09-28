@@ -46,7 +46,7 @@ func configuredGate(t *testing.T, store *registry.Store) []gate.Step {
 func TestGateCommand_proposesAndWritesNothingWithoutConfirmation(t *testing.T) {
 	store, _ := gateFixture(t)
 
-	if err := gateCommand(store, []string{"omatty"}, strings.NewReader("\n")); err != nil {
+	if err := gateCommand(store, []string{"omatty"}, strings.NewReader("\n"), nil); err != nil {
 		t.Fatalf("gateCommand() error = %v", err)
 	}
 
@@ -58,7 +58,7 @@ func TestGateCommand_proposesAndWritesNothingWithoutConfirmation(t *testing.T) {
 func TestGateCommand_confirmingWritesTheProposal(t *testing.T) {
 	store, _ := gateFixture(t)
 
-	if err := gateCommand(store, []string{"omatty"}, strings.NewReader("y\n")); err != nil {
+	if err := gateCommand(store, []string{"omatty"}, strings.NewReader("y\n"), nil); err != nil {
 		t.Fatalf("gateCommand() error = %v", err)
 	}
 
@@ -76,7 +76,7 @@ func TestGateCommand_confirmingWritesTheProposal(t *testing.T) {
 func TestGateCommand_detectFlagNeverWrites(t *testing.T) {
 	store, _ := gateFixture(t)
 
-	if err := gateCommand(store, []string{"omatty", "--detect"}, strings.NewReader("y\ny\n")); err != nil {
+	if err := gateCommand(store, []string{"omatty", "--detect"}, strings.NewReader("y\ny\n"), nil); err != nil {
 		t.Fatalf("gateCommand() error = %v", err)
 	}
 
@@ -90,7 +90,7 @@ func TestGateCommand_detectFlagNeverWrites(t *testing.T) {
 func TestGateCommand_setFlagWritesWithoutAsking(t *testing.T) {
 	store, _ := gateFixture(t)
 
-	if err := gateCommand(store, []string{"omatty", "--set"}, strings.NewReader("")); err != nil {
+	if err := gateCommand(store, []string{"omatty", "--set"}, strings.NewReader(""), nil); err != nil {
 		t.Fatalf("gateCommand() error = %v", err)
 	}
 
@@ -101,11 +101,11 @@ func TestGateCommand_setFlagWritesWithoutAsking(t *testing.T) {
 
 func TestGateCommand_clearForgetsTheGate(t *testing.T) {
 	store, _ := gateFixture(t)
-	if err := gateCommand(store, []string{"omatty", "--set"}, strings.NewReader("")); err != nil {
+	if err := gateCommand(store, []string{"omatty", "--set"}, strings.NewReader(""), nil); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := gateCommand(store, []string{"omatty", "--clear"}, strings.NewReader("")); err != nil {
+	if err := gateCommand(store, []string{"omatty", "--clear"}, strings.NewReader(""), nil); err != nil {
 		t.Fatalf("gateCommand() error = %v", err)
 	}
 
@@ -122,7 +122,7 @@ func TestGateCommand_aConfiguredProjectIsShownItsGate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := gateCommand(store, []string{"omatty"}, strings.NewReader("")); err != nil {
+	if err := gateCommand(store, []string{"omatty"}, strings.NewReader(""), nil); err != nil {
 		t.Fatalf("gateCommand() error = %v", err)
 	}
 
@@ -147,7 +147,7 @@ func TestGateCommand_theListingNamesTheProfileACoverageStepWrites(t *testing.T) 
 	}
 
 	out := captureReport(t, func() {
-		if err := gateCommand(store, []string{"omatty"}, strings.NewReader("")); err != nil {
+		if err := gateCommand(store, []string{"omatty"}, strings.NewReader(""), nil); err != nil {
 			t.Fatalf("gateCommand() error = %v", err)
 		}
 	})
@@ -176,7 +176,7 @@ func lineWithText(t *testing.T, lines []string, want string) string {
 func TestGateCommand_unknownProject_isAnErrorNamingIt(t *testing.T) {
 	store, _ := gateFixture(t)
 
-	err := gateCommand(store, []string{"not-a-project"}, strings.NewReader(""))
+	err := gateCommand(store, []string{"not-a-project"}, strings.NewReader(""), nil)
 
 	if err == nil || !strings.Contains(err.Error(), "not-a-project") {
 		t.Errorf("gateCommand() error = %v, want one naming the unknown project", err)
@@ -186,7 +186,7 @@ func TestGateCommand_unknownProject_isAnErrorNamingIt(t *testing.T) {
 func TestGateCommand_noProjectArgument_saysWhatItWants(t *testing.T) {
 	store, _ := gateFixture(t)
 
-	err := gateCommand(store, nil, strings.NewReader(""))
+	err := gateCommand(store, nil, strings.NewReader(""), nil)
 
 	if err == nil || !strings.Contains(err.Error(), "<project>") {
 		t.Errorf("gateCommand() error = %v, want it to state the expected argument", err)
@@ -207,7 +207,7 @@ func TestGateCommand_nothingRecognised_saysSoAndSucceeds(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := gateCommand(store, []string{"plain"}, strings.NewReader("y\n")); err != nil {
+	if err := gateCommand(store, []string{"plain"}, strings.NewReader("y\n"), nil); err != nil {
 		t.Errorf("gateCommand() error = %v, want nil", err)
 	}
 	if got := configuredGate(t, store); got != nil {
@@ -228,7 +228,7 @@ func TestGateCommand_everyPathReportsWhatItDid(t *testing.T) {
 	for _, args := range cases {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			out := captureReport(t, func() {
-				if err := gateCommand(store, args, strings.NewReader("\n")); err != nil {
+				if err := gateCommand(store, args, strings.NewReader("\n"), nil); err != nil {
 					t.Fatalf("gateCommand(%v) error = %v", args, err)
 				}
 			})

@@ -241,6 +241,7 @@ and the tests substitute a named fake for it.
 | `detach` | the dtach CLI | Optional at runtime; a `Plain` holder makes its absence a footer notice rather than a code path. `dtachprobe` exists because its unit tests assert the command line dtach is *given*, and a missing directory shipped green (#43). |
 | `agent` | the coding agent | An agent is a command template plus a status adapter. A second agent is a new file here, not an edit to `supervisor`, `watcher`, `paths` and `cmd` at once (#46). |
 | `highlight` | chroma | Not pre-1.0, but the blast-radius rule is the same: one package owns the lexers and the style, and the style is omatty's because every stock theme spends the accent and the diff hues on keywords (#197). |
+| `forge` | every forge's CLI | A forge is a backend file in one package, not a package per forge (#452): a `Router` reads each project's origin once, names its forge from the host (`[forge.hosts]` first, an ssh alias through `ssh -G`, #576), and dispatches to that forge's unexported backend. The UI depends on its own func types, never on the Router, and a second forge adds no `os/exec` importer. |
 
 Every seam above is now an enforced import rule rather than a convention:
 `depguard` in `.golangci.yml` fences bubbleterm and the PTY to `termwrap`,
