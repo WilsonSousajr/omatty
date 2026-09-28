@@ -30,7 +30,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. Released in v0.2.0. |
 | M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. Released in v0.2.0. |
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. Released in v0.2.0. |
-| M12 | The Field | **Done.** The research half is #295-#302, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`; the verification core (#310, #311, #335, #342) released in v0.3.0 and the close-out in v0.4.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379), and those built 2026-09-26 as #337, #338, #339, #334, #331, #332, #333 and #329, with #410/#412 and the two defects #471/#472 beside them. Released in v0.6.0. It deliberately leaves three, which keep the label: **#369** blocked upstream (goreleaser#6870/#6873), **#336** gated on upstream #315, **#330** waiting on people rather than code. |
+| M12 | The Field | **Done.** The research half is #295-#302, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`; the verification core (#310, #311, #335, #342) released in v0.3.0 and the close-out in v0.4.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379), and those built 2026-09-26 as #337, #338, #339, #334, #331, #332, #333 and #329, with #410/#412 and the two defects #471/#472 beside them. Released in v0.6.0. It deliberately leaves three, which keep the label: **#369** blocked upstream (goreleaser#6870/#6873), **#336**, which needed no code (2026-09-27: a real Claude Code probe showed its own pager carries the history across a reattach), **#330** waiting on people rather than code. |
 | M13 | Memory and idle CPU | **Done.** PR #314, merged 2026-09-22. Released in v0.2.0. |
 | — | **Released** | **v0.2.0**, 2026-09-22. M9-M11, M13 and the session lifecycle promoted to `main` (#328). See "Releases". |
 | — | **Released** | **v0.3.0**, 2026-09-25. M12's verification core (#311, #310, #335, #342), the release pipeline (#327) and the MIT license (#362). See "Releases". |
@@ -670,8 +670,8 @@ what M7 left.
   `detach.Holder.Held` tells a held session from a fresh one before the
   terminals start, and only those panes are nudged. `dtachprobe` now stands
   in a silent child and proves dtach forwards a later size change, which its
-  manual does not say. Scrollback is still gone; persisting the grid would be
-  its own issue.
+  manual does not say. Scrollback looked gone and was filed as #336; it was
+  not, because the history is Claude Code's own and the process is kept.
 - **#190 - paste never reached claude.** Done 2026-09-09, PR #213. A paste
   is a `PasteMsg`, not keystrokes, and nothing routed it. It now follows the
   key table: the note and filter lines as text, the focused terminal
@@ -1113,7 +1113,12 @@ then shipped anyway - a comment that knows it was sent (#335) and Homebrew
 argued against it. Rather than keep a milestone whose roadmap refuses its own
 issues, M12 took them back:
 
-- **#336** scrollback survives a dtach reattach (#191's remainder).
+- **#336** scrollback survives a dtach reattach (#191's remainder). Closed
+  2026-09-27 without code: a real Claude Code 2.1.283 in a sized PTY, asked
+  for 120 lines, then omatty quit and relaunched, and `pgup` reached the first
+  line, in both the fullscreen and the default TUI. The pane keeps no
+  scrollback of its own and does not need to while Claude Code keeps it; the
+  memory #315 measured stays upstream's.
 - **#337** per-file reviewed, and changed since reviewed.
 - **#338** generated files collapsed in the review tree.
 - **#339** several comments per line, and comments on part of a line.

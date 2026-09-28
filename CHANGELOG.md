@@ -11,6 +11,17 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+### Documentation
+
+- **Scrollback survives a reattach, and always did** (#336). The pane keeps no
+  scrollback of its own, but Claude Code's pager holds the whole conversation,
+  and with `dtach` the process that holds it is never ended. Checked with
+  Claude Code 2.1.283 in a sized PTY: 120 lines asked for, omatty quit and
+  relaunched, and `pgup` reached the first line, in both the fullscreen and
+  the default TUI, including a turn that finished while omatty was closed.
+  `docs/comparison.md` no longer lists it as lost, and the known limitation
+  earlier releases carried is withdrawn.
+
 ## [v0.8.1] — 2026-09-27
 
 The recording at the top of the README is now real Claude Code.
