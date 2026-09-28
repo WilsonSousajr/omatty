@@ -115,7 +115,7 @@ type Deps struct {
 	HooksDown bool
 	// PRs lists a project's pull requests for its cards (#310) and Issues its
 	// open issues for the tracker (#394). Unwired, each says gh is missing,
-	// which stops every poll: what every test sees.
+	// which stops every project's poll: what every test sees.
 	PRs    PRListFunc
 	Issues IssueListFunc
 	// Item reads one issue or pull request in full, on the keypress that opens
@@ -124,6 +124,9 @@ type Deps struct {
 	// Browse opens one item in the operator's browser (#398). Unwired, it names
 	// the missing wiring.
 	Browse BrowseFunc
+	// Label names each project's forge and its unit of change for the copy
+	// (#449). Unwired, it is GitHub's, matching the missing gh above.
+	Label LabelFunc
 	// Rename persists a session's new title (#41), and Name reads the first
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
@@ -232,6 +235,9 @@ func (d Deps) withPRDefaults() Deps {
 	}
 	if d.Browse == nil {
 		d.Browse = noBrowse
+	}
+	if d.Label == nil {
+		d.Label = unwiredLabel
 	}
 	return d
 }

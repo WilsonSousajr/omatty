@@ -35,7 +35,7 @@ type ForgeItemFuncs struct {
 
 // noItem is the Deps.Item default for either half: with nothing wired there is
 // no gh to ask.
-func noItem(string, int) (forge.Detail, error) { return forge.Detail{}, forge.ErrNoGH }
+func noItem(string, int) (forge.Detail, error) { return forge.Detail{}, forge.NoGH() }
 
 // itemKey identifies one read item. A struct rather than a joined string so the
 // three parts cannot be confused, and so archive's reflection guard skips the
@@ -80,7 +80,7 @@ func (m *Model) itemKeyAtCursor() itemKey {
 // readItem asks for one item unless it is already held or in flight. again
 // forces the call, which is what r is for: an item's comments move on.
 func (m *Model) readItem(key itemKey, again bool) tea.Cmd {
-	if m.ghMissing || m.notGitHub[key.Project] || m.itemPending[key] {
+	if m.forgeStopped[key.Project] != nil || m.itemPending[key] {
 		return nil
 	}
 	if _, held := m.items[key]; held && !again {
@@ -101,8 +101,8 @@ func (m *Model) itemReader(pr bool) ItemFunc {
 	return m.itemFuncs.Issue
 }
 
-// onItem stores one read. gh missing stops every poll, as it does for the lists;
-// any other failure is held against that item so the view can say the read
+// onItem stores one read. A lost forge stops the project, as it does for the
+// lists; any other failure is held against that item so the view can say the read
 // failed rather than showing an empty body.
 func (m *Model) onItem(msg ItemLoadedMsg) tea.Cmd {
 	delete(m.itemPending, msg.Key)
@@ -112,8 +112,8 @@ func (m *Model) onItem(msg ItemLoadedMsg) tea.Cmd {
 		m.contentChanged()
 		return nil
 	}
-	if errors.Is(msg.Err, forge.ErrNoGH) {
-		m.loseGH()
+	if m.stopsForge(msg.Key.Project, msg.Err) {
+		m.contentChanged()
 		return nil
 	}
 	if !m.itemFailed[msg.Key] {
@@ -202,17 +202,22 @@ func (m *Model) itemHead(item forge.Detail, w int) []string {
 		by += " · " + age + " ago"
 	}
 	// The title bold and the by-line muted, so the page reads as one (#433).
-	head := styleLines(wrapBlock("#"+strconv.Itoa(item.Number)+"  "+item.Title, w), headerStyle.Render)
+	number := m.itemRef(m.review.Tracker.Project, m.review.Tracker.ItemPR, item.Number)
+	head := styleLines(wrapBlock(number+"  "+item.Title, w), headerStyle.Render)
 	return append(append(head, styleLines(wrapBlock(by, w), mutedStyle.Render)...), "")
 }
 
-// itemNote is the state before an item is held: reading, failed, or gh gone.
-// Distinct states, because an empty pane reads as "this issue says nothing".
+// itemNote is the state before an item is held: reading, failed, or the
+// project's forge lost. Distinct states, because an empty pane reads as "this
+// issue says nothing".
 func (m *Model) itemNote(key itemKey, w int) []string {
-	number := "#" + strconv.Itoa(key.Number)
+	number := m.itemRef(key.Project, key.PR, key.Number)
+	var missing *forge.MissingToolError
 	switch {
-	case m.ghMissing:
-		return wrapBlock("gh is not installed, so "+number+" cannot be read.", w)
+	case errors.As(m.forgeStopped[key.Project], &missing):
+		return wrapBlock(missingPhrase(missing)+", so "+number+" cannot be read.", w)
+	case m.forgeStopped[key.Project] != nil:
+		return wrapBlock(offForge(m.label(key.Project)), w)
 	case m.itemFailed[key]:
 		return wrapBlock(number+" could not be read. Press r to try again.", w)
 	}
@@ -245,7 +250,7 @@ func (m *Model) trackerItemMaxWidth() int {
 func (m *Model) trackerItemTitle(budget int) string {
 	t := m.review.Tracker
 	parts := []titlePart{
-		{text: "#" + strconv.Itoa(t.ItemNumber), priority: keepAlways},
+		{text: m.itemRef(t.Project, t.ItemPR, t.ItemNumber), priority: keepAlways},
 		{text: t.Project, priority: keepAlways},
 	}
 	if item, held := m.items[m.itemKeyAtCursor()]; held && item.Truncated {

@@ -12,7 +12,7 @@ func TestForgetProject_clearsItsForgeState_issue310(t *testing.T) {
 	m := filledModel()
 	m.prs["omatty"] = []forge.PR{{Number: 7}}
 	m.issues["omatty"] = []forge.Issue{{Number: 399}}
-	m.prPending["omatty"], m.prFailed["omatty"], m.notGitHub["omatty"] = true, true, true
+	m.prPending["omatty"], m.prFailed["omatty"], m.forgeStopped["omatty"] = true, true, forge.ErrNoForge
 	m.issuePending["omatty"], m.issueFailed["omatty"] = true, true
 	m.prAsked["omatty"], m.issueAsked["omatty"] = m.clock(), m.clock()
 
@@ -20,7 +20,7 @@ func TestForgetProject_clearsItsForgeState_issue310(t *testing.T) {
 
 	for name, held := range map[string]bool{
 		"prs": m.prs["omatty"] != nil, "prPending": m.prPending["omatty"],
-		"prFailed": m.prFailed["omatty"], "notGitHub": m.notGitHub["omatty"],
+		"prFailed": m.prFailed["omatty"], "forgeStopped": m.forgeStopped["omatty"] != nil,
 		"prAsked": !m.prAsked["omatty"].IsZero(),
 		"issues":  m.issues["omatty"] != nil, "issuePending": m.issuePending["omatty"],
 		"issueFailed": m.issueFailed["omatty"], "issueAsked": !m.issueAsked["omatty"].IsZero(),

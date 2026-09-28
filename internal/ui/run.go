@@ -130,6 +130,8 @@ type RunDeps struct {
 	// in the operator's browser (#398).
 	Item   ForgeItemFuncs
 	Browse BrowseFunc
+	// Label names each project's forge for the copy (#449).
+	Label LabelFunc
 	// Rename persists a session's new title (#41); Name reads the first prompt
 	// that titles a session created without one (#127).
 	Rename RenameFunc
@@ -207,7 +209,7 @@ func modelFor(
 ) *Model {
 	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
-		Diff: d.Diff, Files: d.Files, Generated: d.Generated, Ship: d.Ship, Tally: d.Tally, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Issues: d.Issues, Item: d.Item, Browse: d.Browse, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
+		Diff: d.Diff, Files: d.Files, Generated: d.Generated, Ship: d.Ship, Tally: d.Tally, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Issues: d.Issues, Item: d.Item, Browse: d.Browse, Label: d.Label, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject, Fold: d.Fold,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,

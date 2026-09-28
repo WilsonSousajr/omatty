@@ -16,7 +16,6 @@
 package ui
 
 import (
-	"errors"
 	"log/slog"
 	"time"
 
@@ -30,8 +29,8 @@ import (
 type IssueListFunc func(projectRoot string) ([]forge.Issue, error)
 
 // noIssues is the Deps.Issues default: with nothing wired there is no gh to
-// ask, which is exactly what forge says when gh is missing.
-func noIssues(string) ([]forge.Issue, error) { return nil, forge.ErrNoGH }
+// ask.
+func noIssues(string) ([]forge.Issue, error) { return nil, forge.NoGH() }
 
 // IssuesLoadedMsg carries one project's answer into Update. Exported so tests
 // can send one.
@@ -58,10 +57,10 @@ func scheduleIssueTick() tea.Cmd {
 func (m *Model) onIssueTick() tea.Cmd { return tea.Batch(m.pollIssues(), scheduleIssueTick()) }
 
 // pollIssues is one call per registered project. Nothing while omatty is
-// blurred (#314) - onWindowFocus polls on the way back in - and nothing at all
-// once gh has been found missing.
+// blurred (#314) - onWindowFocus polls on the way back in - and nothing for a
+// project whose forge has been lost.
 func (m *Model) pollIssues() tea.Cmd {
-	if m.ghMissing || !m.hasFocus {
+	if !m.hasFocus {
 		return nil
 	}
 	var cmds []tea.Cmd
@@ -85,8 +84,7 @@ func (m *Model) pollProjectIssues(project string) tea.Cmd {
 }
 
 // onIssues stores an answer. The failure paths are prpoll's, for its reasons:
-// gh missing stops every poll, a project gh cannot map to GitHub stops its own,
-// and any other failure keeps the last list so a count is stale rather than
+// a lost forge stops that project's polls, and any other failure keeps the last list so a count is stale rather than
 // reading as zero.
 func (m *Model) onIssues(msg IssuesLoadedMsg) tea.Cmd {
 	delete(m.issuePending, msg.Project)
@@ -100,19 +98,15 @@ func (m *Model) onIssues(msg IssuesLoadedMsg) tea.Cmd {
 	return nil
 }
 
-// issueFailure sorts a failed call into gh missing, not GitHub, or an outage.
+// issueFailure sorts a failed call into a lost forge or an outage.
 func (m *Model) issueFailure(project string, err error) {
-	switch {
-	case errors.Is(err, forge.ErrNoGH):
-		m.loseGH()
-	case errors.Is(err, forge.ErrNotGitHub):
-		m.loseGitHub(project)
-	default:
-		if !m.issueFailed[project] {
-			slog.Warn("reading issues", "project", project, "err", err)
-		}
-		m.issueFailed[project] = true
+	if m.stopsForge(project, err) {
+		return
 	}
+	if !m.issueFailed[project] {
+		slog.Warn("reading issues", "project", project, "err", err)
+	}
+	m.issueFailed[project] = true
 }
 
 // withIssueMaps allocates the issue state (#394). Keyed by project, like the

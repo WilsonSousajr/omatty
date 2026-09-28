@@ -30,7 +30,7 @@ const nameFloor = 15
 // exactly what it was before this feature: an unknown count is never drawn as
 // zero, the rule a card's "?" follows (Orca #18484).
 func (m *Model) forgeCounts(project string) string {
-	if m.ghMissing || m.notGitHub[project] {
+	if m.forgeStopped[project] != nil {
 		return ""
 	}
 	parts := make([]string, 0, 2)
@@ -38,7 +38,7 @@ func (m *Model) forgeCounts(project string) string {
 		parts = append(parts, strconv.Itoa(len(issues))+"i")
 	}
 	if n, polled := m.openPRCount(project); polled {
-		parts = append(parts, strconv.Itoa(n)+"p")
+		parts = append(parts, strconv.Itoa(n)+countSuffix(m.label(project)))
 	}
 	return fitCounts(parts)
 }
