@@ -92,13 +92,17 @@ func stoppedPhrase(err error) (string, bool) {
 // missingPhrase is "install X or set Y" said as a fact: what is missing, both
 // halves when the forge has a fallback.
 func missingPhrase(e *forge.MissingToolError) string {
+	tool := e.Tool + " is not installed"
+	if e.NoLoginFor != "" {
+		tool = e.Tool + " has no login for " + e.NoLoginFor
+	}
 	switch {
 	case e.Tool == "":
 		return e.TokenEnv + " is unset"
 	case e.TokenEnv == "":
-		return e.Tool + " is not installed"
+		return tool
 	}
-	return e.Tool + " is not installed and " + e.TokenEnv + " is unset"
+	return tool + " and " + e.TokenEnv + " is unset"
 }
 
 // offForge names the forge a checkout is not on, or says none is known.

@@ -9,13 +9,17 @@ import (
 // tea cannot read anonymously and has no --hostname, so a tea without a login
 // for this host is no way in; the REST fallback is #459.
 func (r *Router) pickGitea(repoRoot string, remote Remote) (backend, error) {
-	if bin, ok := r.cli(KindGitea); ok {
-		if login := r.teaLogin(bin, apiHost(remote)); login != "" {
-			f := teaAPI{bin: bin, login: login, host: apiHost(remote), dir: repoRoot, timeout: r.timeout}
-			return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
-		}
+	bin, ok := r.cli(KindGitea)
+	if !ok {
+		return nil, &MissingToolError{Tool: "tea"}
 	}
-	return nil, &MissingToolError{Tool: "tea"}
+	login := r.teaLogin(bin, apiHost(remote))
+	if login == "" {
+		// Installed, and still no way in: not "tea is not installed" (#586).
+		return nil, &MissingToolError{Tool: "tea", NoLoginFor: apiHost(remote)}
+	}
+	f := teaAPI{bin: bin, login: login, host: apiHost(remote), dir: repoRoot, timeout: r.timeout}
+	return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
 }
 
 // teaLogin is the name of the tea login whose URL is host, read from

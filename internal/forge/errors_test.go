@@ -26,6 +26,8 @@ func TestMissingToolError_NamesTheToolAndTheFix_issue449(t *testing.T) {
 		{forge.MissingToolError{Tool: "gh"}, "forge: gh not found on PATH"},
 		{forge.MissingToolError{Tool: "glab", TokenEnv: "GITLAB_TOKEN"}, "forge: glab not found on PATH and GITLAB_TOKEN is unset"},
 		{forge.MissingToolError{TokenEnv: "BITBUCKET_TOKEN"}, "forge: BITBUCKET_TOKEN is unset"},
+		{forge.MissingToolError{Tool: "tea", NoLoginFor: "codeberg.org"}, "forge: tea has no login for codeberg.org"},
+		{forge.MissingToolError{Tool: "tea", TokenEnv: "GITEA_TOKEN", NoLoginFor: "codeberg.org"}, "forge: tea has no login for codeberg.org and GITEA_TOKEN is unset"},
 	} {
 		if got := tt.err.Error(); got != tt.want {
 			t.Errorf("%+v.Error() = %q, want %q", tt.err, got, tt.want)
