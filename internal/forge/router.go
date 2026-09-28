@@ -32,8 +32,9 @@ type Router struct {
 	ci        *ciCache
 	timeout   time.Duration
 
-	mu   sync.Mutex
-	seen map[string]resolved
+	mu        sync.Mutex
+	seen      map[string]resolved
+	teaLogins map[string]string // host -> the tea login that reads it, once found
 }
 
 // Options is what a Router is built from.
@@ -69,15 +70,15 @@ type resolved struct {
 
 // labels is each readable forge's words. A forge omatty cannot read yet has
 // none, so its projects keep the neutral label.
-var labels = map[Kind]Label{KindGitHub: GitHub, KindGitLab: gitLabLabel}
+var labels = map[Kind]Label{KindGitHub: GitHub, KindGitLab: gitLabLabel, KindGitea: giteaLabel}
 
 // NewRouter builds a Router that runs each forge's own CLI from PATH.
 func NewRouter(o Options) *Router {
 	return &Router{
 		remote: o.Remote, hosts: o.Hosts, transport: o.Transport,
-		bins: map[Kind]string{KindGitHub: "gh", KindGitLab: "glab"}, sshBin: "ssh",
+		bins: map[Kind]string{KindGitHub: "gh", KindGitLab: "glab", KindGitea: "tea"}, sshBin: "ssh",
 		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(), open: openInBrowser,
-		ci: newCICache(), timeout: listTimeout, seen: map[string]resolved{},
+		ci: newCICache(), timeout: listTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{},
 	}
 }
 
@@ -129,6 +130,15 @@ func (r *Router) Label(repoRoot string) Label {
 	if !ok {
 		return Neutral
 	}
+	return labelOf(res)
+}
+
+// labelOf is a resolved project's words: its kind's, and for a Gitea host the
+// name the operator knows it by.
+func labelOf(res resolved) Label {
+	if res.kind == KindGitea && res.remote.Host == "codeberg.org" {
+		return codebergLabel
+	}
 	if l, readable := labels[res.kind]; readable {
 		return l
 	}
@@ -166,6 +176,8 @@ func (r *Router) pick(repoRoot string, res resolved) (backend, error) {
 		return r.pickGitHub(res.remote)
 	case KindGitLab:
 		return r.pickGitLab(repoRoot, res.remote)
+	case KindGitea:
+		return r.pickGitea(repoRoot, res.remote)
 	}
 	return nil, fmt.Errorf("forge: omatty does not read %s yet: %w", res.kind, ErrNoForge)
 }
