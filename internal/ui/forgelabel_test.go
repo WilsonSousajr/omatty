@@ -92,8 +92,25 @@ func TestTrackerItem_AMissingToolSaysWhichTool_issue449(t *testing.T) {
 
 	pressDeliver(m, special(tea.KeyEnter))
 
-	if body := trackerBody(t, m); !strings.Contains(body, "glab is not installed") {
-		t.Errorf("the item view does not name glab:\n%s", body)
+	want := "glab is not installed and GITLAB_TOKEN is unset, so !400 cannot be read."
+	if got := columnText(m); !strings.Contains(got, want) {
+		t.Errorf("the item view reads %q, want %q", got, want)
+	}
+}
+
+// Regression: the preview headed the row under the cursor with the kind of the
+// last item opened in full, not its own - so on GitLab a merge request previewed
+// before anything was opened read "#400". Latent while every forge wrote "#".
+func TestTracker_ThePreviewHeadsAChangeWithItsOwnSigil_issue574(t *testing.T) {
+	m, _ := gitLabTracker(t, nil)
+	m.Update(tea.WindowSizeMsg{Width: 200, Height: 32})
+	leader(m, key('z'))
+
+	onTheChange(m)
+
+	view := stripSGR(m.View().Content)
+	if !strings.Contains(view, "!400  first slice") || strings.Contains(view, "#400  first slice") {
+		t.Errorf("the preview does not head the merge request !400:\n%s", view)
 	}
 }
 

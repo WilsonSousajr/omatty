@@ -169,7 +169,7 @@ func (m *Model) itemLinesFor(key itemKey, w int) []string {
 	if !held {
 		return m.itemNote(key, w)
 	}
-	lines := append(m.itemHead(item, w), m.itemChecks(item)...)
+	lines := append(m.itemHead(key, item, w), m.itemChecks(item)...)
 	lines = append(lines, markdownLines(item.Body, w)...)
 	lines = append(lines, m.commentLines(item.Comments, w)...)
 	if item.Truncated {
@@ -195,14 +195,16 @@ func (m *Model) commentLines(comments []forge.Comment, w int) []string {
 // itemHead is the item's own heading: what it is, and who opened it when. Every
 // line the view draws is wrapped, including these: a line that is prose in a
 // wrapped view but cut at the edge reads as a rendering bug, which is how the
-// truncation notice was found.
-func (m *Model) itemHead(item forge.Detail, w int) []string {
+// truncation notice was found. The number is written from key, the item being
+// drawn, and not from the item last opened: the preview draws the row under the
+// cursor, which may be the other kind (#574).
+func (m *Model) itemHead(key itemKey, item forge.Detail, w int) []string {
 	by := "opened by " + item.Author
 	if age := AgeString(m.clock(), item.Created); age != "" {
 		by += " · " + age + " ago"
 	}
 	// The title bold and the by-line muted, so the page reads as one (#433).
-	number := m.itemRef(m.review.Tracker.Project, m.review.Tracker.ItemPR, item.Number)
+	number := m.itemRef(key.Project, key.PR, item.Number)
 	head := styleLines(wrapBlock(number+"  "+item.Title, w), headerStyle.Render)
 	return append(append(head, styleLines(wrapBlock(by, w), mutedStyle.Render)...), "")
 }
