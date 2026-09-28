@@ -11,6 +11,16 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A project reached through a symlink finds its transcript** (#564).
+  Claude Code files a session's transcript under its working directory as the
+  kernel reports it, every link resolved, so a project registered as `/tmp/x`
+  writes under `-private-tmp-x` on macOS. omatty looked under the path as
+  registered: status came from hooks alone, a crash restart used
+  `--session-id` where claude had to be resumed, and the session was never
+  named from its first prompt. Found by running real Claude Code under `/tmp`.
+
 ## [v0.8.1] — 2026-09-27
 
 The recording at the top of the README is now real Claude Code.

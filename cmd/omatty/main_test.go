@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -489,6 +490,31 @@ func TestSessionRebinder_PersistsTheConversation_issue316(t *testing.T) {
 	}
 }
 
+// Regression, issue #564: the namer read the transcript at the directory as
+// registered, but claude writes it under the resolved one, so a project
+// behind a symlink was never named from its first prompt.
+func TestSessionNamer_ReadsATranscriptBehindASymlink_issue564(t *testing.T) {
+	home := t.TempDir()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "real", "omatty"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "real"), filepath.Join(root, "link")); err != nil {
+		t.Fatal(err)
+	}
+	physical, err := filepath.EvalSymlinks(filepath.Join(root, "real", "omatty"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	adoptFixture(t, home, physical, "abc", "fix the parser")
+
+	title, err := sessionNamer(home, agent.Claude())(registry.Session{ID: "abc", Dir: filepath.Join(root, "link", "omatty")})
+
+	if err != nil || !strings.Contains(title, "parser") {
+		t.Errorf("sessionNamer = (%q, %v), want a title from the transcript under the resolved directory", title, err)
+	}
+}
+
 // A cleared session is named from the conversation it is on, not from the
 // transcript its row was created with (#316).
 func TestSessionNamer_ReadsTheReboundConversation_issue316(t *testing.T) {
@@ -497,7 +523,7 @@ func TestSessionNamer_ReadsTheReboundConversation_issue316(t *testing.T) {
 	adoptFixture(t, home, dir, "before-clear", "the old work")
 	adoptFixture(t, home, dir, "after-clear", "fix the parser")
 
-	title, err := sessionNamer(home)(registry.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
+	title, err := sessionNamer(home, agent.Claude())(registry.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
 
 	if err != nil || !strings.Contains(title, "parser") {
 		t.Errorf("sessionNamer = (%q, %v), want a title from the post-clear prompt", title, err)
