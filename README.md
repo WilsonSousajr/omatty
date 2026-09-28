@@ -74,7 +74,14 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.8.1**, 2026-09-27 — the recording above is real Claude Code, showing
+**v0.8.2**, 2026-09-27 — `curl -fsSL https://omatty.com/install.sh | sh`
+installs omatty on any macOS or Linux machine, checking the release archive
+against its checksum and handing off to Homebrew when it is there (#517).
+`brew install` stops warning you to report a bug in our tap (#369). A project
+reached through a symlink finds its transcript again (#564). And scrollback
+survives a reattach, because it is Claude Code's own (#336).
+
+v0.8.1, the same day — the recording above is real Claude Code, showing
 the whole workspace (#556).
 
 v0.8.0, the same day — `ctrl+o tab` folds a project's sessions behind its
@@ -96,8 +103,8 @@ the only thing omatty measures about itself: lead time, and how often the gate
 passes first time. And the review column is made worth living in: every face
 moves and marks state the same way, the diff is syntax-highlighted with its
 changed words picked out, and `ctrl+o z` zooms the column when a view needs the
-room. Install with `brew install WilsonSousajr/tap/omatty` on macOS
-or a release archive on Linux; `CHANGELOG.md` has the whole list.
+room. Install with `curl -fsSL https://omatty.com/install.sh | sh` or
+`brew install WilsonSousajr/tap/omatty`; `CHANGELOG.md` has the whole list.
 
 | Milestone | Delivers |
 |---|---|
