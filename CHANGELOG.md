@@ -11,6 +11,20 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+### Added
+
+- **Install in one line on macOS or Linux** (#517):
+  `curl -fsSL https://omatty.com/install.sh | sh`. With `brew` on PATH it
+  hands off to the tap; otherwise it downloads the release archive for the
+  machine, refuses it unless its sha256 matches `checksums.txt`, and installs
+  to `~/.local/bin` without sudo. `OMATTY_VERSION` pins a release,
+  `OMATTY_INSTALL_DIR` picks the directory, and running it again upgrades.
+  The body is one function called on the last line, so a truncated download
+  runs nothing. The script is `scripts/install.sh`; `shellcheck` now runs over
+  `scripts/*.sh` in the gate, and CI runs the installer against the real
+  latest release on both runners, with a tampered `checksums.txt` as the
+  negative control.
+
 ### Fixed
 
 - **`brew install` no longer asks you to report a bug in our tap** (#369).
