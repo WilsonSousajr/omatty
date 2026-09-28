@@ -31,12 +31,13 @@ type (
 		WebURL    string    `json:"web_url"`
 	}
 	glItem struct {
-		IID         int       `json:"iid"`
-		Title       string    `json:"title"`
-		Description string    `json:"description"`
-		Author      glUser    `json:"author"`
-		CreatedAt   time.Time `json:"created_at"`
-		WebURL      string    `json:"web_url"`
+		IID          int         `json:"iid"`
+		Title        string      `json:"title"`
+		Description  string      `json:"description"`
+		Author       glUser      `json:"author"`
+		CreatedAt    time.Time   `json:"created_at"`
+		WebURL       string      `json:"web_url"`
+		HeadPipeline *glPipeline `json:"head_pipeline"`
 	}
 	glNote struct {
 		Body      string    `json:"body"`

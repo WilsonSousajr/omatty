@@ -15,7 +15,13 @@ import (
 // fakeGlab is a glab whose `api` answers each path from the recorded GitLab
 // fixtures, as the real one answers from the forge, recording each call. A
 // path it has no fixture for fails as glab does on a 404.
-func fakeGlab(t *testing.T) (bin, calls string) {
+func fakeGlab(t *testing.T) (bin, calls string) { return fakeGlabWith(t, nil) }
+
+// glabRoute answers a path pattern with a file, ahead of the fixtures.
+type glabRoute struct{ pattern, file string }
+
+// fakeGlabWith is fakeGlab with extra routes tried first.
+func fakeGlabWith(t *testing.T, extra []glabRoute) (bin, calls string) {
 	t.Helper()
 	dir := t.TempDir()
 	calls = filepath.Join(dir, "calls")
@@ -29,8 +35,10 @@ func fakeGlab(t *testing.T) (bin, calls string) {
 	}
 	script := "#!/bin/sh\n" +
 		`printf '%s\n' "$*" >> '` + calls + "'\n" +
-		`case "$*" in` + "\n" +
+		`case "$*" in` + "\n" + extraCases(extra) +
 		`  *merge_requests\?state=opened*) cat '` + abs("mrs-opened.json") + `' ;;` + "\n" +
+		`  *merge_requests/3966) cat '` + abs("mr-3966.json") + `' ;;` + "\n" +
+		`  *merge_requests/3963) cat '` + abs("mr-3963.json") + `' ;;` + "\n" +
 		`  *merge_requests\?state=merged*) cat '` + abs("mrs-merged.json") + `' ;;` + "\n" +
 		`  *merge_requests\?state=closed*) cat '` + abs("mrs-closed.json") + `' ;;` + "\n" +
 		`  *merge_requests/*/pipelines*) cat '` + abs("mr-pipelines.json") + `' ;;` + "\n" +
@@ -160,8 +168,8 @@ func TestGitLab_AFinishedPipelineIsNotAskedAgain_issue454(t *testing.T) {
 	}
 
 	for _, call := range glabCalls(t, calls)[before:] {
-		if strings.Contains(call, "/pipelines") {
-			t.Errorf("a finished pipeline was asked again: %s", call)
+		if strings.HasSuffix(call, "merge_requests/3967") {
+			t.Errorf("a passing verdict was asked again: %s", call)
 		}
 	}
 }
@@ -298,4 +306,119 @@ func TestGitLab_AMissingItemIsNotAMissingForge_issue454(t *testing.T) {
 	if err == nil || errors.Is(err, forge.ErrNoForge) || !errors.Is(err, forge.ErrNotFound) {
 		t.Errorf("error = %v, want not found and not ErrNoForge", err)
 	}
+}
+
+func extraCases(extra []glabRoute) string {
+	var b strings.Builder
+	for _, r := range extra {
+		b.WriteString("  " + r.pattern + ") cat '" + r.file + "' ;;\n")
+	}
+	return b.String()
+}
+
+// Regression, #454's review: glab refuses a --hostname with a port ("invalid
+// hostname"), so a self-managed GitLab on an https port failed every read.
+// glab takes the API's port from its own per-host config; it is given the
+// bare host.
+func TestGitLab_AnInstanceOnAPortIsNamedToGlabBare_issue454(t *testing.T) {
+	r, calls := gitLabRouter(t, "https://git.corp.example:8443/g/p.git", forge.Hosts{"git.corp.example": forge.KindGitLab})
+
+	_, _ = r.ListIssues(t.TempDir())
+
+	got := glabCalls(t, calls)
+	if len(got) == 0 || !strings.Contains(got[0], "--hostname git.corp.example projects/") {
+		t.Errorf("glab was called %q, want the bare host", got)
+	}
+}
+
+// Regression, #454's review: the merge request's pipelines list can answer
+// with the previous head's pipeline after a push, and that verdict was
+// remembered under the new head. CI is the merge request's own
+// head_pipeline, one per merge request, and none until the new one exists.
+func TestGitLab_CIIsEachMergeRequestsHeadPipeline_issue454(t *testing.T) {
+	prs := gitLabPRs(t)
+
+	for n, want := range map[int]forge.CIState{3967: forge.CIPassing, 3966: forge.CIFailing, 3963: forge.CINone} {
+		if pr, _ := prNumbered(prs, n); pr.CI != want {
+			t.Errorf("!%d CI = %v, want %v", n, pr.CI, want)
+		}
+	}
+}
+
+// Regression, #454's review: a failed pipeline can be retried on the same
+// head, so a failure is asked again; only a pass is kept.
+func TestGitLab_AFailedPipelineIsAskedAgain_issue454(t *testing.T) {
+	r, calls := gitLabRouter(t, "git@gitlab.com:gitlab-org/cli.git", nil)
+	root := t.TempDir()
+	_, _ = r.ListPRs(root)
+	before := len(glabCalls(t, calls))
+
+	_, _ = r.ListPRs(root)
+
+	asked := strings.Join(glabCalls(t, calls)[before:], "\n")
+	if !strings.Contains(asked, "merge_requests/3966\n") && !strings.HasSuffix(asked, "merge_requests/3966") {
+		t.Errorf("!3966 (failed) was not asked again:\n%s", asked)
+	}
+}
+
+// Regression, #454's review: altssh.gitlab.com is GitLab's ssh over 443, not
+// an API host - glab dialled https://altssh.gitlab.com and failed, and browse
+// opened a dead page. It is gitlab.com to everything but git.
+func TestGitLab_AltSSHIsGitLabCom_issue454(t *testing.T) {
+	var opened []string
+	bin, calls := fakeGlab(t)
+	r := forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: "ssh://git@altssh.gitlab.com:443/gitlab-org/cli.git"}).url},
+		Bins:    map[forge.Kind]string{forge.KindGitLab: bin},
+		Open:    func(u string) error { opened = append(opened, u); return nil },
+	})
+
+	_, _ = r.ListIssues(t.TempDir())
+	_ = r.BrowsePR(t.TempDir(), 3967)
+
+	if got := glabCalls(t, calls); len(got) == 0 || !strings.Contains(got[0], "--hostname gitlab.com ") {
+		t.Errorf("glab was called %q, want gitlab.com", got)
+	}
+	if len(opened) != 1 || opened[0] != "https://gitlab.com/gitlab-org/cli/-/merge_requests/3967" {
+		t.Errorf("opened %v, want gitlab.com's page", opened)
+	}
+}
+
+// Regression, #454's review: a hundred notes were read oldest first, so a long
+// discussion kept its oldest hundred and dropped the newest, and said
+// nothing. The newest hundred are kept, and a full page says there may be more.
+func TestGitLab_ALongDiscussionKeepsTheNewestAndSaysItIsCut_issue454(t *testing.T) {
+	notes := writeHundredNotes(t)
+	bin, calls := fakeGlabWith(t, []glabRoute{{"*merge_requests/3967/notes*", notes}})
+	r := forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: "git@gitlab.com:gitlab-org/cli.git"}).url},
+		Bins:    map[forge.Kind]string{forge.KindGitLab: bin},
+	})
+
+	d, err := r.ViewPR(t.TempDir(), 3967)
+
+	if err != nil || !d.Truncated {
+		t.Errorf("detail truncated = %v, %v; want a full page of notes marked as maybe more", d.Truncated, err)
+	}
+	if b, _ := os.ReadFile(calls); !strings.Contains(string(b), "notes?sort=desc") {
+		t.Errorf("notes were asked oldest first:\n%s", b)
+	}
+}
+
+func writeHundredNotes(t *testing.T) string {
+	t.Helper()
+	var b strings.Builder
+	b.WriteString("[")
+	for i := range 100 {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		fmt.Fprintf(&b, `{"id":%d,"body":"note %d","author":{"username":"u"},"created_at":"2026-09-26T01:00:00Z","system":false}`, i, i)
+	}
+	b.WriteString("]")
+	p := filepath.Join(t.TempDir(), "notes-100.json")
+	if err := os.WriteFile(p, []byte(b.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return p
 }

@@ -173,19 +173,12 @@ func (r *Router) pick(repoRoot string, res resolved) (backend, error) {
 // pickGitLab is glab when it is installed (#454).
 func (r *Router) pickGitLab(repoRoot string, remote Remote) (backend, error) {
 	if bin, ok := r.cli(KindGitLab); ok {
-		f := cliAPI{bin: bin, host: apiHost(remote), dir: repoRoot, timeout: r.timeout}
+		// The bare host: glab refuses a --hostname with a port ("invalid
+		// hostname") and takes the API's port from its own per-host config.
+		f := cliAPI{bin: bin, host: remote.Host, dir: repoRoot, timeout: r.timeout}
 		return glBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
 	}
 	return nil, &MissingToolError{Tool: "glab"}
-}
-
-// apiHost is the host a CLI's --hostname names: with its port when the remote
-// is http(s) on one, since that is the web port the API answers on.
-func apiHost(r Remote) string {
-	if r.Scheme == "ssh" || r.Port == "" {
-		return r.Host
-	}
-	return r.Host + ":" + r.Port
 }
 
 // pickGitHub is gh when it is installed, else GitHub's HTTP API with a token

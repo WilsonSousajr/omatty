@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 )
 
@@ -53,15 +54,17 @@ func (g glBackend) ciKey(pr PR) string {
 	return g.remote.Host + "/" + g.remote.Slug() + "!" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
-// pipelineCI is the merge request's latest pipeline. Its own list, not the
-// project's joined by SHA: a merge request pipeline runs on the merged
-// result, whose SHA is not the head's (found reading gitlab-org/cli).
+// pipelineCI is the merge request's own head_pipeline. Not the project's
+// pipelines joined by SHA - a merge request pipeline runs on the merged
+// result, whose SHA is not the head's (found reading gitlab-org/cli) - and not
+// the merge request's pipelines list, which after a push can answer with the
+// previous head's (#454's review). None until the new head has one.
 func (g glBackend) pipelineCI(ctx context.Context, pr PR) (CIState, error) {
-	pipes, err := getJSON[[]glPipeline](ctx, g.f, g.mrPath(pr.Number)+"/pipelines?per_page=1")
-	if err != nil || len(pipes) == 0 {
+	mr, err := getJSON[glItem](ctx, g.f, g.mrPath(pr.Number))
+	if err != nil || mr.HeadPipeline == nil {
 		return CINone, err
 	}
-	return gitlabCI(pipes[0].Status), nil
+	return gitlabCI(mr.HeadPipeline.Status), nil
 }
 
 func (g glBackend) mrPath(number int) string {
@@ -82,7 +85,10 @@ func (g glBackend) viewIssue(ctx context.Context, _ string, number int) (Detail,
 	if err != nil {
 		return Detail{}, err
 	}
-	return foldDetail(item.flat(g.notes(ctx, path), nil)), nil
+	notes, cut := g.notes(ctx, path)
+	d := foldDetail(item.flat(notes, nil))
+	d.Truncated = d.Truncated || cut
+	return d, nil
 }
 
 func (g glBackend) viewPR(ctx context.Context, _ string, number int) (Detail, error) {
@@ -90,30 +96,35 @@ func (g glBackend) viewPR(ctx context.Context, _ string, number int) (Detail, er
 	if err != nil {
 		return Detail{}, err
 	}
-	return foldDetail(item.flat(g.notes(ctx, g.mrPath(number)), g.jobs(ctx, number))), nil
+	notes, cut := g.notes(ctx, g.mrPath(number))
+	d := foldDetail(item.flat(notes, g.jobs(ctx, item.HeadPipeline)))
+	d.Truncated = d.Truncated || cut
+	return d, nil
 }
 
-// notes is an item's discussion without GitLab's system notes ("added 1
-// commit"). A refused read leaves the item without comments rather than
-// failing it: GitLab answers an anonymous notes request with 401 even on a
-// public project, and the body is still worth reading.
-func (g glBackend) notes(ctx context.Context, itemPath string) []glNote {
-	notes, err := getJSON[[]glNote](ctx, g.f, itemPath+"/notes?sort=asc&per_page=100")
+// notes is an item's newest hundred notes, oldest first, and whether that may
+// not be all of them. Read newest first, because a long discussion's end is
+// what a reader came for (#454's review). A full page may have more behind it,
+// and a failed read is cut too - except a refusal: GitLab answers an anonymous
+// notes request with 401 even on a public project, and there is nothing more
+// to say than that the item has no comments to show.
+func (g glBackend) notes(ctx context.Context, itemPath string) ([]glNote, bool) {
+	notes, err := getJSON[[]glNote](ctx, g.f, itemPath+"/notes?sort=desc&per_page=100")
 	var refused *AuthError
-	if err != nil && errors.As(err, &refused) {
-		return nil
+	if err != nil {
+		return nil, !errors.As(err, &refused)
 	}
-	return notes
+	slices.Reverse(notes)
+	return notes, len(notes) == 100
 }
 
-// jobs is the merge request's latest pipeline's jobs, its checks. None when it
-// has no pipeline, or the pipeline cannot be read.
-func (g glBackend) jobs(ctx context.Context, number int) []glJob {
-	pipes, err := getJSON[[]glPipeline](ctx, g.f, g.mrPath(number)+"/pipelines?per_page=1")
-	if err != nil || len(pipes) == 0 {
+// jobs is the head pipeline's jobs, its checks: none without one, or when they
+// cannot be read.
+func (g glBackend) jobs(ctx context.Context, head *glPipeline) []glJob {
+	if head == nil {
 		return nil
 	}
-	jobs, _ := getJSON[[]glJob](ctx, g.f, g.project()+"/pipelines/"+strconv.Itoa(pipes[0].ID)+"/jobs?per_page=100")
+	jobs, _ := getJSON[[]glJob](ctx, g.f, g.project()+"/pipelines/"+strconv.Itoa(head.ID)+"/jobs?per_page=100")
 	return jobs
 }
 
