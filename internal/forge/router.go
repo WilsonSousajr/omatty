@@ -170,15 +170,21 @@ func (r *Router) pick(repoRoot string, res resolved) (backend, error) {
 	return nil, fmt.Errorf("forge: omatty does not read %s yet: %w", res.kind, ErrNoForge)
 }
 
-// pickGitLab is glab when it is installed (#454).
+// pickGitLab is glab when it is installed (#454), else GitLab's REST API with
+// GITLAB_TOKEN, the variable glab itself reads (#455) - the same paths either
+// way, so the same fold.
 func (r *Router) pickGitLab(repoRoot string, remote Remote) (backend, error) {
+	var f fetcher
 	if bin, ok := r.cli(KindGitLab); ok {
 		// The bare host: glab refuses a --hostname with a port ("invalid
 		// hostname") and takes the API's port from its own per-host config.
-		f := cliAPI{bin: bin, host: remote.Host, dir: repoRoot, timeout: r.timeout}
-		return glBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
+		f = cliAPI{bin: bin, host: remote.Host, dir: repoRoot, timeout: r.timeout}
+	} else if tok, env := r.borrow([]string{"GITLAB_TOKEN"}); tok != "" && r.transport != TransportCLI {
+		f = restAPI{rest: r.rest, base: webBase(remote) + "/api/v4", auth: privateToken(tok), env: env}
+	} else {
+		return nil, &MissingToolError{Tool: "glab", TokenEnv: "GITLAB_TOKEN"}
 	}
-	return nil, &MissingToolError{Tool: "glab"}
+	return glBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
 }
 
 // pickGitHub is gh when it is installed, else GitHub's HTTP API with a token
