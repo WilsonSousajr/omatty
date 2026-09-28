@@ -2,6 +2,7 @@ package forge
 
 import (
 	"context"
+	"net/http/httptest"
 	"strings"
 	"time"
 )
@@ -64,9 +65,14 @@ var (
 const BodyMax = bodyMax
 
 // RESTGet is one GET through the REST transport inside bound, as a backend
-// makes it.
-func RESTGet(url string, a Auth, tokenEnv string, bound time.Duration) ([]byte, error) {
+// makes it, trusting srv's test certificate.
+func RESTGet(srv *httptest.Server, url string, a Auth, tokenEnv string, bound time.Duration) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), bound)
 	defer cancel()
-	return newREST().get(ctx, url, a, tokenEnv)
+	c := newREST()
+	c.http.Transport = srv.Client().Transport
+	return c.get(ctx, url, a, tokenEnv)
 }
+
+// ErrNotFound is a 404, for the backend to judge.
+var ErrNotFound = errNotFound

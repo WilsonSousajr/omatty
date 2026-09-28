@@ -54,11 +54,17 @@ func NoGH() error { return &MissingToolError{Tool: "gh"} }
 //	var refused *forge.AuthError
 //	if errors.As(err, &refused) { note := refused.Host + " refused " + refused.TokenEnv }
 type AuthError struct {
-	Host     string
+	// Host is the forge that refused, with its port when it has one.
+	Host string
+	// TokenEnv names the credential: the variable the token was borrowed
+	// from, or a CLI's own login.
 	TokenEnv string
-	Status   int
+	// Status is the HTTP status the refusal came with.
+	Status int
 }
 
+// Error names the host, the credential and the status: the three things the
+// operator needs to find and replace the right token.
 func (e *AuthError) Error() string {
 	return fmt.Sprintf("forge: %s refused %s (%d)", e.Host, e.TokenEnv, e.Status)
 }
