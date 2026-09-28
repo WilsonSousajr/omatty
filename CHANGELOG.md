@@ -11,6 +11,17 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`brew install` no longer asks you to report a bug in our tap** (#369).
+  GoReleaser wrote the cask's quarantine hook as a raw `postflight` block,
+  which Homebrew deprecates, so every install printed a warning. The hook is
+  now `postflight_steps`, written by `scripts/cask-steps.sh` after GoReleaser
+  renders the cask; the release publishes the result to the tap itself. Every
+  pull request lints that cask with `brew style` and installs it for real on
+  macOS with deprecations made fatal. When GoReleaser can emit install steps
+  itself (goreleaser#6873), the script goes.
+
 ## [v0.8.1] — 2026-09-27
 
 The recording at the top of the README is now real Claude Code.

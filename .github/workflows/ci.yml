@@ -90,3 +90,82 @@ jobs:
           distribution: goreleaser
           version: ${{ env.GORELEASER_VERSION }}
           args: release --snapshot --clean --skip=publish
+      # The cask the snapshot rendered, given its install hook the way a tag
+      # gives it (#369), then linted by Homebrew's own cops: Cask/InstallSteps
+      # is the cop that flags a raw postflight block. The cops only apply
+      # under a Casks/ directory. The negative control is the cask v0.8.1
+      # published, which must fail, or a pass here proves nothing.
+      - name: cask steps
+        run: ./scripts/cask-steps.sh dist/homebrew/Casks/omatty.rb
+      - name: cask style
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          brew style dist/homebrew/Casks/omatty.rb
+          mkdir -p "$RUNNER_TEMP/deprecated/Casks"
+          cp scripts/testdata/omatty-cask-v0.8.1.rb "$RUNNER_TEMP/deprecated/Casks/omatty.rb"
+          if brew style "$RUNNER_TEMP/deprecated/Casks/omatty.rb"; then
+            echo "brew style passed the deprecated postflight block; the check above is blind" >&2
+            exit 1
+          fi
+
+  # The hook cask-steps.sh writes, installed for real (#369): brew style says
+  # the stanza is well formed, only an install says `run` finds the binary.
+  # The published cask stands in for the snapshot's, whose URLs name a release
+  # that does not exist; any hook it has is replaced by the one cask-steps.sh
+  # writes. HOMEBREW_DEVELOPER makes a deprecation an error rather than a
+  # warning, and the negative control proves it does.
+  cask-install:
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - uses: actions/checkout@v4
+      # The Homebrew a stranger has: installing updates it first, and the
+      # image's copy predates the deprecation, so without this the negative
+      # control below passes the deprecated block. Not in developer mode,
+      # which would update to master rather than the latest release.
+      - name: current Homebrew
+        run: |
+          brew update
+          brew --version
+      # Homebrew 7 refuses to load casks from a tap nobody has trusted.
+      - name: a local tap
+        run: |
+          brew tap-new --no-git omatty/verify
+          brew trust omatty/verify
+          echo "CASKS=$(brew --repository omatty/verify)/Casks" >> "$GITHUB_ENV"
+      - name: the deprecated hook fails
+        env:
+          HOMEBREW_DEVELOPER: 1
+        run: |
+          mkdir -p "$CASKS"
+          cp scripts/testdata/omatty-cask-v0.8.1.rb "$CASKS/omatty.rb"
+          # Without GITHUB_ACTIONS, or Homebrew annotates this expected error
+          # on the run, and a green job reads as a failure.
+          if env -u GITHUB_ACTIONS brew info --cask omatty/verify/omatty > "$RUNNER_TEMP/info.txt" 2>&1; then
+            cat "$RUNNER_TEMP/info.txt"
+            echo "Homebrew loaded a raw postflight block without complaint; this job cannot see a deprecation" >&2
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/info.txt"
+          grep -q postflight "$RUNNER_TEMP/info.txt"
+      - name: install with the hook as steps
+        env:
+          HOMEBREW_DEVELOPER: 1
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/WilsonSousajr/homebrew-tap/main/Casks/omatty.rb |
+            awk '/^  postflight(_steps)? do$/ { skip = 1 } !skip { print } skip && /^  end$/ { skip = 0 }' > "$CASKS/omatty.rb"
+          ./scripts/cask-steps.sh "$CASKS/omatty.rb"
+          brew install --cask omatty/verify/omatty
+          omatty --version
+      - name: the binary is not quarantined
+        run: |
+          staged="$(brew --caskroom)/omatty/$(brew info --cask --json=v2 omatty/verify/omatty | jq -r '.casks[0].version')/omatty"
+          if xattr -p com.apple.quarantine "$staged" 2>/dev/null; then
+            echo "$staged is still quarantined; the hook did not reach it" >&2
+            exit 1
+          fi
+          download="$(brew --cache --cask omatty/verify/omatty)"
+          if ! xattr -p com.apple.quarantine "$download" >/dev/null 2>&1; then
+            echo "::notice::the download was never quarantined on this runner, so the check above could not fail"
+          fi
