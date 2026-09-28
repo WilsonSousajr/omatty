@@ -41,3 +41,21 @@ func TestModel_ARefusedTokenStopsItsProject_issue453(t *testing.T) {
 		t.Errorf("asked %q, want only the project whose forge answered", got)
 	}
 }
+
+// A CLI on PATH with no login for the host is not a missing CLI: the note
+// says what the operator can fix, not that tea is absent (#586).
+func TestTracker_ACLIWithNoLoginSaysSo_issue586(t *testing.T) {
+	m, fi, fp := modelWithBothLists(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	noLogin := &forge.MissingToolError{Tool: "tea", NoLoginFor: "codeberg.org"}
+	for _, root := range []string{"/p/omatty", "/p/api-svc", "/p/empty"} {
+		fi.Errs[root], fp.Errs[root] = noLogin, noLogin
+	}
+
+	openTracker(m)
+
+	got := columnText(m)
+	if !strings.Contains(got, "tea has no login for codeberg.org") || strings.Contains(got, "not installed") {
+		t.Errorf("the tracker reads %q, want tea's missing login named", got)
+	}
+}

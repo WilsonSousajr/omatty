@@ -56,13 +56,74 @@ func apiFailure(host, bin, stderr string, err error) error {
 		return fmt.Errorf("forge: %s api on %s: %s: %w", bin, host, stderr, err)
 	}
 	status, _ := strconv.Atoi(m[1])
+	return statusError(host, bin, status, stderr)
+}
+
+// statusError is a CLI's HTTP status sorted the way answerError sorts a REST
+// one: 404 is errNotFound for the backend to judge, 401 and 403 a login the
+// forge refused, anything else an outage carrying the CLI's own words.
+func statusError(host, bin string, status int, said string) error {
 	switch status {
 	case 404:
-		return fmt.Errorf("forge: %s: %s: %w", host, stderr, errNotFound)
+		return fmt.Errorf("forge: %s: %s: %w", host, said, errNotFound)
 	case 401, 403:
 		return &AuthError{Host: host, TokenEnv: bin + "'s login", Status: status}
 	}
-	return fmt.Errorf("forge: %s api on %s: %s: %w", bin, host, stderr, err)
+	return fmt.Errorf("forge: %s api on %s answered %d: %s", bin, host, status, said)
+}
+
+// teaAPI runs `tea api --login <name> --include /<path>` in the project's
+// root. tea has no --hostname: it reads through a login, which the Router
+// found by the project's host. And it prints any answer and exits 0, a 404
+// included, so the status line --include puts on stderr is what says how the
+// request went (#458).
+type teaAPI struct {
+	bin, login, host, dir string
+	timeout               time.Duration
+}
+
+// statusLine is the "HTTP/1.1 404 Not Found" tea's --include prints first.
+var statusLine = regexp.MustCompile(`(?m)^HTTP/\S+ (\d{3})`)
+
+func (c teaAPI) get(ctx context.Context, path string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, c.bin, "api", "--login", c.login, "--include", "/"+path)
+	cmd.Dir = c.dir
+	cmd.WaitDelay = time.Second
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("forge: tea api %s gave no answer in %v: %w", path, c.timeout, ctx.Err())
+	}
+	return teaVerdict(c.host, out, stderr.String(), err)
+}
+
+// teaVerdict sorts one finished tea call by the status line it printed.
+func teaVerdict(host string, out []byte, stderr string, err error) ([]byte, error) {
+	m := statusLine.FindStringSubmatch(stderr)
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("forge: tea api on %s: %s: %w", host, said(stderr), err)
+	case m == nil:
+		return nil, fmt.Errorf("forge: tea api on %s printed no status line: %s", host, said(stderr))
+	}
+	if status, _ := strconv.Atoi(m[1]); status >= 300 {
+		return nil, statusError(host, "tea", status, said(string(out)))
+	}
+	return out, nil
+}
+
+// saidMax bounds what an error repeats of a CLI's words: a proxy's error
+// page can be kilobytes, and the error reaches the log (#458's review).
+const saidMax = 200
+
+// said is a CLI's words on one line, cut at saidMax.
+func said(s string) string {
+	line := cleanLine(strings.TrimSpace(s))
+	if r := []rune(line); len(r) > saidMax {
+		return string(r[:saidMax]) + "…"
+	}
+	return line
 }
 
 // repoMissing is a list's 404 as ErrNoForge: a list is the repository's, so

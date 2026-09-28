@@ -116,13 +116,18 @@ func foldGLIssues(in []glIssue) []Issue {
 		if len(is.Assignees) > 0 {
 			assignee = is.Assignees[0].Username
 		}
-		out[i] = Issue{
-			Number: is.IID, Title: cleanLine(is.Title), Labels: cleanLabels(is.Labels),
-			Assignee: cleanLine(assignee), Author: cleanLine(is.Author.Username),
-			Updated: is.UpdatedAt, URL: cleanLine(is.WebURL),
-		}
+		out[i] = issueOf(is.IID, is.Title, is.Labels, assignee, is.Author.Username, is.UpdatedAt, is.WebURL)
 	}
 	return out
+}
+
+// issueOf is one issue as omatty's own type, every field an author controls
+// cleaned (#483). Each forge's fold calls it with its own field names.
+func issueOf(number int, title string, labels []string, assignee, author string, updated time.Time, url string) Issue {
+	return Issue{
+		Number: number, Title: cleanLine(title), Labels: cleanLabels(labels),
+		Assignee: cleanLine(assignee), Author: cleanLine(author), Updated: updated, URL: cleanLine(url),
+	}
 }
 
 func cleanLabels(in []string) []string {

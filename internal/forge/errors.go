@@ -18,17 +18,24 @@ type MissingToolError struct {
 	// TokenEnv is the variable the REST fallback reads. Empty until the forge
 	// has one, so the message never advises a variable nothing would read.
 	TokenEnv string
+	// NoLoginFor is the host a Tool on PATH holds no login for: tea reads only
+	// through a login, so it is installed and still no way in (#586).
+	NoLoginFor string
 }
 
 // Error names both halves of the fix, "install X or set Y" (#449).
 func (e *MissingToolError) Error() string {
+	tool := e.Tool + " not found on PATH"
+	if e.NoLoginFor != "" {
+		tool = e.Tool + " has no login for " + e.NoLoginFor
+	}
 	switch {
 	case e.Tool == "":
 		return "forge: " + e.TokenEnv + " is unset"
 	case e.TokenEnv == "":
-		return "forge: " + e.Tool + " not found on PATH"
+		return "forge: " + tool
 	}
-	return "forge: " + e.Tool + " not found on PATH and " + e.TokenEnv + " is unset"
+	return "forge: " + tool + " and " + e.TokenEnv + " is unset"
 }
 
 // ErrNoForge is the answer for a checkout omatty cannot map to a repository on

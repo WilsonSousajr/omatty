@@ -66,6 +66,9 @@ var (
 // GitLabCI is a pipeline status as the card's CI mark.
 var GitLabCI = gitlabCI
 
+// GiteaCI is a commit status as the card's CI mark.
+var GiteaCI = giteaCI
+
 // BodyMax is the cap on one REST answer.
 const BodyMax = bodyMax
 

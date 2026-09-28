@@ -1,0 +1,78 @@
+{
+ "id": 735424,
+ "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/issues/2809",
+ "html_url": "https://codeberg.org/forgejo/forgejo/issues/2809",
+ "number": 2809,
+ "user": {
+  "id": 110497,
+  "login": "SinTan1729",
+  "login_name": "",
+  "source_id": 0,
+  "full_name": "Sayantan Santra",
+  "email": "",
+  "avatar_url": "https://codeberg.org/avatars/5a68af13269009278a8b966aef3b5b080c38291b0092bd49d8bea55744f21e37",
+  "html_url": "https://codeberg.org/SinTan1729",
+  "language": "",
+  "is_admin": false,
+  "last_login": "0001-01-01T00:00:00Z",
+  "created": "2023-08-05T08:38:23+02:00",
+  "restricted": false,
+  "active": false,
+  "prohibit_login": false,
+  "location": "USA",
+  "pronouns": "",
+  "website": "https://about.sayantansantra.com",
+  "description": "Average math researcher, below average programmer.",
+  "visibility": "public",
+  "followers_count": 1,
+  "following_count": 0,
+  "starred_repos_count": 6,
+  "username": "SinTan1729"
+ },
+ "original_author": "",
+ "original_author_id": 0,
+ "title": "bug: `git push` fails the first time with git-credential-manager",
+ "body": "### Description\n\nWhenever I do `git push` or something that requires authentication, it fails the first time. Repeating the same command makes it work, and it keeps working for a while after that. Attached below is a screenshot of how it looks. I'm using `git-credential-manager` for `https` auth. The issue doesn't happen for any other git services e.g. GitHub.\r\n\r\nI think it's happening due to `git-credential-manager` not refreshing the tokens in time. Since this isn't happening with any other git provider, I'm not sure whether this is a problem of `git-credential-manager` or `forgejo` itself.\r\n\r\n[Link to forgejo next repo.](https://next.forgejo.org/test_acc/test_repo)\n\n### Forgejo Version\n\n1.21.8+0\n\n### Can you reproduce the bug on Forgejo Next?\n\nYes\n\n### Logs\n\n_No response_\n\n### Screenshots\n\n_No response_\n\n### Git Version\n\n2.40.1\n\n### Operating System\n\nLinux thinkcentre 5.14.0-362.24.1.el9_3.x86_64 #1 SMP PREEMPT_DYNAMIC Wed Mar 20 04:52:13 EDT 2024 x86_64 x86_64 x86_64 GNU/Linux\n\n### How are you running Forgejo?\n\nIt is being run using `docker` from the `codeberg.org/forgejo/forgejo:1.21` image.\n\n### Database\n\nPostgreSQL\n\n",
+ "ref": "",
+ "assets": [
+  {
+   "id": 95604,
+   "name": "2024-03-22_23-42.png",
+   "size": 51877,
+   "download_count": 21037,
+   "created_at": "2024-03-25T22:21:55+01:00",
+   "uuid": "778580b6-775b-4e53-8477-9d6bf2f718eb",
+   "browser_download_url": "https://codeberg.org/attachments/778580b6-775b-4e53-8477-9d6bf2f718eb",
+   "type": "attachment"
+  }
+ ],
+ "labels": [
+  {
+   "id": 201023,
+   "name": "bug/confirmed",
+   "exclusive": true,
+   "is_archived": false,
+   "color": "e11d21",
+   "description": "it can be reproduced",
+   "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/labels/201023"
+  }
+ ],
+ "milestone": null,
+ "assignee": null,
+ "assignees": null,
+ "state": "open",
+ "is_locked": false,
+ "comments": 58,
+ "created_at": "2024-03-25T22:28:02+01:00",
+ "updated_at": "2026-09-07T13:00:03+02:00",
+ "closed_at": null,
+ "due_date": null,
+ "pull_request": null,
+ "repository": {
+  "id": 73144,
+  "name": "forgejo",
+  "owner": "forgejo",
+  "full_name": "forgejo/forgejo"
+ },
+ "pin_order": 0
+}
