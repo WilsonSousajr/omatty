@@ -65,6 +65,7 @@ func TestParseRemote_RefusesWhatIsNotARemoteAndSaysWhy_issue450(t *testing.T) {
 		"/srv/git/repo.git",
 		"../sibling/repo",
 		"ftp://example.com/owner/repo",
+		"/srv/a:b/repo.git", // a colon after a slash is a local path, as git reads it
 	} {
 		_, err := forge.ParseRemote(raw)
 		if err == nil {
@@ -90,6 +91,41 @@ func TestParseRemote_NeverKeepsOrRepeatsACredential_issue450(t *testing.T) {
 	_, err = forge.ParseRemote(withUserinfo("https://", "oauth2:SECRET", "gitlab.com"))
 	if err == nil || strings.Contains(err.Error(), "SECRET") {
 		t.Errorf("error = %v, want a refusal that does not repeat the token", err)
+	}
+}
+
+// Regression: redact cut the userinfo at the first "@" and gave up on one
+// holding a "/", so a base64 token or a password with an "@" in it was printed
+// whole, or its tail was, in an error written to the log on every poll.
+func TestParseRemote_RedactsAnyUserinfoWhole_issue450(t *testing.T) {
+	for _, raw := range []string{
+		withUserinfo("https://", "oauth2:SEC/RET", "gitlab.com/o/r"),
+		withUserinfo("https://", "user:p@SECRET", "host.example"),
+		withUserinfo("ssh://", "git:SECRET", ""),
+	} {
+		_, err := forge.ParseRemote(raw)
+		if err == nil || strings.Contains(err.Error(), "SECRET") || strings.Contains(err.Error(), "RET") {
+			t.Errorf("ParseRemote(%q) error = %v, want a refusal that repeats no part of the credential", raw, err)
+		}
+	}
+}
+
+// git+ssh:// and ssh+git:// are ssh to git, and read as ssh.
+func TestParseRemote_ReadsGitsOtherSSHSchemes_issue450(t *testing.T) {
+	for _, raw := range []string{"git+ssh://git@github.com/o/r.git", "ssh+git://git@github.com/o/r.git"} {
+		got, err := forge.ParseRemote(raw)
+		if err != nil || got.Scheme != "ssh" || got.Host != "github.com" || got.Slug() != "o/r" {
+			t.Errorf("ParseRemote(%q) = %+v, %v, want ssh github.com o/r", raw, got, err)
+		}
+	}
+}
+
+// Only an Azure ssh host loses a leading "v3": on any other forge it is a
+// group of that name.
+func TestParseRemote_KeepsAV3GroupOffAzure_issue450(t *testing.T) {
+	got, err := forge.ParseRemote("git@gitlab.com:v3/proj.git")
+	if err != nil || got.Slug() != "v3/proj" {
+		t.Errorf("ParseRemote = %+v, %v, want the path v3/proj", got, err)
 	}
 }
 

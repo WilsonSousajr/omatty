@@ -35,7 +35,7 @@ func TestKindOf_NamesEveryBuiltInHost_issue450(t *testing.T) {
 // An unknown host is ErrNoForge, never a guess: a self-hosted GitLab and a
 // self-hosted Gitea look the same from their names.
 func TestKindOf_AnUnknownHostIsErrNoForgeAndNamesIt_issue450(t *testing.T) {
-	for _, host := range []string{"git.corp.example", "visualstudio.com.evil.example", "notgithub.com", ""} {
+	for _, host := range []string{"git.corp.example", "visualstudio.com.evil.example", "evilvisualstudio.com", "notgithub.com", ""} {
 		_, err := forge.KindOf(host)
 		if !errors.Is(err, forge.ErrNoForge) {
 			t.Errorf("KindOf(%q) error = %v, want ErrNoForge", host, err)

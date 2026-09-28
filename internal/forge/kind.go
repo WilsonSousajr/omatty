@@ -39,6 +39,8 @@ var builtInHosts = map[string]Kind{
 // KindOf names the forge a host belongs to from the built-in table. An Azure
 // organisation's own host, org.visualstudio.com, is matched by its suffix. Any
 // other host is ErrNoForge: quiet, and never a guess.
+//
+//	kind, err := forge.KindOf(remote.Host)
 func KindOf(host string) (Kind, error) {
 	host = strings.ToLower(host)
 	if kind, ok := builtInHosts[host]; ok {
