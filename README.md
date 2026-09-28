@@ -74,7 +74,14 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.8.1**, 2026-09-27 — the recording above is real Claude Code, showing
+**v0.8.2**, 2026-09-27 — `curl -fsSL https://omatty.com/install.sh | sh`
+installs omatty on any macOS or Linux machine, checking the release archive
+against its checksum and handing off to Homebrew when it is there (#517).
+`brew install` stops warning you to report a bug in our tap (#369). A project
+reached through a symlink finds its transcript again (#564). And scrollback
+survives a reattach, because it is Claude Code's own (#336).
+
+v0.8.1, the same day — the recording above is real Claude Code, showing
 the whole workspace (#556).
 
 v0.8.0, the same day — `ctrl+o tab` folds a project's sessions behind its
@@ -96,8 +103,8 @@ the only thing omatty measures about itself: lead time, and how often the gate
 passes first time. And the review column is made worth living in: every face
 moves and marks state the same way, the diff is syntax-highlighted with its
 changed words picked out, and `ctrl+o z` zooms the column when a view needs the
-room. Install with `brew install WilsonSousajr/tap/omatty` on macOS
-or a release archive on Linux; `CHANGELOG.md` has the whole list.
+room. Install with `curl -fsSL https://omatty.com/install.sh | sh` or
+`brew install WilsonSousajr/tap/omatty`; `CHANGELOG.md` has the whole list.
 
 | Milestone | Delivers |
 |---|---|
@@ -124,17 +131,31 @@ not yet frozen. `docs/ROADMAP.md` has the reasoning and what was cut;
 
 ## Install
 
-On macOS, with Homebrew:
+On macOS or Linux, in one line:
+
+```bash
+curl -fsSL https://omatty.com/install.sh | sh
+```
+
+With `brew` on your PATH it hands off to the Homebrew tap, so upgrades stay in
+one place. Otherwise it downloads the release archive for your platform
+(darwin or linux, amd64 or arm64), refuses it unless it matches the release's
+`checksums.txt`, and puts `omatty` in `~/.local/bin`, without sudo.
+`OMATTY_VERSION=vX.Y.Z` picks a release and `OMATTY_INSTALL_DIR` another
+directory. Running it again upgrades. It is
+[`scripts/install.sh`](scripts/install.sh); read it before you pipe it into a
+shell.
+
+With Homebrew directly:
 
 ```bash
 brew install WilsonSousajr/tap/omatty
 ```
 
-On Linux, or anywhere without Homebrew, take the archive for your platform
-(darwin or linux, amd64 or arm64) from the
+Or by hand: take the archive for your platform from the
 [latest release](https://github.com/WilsonSousajr/omatty/releases/latest),
 check it against `checksums.txt`, and put `omatty` on your PATH. No Go needed
-either way.
+any of these ways.
 
 From source, with Go 1.26:
 
@@ -157,7 +178,8 @@ brew install dtach     # or: apt install dtach
 
 With it, quitting omatty *detaches* from your sessions instead of ending them,
 and relaunching reattaches to the same running `claude` — a turn in flight
-keeps going while omatty is closed. Without it omatty works exactly as before
+keeps going while omatty is closed, and `pgup` still reaches the whole
+conversation afterwards, because the history is Claude Code's own. Without it omatty works exactly as before
 and says so once at startup; quitting ends each session, and relaunching
 resumes the conversation from its transcript rather than the turn.
 

@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"path/filepath"
+
 	"github.com/WilsonSousajr/omatty/internal/hooks"
 	"github.com/WilsonSousajr/omatty/internal/paths"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
@@ -15,11 +17,27 @@ func Claude() Profile {
 		Name:           "claude",
 		DefaultBin:     "claude",
 		Command:        claudeCommand,
-		TranscriptPath: paths.Transcript,
+		TranscriptPath: claudeTranscript,
 		HookEvents:     watcher.HookEventNames,
 		RenderSettings: hooks.Render,
 		Status:         watcher.ClaudeAdapter(),
 	}
+}
+
+// claudeTranscript is where claude writes the session's JSONL. claude names
+// the directory after its working directory as the kernel reports it, every
+// symlink resolved: a project registered as /tmp/x writes under
+// -private-tmp-x on macOS. Slugging dir as registered missed the file for any
+// project behind a link, so status fell back to hooks alone and a crash
+// restart used --session-id where it had to resume (#564). A dir that does
+// not exist yet has written nothing, and is used as given.
+//
+//	claudeTranscript("/h", "/tmp/x", "id") // "/h/.claude/projects/-private-tmp-x/id.jsonl" on macOS
+func claudeTranscript(home, dir, sessionID string) string {
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = resolved
+	}
+	return paths.Transcript(home, dir, sessionID)
 }
 
 // claudeCommand is claude's argument list. A session that has never spoken

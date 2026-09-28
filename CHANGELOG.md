@@ -11,6 +11,54 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.8.2] — 2026-09-27
+
+One line installs omatty on any macOS or Linux machine, and `brew install`
+stops asking you to report a bug in our tap.
+
+### Added
+
+- **Install in one line on macOS or Linux** (#517):
+  `curl -fsSL https://omatty.com/install.sh | sh`. With `brew` on PATH it
+  hands off to the tap; otherwise it downloads the release archive for the
+  machine, refuses it unless its sha256 matches `checksums.txt`, and installs
+  to `~/.local/bin` without sudo. `OMATTY_VERSION` pins a release,
+  `OMATTY_INSTALL_DIR` picks the directory, and running it again upgrades.
+  The body is one function called on the last line, so a truncated download
+  runs nothing. The script is `scripts/install.sh`; `shellcheck` now runs over
+  `scripts/*.sh` in the gate, and CI runs the installer against the real
+  latest release on both runners, with a tampered `checksums.txt` as the
+  negative control.
+
+### Fixed
+
+- **`brew install` no longer asks you to report a bug in our tap** (#369).
+  GoReleaser wrote the cask's quarantine hook as a raw `postflight` block,
+  which Homebrew deprecates, so every install printed a warning. The hook is
+  now `postflight_steps`, written by `scripts/cask-steps.sh` after GoReleaser
+  renders the cask; the release publishes the result to the tap itself. Every
+  pull request lints that cask with `brew style` and installs it for real on
+  macOS with deprecations made fatal. When GoReleaser can emit install steps
+  itself (goreleaser#6873), the script goes.
+- **A project reached through a symlink finds its transcript** (#564).
+  Claude Code files a session's transcript under its working directory as the
+  kernel reports it, every link resolved, so a project registered as `/tmp/x`
+  writes under `-private-tmp-x` on macOS. omatty looked under the path as
+  registered: status came from hooks alone, a crash restart used
+  `--session-id` where claude had to be resumed, and the session was never
+  named from its first prompt. Found by running real Claude Code under `/tmp`.
+
+### Documentation
+
+- **Scrollback survives a reattach, and always did** (#336). The pane keeps no
+  scrollback of its own, but Claude Code's pager holds the whole conversation,
+  and with `dtach` the process that holds it is never ended. Checked with
+  Claude Code 2.1.283 in a sized PTY: 120 lines asked for, omatty quit and
+  relaunched, and `pgup` reached the first line, in both the fullscreen and
+  the default TUI, including a turn that finished while omatty was closed.
+  `docs/comparison.md` no longer lists it as lost, and the known limitation
+  earlier releases carried is withdrawn.
+
 ## [v0.8.1] — 2026-09-27
 
 The recording at the top of the README is now real Claude Code.
@@ -702,7 +750,12 @@ after its issue:
 - The agent seam has one profile, claude. Codex is a follow-up. (#152)
 - Scrollback is not preserved across a detach and reattach.
 
-[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.8.2...HEAD
+[v0.8.2]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.8.2
+[v0.8.1]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.8.1
+[v0.8.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.8.0
+[v0.7.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.7.0
+[v0.6.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.6.0
 [v0.5.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.5.0
 [v0.4.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.4.0
 [v0.3.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.3.0

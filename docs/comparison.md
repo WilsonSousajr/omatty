@@ -96,8 +96,11 @@ See "Is this just lazygit?" below, because it is the right question.
   `~/.claude/settings.json`.
 - **Sessions outlive the app.** With `dtach`, quitting detaches rather than
   ends (`internal/detach`). ccmanager restores the session *records* and starts
-  fresh processes; omatty keeps the process. herdr does the same as omatty,
-  and more (see "Where others are ahead").
+  fresh processes; omatty keeps the process. Keeping the process keeps its
+  history: after a reattach `pgup` still reaches the whole conversation in
+  Claude Code's own pager, a turn that finished while omatty was closed
+  included (checked against Claude Code 2.1.283, #336). herdr does the same as
+  omatty, and more (see "Where others are ahead").
 - **It does not delegate, plan, schedule or decide for you.** No coordinator,
   no agent-to-agent messaging, no unattended queues, no cloud. Each of those is
   refused with a stated reason in "Not on the roadmap".
@@ -117,8 +120,8 @@ The list that makes the rest of the page worth reading.
 | Windows | herdr, ccmanager | omatty is Unix-only; the release builds darwin and linux only. |
 | Several machines in one window | herdr | omatty runs in the terminal you SSH into; it does not aggregate machines. |
 | Upgrading without ending sessions | herdr (`update --handoff`, experimental) | A new omatty binary reattaches to dtach; it does not hand off live PTYs. |
-| Installing without Homebrew or Go | herdr, claude-squad (one-line installers) | omatty has a Homebrew cask and release archives, but no `curl \| sh` and no Linux package (apt, AUR, nix). |
-| Scrollback after a reattach | Orca, herdr (`pane_history`, experimental) | Lost. #191 repainted the pane; persisting the grid is open as #336. |
+| Distribution breadth | herdr (a core Homebrew formula, `mise`, a Nix flake) | omatty has a Homebrew tap, release archives and a one-line installer (`curl -fsSL https://omatty.com/install.sh \| sh`, #517), but no core formula and no Linux package (apt, AUR, nix). |
+| Scrollback of the pane's own | Orca, herdr (`pane_history`, experimental) | omatty's pane keeps none. With Claude Code that costs nothing, since its pager holds the conversation and survives a reattach (#336); a program that keeps no history of its own would lose it. |
 | Diff rendering | lazygit, delta, difftastic | They are better at this, by a wide margin. |
 
 ## Is this just lazygit and a CI badge?

@@ -103,6 +103,7 @@ go mod tidy -diff                             # go.mod and go.sum are tidy
 golangci-lint run                             # + depguard: invariant 4, enforced
 govulncheck ./...                             # no reachable known vulnerability
 ./scripts/check-deps.sh                       # package coupling; test-graph cycles
+shellcheck scripts/*.sh                       # POSIX sh; install.sh is piped into sh (#517)
 go test ./... -race
 ./scripts/check-coverage.sh 90
 ./scripts/check-crap.sh 12                    # per-function complexity x coverage

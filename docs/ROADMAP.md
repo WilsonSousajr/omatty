@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-09-27, when v0.8.1 promoted `develop` to `main` (#558).
+Last revised 2026-09-27, when v0.8.2 promoted `develop` to `main` (#567).
 Every milestone is built; what is left is under "What is left", and how a
 release reaches `main` is under "Releases".
 
@@ -30,7 +30,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M9 | The Gate | **Done.** Thirteen slices built 2026-09-12/13 as PRs #235-#249, closed out in #250. Released in v0.2.0. |
 | M10 | Coverage on the diff | **Done.** Seven slices #251-#257 built 2026-09-14/16 as PRs #259, #270, #273-#277; closed out in #258. Released in v0.2.0. |
 | M11 | The Harness | **Done.** #260-#263 merged 2026-09-14 as PRs #264-#268; the two follow-ups it deliberately left, #267 and #269, merged 2026-09-16 as PRs #279 and #280. Released in v0.2.0. |
-| M12 | The Field | **Done.** The research half is #295-#302, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`; the verification core (#310, #311, #335, #342) released in v0.3.0 and the close-out in v0.4.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379), and those built 2026-09-26 as #337, #338, #339, #334, #331, #332, #333 and #329, with #410/#412 and the two defects #471/#472 beside them. Released in v0.6.0. It deliberately leaves three, which keep the label: **#369** blocked upstream (goreleaser#6870/#6873), **#336** gated on upstream #315, **#330** waiting on people rather than code. |
+| M12 | The Field | **Done.** The research half is #295-#302, captured 2026-09-18 into `docs/research/` and `docs/comparison.md`; the verification core (#310, #311, #335, #342) released in v0.3.0 and the close-out in v0.4.0. On 2026-09-25 it took back the P1/P2 issues it had cut (#379), and those built 2026-09-26 as #337, #338, #339, #334, #331, #332, #333 and #329, with #410/#412 and the two defects #471/#472 beside them. Released in v0.6.0. The three it had left went on 2026-09-27, in v0.8.2: **#369** worked around rather than waiting on goreleaser#6873 (#562), **#336**, which needed no code (a real Claude Code probe showed its own pager carries the history across a reattach), and beside them the one-line install **#517** (#563) and the defect that probe found, **#564**. Only **#330** stays, waiting on people rather than code. |
 | M13 | Memory and idle CPU | **Done.** PR #314, merged 2026-09-22. Released in v0.2.0. |
 | — | **Released** | **v0.2.0**, 2026-09-22. M9-M11, M13 and the session lifecycle promoted to `main` (#328). See "Releases". |
 | — | **Released** | **v0.3.0**, 2026-09-25. M12's verification core (#311, #310, #335, #342), the release pipeline (#327) and the MIT license (#362). See "Releases". |
@@ -41,6 +41,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | — | **Released** | **v0.7.0**, 2026-09-26. The sidebar wheel and a column of gutter promoted to `main` (#502). See "Releases". |
 | — | **Released** | **v0.8.0**, 2026-09-27. Folding a project (#505) and the go-to-market docs pass (#513-#515, #548, #549) promoted to `main` (#553). See "Releases". |
 | — | **Released** | **v0.8.1**, 2026-09-27. The README's recording re-shot with real Claude Code (#556), promoted to `main` (#558). See "Releases". |
+| — | **Released** | **v0.8.2**, 2026-09-27. The one-line install (#517), the cask's hook as `postflight_steps` (#369), the symlinked-transcript fix (#564) and scrollback after a reattach verified (#336), promoted to `main` (#567). See "Releases". |
 | M16 | The Forges | **Planned** 2026-09-26: GitLab, Azure DevOps, Gitea/Forgejo/Codeberg and Bitbucket at GitHub's parity, #449-#465, in Backlog. See the M16 section. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
@@ -670,8 +671,8 @@ what M7 left.
   `detach.Holder.Held` tells a held session from a fresh one before the
   terminals start, and only those panes are nudged. `dtachprobe` now stands
   in a silent child and proves dtach forwards a later size change, which its
-  manual does not say. Scrollback is still gone; persisting the grid would be
-  its own issue.
+  manual does not say. Scrollback looked gone and was filed as #336; it was
+  not, because the history is Claude Code's own and the process is kept.
 - **#190 - paste never reached claude.** Done 2026-09-09, PR #213. A paste
   is a `PasteMsg`, not keystrokes, and nothing routed it. It now follows the
   key table: the note and filter lines as text, the focused terminal
@@ -1017,6 +1018,7 @@ in a hurry to make it.
 | v0.7.0 | 2026-09-26 | The wheel over the sidebar (#497) and a column of gutter in the sidebar and the review column (#498), plus the spots v0.6.0 left stale (#495). 3 issues. (#502) |
 | v0.8.0 | 2026-09-27 | Folding a project behind its sidebar header (#505); the README opened on the workspace with a recording (#549), the comparison corrected against primary sources (#515) with a herdr deep dive (#548), and the research refresh and go-to-market pass (#513, #514). 6 issues. (#553) |
 | v0.8.1 | 2026-09-27 | The README's recording re-shot with real Claude Code, showing the whole workspace (#556). Docs and one image; no code changed. (#558) |
+| v0.8.2 | 2026-09-27 | `curl -fsSL https://omatty.com/install.sh \| sh` (#517); the cask's install hook written as `postflight_steps` without waiting on GoReleaser (#369); a project behind a symlink finds its transcript (#564), found by the real Claude Code probe that closed #336 without code. 4 issues. (#567) |
 
 ## M12 - The Field
 
@@ -1113,7 +1115,12 @@ then shipped anyway - a comment that knows it was sent (#335) and Homebrew
 argued against it. Rather than keep a milestone whose roadmap refuses its own
 issues, M12 took them back:
 
-- **#336** scrollback survives a dtach reattach (#191's remainder).
+- **#336** scrollback survives a dtach reattach (#191's remainder). Closed
+  2026-09-27 without code: a real Claude Code 2.1.283 in a sized PTY, asked
+  for 120 lines, then omatty quit and relaunched, and `pgup` reached the first
+  line, in both the fullscreen and the default TUI. The pane keeps no
+  scrollback of its own and does not need to while Claude Code keeps it; the
+  memory #315 measured stays upstream's.
 - **#337** per-file reviewed, and changed since reviewed.
 - **#338** generated files collapsed in the review tree.
 - **#339** several comments per line, and comments on part of a line.

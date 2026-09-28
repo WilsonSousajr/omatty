@@ -312,3 +312,36 @@ func TestLauncher_ReattachingAsksTheHolder_issue191(t *testing.T) {
 		t.Errorf("Reattaching(other) = %v, %v; want false, nil", held, err)
 	}
 }
+
+// Regression, issue #564: a session whose directory is reached through a
+// symlink has its transcript under the resolved directory's slug, because
+// that is where claude writes it. Resuming it is the #36 condition, so
+// missing the file restarted it with --session-id, which claude refuses.
+func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
+	home := t.TempDir()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "real", "parser"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "real"), filepath.Join(root, "link")); err != nil {
+		t.Fatal(err)
+	}
+	physical, err := filepath.EvalSymlinks(filepath.Join(root, "real", "parser"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	transcript := paths.Transcript(home, physical, "abc-123")
+	if err := os.MkdirAll(filepath.Dir(transcript), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(transcript, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", home, &detach.Plain{})
+
+	args := commandArgs(t, l, "abc-123", filepath.Join(root, "link", "parser"))
+
+	if !strings.Contains(args, "--resume abc-123") {
+		t.Errorf("args %q lack --resume for a session whose transcript is under its resolved directory", args)
+	}
+}

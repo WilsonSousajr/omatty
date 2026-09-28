@@ -82,8 +82,11 @@ what a migrating user would lose:
   release archives with checksums (#327, #361), so "nothing for omatty" is no
   longer true. What claude-squad still has and omatty does not is a one-line
   installer, and neither a Linux package (apt, AUR, nix).
-- **Scrollback after a reattach** (#191's remainder, open as #336), **a scratch
-  shell** (fleet's terminal drawer), and **session forking** (fleet).
+- ~~**Scrollback after a reattach**~~ (#191's remainder). Closed as #336
+  without code: Claude Code's own pager keeps the conversation, and dtach
+  keeps Claude Code, so `pgup` reaches it after a reattach. Still open here:
+  **a scratch shell** (fleet's terminal drawer), and **session forking**
+  (fleet).
 - ~~**Review scoped to "since my last read"**~~ (Orca #11840). Closed by #337,
   released in v0.6.0: `v` marks a file read and it says `~` once its diff
   changes. #311 had shipped scoping by *time*, which is a different question

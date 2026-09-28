@@ -1,6 +1,8 @@
 package agent_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -56,5 +58,39 @@ func TestClaude_StatusDerivesAPromptFromATypedLine_issue46(t *testing.T) {
 	}
 	if len(agent.Claude().HookEvents()) != len(watcher.HookEventNames()) {
 		t.Error("HookEvents is not the listener's own list (#78)")
+	}
+}
+
+// symlinkedDir makes root/real/proj and returns root/link/proj, which reaches
+// it through a symlink, together with the path claude would report for it:
+// the kernel's, with every link resolved. t.TempDir is itself behind one on
+// macOS (/var is /private/var), so the real path is resolved too.
+func symlinkedDir(t *testing.T) (dir, physical string) {
+	t.Helper()
+	root := t.TempDir()
+	target := filepath.Join(root, "real", "proj")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "real"), filepath.Join(root, "link")); err != nil {
+		t.Fatal(err)
+	}
+	physical, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return filepath.Join(root, "link", "proj"), physical
+}
+
+// Regression, issue #564: claude names its transcript directory after its
+// working directory as the kernel reports it, with symlinks resolved - a
+// project registered as /tmp/x writes under -private-tmp-x on macOS. The
+// profile slugged the path as registered, so the tailer never found the
+// file and a crash restart used --session-id where it had to resume.
+func TestClaude_TranscriptPathFollowsASymlinkedDir_issue564(t *testing.T) {
+	dir, physical := symlinkedDir(t)
+	got := agent.Claude().TranscriptPath("/h", dir, "id")
+	if want := paths.Transcript("/h", physical, "id"); got != want {
+		t.Errorf("TranscriptPath(%q) = %q, want the resolved directory's %q", dir, got, want)
 	}
 }
