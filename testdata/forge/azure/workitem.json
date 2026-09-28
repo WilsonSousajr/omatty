@@ -1,0 +1,11 @@
+{
+ "id": 101,
+ "fields": {
+  "System.Title": "The wiki build fails on a fresh clone",
+  "System.Description": "<div>Clone, then run <b>build.cmd</b>.</div><div>It fails at &quot;restore&quot;.</div>",
+  "System.CreatedBy": {
+   "displayName": "Rick Roe"
+  },
+  "System.CreatedDate": "2026-09-19T08:00:00Z"
+ }
+}

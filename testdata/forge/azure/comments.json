@@ -1,0 +1,13 @@
+{
+ "totalCount": 1,
+ "count": 1,
+ "comments": [
+  {
+   "text": "<p>Reproduced on main.</p>",
+   "createdBy": {
+    "displayName": "Jane Doe"
+   },
+   "createdDate": "2026-09-20T11:00:00Z"
+  }
+ ]
+}

@@ -72,6 +72,9 @@ var GiteaCI = giteaCI
 // BitbucketCI is a Bitbucket commit status as the card's CI mark.
 var BitbucketCI = bitbucketCI
 
+// AzureCI is a policy evaluation's status as the card's CI mark.
+var AzureCI = azureCI
+
 // BodyMax is the cap on one REST answer.
 const BodyMax = bodyMax
 

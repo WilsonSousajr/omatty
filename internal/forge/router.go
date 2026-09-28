@@ -73,13 +73,14 @@ type resolved struct {
 // none, so its projects keep the neutral label.
 var labels = map[Kind]Label{
 	KindGitHub: GitHub, KindGitLab: gitLabLabel, KindGitea: giteaLabel, KindBitbucket: bitbucketLabel,
+	KindAzure: azureLabel,
 }
 
 // NewRouter builds a Router that runs each forge's own CLI from PATH.
 func NewRouter(o Options) *Router {
 	return &Router{
 		remote: o.Remote, hosts: o.Hosts, transport: o.Transport,
-		bins: map[Kind]string{KindGitHub: "gh", KindGitLab: "glab", KindGitea: "tea"}, sshBin: "ssh",
+		bins: map[Kind]string{KindGitHub: "gh", KindGitLab: "glab", KindGitea: "tea", KindAzure: "az"}, sshBin: "ssh",
 		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(), open: openInBrowser,
 		ci: newCICache(), timeout: listTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{}, teaAPIs: map[string]bool{},
 	}
@@ -183,6 +184,8 @@ func (r *Router) pick(repoRoot string, res resolved) (backend, error) {
 		return r.pickGitea(repoRoot, res.remote)
 	case KindBitbucket:
 		return r.pickBitbucket(res.remote)
+	case KindAzure:
+		return r.pickAzure(res.remote)
 	}
 	return nil, fmt.Errorf("forge: omatty does not read %s yet: %w", res.kind, ErrNoForge)
 }
