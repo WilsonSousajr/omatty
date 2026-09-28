@@ -46,16 +46,17 @@ func ranGh(t *testing.T, calls string) bool {
 }
 
 // Detect, never guess: a remote on another forge, or on no forge omatty
-// knows, is ErrNoForge before gh is run - gh cannot answer for GitLab, and
-// asking it is a process spent to learn nothing (#452).
+// knows, never reaches gh - gh cannot answer for GitLab, and asking it is a
+// process spent to learn nothing (#452). Since #454 a GitLab remote is
+// GitLab's to answer; an unknown host is still ErrNoForge.
 func TestRouter_ANonGitHubRemoteIsErrNoForgeWithoutRunningGh_issue452(t *testing.T) {
-	for _, url := range []string{"git@gitlab.com:group/project.git", "https://git.corp.example/o/r.git"} {
+	for url, noForge := range map[string]bool{"git@gitlab.com:group/project.git": false, "https://git.corp.example/o/r.git": true} {
 		bin, calls := fakeGH(t, "[]", "", 0)
 
 		_, err := routerOn(&FakeRemote{URL: url}, bin, nil).ListPRs(t.TempDir())
 
-		if !errors.Is(err, forge.ErrNoForge) {
-			t.Errorf("%s: error = %v, want ErrNoForge", url, err)
+		if err == nil || errors.Is(err, forge.ErrNoForge) != noForge {
+			t.Errorf("%s: error = %v, want ErrNoForge %v", url, err, noForge)
 		}
 		if ranGh(t, calls) {
 			t.Errorf("%s: gh was run for a project that is not on GitHub", url)

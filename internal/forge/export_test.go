@@ -12,7 +12,7 @@ import (
 // NewRouterWithBin is NewRouter with bin in place of gh, so a test can stand a
 // script in for it.
 func NewRouterWithBin(o Options, bin string) *Router {
-	r := NewRouter(o)
+	r := NewTestRouter(TestEnv{Options: o})
 	r.bins[KindGitHub] = bin
 	return r
 }
@@ -63,6 +63,9 @@ var (
 	Anonymous    = anonymous
 )
 
+// GitLabCI is a pipeline status as the card's CI mark.
+var GitLabCI = gitlabCI
+
 // BodyMax is the cap on one REST answer.
 const BodyMax = bodyMax
 
@@ -84,6 +87,8 @@ type TestEnv struct {
 	Options
 	// GH is the gh binary; empty is no gh on PATH.
 	GH string
+	// Bins is every other forge's CLI by kind; a kind absent is not on PATH.
+	Bins map[Kind]string
 	// Env is the environment tokens are borrowed from.
 	Env map[string]string
 	// API is a test server every HTTP request is sent to, whatever its host;
@@ -96,9 +101,17 @@ type TestEnv struct {
 // NewTestRouter is a Router over e.
 func NewTestRouter(e TestEnv) *Router {
 	r := NewRouter(e.Options)
-	r.bins[KindGitHub] = e.GH
-	if e.GH == "" {
-		r.bins[KindGitHub] = "/nonexistent/gh-is-not-installed"
+	// Every CLI absent unless the test names it: this machine may have the
+	// real ones, and a test never runs them. ssh too, for an alias lookup.
+	for kind, name := range r.bins {
+		r.bins[kind] = "/nonexistent/" + name
+	}
+	r.sshBin = "/nonexistent/ssh"
+	if e.GH != "" {
+		r.bins[KindGitHub] = e.GH
+	}
+	for kind, bin := range e.Bins {
+		r.bins[kind] = bin
 	}
 	r.getenv = func(k string) string { return e.Env[k] }
 	if e.API != "" {
