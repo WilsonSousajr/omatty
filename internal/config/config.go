@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -150,6 +151,9 @@ func Load(path, home string) (Config, error) {
 	if err := refuseUnknownKeys(path, md); err != nil {
 		return Config{}, err
 	}
+	if err := refuseUntabledHosts(path, md, cfg.Forge.Hosts); err != nil {
+		return Config{}, err
+	}
 	if err := refuseBadValues(path, cfg); err != nil {
 		return Config{}, err
 	}
@@ -204,16 +208,40 @@ func refuseBadValues(path string, cfg Config) error {
 	return refuseBadForgeHosts(path, cfg.Forge.Hosts)
 }
 
-// refuseBadForgeHosts rejects a key that is not a bare host name. A scheme, a
-// port or a path in it never matches a remote's host, and a line that silently
-// matches nothing is the failure #44 exists to prevent.
+// hostName is a host as DNS writes one, which is all a remote's host ever is:
+// letters, digits, dots and hyphens, starting and ending with a letter or
+// digit. A scheme, a port, a path, an "@" or a trailing dot never matches.
+var hostName = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$`)
+
+// refuseBadForgeHosts rejects a key that is not a host name, and two keys that
+// name one host - DNS ignores case, so "Git.Corp" and "git.corp" are the same
+// host, and which kind won would be map order, changing between polls. A line
+// that silently matches nothing, or matches differently each time, is the
+// failure #44 exists to prevent.
 func refuseBadForgeHosts(path string, hosts forge.Hosts) error {
+	seen := map[string]string{}
 	for host := range hosts {
-		if host == "" || strings.ContainsAny(host, ":/@ ") {
+		if !hostName.MatchString(host) {
 			return fmt.Errorf("config %s: forge.hosts key %q is not a host name, want one such as \"git.corp.example\"", path, host)
 		}
+		if other, dup := seen[strings.ToLower(host)]; dup {
+			return fmt.Errorf("config %s: forge.hosts names %q twice, as %q and %q, want one line per host", path, strings.ToLower(host), other, host)
+		}
+		seen[strings.ToLower(host)] = host
 	}
 	return nil
+}
+
+// refuseUntabledHosts rejects forge.hosts written as anything but a table. The
+// decoder reads an array or a string there as no hosts and no error, which
+// would leave the operator's line doing nothing with nothing said. A map that
+// did decode was a table, whatever md.Type makes of an odd key inside it.
+func refuseUntabledHosts(path string, md toml.MetaData, hosts forge.Hosts) error {
+	if hosts != nil || !md.IsDefined("forge", "hosts") || md.Type("forge", "hosts") == "Hash" {
+		return nil
+	}
+	return fmt.Errorf("config %s: forge.hosts is a %s, want a table such as [forge.hosts] \"git.corp.example\" = \"gitlab\"",
+		path, strings.ToLower(md.Type("forge", "hosts")))
 }
 
 // refuseUnknownIcons rejects a glyph set omatty does not have, rather than

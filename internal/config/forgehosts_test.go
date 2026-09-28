@@ -71,3 +71,48 @@ func TestLoad_AForgeHostThatIsNotAHostNameIsRefused_issue451(t *testing.T) {
 		}
 	}
 }
+
+// Regression: [forge] hosts written as an array or a string - not a table -
+// decoded to nothing and no error (a BurntSushi map-decode quirk), so the
+// operator's line silently did nothing: #44's failure.
+func TestLoad_ForgeHostsThatIsNotATableIsRefused_issue451(t *testing.T) {
+	for _, body := range []string{
+		"[forge]\nhosts = [\"git.corp.example\"]\n",
+		"[forge]\nhosts = \"git.corp.example\"\n",
+	} {
+		home := t.TempDir()
+		path := writeConfig(t, home, body)
+
+		_, err := config.Load(path, home)
+
+		if err == nil || !strings.Contains(err.Error(), "forge.hosts") || !strings.Contains(err.Error(), path) {
+			t.Errorf("%q: error = %v, want forge.hosts refused, naming the file", body, err)
+		}
+	}
+}
+
+// Regression: two keys that differ only in case were both accepted, and which
+// one named the host was map order - the forge could change between polls.
+func TestLoad_ForgeHostsDifferingOnlyInCaseAreRefused_issue451(t *testing.T) {
+	home := t.TempDir()
+	path := writeConfig(t, home, "[forge.hosts]\n\"Git.Corp.Example\" = \"gitlab\"\n\"git.corp.example\" = \"gitea\"\n")
+
+	_, err := config.Load(path, home)
+
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), `"git.corp.example"`) {
+		t.Errorf("error = %v, want the duplicated host named", err)
+	}
+}
+
+// A key is refused unless it is a host name as DNS writes one: a trailing dot,
+// an "@", a space or a tab would never match a remote's host.
+func TestLoad_AForgeHostMustBeAHostName_issue451(t *testing.T) {
+	for _, key := range []string{"git.corp.example.", "git@corp", "git corp", "git\\tcorp", ".corp"} {
+		home := t.TempDir()
+		path := writeConfig(t, home, "[forge.hosts]\n\""+key+"\" = \"gitlab\"\n")
+
+		if _, err := config.Load(path, home); err == nil {
+			t.Errorf("key %q loaded, want it refused", key)
+		}
+	}
+}
