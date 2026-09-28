@@ -27,7 +27,7 @@ type ghHTTP struct {
 // github.com, GH_ENTERPRISE_TOKEN then GITHUB_ENTERPRISE_TOKEN on an
 // Enterprise host.
 func gitHubTokens(host string) []string {
-	if onGitHubCom(host) {
+	if onGitHubCom(host) || tenancy(host) {
 		return []string{"GH_TOKEN", "GITHUB_TOKEN"}
 	}
 	return []string{"GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN"}
@@ -35,10 +35,18 @@ func gitHubTokens(host string) []string {
 
 func onGitHubCom(host string) bool { return host == "github.com" || host == "ssh.github.com" }
 
-// endpoint is the GraphQL URL: api.github.com's, or an Enterprise host's own.
+// tenancy is GitHub Enterprise Cloud with data residency, <tenant>.ghe.com,
+// which gh treats as github.com for its token and asks at api.<tenant>.ghe.com.
+func tenancy(host string) bool { return strings.HasSuffix(host, ".ghe.com") }
+
+// endpoint is the GraphQL URL: api.github.com's, a tenant's api host, or an
+// Enterprise Server's own /api/graphql.
 func (g ghHTTP) endpoint() string {
-	if onGitHubCom(g.remote.Host) {
+	switch {
+	case onGitHubCom(g.remote.Host):
 		return "https://api.github.com/graphql"
+	case tenancy(g.remote.Host):
+		return "https://api." + g.remote.Host + "/graphql"
 	}
 	return g.web() + "/api/graphql"
 }
@@ -93,9 +101,13 @@ func (g ghHTTP) view(ctx context.Context, number int) (Detail, error) {
 		return Detail{}, err
 	}
 	if repo.Item == nil {
-		return Detail{}, fmt.Errorf("forge: %s has no item %d", g.remote.Slug(), number)
+		return Detail{}, fmt.Errorf("forge: %s has no item %d: %w", g.remote.Slug(), number, errNotFound)
 	}
-	return foldDetail(repo.Item.flat()), nil
+	d := foldDetail(repo.Item.flat())
+	// One query reads a hundred comments; one with more is not the whole item,
+	// and a short item must never read as the whole one (#397).
+	d.Truncated = d.Truncated || repo.Item.Comments.TotalCount > len(repo.Item.Comments.Nodes)
+	return d, nil
 }
 
 // browse opens the item's page. GitHub redirects between /issues/N and
@@ -150,18 +162,32 @@ func decodeGQL[T any](raw []byte, slug string) (T, error) {
 }
 
 // problem is the answer's errors as one, or nil when it carries a repository.
+// A NOT_FOUND without a repository is a repository this token cannot see -
+// no forge. A NOT_FOUND beside one is an item that is gone, which its reader
+// finds for itself: stopping the project for it was #462's review finding.
 func (a gqlAnswer[T]) problem(slug string) error {
+	if a.Data.Repository == nil && a.notFound() {
+		return fmt.Errorf("forge: GitHub cannot see %s: %w", slug, ErrNoForge)
+	}
 	messages := make([]string, 0, len(a.Errors))
 	for _, e := range a.Errors {
-		if e.Type == "NOT_FOUND" {
-			return fmt.Errorf("forge: GitHub cannot see %s: %w", slug, ErrNoForge)
+		if e.Type != "NOT_FOUND" {
+			messages = append(messages, cleanLine(e.Message))
 		}
-		messages = append(messages, cleanLine(e.Message))
 	}
 	if len(messages) > 0 || a.Data.Repository == nil {
 		return fmt.Errorf("forge: GitHub answered about %s with no repository: %s", slug, strings.Join(messages, "; "))
 	}
 	return nil
+}
+
+func (a gqlAnswer[T]) notFound() bool {
+	for _, e := range a.Errors {
+		if e.Type == "NOT_FOUND" {
+			return true
+		}
+	}
+	return false
 }
 
 // The request and the answers, as GraphQL writes them. Each answer reshapes
@@ -224,8 +250,12 @@ type (
 		URL       string              `json:"url"`
 		CreatedAt time.Time           `json:"createdAt"`
 		Author    ghUser              `json:"author"`
-		Comments  gqlNodes[ghComment] `json:"comments"`
+		Comments  gqlComments         `json:"comments"`
 		Commits   gqlNodes[gqlCommit] `json:"commits"`
+	}
+	gqlComments struct {
+		TotalCount int         `json:"totalCount"`
+		Nodes      []ghComment `json:"nodes"`
 	}
 )
 

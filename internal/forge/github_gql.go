@@ -41,7 +41,7 @@ const issuesQuery = `query($owner: String!, $name: String!) { repository(owner: 
 
 // itemFields is one item in full, detailFields; a pull request adds its checks.
 const itemFields = `number title body url createdAt author { login }
-	comments(first: 100) { nodes { author { login } body createdAt } }`
+	comments(first: 100) { totalCount nodes { author { login } body createdAt } }`
 
 // itemQuery reads either kind by number: GitHub numbers issues and pull
 // requests in one sequence, so the number alone names the item.

@@ -39,6 +39,14 @@ type FakeGitHubAPI struct {
 // FakeRequest is one request as the fake received it.
 type FakeRequest struct {
 	Host, Path, Auth, Query string
+	Vars                    FakeVars
+}
+
+// FakeVars is a GraphQL request's variables.
+type FakeVars struct {
+	Owner  string `json:"owner"`
+	Name   string `json:"name"`
+	Number int    `json:"number"`
 }
 
 func (f *FakeGitHubAPI) serve(t *testing.T) *httptest.Server {
@@ -46,11 +54,12 @@ func (f *FakeGitHubAPI) serve(t *testing.T) *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		var req struct {
-			Query string `json:"query"`
+			Query     string   `json:"query"`
+			Variables FakeVars `json:"variables"`
 		}
 		_ = json.Unmarshal(body, &req)
 		f.mu.Lock()
-		f.Got = append(f.Got, FakeRequest{r.Header.Get("X-Original-Host"), r.URL.Path, r.Header.Get("Authorization"), req.Query})
+		f.Got = append(f.Got, FakeRequest{r.Header.Get("X-Original-Host"), r.URL.Path, r.Header.Get("Authorization"), req.Query, req.Variables})
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		if f.Status != 0 {
@@ -243,5 +252,86 @@ func TestGitHubHTTP_ShippingRefusesUntilItIsBuilt_issue462(t *testing.T) {
 	}
 	if protected, err := r.BranchProtected(t.TempDir(), "main"); !protected || err == nil {
 		t.Errorf("BranchProtected = %v, %v; want true beside an error", protected, err)
+	}
+}
+
+// Regression, #462's review: GitHub answers a missing number with NOT_FOUND
+// inside a 200 whose repository is there. That was read as the repository
+// missing - ErrNoForge - so opening an issue deleted since the last poll
+// stopped the whole project. A missing item is only a missing item.
+func TestGitHubHTTP_AMissingItemIsNotAMissingRepository_issue462(t *testing.T) {
+	api := recordedGitHub(t)
+	api.Item = `{"data":{"repository":{"issueOrPullRequest":null}},"errors":[{"type":"NOT_FOUND","path":["repository","issueOrPullRequest"],"message":"Could not resolve to an issue or pull request with the number of 99999."}]}`
+	r := httpRouter(t, "git@github.com:WilsonSousajr/omatty.git", map[string]string{"GH_TOKEN": secret}, api, nil)
+
+	_, err := r.ViewIssue(t.TempDir(), 99999)
+
+	if err == nil || errors.Is(err, forge.ErrNoForge) || !errors.Is(err, forge.ErrNotFound) {
+		t.Errorf("error = %v, want not found and not ErrNoForge", err)
+	}
+}
+
+// An item with more comments than one query returns says it is not whole: a
+// short item must never read as the whole one (#397).
+func TestGitHubHTTP_MoreCommentsThanReadIsTruncated_issue462(t *testing.T) {
+	api := recordedGitHub(t)
+	api.Item = `{"data":{"repository":{"issueOrPullRequest":{"number":5,"title":"t","body":"b","url":"u","createdAt":"2026-09-01T00:00:00Z","author":{"login":"a"},
+		"comments":{"totalCount":148,"nodes":[{"author":{"login":"c"},"body":"one","createdAt":"2026-09-01T00:00:00Z"}]}}}}}`
+	r := httpRouter(t, "git@github.com:WilsonSousajr/omatty.git", map[string]string{"GH_TOKEN": secret}, api, nil)
+
+	d, err := r.ViewIssue(t.TempDir(), 5)
+
+	if err != nil || !d.Truncated {
+		t.Errorf("detail = %+v, %v; want it marked as not read whole", d, err)
+	}
+}
+
+// GitHub Enterprise Cloud with data residency lives on <tenant>.ghe.com. gh
+// reads its token as github.com's and asks api.<tenant>.ghe.com.
+func TestGitHubHTTP_AGHEComTenantIsAskedAtItsAPIHost_issue462(t *testing.T) {
+	api := recordedGitHub(t)
+	r := httpRouter(t, "https://acme.ghe.com/team/app.git", map[string]string{"GH_TOKEN": secret}, api,
+		forge.Hosts{"acme.ghe.com": forge.KindGitHub})
+
+	if _, err := r.ListIssues(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	if got := api.Got[0]; got.Host != "api.acme.ghe.com" || got.Path != "/graphql" || got.Auth != "Bearer "+secret {
+		t.Errorf("sent %+v, want GH_TOKEN to api.acme.ghe.com/graphql", got)
+	}
+}
+
+// The query names the repository and the item it is about.
+func TestGitHubHTTP_AsksAboutTheRightRepositoryAndItem_issue462(t *testing.T) {
+	api := recordedGitHub(t)
+	r := httpRouter(t, "git@github.com:WilsonSousajr/omatty.git", map[string]string{"GH_TOKEN": secret}, api, nil)
+
+	if _, err := r.ViewPR(t.TempDir(), 577); err != nil {
+		t.Fatal(err)
+	}
+	if v := api.Got[0].Vars; v.Owner != "WilsonSousajr" || v.Name != "omatty" || v.Number != 577 {
+		t.Errorf("variables = %+v, want WilsonSousajr/omatty #577", v)
+	}
+}
+
+// An Enterprise Server's web page keeps an https remote's port, and drops an
+// ssh remote's, which is ssh's.
+func TestGitHubHTTP_BrowseKeepsOnlyAWebPort_issue462(t *testing.T) {
+	for url, want := range map[string]string{
+		"https://ghe.corp.example:8443/o/r.git":   "https://ghe.corp.example:8443/o/r/issues/1",
+		"ssh://git@ghe.corp.example:2222/o/r.git": "https://ghe.corp.example/o/r/issues/1",
+	} {
+		var opened []string
+		r := forge.NewTestRouter(forge.TestEnv{
+			Options: forge.Options{Remote: (&FakeRemote{URL: url}).url, Hosts: forge.Hosts{"ghe.corp.example": forge.KindGitHub}},
+			Env:     map[string]string{"GH_ENTERPRISE_TOKEN": secret}, API: recordedGitHub(t).serve(t).URL,
+			Open: func(u string) error { opened = append(opened, u); return nil },
+		})
+
+		_ = r.BrowseIssue(t.TempDir(), 1)
+
+		if len(opened) != 1 || opened[0] != want {
+			t.Errorf("%s: opened %v, want %s", url, opened, want)
+		}
 	}
 }
