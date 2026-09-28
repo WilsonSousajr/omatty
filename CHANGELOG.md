@@ -11,6 +11,11 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.8.2] — 2026-09-27
+
+One line installs omatty on any macOS or Linux machine, and `brew install`
+stops asking you to report a bug in our tap.
+
 ### Added
 
 - **Install in one line on macOS or Linux** (#517):
@@ -745,7 +750,12 @@ after its issue:
 - The agent seam has one profile, claude. Codex is a follow-up. (#152)
 - Scrollback is not preserved across a detach and reattach.
 
-[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.8.2...HEAD
+[v0.8.2]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.8.2
+[v0.8.1]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.8.1
+[v0.8.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.8.0
+[v0.7.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.7.0
+[v0.6.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.6.0
 [v0.5.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.5.0
 [v0.4.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.4.0
 [v0.3.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.3.0
