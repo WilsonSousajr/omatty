@@ -36,6 +36,19 @@ var builtInHosts = map[string]Kind{
 	"bitbucket.org":     KindBitbucket,
 }
 
+// sshOver443 is each forge's ssh-over-https-port host and the host every API
+// and web page is on: git reaches it, nothing else does (#454's review).
+var sshOver443 = map[string]string{"ssh.github.com": "github.com", "altssh.gitlab.com": "gitlab.com"}
+
+// webHost is remote as everything but git sees it: an ssh-over-443 host
+// becomes its forge's own, without ssh's port.
+func webHost(remote Remote) Remote {
+	if host, ok := sshOver443[remote.Host]; ok {
+		remote.Host, remote.Port = host, ""
+	}
+	return remote
+}
+
 // KindOf names the forge a host belongs to from the built-in table. An Azure
 // organisation's own host, org.visualstudio.com, is matched by its suffix. Any
 // other host is ErrNoForge: quiet, and never a guess - the error says where to

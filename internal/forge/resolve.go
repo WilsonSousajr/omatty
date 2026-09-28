@@ -67,5 +67,5 @@ func (r *Router) lookUp(repoRoot string) (resolved, error) {
 	if err != nil {
 		return resolved{}, err
 	}
-	return resolved{kind: kind, remote: remote}, nil
+	return resolved{kind: kind, remote: webHost(remote)}, nil
 }

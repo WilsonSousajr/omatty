@@ -29,6 +29,7 @@ type Router struct {
 	getenv    func(string) string
 	rest      restClient
 	open      func(url string) error
+	ci        *ciCache
 	timeout   time.Duration
 
 	mu   sync.Mutex
@@ -68,15 +69,15 @@ type resolved struct {
 
 // labels is each readable forge's words. A forge omatty cannot read yet has
 // none, so its projects keep the neutral label.
-var labels = map[Kind]Label{KindGitHub: GitHub}
+var labels = map[Kind]Label{KindGitHub: GitHub, KindGitLab: gitLabLabel}
 
 // NewRouter builds a Router that runs each forge's own CLI from PATH.
 func NewRouter(o Options) *Router {
 	return &Router{
 		remote: o.Remote, hosts: o.Hosts, transport: o.Transport,
-		bins: map[Kind]string{KindGitHub: "gh"}, sshBin: "ssh",
+		bins: map[Kind]string{KindGitHub: "gh", KindGitLab: "glab"}, sshBin: "ssh",
 		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(), open: openInBrowser,
-		timeout: listTimeout, seen: map[string]resolved{},
+		ci: newCICache(), timeout: listTimeout, seen: map[string]resolved{},
 	}
 }
 
@@ -153,17 +154,31 @@ func (r *Router) backendFor(repoRoot string) (backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	return r.pick(res)
+	return r.pick(repoRoot, res)
 }
 
-// pick chooses the backend for a resolved project. Only GitHub is read so far;
-// another forge is ErrNoForge until its backend lands, never gh asked about a
-// repository it cannot see.
-func (r *Router) pick(res resolved) (backend, error) {
-	if res.kind != KindGitHub {
-		return nil, fmt.Errorf("forge: omatty does not read %s yet: %w", res.kind, ErrNoForge)
+// pick chooses the backend for a resolved project. A forge whose backend has
+// not landed is ErrNoForge, never another forge's CLI asked about a repository
+// it cannot see.
+func (r *Router) pick(repoRoot string, res resolved) (backend, error) {
+	switch res.kind {
+	case KindGitHub:
+		return r.pickGitHub(res.remote)
+	case KindGitLab:
+		return r.pickGitLab(repoRoot, res.remote)
 	}
-	return r.pickGitHub(res.remote)
+	return nil, fmt.Errorf("forge: omatty does not read %s yet: %w", res.kind, ErrNoForge)
+}
+
+// pickGitLab is glab when it is installed (#454).
+func (r *Router) pickGitLab(repoRoot string, remote Remote) (backend, error) {
+	if bin, ok := r.cli(KindGitLab); ok {
+		// The bare host: glab refuses a --hostname with a port ("invalid
+		// hostname") and takes the API's port from its own per-host config.
+		f := cliAPI{bin: bin, host: remote.Host, dir: repoRoot, timeout: r.timeout}
+		return glBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
+	}
+	return nil, &MissingToolError{Tool: "glab"}
 }
 
 // pickGitHub is gh when it is installed, else GitHub's HTTP API with a token
