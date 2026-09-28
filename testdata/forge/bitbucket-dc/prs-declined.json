@@ -1,0 +1,5 @@
+{"size": 1, "limit": 30, "isLastPage": true, "start": 0, "values": [
+ {"id": 39, "title": "Try a new linter", "state": "DECLINED", "open": false, "createdDate": 1787000000000, "updatedDate": 1787600000000, "closedDate": 1787500000000,
+  "fromRef": {"displayId": "linter", "latestCommit": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", "repository": {"slug": "platform", "project": {"key": "OPS"}}},
+  "toRef": {"displayId": "main", "repository": {"slug": "platform", "project": {"key": "OPS"}}}}
+]}

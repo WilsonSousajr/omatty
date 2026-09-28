@@ -3,7 +3,6 @@ package forge
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 )
@@ -137,17 +136,11 @@ func firstErr(errs ...error) error {
 	return nil
 }
 
-// pickBitbucket is Bitbucket Cloud's REST API with BITBUCKET_TOKEN: an API
-// token with its BITBUCKET_USER - the Atlassian account's email - as Basic
-// auth, or a repository or workspace access token alone as a bearer. There is
-// no CLI to try first.
+// pickBitbucket is Bitbucket's REST API with BITBUCKET_TOKEN: an API token
+// with its BITBUCKET_USER as Basic auth, or an access token alone as a bearer.
+// There is no CLI to try first. bitbucket.org is Cloud; any other host the
+// operator named as bitbucket is Data Center (#461), whose API is its own.
 func (r *Router) pickBitbucket(remote Remote) (backend, error) {
-	if remote.Host != "bitbucket.org" {
-		// Cloud is bitbucket.org alone. A self-hosted host is Data Center,
-		// whose API and token are not Cloud's: its token was going to
-		// api.bitbucket.org (#460's review).
-		return nil, fmt.Errorf("forge: %s is not Bitbucket Cloud, and Data Center is not read yet (#461): %w", remote.Host, ErrNoForge)
-	}
 	tok, _ := r.borrow([]string{"BITBUCKET_TOKEN"})
 	if tok == "" {
 		return nil, &MissingToolError{TokenEnv: "BITBUCKET_TOKEN"}
@@ -156,6 +149,24 @@ func (r *Router) pickBitbucket(remote Remote) (backend, error) {
 	if user, _ := r.borrow([]string{"BITBUCKET_USER"}); user != "" {
 		a = basicAuth(user, tok)
 	}
+	if remote.Host != "bitbucket.org" {
+		return r.dataCenter(remote, a)
+	}
 	f := restAPI{rest: r.rest, base: "https://api.bitbucket.org/2.0", auth: a, env: "BITBUCKET_TOKEN"}
 	return bbBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
+}
+
+// dataCenter is the Data Center backend for remote, whose web root carries any
+// context path its clone URL had.
+func (r *Router) dataCenter(remote Remote, a auth) (backend, error) {
+	contextPath, key, slug, err := dcCoordinates(remote)
+	if err != nil {
+		return nil, err
+	}
+	web := webBase(remote)
+	if contextPath != "" {
+		web += "/" + contextPath
+	}
+	f := restAPI{rest: r.rest, base: web + "/rest", auth: a, env: "BITBUCKET_TOKEN"}
+	return bdcBackend{f: f, remote: remote, web: web, key: key, slug: slug, ci: r.ci, open: r.open}, nil
 }

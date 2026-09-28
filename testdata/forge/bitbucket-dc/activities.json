@@ -1,0 +1,6 @@
+{"size": 3, "limit": 100, "isLastPage": true, "start": 0, "values": [
+ {"id": 1, "action": "OPENED", "createdDate": 1790000000000, "user": {"name": "jdoe", "displayName": "Jane Doe"}},
+ {"id": 2, "action": "COMMENTED", "createdDate": 1790100000000, "user": {"name": "rroe", "displayName": "Rick Roe"},
+  "comment": {"id": 7, "text": "Can the export stream instead of buffering?", "author": {"name": "rroe", "displayName": "Rick Roe"}, "createdDate": 1790100000000}},
+ {"id": 3, "action": "APPROVED", "createdDate": 1790200000000, "user": {"name": "rroe", "displayName": "Rick Roe"}}
+]}
