@@ -129,7 +129,7 @@ type RunDeps struct {
 	// Item reads one issue or pull request in full (#397), and Browse opens one
 	// in the operator's browser (#398).
 	Item   ForgeItemFuncs
-	Browse BrowseFunc
+	Browse ForgeBrowseFuncs
 	// Label names each project's forge for the copy (#449).
 	Label LabelFunc
 	// Rename persists a session's new title (#41); Name reads the first prompt

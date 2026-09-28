@@ -8,6 +8,7 @@
 package forge
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -76,25 +77,18 @@ type ghComment struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// ViewIssue is one issue in full.
-//
-//	item, err := forge.NewCLI().ViewIssue("/p/omatty", 397)
-func (c *CLI) ViewIssue(repoRoot string, number int) (Detail, error) {
-	return c.view(repoRoot, "issue", number, detailFields)
+// viewIssue is one issue in full.
+func (c ghCLI) viewIssue(ctx context.Context, repoRoot string, number int) (Detail, error) {
+	return c.view(ctx, repoRoot, "issue", number, detailFields)
 }
 
-// ViewPR is one pull request in full. A separate call rather than a guess: gh
+// viewPR is one pull request in full. A separate call rather than a guess: gh
 // has two subcommands, and the tracker knows which list its row came from.
-func (c *CLI) ViewPR(repoRoot string, number int) (Detail, error) {
-	return c.view(repoRoot, "pr", number, prDetailFields)
+func (c ghCLI) viewPR(ctx context.Context, repoRoot string, number int) (Detail, error) {
+	return c.view(ctx, repoRoot, "pr", number, prDetailFields)
 }
 
-func (c *CLI) view(repoRoot, kind string, number int, fields string) (Detail, error) {
-	ctx, cancel, err := c.bounded()
-	if err != nil {
-		return Detail{}, err
-	}
-	defer cancel()
+func (c ghCLI) view(ctx context.Context, repoRoot, kind string, number int, fields string) (Detail, error) {
 	out, err := c.run(ctx, repoRoot, kind, "view", strconv.Itoa(number), "--json", fields)
 	if err != nil {
 		return Detail{}, err
@@ -171,13 +165,8 @@ func bound(s string, budget int) (string, int) {
 // for - and it is here rather than behind an `open`/`xdg-open` of its own because
 // gh is already this package's business (invariant 4 in spirit).
 //
-//	err := forge.NewCLI().Browse("/p/omatty", 399)
-func (c *CLI) Browse(repoRoot string, number int) error {
-	ctx, cancel, err := c.bounded()
-	if err != nil {
-		return err
-	}
-	defer cancel()
-	_, err = c.run(ctx, repoRoot, "browse", strconv.Itoa(number))
+// gh resolves either kind from the number alone, so pr is not needed here.
+func (c ghCLI) browse(ctx context.Context, repoRoot string, number int, _ bool) error {
+	_, err := c.run(ctx, repoRoot, "browse", strconv.Itoa(number))
 	return err
 }

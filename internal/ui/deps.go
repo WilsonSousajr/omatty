@@ -123,7 +123,7 @@ type Deps struct {
 	Item ForgeItemFuncs
 	// Browse opens one item in the operator's browser (#398). Unwired, it names
 	// the missing wiring.
-	Browse BrowseFunc
+	Browse ForgeBrowseFuncs
 	// Label names each project's forge and its unit of change for the copy
 	// (#449). Unwired, it is GitHub's, matching the missing gh above.
 	Label LabelFunc
@@ -227,15 +227,7 @@ func (d Deps) withPRDefaults() Deps {
 	if d.Issues == nil {
 		d.Issues = noIssues
 	}
-	if d.Item.Issue == nil {
-		d.Item.Issue = noItem
-	}
-	if d.Item.PR == nil {
-		d.Item.PR = noItem
-	}
-	if d.Browse == nil {
-		d.Browse = noBrowse
-	}
+	d.Item, d.Browse = d.Item.orUnwired(), d.Browse.orUnwired()
 	if d.Label == nil {
 		d.Label = unwiredLabel
 	}

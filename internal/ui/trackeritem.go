@@ -33,6 +33,17 @@ type ForgeItemFuncs struct {
 	PR    ItemFunc
 }
 
+// orUnwired fills either missing half with noItem.
+func (f ForgeItemFuncs) orUnwired() ForgeItemFuncs {
+	if f.Issue == nil {
+		f.Issue = noItem
+	}
+	if f.PR == nil {
+		f.PR = noItem
+	}
+	return f
+}
+
 // noItem is the Deps.Item default for either half: with nothing wired there is
 // no gh to ask.
 func noItem(string, int) (forge.Detail, error) { return forge.Detail{}, forge.NoGH() }

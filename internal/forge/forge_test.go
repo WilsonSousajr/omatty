@@ -22,7 +22,10 @@ func fakeGH(t *testing.T, out, errOut string, code int) (bin, calls string) {
 			t.Fatal(err)
 		}
 	}
+	// `auth token --hostname` is how the Router asks whether gh has a login
+	// for a host (#579); this gh has none, as a real one for an unknown host.
 	script := "#!/bin/sh\n" +
+		`[ "$1 $2" = "auth token" ] && exit 1` + "\n" +
 		`printf '%s|%s\n' "$PWD" "$*" >> '` + calls + "'\n" +
 		`cat '` + filepath.Join(dir, "out") + "'\n" +
 		`cat '` + filepath.Join(dir, "err") + "' >&2\n" +

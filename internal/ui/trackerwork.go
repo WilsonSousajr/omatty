@@ -25,7 +25,26 @@ import (
 // gh itself (invariant 4 in spirit).
 type BrowseFunc func(projectRoot string, number int) error
 
-// noBrowse is the Deps.Browse default: it names the missing wiring rather than
+// ForgeBrowseFuncs is the pair of openers, one per list, for the reason
+// ForgeItemFuncs is a pair: GitLab, Azure and Bitbucket number changes and
+// issues apart, so a number alone names the wrong item there (#452).
+type ForgeBrowseFuncs struct {
+	Issue BrowseFunc
+	PR    BrowseFunc
+}
+
+// orUnwired fills either missing half with noBrowse.
+func (f ForgeBrowseFuncs) orUnwired() ForgeBrowseFuncs {
+	if f.Issue == nil {
+		f.Issue = noBrowse
+	}
+	if f.PR == nil {
+		f.PR = noBrowse
+	}
+	return f
+}
+
+// noBrowse is the Deps.Browse default for either half: it names the missing wiring rather than
 // appearing to succeed, because a browser that silently never opens is the one
 // failure the operator cannot see from inside the terminal.
 func noBrowse(_ string, number int) error {
@@ -173,7 +192,10 @@ func (m *Model) itemReference(row trackerRow) string {
 // browseItem hands the item to the operator's browser off the Update goroutine:
 // gh spawns an opener, and a slow one must not hold the frame.
 func (m *Model) browseItem(row trackerRow) tea.Cmd {
-	browse, root, number := m.browse, m.projectRoot(m.review.Tracker.Project), row.Number
+	browse, root, number := m.browse.Issue, m.projectRoot(m.review.Tracker.Project), row.Number
+	if row.Kind == rowPR {
+		browse = m.browse.PR
+	}
 	return func() tea.Msg {
 		return BrowsedMsg{Number: number, Err: browse(root, number)}
 	}

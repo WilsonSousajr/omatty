@@ -4,6 +4,11 @@
 //
 //	go run ./testdata/forgeprobe
 //	go run ./testdata/forgeprobe /path/to/a/checkout
+//	go run ./testdata/forgeprobe -forge gitlab /path/to/a/checkout
+//
+// It reads through the same Router the TUI builds (#452): the checkout's
+// origin names its forge, and -forge names it instead, as a [forge.hosts] line
+// for origin's host would.
 //
 // It is the same argument as dtachprobe and gateprobe. The tests fold recorded
 // JSON, which proves the fold and nothing about gh: a field renamed upstream,
@@ -19,22 +24,47 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
 
 func main() {
+	kind := flag.String("forge", "", "name origin's host as this forge, as [forge.hosts] would")
+	flag.Parse()
 	root := "."
-	if len(os.Args) > 1 {
-		root = os.Args[1]
+	if flag.NArg() > 0 {
+		root = flag.Arg(0)
 	}
-	cli := forge.NewCLI()
+	r := forge.NewRouter(forge.Options{Remote: vcs.NewCLI().RemoteURL, Hosts: hostsFor(root, *kind)})
 	fmt.Println("repository:", root)
+	issues := probeIssues(r, root)
+	probePRs(r, root)
+	probeDetail(r, root, issues)
+	fmt.Printf("\nforge: %+v\n", r.Label(root))
+	fmt.Println("\nRead it: every title non-empty, every date this decade, labels present.")
+}
 
-	issues, err := cli.ListIssues(root)
+// hostsFor is the one-line [forge.hosts] -forge stands for, or none.
+func hostsFor(root, kind string) forge.Hosts {
+	if kind == "" {
+		return nil
+	}
+	k, err := forge.ParseKind(kind)
+	exitOn(err)
+	raw, err := vcs.NewCLI().RemoteURL(root)
+	exitOn(err)
+	remote, err := forge.ParseRemote(raw)
+	exitOn(err)
+	return forge.Hosts{remote.Host: k}
+}
+
+func probeIssues(r *forge.Router, root string) []forge.Issue {
+	issues, err := r.ListIssues(root)
 	if err != nil {
 		fmt.Println("ListIssues:", err)
 	}
@@ -43,20 +73,44 @@ func main() {
 		fmt.Printf("#%-4d %-11s %-52s %s %s\n", is.Number, first(is.Labels), clip(is.Title, 52),
 			is.Updated.Format("2006-01-02"), who(is))
 	}
+	return issues
+}
 
-	prs, err := cli.ListPRs(root)
+func probePRs(r *forge.Router, root string) {
+	prs, err := r.ListPRs(root)
 	if err != nil {
 		fmt.Println("ListPRs:", err)
 	}
-	fmt.Printf("\n--- open pull requests of %d read ---\n", len(prs))
+	fmt.Printf("\n--- open changes of %d read ---\n", len(prs))
 	for _, pr := range prs {
 		if pr.State != forge.Open {
 			continue
 		}
-		fmt.Printf("#%-4d %-52s %s ci=%v draft=%v\n", pr.Number, clip(pr.Title, 52),
-			pr.Updated.Format("2006-01-02"), pr.CI, pr.Draft)
+		fmt.Printf("%-5s %-52s %s ci=%v draft=%v conflict=%v fork=%v head=%.8s\n", r.Label(root).Ref(pr.Number),
+			clip(pr.Title, 52), pr.Updated.Format("2006-01-02"), pr.CI, pr.Draft, pr.Conflict, pr.Fork, pr.Head)
 	}
-	fmt.Println("\nRead it: every title non-empty, every date this decade, labels present.")
+}
+
+// probeDetail reads the first issue in full: the body and the comments are a
+// third call with its own field names, and the lists prove nothing about it.
+func probeDetail(r *forge.Router, root string, issues []forge.Issue) {
+	if len(issues) == 0 {
+		return
+	}
+	d, err := r.ViewIssue(root, issues[0].Number)
+	if err != nil {
+		fmt.Println("ViewIssue:", err)
+		return
+	}
+	fmt.Printf("\n--- #%d in full ---\n%s by %s, %s, %d comment(s), %d bytes of body, truncated=%v\n",
+		d.Number, clip(d.Title, 52), d.Author, d.Created.Format("2006-01-02"), len(d.Comments), len(d.Body), d.Truncated)
+}
+
+func exitOn(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "forgeprobe:", err)
+		os.Exit(2)
+	}
 }
 
 // who names the assignee, or says nobody is on it.

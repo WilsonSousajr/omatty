@@ -25,6 +25,13 @@ func (f *FakeBrowse) fn(root string, number int) error {
 	return f.Err
 }
 
+// pr is the change half: GitLab, Azure and Bitbucket number changes and issues
+// apart, so the tracker must say which one it means (#452).
+func (f *FakeBrowse) pr(root string, number int) error {
+	f.Asked = append(f.Asked, "pr "+root+" "+strconv.Itoa(number))
+	return f.Err
+}
+
 // workModel is a tracker open on one issue and one open pull request, with the
 // session creator, the browser and the terminals all wired.
 func workModel(t *testing.T) (*ui.Model, *recordCreate, *FakeBrowse, map[string]*termwrap.Fake) {
@@ -41,7 +48,8 @@ func workModel(t *testing.T) (*ui.Model, *recordCreate, *FakeBrowse, map[string]
 		399: {Number: 399, Title: "Filter the tracker, and the argument!", Body: "why"},
 	}, PRs: map[int]forge.Detail{}}
 	d := baseDeps(withEmptyProject(), terms)
-	d.Issues, d.PRs, d.Create, d.Browse = fi.List, fp.List, create.fn, browse.fn
+	d.Issues, d.PRs, d.Create = fi.List, fp.List, create.fn
+	d.Browse = ui.ForgeBrowseFuncs{Issue: browse.fn, PR: browse.pr}
 	d.Item = ui.ForgeItemFuncs{Issue: items.issue, PR: items.pr}
 	d.Clock = func() time.Time { return fi.Now }
 	m := ui.NewModel(d)
@@ -150,6 +158,20 @@ func TestTrackerWork_BOpensItInTheBrowser_issue398(t *testing.T) {
 
 	if len(browse.Asked) != 1 || browse.Asked[0] != "/p/omatty 399" {
 		t.Errorf("browse asked %v, want the issue in its project's root", browse.Asked)
+	}
+}
+
+// b on a change opens it through the change half: on a forge that numbers
+// changes and issues apart, "400" alone names the wrong item (#452).
+func TestTrackerWork_BOpensAChangeThroughItsOwnHalf_issue452(t *testing.T) {
+	m, _, browse, _ := workModel(t)
+	pressDeliver(m, key('j')) // over the rule
+	pressDeliver(m, key('j'))
+
+	pressDeliver(m, key('b'))
+
+	if len(browse.Asked) != 1 || browse.Asked[0] != "pr /p/omatty 400" {
+		t.Errorf("browse asked %v, want the change through the PR half", browse.Asked)
 	}
 }
 

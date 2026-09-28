@@ -57,8 +57,9 @@ internal/
 ├── registry/       projects + sessions + state.json.
 ├── agent/          the agent seam (#46): a command template plus a status adapter.
 ├── vcs/            OUR interface over the git CLI (invariant 4).
-├── forge/          OUR interface over the gh CLI: pull requests, CI and issues,
-│                read on a timer; written only on a keypress (#310, #331).
+├── forge/          OUR interface over every forge's CLI - gh, glab, az, tea - behind
+│                one Router: pull requests, CI and issues, read on a timer;
+│                written only on a keypress (#310, #331, #452).
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
 ├── detach/         [M6] OUR interface over the dtach CLI (invariant 4).
@@ -191,7 +192,8 @@ not in the gate.
   no global singletons, no `init()` side effects.
 - **Wrap third-party libraries behind a thin interface this project owns.**
   `internal/termwrap` owns bubbleterm and the PTY, `internal/vcs` owns the git
-  CLI, `internal/forge` owns the gh CLI, `internal/highlight` owns chroma,
+  CLI, `internal/forge` owns every forge CLI (gh, glab, az, tea),
+  `internal/highlight` owns chroma,
   `internal/review` owns go-gitdiff. No other package may import them.
   Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
@@ -241,9 +243,9 @@ not in the gate.
    Enforced by `depguard` in `.golangci.yml` (#260) - but only half of it can
    be. bubbleterm is an import, so a rule can fence it. git is a *string
    literal* handed to `exec`, which no import rule can see, so that half is
-   `TestNoGitOutsideVcs` in `scripts/depguard_test.go`. The gh CLI follows
-   the same rule for the same reason: `internal/forge` owns it (#310), and
-   `TestNoGhOutsideForge` is its fence.
+   `TestNoGitOutsideVcs` in `scripts/depguard_test.go`. The forge CLIs follow
+   the same rule for the same reason: `internal/forge` owns gh (#310), and
+   since #452 glab, az and tea too; `TestNoGhOutsideForge` is their fence.
 
    depguard can only ever fail in one direction: it catches an import that
    breaks a rule, never a rule that has quietly stopped describing the code.

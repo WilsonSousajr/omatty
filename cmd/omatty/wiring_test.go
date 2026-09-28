@@ -8,6 +8,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/detach"
+	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
@@ -70,5 +71,31 @@ func TestCreatorOpts_ComeFromTheConfig_issue44(t *testing.T) {
 
 	if got.WorktreeRoot != "/vol/wt" || got.BaseBranch != "develop" {
 		t.Errorf("creatorOpts() = %+v, want /vol/wt forked from develop", got)
+	}
+}
+
+// One Router answers every forge call the TUI makes (#452): the lists, an
+// item, the browser pair, the label and #331's ship calls. The label is the
+// Router's own - neutral for a project it has not resolved - and not ui's
+// unwired default, which is GitHub's.
+func TestTuiDeps_WiresEveryForgeCallThroughTheRouter_issue452(t *testing.T) {
+	env := tuiEnv{Home: "/h", Agent: agent.Claude(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env.Cfg = config.Defaults("/h")
+
+	deps := tuiDeps(env, nil, registry.State{})
+
+	for name, missing := range map[string]bool{
+		"PRs": deps.PRs == nil, "Issues": deps.Issues == nil,
+		"Item.Issue": deps.Item.Issue == nil, "Item.PR": deps.Item.PR == nil,
+		"Browse.Issue": deps.Browse.Issue == nil, "Browse.PR": deps.Browse.PR == nil,
+		"Label": deps.Label == nil, "Ship.CreatePR": deps.Ship.CreatePR == nil,
+		"Ship.MergePR": deps.Ship.MergePR == nil, "Ship.BranchProtected": deps.Ship.BranchProtected == nil,
+	} {
+		if missing {
+			t.Errorf("%s is not wired", name)
+		}
+	}
+	if got := deps.Label("/nowhere"); got != forge.Neutral {
+		t.Errorf("Label(unresolved) = %+v, want the Router's neutral label", got)
 	}
 }
