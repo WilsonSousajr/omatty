@@ -28,7 +28,10 @@ func (f *FakeGiteaAPI) serve(t *testing.T) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
-		f.Got = append(f.Got, FakeRequest{Host: r.Header.Get("X-Original-Host"), Path: r.URL.Path + "?" + r.URL.RawQuery, Auth: r.Header.Get("Authorization")})
+		f.Got = append(f.Got, FakeRequest{
+			Host: r.Header.Get("X-Original-Host"), Path: r.URL.Path + "?" + r.URL.RawQuery, Auth: r.Header.Get("Authorization"),
+			Scheme: r.Header.Get("X-Original-Scheme"),
+		})
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json;charset=utf-8")
 		f.answer(t, w, r.URL.Path+"?"+r.URL.RawQuery)
@@ -203,5 +206,61 @@ func TestGiteaREST_ATeaWithoutALoginIsPassedOver_issue459(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(calls); strings.Contains(string(b), "api") {
 		t.Errorf("tea api was run with no login for the host:\n%s", b)
+	}
+}
+
+// giteaAt is a Router over url on a self-hosted Gitea, with bins and env.
+func giteaAt(t *testing.T, url string, bins map[forge.Kind]string, env map[string]string, api *FakeGiteaAPI) *forge.Router {
+	return forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: url}).url, Hosts: forge.Hosts{"git.corp.example": forge.KindGitea}},
+		Bins:    bins, Env: env, API: api.serve(t),
+	})
+}
+
+// A token never crosses plain http, so an http remote with GITEA_TOKEN set
+// and no tea login stops with a note naming tea, rather than failing every
+// poll with "?" (#584).
+func TestGiteaREST_AnHTTPRemoteWithATokenStopsWithANote_issue584(t *testing.T) {
+	api := &FakeGiteaAPI{}
+	_, err := giteaAt(t, "http://git.corp.example/o/r.git", nil, map[string]string{"GITEA_TOKEN": secret}, api).ListIssues(t.TempDir())
+
+	var missing *forge.MissingToolError
+	if !errors.As(err, &missing) || missing.Tool != "tea" || missing.TokenEnv != "" {
+		t.Errorf("error = %v, want tea missing and no token named", err)
+	}
+	if len(api.Got) != 0 {
+		t.Errorf("sent %+v, want nothing", api.Got)
+	}
+}
+
+// With no token, an http remote is read anonymously where it is: over http,
+// not upgraded to an https an http-only host does not answer (#584).
+func TestGiteaREST_AnHTTPRemoteIsReadOverHTTP_issue584(t *testing.T) {
+	api := &FakeGiteaAPI{}
+	_, _ = giteaAt(t, "http://git.corp.example/o/r.git", nil, nil, api).ListIssues(t.TempDir())
+
+	if len(api.Got) == 0 || api.Got[0].Scheme != "http" || api.Got[0].Auth != "" {
+		t.Errorf("sent %+v, want an anonymous read over http", api.Got)
+	}
+}
+
+// Read anonymously by a machine whose tea has no login for the host, a
+// refusal names the login, not a missing tea (#586) - and so does the forced
+// CLI transport.
+func TestGiteaREST_ARefusalNamesTeasMissingLogin_issue586(t *testing.T) {
+	bin, _ := fakeTea(t, `[]`)
+	bins := map[forge.Kind]string{forge.KindGitea: bin}
+	_, anon := giteaAt(t, "https://git.corp.example/o/r.git", bins, nil, &FakeGiteaAPI{Status: 404}).ListPRs(t.TempDir())
+	forced := forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: "https://codeberg.org/forgejo/forgejo.git"}).url, Transport: forge.TransportCLI},
+		Bins:    bins,
+	})
+	_, cli := forced.ListPRs(t.TempDir())
+
+	for name, err := range map[string]error{"anonymous 404": anon, "CLI forced": cli} {
+		var missing *forge.MissingToolError
+		if !errors.As(err, &missing) || missing.NoLoginFor == "" || missing.TokenEnv != "GITEA_TOKEN" {
+			t.Errorf("%s: error = %v, want tea's missing login and GITEA_TOKEN named", name, err)
+		}
 	}
 }

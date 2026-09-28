@@ -7,28 +7,55 @@ import (
 )
 
 // pickGitea is tea, through the login it holds for the project's host (#458),
-// else Gitea's REST API (#459): with GITEA_TOKEN when it is set - the
-// variable tea's own env login reads - and anonymously when it is not, which
-// is enough for a public repository on Codeberg. tea cannot read anonymously
-// and has no --hostname, so a tea without a login for this host is passed over.
+// else Gitea's REST API (#459). tea cannot read anonymously and has no
+// --hostname, so a tea without a login for this host is passed over - and
+// named as such in any note, since it is installed (#586).
 func (r *Router) pickGitea(repoRoot string, remote Remote) (backend, error) {
-	if bin, ok := r.cli(KindGitea); ok {
-		// A tea older than 0.12 has no `tea api` and is passed over too (#458).
-		if login := r.teaLogin(bin, remote); login != "" && r.teaHasAPI(bin) {
-			f := teaAPI{bin: bin, login: login, host: apiHost(remote), dir: repoRoot, timeout: r.timeout}
-			return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
+	missing := &MissingToolError{Tool: "tea", TokenEnv: "GITEA_TOKEN"}
+	if bin, installed := r.cli(KindGitea); installed {
+		if b := r.teaBackend(bin, repoRoot, remote, missing); b != nil {
+			return b, nil
 		}
 	}
 	if r.transport == TransportCLI {
-		return nil, &MissingToolError{Tool: "tea", TokenEnv: "GITEA_TOKEN"}
+		return nil, missing
 	}
+	return r.giteaREST(remote, missing)
+}
+
+// teaBackend is tea reading remote through its login, or nil with missing
+// saying why not: no login for the host (#586), or a tea older than 0.12,
+// which has no `tea api` (#458).
+func (r *Router) teaBackend(bin, repoRoot string, remote Remote, missing *MissingToolError) backend {
+	login := r.teaLogin(bin, remote)
+	switch {
+	case login == "":
+		missing.NoLoginFor = apiHost(remote)
+	case !r.teaHasAPI(bin):
+		missing.Tool = "tea 0.12 or later"
+	default:
+		f := teaAPI{bin: bin, login: login, host: apiHost(remote), dir: repoRoot, timeout: r.timeout}
+		return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open}
+	}
+	return nil
+}
+
+// giteaREST reads with GITEA_TOKEN when it is set - the variable tea's own
+// env login reads - and anonymously when it is not, which is enough for a
+// public repository on Codeberg; missing is what an anonymous refusal says.
+// A token never crosses plain http, so an http remote with one set is tea's
+// or no one's, and says so rather than failing every poll (#584).
+func (r *Router) giteaREST(remote Remote, missing *MissingToolError) (backend, error) {
 	tok, _ := r.borrow([]string{"GITEA_TOKEN"})
-	a := anonymous()
-	if tok != "" {
-		a = tokenAuth(tok)
+	a, needsToken := tokenAuth(tok), (*MissingToolError)(nil)
+	switch {
+	case tok == "":
+		a, needsToken = anonymous(), missing
+	case remote.Scheme == "http":
+		return nil, &MissingToolError{Tool: missing.Tool, NoLoginFor: missing.NoLoginFor}
 	}
 	f := restAPI{rest: r.rest, base: webBase(remote) + "/api/v1", auth: a, env: "GITEA_TOKEN"}
-	return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open, anon: tok == ""}, nil
+	return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open, needsToken: needsToken}, nil
 }
 
 // teaLogin is the name of the tea login for the instance remote is on, read

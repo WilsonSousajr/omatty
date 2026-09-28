@@ -146,6 +146,7 @@ type toServer struct{ base *url.URL }
 func (t toServer) RoundTrip(req *http.Request) (*http.Response, error) {
 	out := req.Clone(req.Context())
 	out.Header.Set("X-Original-Host", req.URL.Host)
+	out.Header.Set("X-Original-Scheme", req.URL.Scheme)
 	out.URL.Scheme, out.URL.Host, out.Host = t.base.Scheme, t.base.Host, t.base.Host
 	return http.DefaultTransport.RoundTrip(out)
 }

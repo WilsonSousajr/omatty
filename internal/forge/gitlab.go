@@ -138,10 +138,15 @@ func (g glBackend) browse(_ context.Context, _ string, number int, pr bool) erro
 }
 
 // webBase is the remote's host as a browser reaches it. An ssh remote's port
-// is ssh's, so only an http(s) remote keeps its own.
+// is ssh's, so only an http(s) remote keeps its own. An http remote stays
+// http: an http-only host does not answer https, and asking it there failed
+// every poll (#584). No token is sent over it - request refuses that.
 func webBase(r Remote) string {
-	if r.Scheme == "ssh" || r.Port == "" {
+	switch {
+	case r.Scheme == "ssh":
 		return "https://" + r.Host
+	case r.Port == "":
+		return r.Scheme + "://" + r.Host
 	}
 	return r.Scheme + "://" + r.Host + ":" + r.Port
 }

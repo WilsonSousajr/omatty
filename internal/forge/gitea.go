@@ -16,7 +16,9 @@ type gtBackend struct {
 	remote Remote
 	ci     *ciCache
 	open   func(url string) error
-	anon   bool // reading over REST with no token (#459)
+	// needsToken is what an anonymous REST read's refusal says is missing
+	// (#459): nil when a token or tea reads.
+	needsToken *MissingToolError
 }
 
 // giteaPage is the most one page answers: Gitea's own default cap.
@@ -46,8 +48,8 @@ func (g gtBackend) listErr(ctx context.Context, err error) error {
 		}
 	}
 	var refused *AuthError
-	if g.anon && (errors.Is(err, errNotFound) || errors.As(err, &refused)) {
-		return &MissingToolError{Tool: "tea", TokenEnv: "GITEA_TOKEN"}
+	if g.needsToken != nil && (errors.Is(err, errNotFound) || errors.As(err, &refused)) {
+		return g.needsToken
 	}
 	return repoMissing(err)
 }
