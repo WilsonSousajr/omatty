@@ -140,7 +140,9 @@ jobs:
         run: |
           mkdir -p "$CASKS"
           cp scripts/testdata/omatty-cask-v0.8.1.rb "$CASKS/omatty.rb"
-          if brew info --cask omatty/verify/omatty > "$RUNNER_TEMP/info.txt" 2>&1; then
+          # Without GITHUB_ACTIONS, or Homebrew annotates this expected error
+          # on the run, and a green job reads as a failure.
+          if env -u GITHUB_ACTIONS brew info --cask omatty/verify/omatty > "$RUNNER_TEMP/info.txt" 2>&1; then
             cat "$RUNNER_TEMP/info.txt"
             echo "Homebrew loaded a raw postflight block without complaint; this job cannot see a deprecation" >&2
             exit 1
