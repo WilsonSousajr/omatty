@@ -6,26 +6,29 @@ import (
 	"strings"
 )
 
-// pickGitea is tea, through the login it holds for the project's host (#458).
-// tea cannot read anonymously and has no --hostname, so a tea without a login
-// for this host is no way in; the REST fallback is #459.
+// pickGitea is tea, through the login it holds for the project's host (#458),
+// else Gitea's REST API (#459): with GITEA_TOKEN when it is set - the
+// variable tea's own env login reads - and anonymously when it is not, which
+// is enough for a public repository on Codeberg. tea cannot read anonymously
+// and has no --hostname, so a tea without a login for this host is passed over.
 func (r *Router) pickGitea(repoRoot string, remote Remote) (backend, error) {
-	bin, ok := r.cli(KindGitea)
-	if !ok {
-		return nil, &MissingToolError{Tool: "tea"}
+	if bin, ok := r.cli(KindGitea); ok {
+		// A tea older than 0.12 has no `tea api` and is passed over too (#458).
+		if login := r.teaLogin(bin, remote); login != "" && r.teaHasAPI(bin) {
+			f := teaAPI{bin: bin, login: login, host: apiHost(remote), dir: repoRoot, timeout: r.timeout}
+			return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
+		}
 	}
-	login := r.teaLogin(bin, remote)
-	if login == "" {
-		// Installed, and still no way in: not "tea is not installed" (#586).
-		return nil, &MissingToolError{Tool: "tea", NoLoginFor: apiHost(remote)}
+	if r.transport == TransportCLI {
+		return nil, &MissingToolError{Tool: "tea", TokenEnv: "GITEA_TOKEN"}
 	}
-	if !r.teaHasAPI(bin) {
-		// `tea api` arrived in 0.12: an older tea holds the login and reads
-		// nothing, which would be "?" on every poll (#458's review).
-		return nil, &MissingToolError{Tool: "tea 0.12 or later"}
+	tok, _ := r.borrow([]string{"GITEA_TOKEN"})
+	a := anonymous()
+	if tok != "" {
+		a = tokenAuth(tok)
 	}
-	f := teaAPI{bin: bin, login: login, host: apiHost(remote), dir: repoRoot, timeout: r.timeout}
-	return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
+	f := restAPI{rest: r.rest, base: webBase(remote) + "/api/v1", auth: a, env: "GITEA_TOKEN"}
+	return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open, anon: tok == ""}, nil
 }
 
 // teaLogin is the name of the tea login for the instance remote is on, read

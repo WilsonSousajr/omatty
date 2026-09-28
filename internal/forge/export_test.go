@@ -117,9 +117,12 @@ func NewTestRouter(e TestEnv) *Router {
 		r.bins[kind] = bin
 	}
 	r.getenv = func(k string) string { return e.Env[k] }
-	if e.API != "" {
-		r.rest = restTo(e.API)
+	// No test reaches the network: without a test server, every request is
+	// refused on a local port nothing listens on.
+	if e.API == "" {
+		e.API = "http://127.0.0.1:1"
 	}
+	r.rest = restTo(e.API)
 	if e.Open != nil {
 		r.open = e.Open
 	}
