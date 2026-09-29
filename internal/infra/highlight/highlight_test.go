@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/highlight"
+	"github.com/WilsonSousajr/omatty/internal/infra/highlight"
 )
 
 var sgr = regexp.MustCompile(`\x1b\[[0-9;]*m`)

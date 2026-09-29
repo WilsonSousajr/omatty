@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/highlight"
+	"github.com/WilsonSousajr/omatty/internal/infra/highlight"
 )
 
 // The number behind the ui's highlight budget: previewFile reads on the

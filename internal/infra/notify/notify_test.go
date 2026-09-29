@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/notify"
+	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 )
 
 // A title or body with a double quote must not break out of the osascript

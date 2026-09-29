@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/highlight"
+	"github.com/WilsonSousajr/omatty/internal/infra/highlight"
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
 

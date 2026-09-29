@@ -58,7 +58,7 @@ func glyphStyle(s watcher.Status) lipgloss.Style {
 // The pair (colour, glyph) is fixed per status, so a card that redraws the
 // same status draws the same cell - but it was restyled and re-rendered on
 // every card of every frame, and a frame is drawn on every message. Built on
-// first use rather than in an initialiser, the pattern internal/highlight
+// first use rather than in an initialiser, the pattern internal/infra/highlight
 // uses for its style.
 var statusCells = sync.OnceValue(func() map[watcher.Status]string {
 	cells := make(map[watcher.Status]string, len(statusGlyphs))
