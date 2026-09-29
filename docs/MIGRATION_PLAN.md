@@ -36,7 +36,7 @@ count after the step.
 | 2.1 | #632 | #633 | merged | 28 |
 | 2.2 | #632 | #634 | merged | 28 |
 | Amendment 1 | #635 | #636 | merged | 28 |
-| 3.3 | #635 | this PR | open | 26 |
+| 3.3 | #635 | #637 | open | 26 |
 
 ## Rules every step follows
 
