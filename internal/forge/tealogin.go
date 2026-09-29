@@ -11,7 +11,8 @@ import (
 // --hostname, so a tea without a login for this host is passed over - and
 // named as such in any note, since it is installed (#586).
 func (r *Router) pickGitea(repoRoot string, remote Remote) (backend, error) {
-	missing := &MissingToolError{Tool: "tea", TokenEnv: "GITEA_TOKEN"}
+	// The token is only ever this instance's, so the note says which (#589).
+	missing := &MissingToolError{Tool: "tea", TokenEnv: "GITEA_TOKEN for " + webBase(remote)}
 	if bin, installed := r.cli(KindGitea); installed {
 		if b := r.teaBackend(bin, repoRoot, remote, missing); b != nil {
 			return b, nil
@@ -40,22 +41,35 @@ func (r *Router) teaBackend(bin, repoRoot string, remote Remote, missing *Missin
 	return nil
 }
 
-// giteaREST reads with GITEA_TOKEN when it is set - the variable tea's own
-// env login reads - and anonymously when it is not, which is enough for a
-// public repository on Codeberg; missing is what an anonymous refusal says.
-// A token never crosses plain http, so an http remote with one set is tea's
-// or no one's, and says so rather than failing every poll (#584).
+// giteaREST reads with a token for this instance when there is one, and
+// anonymously when there is not, which is enough for a public repository on
+// Codeberg; missing is what an anonymous refusal says. A token never crosses
+// plain http (#584), so an http remote is read anonymously whatever is set,
+// and its note names tea alone, since no token could help.
 func (r *Router) giteaREST(remote Remote, missing *MissingToolError) (backend, error) {
-	tok, _ := r.borrow([]string{"GITEA_TOKEN"})
-	a, needsToken := tokenAuth(tok), (*MissingToolError)(nil)
-	switch {
-	case tok == "":
-		a, needsToken = anonymous(), missing
-	case remote.Scheme == "http":
-		return nil, &MissingToolError{Tool: missing.Tool, NoLoginFor: missing.NoLoginFor}
+	tok := r.giteaToken(remote)
+	if remote.Scheme == "http" {
+		tok, missing.TokenEnv = "", ""
 	}
-	f := restAPI{rest: r.rest, base: webBase(remote) + "/api/v1", auth: a, env: "GITEA_TOKEN"}
-	return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open, needsToken: needsToken}, nil
+	if tok == "" {
+		f := restAPI{rest: r.rest, base: webBase(remote) + "/api/v1", auth: anonymous(), env: "GITEA_TOKEN"}
+		return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open, needsToken: missing}, nil
+	}
+	f := restAPI{rest: r.rest, base: webBase(remote) + "/api/v1", auth: tokenAuth(tok), env: "GITEA_TOKEN"}
+	return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
+}
+
+// giteaToken is GITEA_TOKEN when GITEA_INSTANCE_URL names remote's instance:
+// tea's own env login, which binds the token to one instance. A token set for
+// another is never sent here - #589's review found a corporate token going to
+// Codeberg - and one set with no instance at all is not sent anywhere.
+func (r *Router) giteaToken(remote Remote) string {
+	tok, _ := r.borrow([]string{"GITEA_TOKEN"})
+	instance, _ := r.borrow([]string{"GITEA_INSTANCE_URL"})
+	if tok == "" || !(teaLoginEntry{URL: instance}).serves(remote) {
+		return ""
+	}
+	return tok
 }
 
 // teaLogin is the name of the tea login for the instance remote is on, read

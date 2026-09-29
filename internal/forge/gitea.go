@@ -36,22 +36,44 @@ func (g gtBackend) repo() string { return "repos/" + g.remote.Slug() }
 
 // listErr sorts a list's failure. Gitea answers a list whose unit is off - a
 // mirror's issues, an outside tracker - with 404, so a 404 on a repository
-// that is there is an empty list, nil (#458's review). Read anonymously, a
-// refusal or a 404 on a repository omatty cannot see is one that needs a
-// token - Gitea answers a stranger's question about a private repository with
-// 404 - so it says to set GITEA_TOKEN rather than going quiet as a project on
-// no forge (#459). With a token, a 404 is no forge.
+// that is there is an empty list, nil (#458's review), and one that cannot be
+// judged is an outage, asked again next poll (#589's review). Read
+// anonymously, a refusal or a 404 on a repository omatty cannot see is one
+// that needs a token - Gitea answers a stranger's question about a private
+// repository with 404 - so it says to set one rather than going quiet as a
+// project on no forge (#459). With a token, a 404 is no forge.
 func (g gtBackend) listErr(ctx context.Context, err error) error {
 	if errors.Is(err, errNotFound) {
-		if _, repoErr := g.f.get(ctx, g.repo()); repoErr == nil {
-			return nil
+		if off, outage := g.unitOff(ctx); off || outage != nil {
+			return outage
 		}
 	}
-	var refused *AuthError
-	if g.needsToken != nil && (errors.Is(err, errNotFound) || errors.As(err, &refused)) {
+	if g.needsToken != nil && refusedAnonymously(err) {
 		return g.needsToken
 	}
 	return repoMissing(err)
+}
+
+// unitOff reads the repository behind a list's 404: there, so the list's
+// unit is off; gone or hidden, so the 404 stands; or unreadable for a reason
+// that passes, returned as the outage it is.
+func (g gtBackend) unitOff(ctx context.Context) (bool, error) {
+	_, err := g.f.get(ctx, g.repo())
+	var refused *AuthError
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, errNotFound), errors.As(err, &refused):
+		return false, nil
+	}
+	return false, err
+}
+
+// refusedAnonymously is a 404, a 401 or a 403 - how Gitea turns a stranger
+// away. A page where JSON was expected is not one: no token was refused.
+func refusedAnonymously(err error) bool {
+	var refused *AuthError
+	return errors.Is(err, errNotFound) || errors.As(err, &refused) && (refused.Status == 401 || refused.Status == 403)
 }
 
 func (g gtBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
