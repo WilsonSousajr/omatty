@@ -39,9 +39,14 @@ const azureVersion = "api-version=7.1"
 // [DefaultCollection/]<project>/_git/<repo> on org.visualstudio.com or a
 // Server's collection.
 func azureCoordinates(r Remote) (base, project, repo string, err error) {
-	prefix, project, repo, ok := azurePath(r.Path)
+	prefix, project, repo, ok := azurePath(unescaped(r.Path))
 	if !ok {
 		return "", "", "", fmt.Errorf("forge: %q is not an Azure DevOps repository, want <org>/<project>/_git/<repo>: %w", r.Slug(), ErrNoForge)
+	}
+	if azureSSH(r.Host) && len(prefix) > 0 && prefix[0] == "v3" {
+		// ssh's own prefix, which parsing leaves on a Host alias unaliased
+		// only afterwards: not an organisation (#456's review, #576).
+		prefix = prefix[1:]
 	}
 	switch {
 	case r.Host == "dev.azure.com" || azureSSH(r.Host):
@@ -51,6 +56,19 @@ func azureCoordinates(r Remote) (base, project, repo string, err error) {
 		return "https://dev.azure.com/" + url.PathEscape(prefix[0]), project, repo, nil
 	}
 	return strings.TrimSuffix(webBase(r)+"/"+strings.Join(prefix, "/"), "/"), project, repo, nil
+}
+
+// unescaped is a path's segments as the names they are: an ssh remote writes
+// "My%20Project", and every URL built from it escapes it again (#456's review).
+func unescaped(path []string) []string {
+	out := make([]string, len(path))
+	for i, seg := range path {
+		if name, err := url.PathUnescape(seg); err == nil {
+			seg = name
+		}
+		out[i] = seg
+	}
+	return out
 }
 
 // azurePath splits a remote's path around its _git segment, or, for the ssh

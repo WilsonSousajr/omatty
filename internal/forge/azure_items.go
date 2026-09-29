@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -27,8 +29,11 @@ func (a azBackend) listIssues(ctx context.Context, _ string) ([]Issue, error) {
 		return nil, repoMissing(err)
 	}
 	var found azWIQL
-	if err := json.Unmarshal(raw, &found); err != nil || len(found.WorkItems) == 0 {
-		return nil, err
+	if err := json.Unmarshal(raw, &found); err != nil {
+		return nil, fmt.Errorf("forge: reading %s's work item query: %w", a.base, err)
+	}
+	if len(found.WorkItems) == 0 {
+		return nil, nil
 	}
 	items, err := azGet[azList[azWorkItem]](ctx, a, a.api("wit/workitems?ids="+found.ids()+"&fields="+workItemFields))
 	if err != nil {
@@ -64,11 +69,11 @@ func (a azBackend) browse(_ context.Context, _ string, number int, pr bool) erro
 }
 
 func (a azBackend) prURL(number int) string {
-	return a.base + "/" + a.project + "/_git/" + a.repo + "/pullrequest/" + strconv.Itoa(number)
+	return a.base + "/" + url.PathEscape(a.project) + "/_git/" + url.PathEscape(a.repo) + "/pullrequest/" + strconv.Itoa(number)
 }
 
 func (a azBackend) itemURL(number int) string {
-	return a.base + "/" + a.project + "/_workitems/edit/" + strconv.Itoa(number)
+	return a.base + "/" + url.PathEscape(a.project) + "/_workitems/edit/" + strconv.Itoa(number)
 }
 
 func (w azWIQL) ids() string {

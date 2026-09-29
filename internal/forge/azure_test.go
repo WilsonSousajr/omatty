@@ -20,7 +20,8 @@ import (
 type FakeAzureAPI struct {
 	Status      int
 	ContentType string
-	Policy      string // when set, the policy evaluations every pull request has
+	First       []giteaAnswer // answers tried before the fixtures
+	Policy      string        // when set, the policy evaluations every pull request has
 	mu          sync.Mutex
 	Got         []FakeRequest
 	Bodies      []string
@@ -62,6 +63,9 @@ func (f *FakeAzureAPI) answer(t *testing.T, w http.ResponseWriter, pq string) {
 	w.Header().Set("Content-Type", contentType)
 	if f.Status != 0 {
 		w.WriteHeader(f.Status)
+		return
+	}
+	if scriptedAnswer(w, pq, f.First) {
 		return
 	}
 	if f.Policy != "" && strings.Contains(pq, "/policy/evaluations") {

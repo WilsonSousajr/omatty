@@ -105,6 +105,10 @@ type TestEnv struct {
 	API string
 	// Open stands in for the browser.
 	Open func(url string) error
+	// SSH is the ssh binary an alias is resolved through; empty is none.
+	SSH string
+	// AzWait bounds az; zero keeps the Router's own.
+	AzWait time.Duration
 }
 
 // NewTestRouter is a Router over e.
@@ -131,6 +135,12 @@ func NewTestRouter(e TestEnv) *Router {
 	r.rest = restTo(e.API)
 	if e.Open != nil {
 		r.open = e.Open
+	}
+	if e.SSH != "" {
+		r.sshBin = e.SSH
+	}
+	if e.AzWait != 0 {
+		r.azWait = e.AzWait
 	}
 	return r
 }

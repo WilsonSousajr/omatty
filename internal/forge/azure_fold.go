@@ -122,7 +122,10 @@ func azState(s string) PRState {
 func ciPolicies(in []azEvaluation) []azEvaluation {
 	var out []azEvaluation
 	for _, e := range in {
-		if kind := e.Configuration.Type.DisplayName; e.Configuration.IsEnabled && (kind == "Build" || kind == "Status") {
+		// A policy that does not apply - a path-filtered build, a status
+		// policy waiting for its status - is not CI, and never "running"
+		// (#456's review).
+		if kind := e.Configuration.Type.DisplayName; e.Configuration.IsEnabled && (kind == "Build" || kind == "Status") && e.Status != "notApplicable" {
 			out = append(out, e)
 		}
 	}
@@ -180,16 +183,32 @@ func (p azPR) flat(url string, threads []azThread, builds []azEvaluation) ghDeta
 	d := ghDetail{Number: p.PullRequestID, Title: p.Title, Body: p.Description, URL: url,
 		CreatedAt: p.CreationDate, Author: ghUser{Login: p.CreatedBy.DisplayName}}
 	for _, t := range threads {
-		for _, c := range t.Comments {
-			if c.CommentType == "text" && !c.IsDeleted {
-				d.Comments = append(d.Comments, ghComment{Author: ghUser{Login: c.Author.DisplayName}, Body: c.Content, CreatedAt: c.PublishedDate})
-			}
-		}
+		d.Comments = append(d.Comments, t.written()...)
 	}
 	for _, b := range builds {
-		d.Checks = append(d.Checks, statusCheck(b.Configuration.Settings.DisplayName, azureCI(b.Status), time.Time{}, time.Time{}))
+		d.Checks = append(d.Checks, statusCheck(b.name(), azureCI(b.Status), time.Time{}, time.Time{}))
 	}
 	return d
+}
+
+// written is a thread's comments people wrote: no system notes, none deleted.
+func (t azThread) written() []ghComment {
+	var out []ghComment
+	for _, c := range t.Comments {
+		if c.CommentType == "text" && !c.IsDeleted {
+			out = append(out, ghComment{Author: ghUser{Login: c.Author.DisplayName}, Body: c.Content, CreatedAt: c.PublishedDate})
+		}
+	}
+	return out
+}
+
+// name is a policy's check as the item names it: its own display name, else
+// its kind - a Status policy carries none (#456's review).
+func (e azEvaluation) name() string {
+	if n := e.Configuration.Settings.DisplayName; n != "" {
+		return n
+	}
+	return e.Configuration.Type.DisplayName
 }
 
 var (

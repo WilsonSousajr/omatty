@@ -31,6 +31,7 @@ type Router struct {
 	open      func(url string) error
 	ci        *ciCache
 	timeout   time.Duration
+	azWait    time.Duration // how long az may take to issue a token
 
 	mu        sync.Mutex
 	seen      map[string]resolved
@@ -82,7 +83,7 @@ func NewRouter(o Options) *Router {
 		remote: o.Remote, hosts: o.Hosts, transport: o.Transport,
 		bins: map[Kind]string{KindGitHub: "gh", KindGitLab: "glab", KindGitea: "tea", KindAzure: "az"}, sshBin: "ssh",
 		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(), open: openInBrowser,
-		ci: newCICache(), timeout: listTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{}, teaAPIs: map[string]bool{},
+		ci: newCICache(), timeout: listTimeout, azWait: azTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{}, teaAPIs: map[string]bool{},
 	}
 }
 
