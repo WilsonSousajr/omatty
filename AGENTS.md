@@ -26,7 +26,7 @@ Core design:
   turn, not the conversation.
 - **[M6] dtach holds a session while omatty is not attached**, so quitting
   detaches rather than killing. It is optional: without the binary
-  `internal/detach` returns a Plain holder and omatty behaves as it did
+  `internal/infra/detach` returns a Plain holder and omatty behaves as it did
   before, with a footer notice saying so (#43).
 
 Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
@@ -53,6 +53,7 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
+│   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).
 │   ├── paths/      every filesystem location omatty reads or writes. Pure.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
 ├── config/         ~/.omatty/config.toml; every key optional. The only TOML importer.
@@ -63,7 +64,6 @@ internal/
 │                written only on a keypress (#310, #331, #452).
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
-├── detach/         [M6] OUR interface over the dtach CLI (invariant 4).
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── hooks/          the --settings hooks file, and the `omatty hook` command (invariant 11).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
@@ -136,7 +136,7 @@ go run ./testdata/dtachprobe /tmp/probehome                  # [M6] detach and r
 go run ./testdata/gateprobe                                 # [M9] a real gate, bound and supersede
 ```
 
-`dtachprobe` is the same argument for `internal/detach`: its unit tests assert
+`dtachprobe` is the same argument for `internal/infra/detach`: its unit tests assert
 the command line dtach is given, which is why a missing `~/.omatty/s` shipped
 green and broke every session start (#43). The probe runs the line.
 
@@ -203,7 +203,7 @@ not in the gate.
   Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
-  from `detach`, `forge`, `gate`, `golist`, `notify`, `supervisor`,
+  from `infra/detach`, `forge`, `gate`, `golist`, `notify`, `supervisor`,
   `termwrap` and `infra/vcs`, and nowhere else in production code. `termwrap` is on that list because it names
   `*exec.Cmd` in a signature without ever constructing one - a distinction
   depguard cannot draw. `forge` joined for #310 as omatty's one route to the
