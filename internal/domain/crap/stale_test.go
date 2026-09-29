@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/crap"
+	"github.com/WilsonSousajr/omatty/internal/domain/crap"
 	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 

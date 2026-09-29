@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/depgraph"
+	"github.com/WilsonSousajr/omatty/internal/domain/depgraph"
 	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 

@@ -53,6 +53,8 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
 ├── domain/         [ADR 0001] entities and pure logic, stdlib only; moving here one step at a time.
+│   ├── crap/       [M11] per-function complexity x coverage -> a C.R.A.P. score.
+│   ├── depgraph/   [M11] the internal import graph -> Ca, Ce, instability, SDP.
 │   ├── fuzzy/      subsequence ranking for the session switcher and project picker. Pure.
 │   └── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
@@ -77,8 +79,6 @@ internal/
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
 ├── gate/           [M9] a project's own verification commands -> per-step verdicts.
 ├── coverage/       [M10] a coverage profile -> per-line verdicts and raw blocks.
-├── crap/           [M11] per-function complexity x coverage -> a C.R.A.P. score.
-├── depgraph/       [M11] the internal import graph -> Ca, Ce, instability, SDP.
 ├── tally/          [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
