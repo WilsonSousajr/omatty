@@ -1,7 +1,9 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
 // A wiring test of the kind main_test.go concedes is missing: the configured
@@ -97,5 +100,239 @@ func TestTuiDeps_WiresEveryForgeCallThroughTheRouter_issue452(t *testing.T) {
 	}
 	if got := deps.Label("/nowhere"); got != forge.Neutral {
 		t.Errorf("Label(unresolved) = %+v, want the Router's neutral label", got)
+	}
+}
+
+// Regression, issue #91: projectRegistrar discarded the Project AddProject
+// wrote, so the TUI rebuilt one from the picked row instead. Discovery names a
+// candidate after MainCheckout's directory and AddProject after RepoRoot's, so
+// where those disagree the sidebar held a name state.json did not.
+func TestProjectRegistrar_ReturnsTheProjectTheRegistryWrote_issue91(t *testing.T) {
+	store := storeIn(t)
+	// A worktree whose main checkout is elsewhere: the two names differ.
+	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
+
+	got := projectRegistrar(store, git)([]string{"/p/omatty"})
+
+	if len(got) != 1 {
+		t.Fatalf("registrar returned %d registrations, want 1", len(got))
+	}
+	if got[0].Err != nil {
+		t.Fatalf("registering /p/omatty: %v", got[0].Err)
+	}
+	if got[0].Project.Name != "omatty" || got[0].Project.Root != "/p/omatty" {
+		t.Errorf("Project = %+v, want the row the registry wrote", got[0].Project)
+	}
+}
+
+// A collision is reported against the one root it belongs to, and the rest
+// still register: one bad candidate must not abandon a bulk pick (#91).
+func TestProjectRegistrar_ReportsACollisionAndCarriesOn_issue91(t *testing.T) {
+	store := storeIn(t)
+	git := &FakeGit{Roots: map[string]string{
+		"/p/omatty": "/p/omatty", "/other/omatty": "/other/omatty", "/p/notes": "/p/notes",
+	}}
+	registrar := projectRegistrar(store, git)
+	registrar([]string{"/p/omatty"})
+
+	got := registrar([]string{"/other/omatty", "/p/notes"})
+
+	if len(got) != 2 {
+		t.Fatalf("registrar returned %d registrations, want 2", len(got))
+	}
+	if got[0].Err == nil {
+		t.Errorf("registering a duplicate name reported no error: %+v", got[0])
+	}
+	if got[1].Err != nil {
+		t.Errorf("the second root was abandoned after the first failed: %v", got[1].Err)
+	}
+}
+
+// The archiver returns the row the registry removed, which is what decides
+// whether a worktree may be deleted (#40).
+func TestSessionArchiver_ReturnsTheRemovedSession_issue40(t *testing.T) {
+	store := storeIn(t)
+	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
+	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+		t.Fatalf("AddProject: %v", err)
+	}
+	st, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	st.Sessions = append(st.Sessions, registry.Session{
+		ID: "s1", Project: "omatty", Title: "main", Dir: "/wt/omatty/fix", Worktree: true,
+	})
+	if err := store.Save(st); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got, err := sessionArchiver(store)("s1")
+
+	if err != nil {
+		t.Fatalf("archiving s1: %v", err)
+	}
+	if !got.Worktree || got.Dir != "/wt/omatty/fix" {
+		t.Errorf("removed session = %+v, want the row with its worktree fields", got)
+	}
+}
+
+func TestSessionRenamer_RefusesABlankTitle_issue41(t *testing.T) {
+	store := storeIn(t)
+	rename := sessionRenamer(store)
+
+	if err := rename("s1", "   "); err == nil {
+		t.Error("renaming to a whitespace-only title succeeded, want an error")
+	}
+}
+
+// noAddProject-style check on the proposer: a store it cannot read is an error
+// the picker surfaces, not an empty list that reads as "claude has never run".
+func TestProjectProposer_SurfacesAnUnreadableStore_issue91(t *testing.T) {
+	proposals, err := projectProposer(storeIn(t), t.TempDir(), &FakeGit{})()
+
+	if err == nil {
+		t.Errorf("proposer returned %v and no error for a store with no transcripts dir", proposals)
+	}
+}
+
+// The wiring took the concrete *vcs.CLI, so not one of these adapters could be
+// built in a test at all - the untestability registry.RepoRooter's own doc
+// records as the #91 defect, restated for the pickers (#122). This is the test
+// that could not be written before, and it is the whole point of narrowing the
+// parameter: every picker dependency is now reachable without a repository.
+func TestWithPickerDeps_BuildsEveryPickerDependency_issue122(t *testing.T) {
+	deps := withPickerDeps(ui.RunDeps{}, storeIn(t), t.TempDir(), &FakeGit{})
+
+	for name, built := range map[string]bool{
+		"Discover":     deps.Discover != nil,
+		"AddProject":   deps.AddProject != nil,
+		"AdoptPropose": deps.AdoptPropose != nil,
+		"AdoptCommit":  deps.AdoptCommit != nil,
+	} {
+		if !built {
+			t.Errorf("withPickerDeps left %s unset; the picker key would report missing wiring", name)
+		}
+	}
+}
+
+// sessionAdopter is the seam between the picker and the registry, and it has to
+// hand back the row that was written: the branch is filled in there and nowhere
+// else, so a picker fed the pick it sent would start a session with the wrong
+// diff base (#122).
+func TestSessionAdopter_ReturnsTheRowTheRegistryWrote_issue122(t *testing.T) {
+	store := storeIn(t)
+	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}, Branch: "fix/parser"}
+	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+		t.Fatal(err)
+	}
+
+	got := sessionAdopter(store, git)("omatty", []ui.SessionProposal{
+		{ID: "abc-123", Title: "fix the parser", Dir: "/p/omatty/.omatty/wt/fix"},
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("adopted %d sessions, want 1", len(got))
+	}
+	if got[0].Err != nil {
+		t.Fatalf("Err = %v, want nil", got[0].Err)
+	}
+	if got[0].Session.Branch != "fix/parser" {
+		t.Errorf("Branch = %q, want the branch the registry recorded for the worktree", got[0].Session.Branch)
+	}
+}
+
+// The remover returns the row the registry dropped, so the TUI can name it.
+func TestProjectRemover_ReturnsTheRemovedProject_issue159(t *testing.T) {
+	store := storeIn(t)
+	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
+	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+		t.Fatalf("AddProject: %v", err)
+	}
+
+	got, err := projectRemover(store)("omatty")
+
+	if err != nil || got.Name != "omatty" {
+		t.Errorf("projectRemover = %+v, %v; want omatty removed", got, err)
+	}
+}
+
+// The folder writes the fold to state.json, so a folded project is still
+// folded on the next launch (#505).
+func TestProjectFolder_PersistsTheFold_issue505(t *testing.T) {
+	store := storeIn(t)
+	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
+	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+		t.Fatalf("AddProject: %v", err)
+	}
+
+	if err := projectFolder(store)("omatty", true); err != nil {
+		t.Fatalf("projectFolder: %v", err)
+	}
+
+	st, err := store.Load()
+	if err != nil || !st.Projects[0].Collapsed {
+		t.Errorf("after folding, Load() = %+v, %v; want omatty collapsed", st.Projects, err)
+	}
+}
+
+// Regression, issue #316: the TUI's rebind reaches state.json, which is what
+// the next start resumes from.
+func TestSessionRebinder_PersistsTheConversation_issue316(t *testing.T) {
+	store := storeIn(t)
+	st := registry.State{Version: registry.Version,
+		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "main", Dir: "/p/omatty"}}}
+	if err := store.Save(st); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sessionRebinder(store)("s1", "after-clear"); err != nil {
+		t.Fatalf("rebind error = %v, want nil", err)
+	}
+
+	got, _ := store.Load()
+	if got.Sessions[0].Conversation != "after-clear" {
+		t.Errorf("persisted row = %+v, want conversation after-clear", got.Sessions[0])
+	}
+}
+
+// Regression, issue #564: the namer read the transcript at the directory as
+// registered, but claude writes it under the resolved one, so a project
+// behind a symlink was never named from its first prompt.
+func TestSessionNamer_ReadsATranscriptBehindASymlink_issue564(t *testing.T) {
+	home := t.TempDir()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "real", "omatty"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "real"), filepath.Join(root, "link")); err != nil {
+		t.Fatal(err)
+	}
+	physical, err := filepath.EvalSymlinks(filepath.Join(root, "real", "omatty"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	adoptFixture(t, home, physical, "abc", "fix the parser")
+
+	title, err := sessionNamer(home, agent.Claude())(registry.Session{ID: "abc", Dir: filepath.Join(root, "link", "omatty")})
+
+	if err != nil || !strings.Contains(title, "parser") {
+		t.Errorf("sessionNamer = (%q, %v), want a title from the transcript under the resolved directory", title, err)
+	}
+}
+
+// A cleared session is named from the conversation it is on, not from the
+// transcript its row was created with (#316).
+func TestSessionNamer_ReadsTheReboundConversation_issue316(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "omatty")
+	adoptFixture(t, home, dir, "before-clear", "the old work")
+	adoptFixture(t, home, dir, "after-clear", "fix the parser")
+
+	title, err := sessionNamer(home, agent.Claude())(registry.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
+
+	if err != nil || !strings.Contains(title, "parser") {
+		t.Errorf("sessionNamer = (%q, %v), want a title from the post-clear prompt", title, err)
 	}
 }
