@@ -1,0 +1,31 @@
+{
+ "count": 2,
+ "value": [
+  {
+   "id": 101,
+   "fields": {
+    "System.Title": "The wiki build fails on a fresh clone",
+    "System.Tags": "bug; wiki",
+    "System.State": "Active",
+    "System.AssignedTo": {
+     "displayName": "Jane Doe"
+    },
+    "System.CreatedBy": {
+     "displayName": "Rick Roe"
+    },
+    "System.ChangedDate": "2026-09-20T10:00:00Z"
+   }
+  },
+  {
+   "id": 102,
+   "fields": {
+    "System.Title": "Document the bootstrap",
+    "System.State": "New",
+    "System.CreatedBy": {
+     "displayName": "Jane Doe"
+    },
+    "System.ChangedDate": "2026-09-18T09:00:00Z"
+   }
+  }
+ ]
+}

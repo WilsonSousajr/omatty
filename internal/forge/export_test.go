@@ -72,6 +72,9 @@ var GiteaCI = giteaCI
 // BitbucketCI is a Bitbucket commit status as the card's CI mark.
 var BitbucketCI = bitbucketCI
 
+// AzureCI is a policy evaluation's status as the card's CI mark.
+var AzureCI = azureCI
+
 // BodyMax is the cap on one REST answer.
 const BodyMax = bodyMax
 
@@ -102,6 +105,10 @@ type TestEnv struct {
 	API string
 	// Open stands in for the browser.
 	Open func(url string) error
+	// SSH is the ssh binary an alias is resolved through; empty is none.
+	SSH string
+	// AzWait bounds az; zero keeps the Router's own.
+	AzWait time.Duration
 }
 
 // NewTestRouter is a Router over e.
@@ -128,6 +135,12 @@ func NewTestRouter(e TestEnv) *Router {
 	r.rest = restTo(e.API)
 	if e.Open != nil {
 		r.open = e.Open
+	}
+	if e.SSH != "" {
+		r.sshBin = e.SSH
+	}
+	if e.AzWait != 0 {
+		r.azWait = e.AzWait
 	}
 	return r
 }
