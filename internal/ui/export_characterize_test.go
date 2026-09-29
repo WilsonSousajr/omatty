@@ -1,6 +1,12 @@
 package ui
 
-import "fmt"
+import (
+	"fmt"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/WilsonSousajr/omatty/internal/registry"
+)
 
 // Fingerprint is the part of the model a keypress or a message can change,
 // as one line, so the characterization tables (#620) can say what every key
@@ -20,4 +26,16 @@ func (m *Model) modalLabel() string {
 		return ""
 	}
 	return modalName(m.modal)
+}
+
+// UnexportedRouted is one value of each message type Update routes that has
+// no exported constructor, keyed by the type's name as msgroute.go spells it,
+// so the message table can cover every case (#620).
+func UnexportedRouted(sessionID string) map[string]tea.Msg {
+	return map[string]tea.Msg{
+		"coverageMsg":        coverageMsg{id: sessionID},
+		"generatedMsg":       generatedMsg{id: sessionID, gen: map[string]bool{}},
+		"previewRestMsg":     previewRestMsg{},
+		"sessionRelaunchMsg": sessionRelaunchMsg{Session: registry.Session{ID: sessionID}},
+	}
 }
