@@ -203,7 +203,8 @@ not in the gate.
   `*exec.Cmd` in a signature without ever constructing one - a distinction
   depguard cannot draw. `forge` joined for #310 as omatty's one route to the
   forge, through `gh` - reading on a timer, and since #331 writing on a
-  keypress. Adding a ninth package is a decision, so
+  keypress; since M16 it runs every forge's CLI (`gh`, `glab`, `tea`, `az`)
+  behind one Router (#452). Adding a ninth package is a decision, so
   `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
   in both `.golangci.yml` and here.
 - **The network is a capability too** (#453). `net/http` is reachable from
@@ -355,10 +356,19 @@ message and explain why the behaviour it asserted was never correct.
   typed payload. Reject anything oversized rather than buffering it.
 - **omatty stores no token** (#453; it used to read "holds no token"). The REST
   fallback borrows one from the environment (`GITLAB_TOKEN`, `GH_TOKEN`, ...)
-  per call, sends it in a header and never in a URL, follows no redirect, and
-  writes it to no config, `state.json`, log line or error. A test drives every
-  answer a forge can give and asserts the token is absent from both. There is
-  no login flow and no token store.
+  per call, sends it in a header and never in a URL, never over plain `http`,
+  follows a redirect only on its own host and only to https, and writes it to
+  no config, `state.json`, log line or error. A test drives every answer a
+  forge can give and asserts the token is absent from both. There is no login
+  flow and no token store.
+- **A token goes only to the instance it is for.** A variable that names no
+  host is bound the way its own CLI binds it: `GITEA_TOKEN` to the instance
+  `GITEA_INSTANCE_URL` names, as tea's env login does; Bitbucket Data Center has
+  its own `BITBUCKET_DC_TOKEN`, bound by `BITBUCKET_DC_URL`, so a Cloud token
+  never reaches a Data Center host or the reverse; az's token and
+  `AZURE_DEVOPS_EXT_PAT` go to Azure DevOps Services alone. M16's reviews found
+  each of these sending a token to the wrong server (#459, #461, #456) - a new
+  backend is reviewed for it first.
 
 ## Project tracking and Git workflow
 

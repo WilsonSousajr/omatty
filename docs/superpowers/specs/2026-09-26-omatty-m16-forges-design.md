@@ -4,6 +4,12 @@ Approved 2026-09-26 in a brainstorming session. Seventeen implementation
 issues, #449-#465, one PR each; this document and the ROADMAP section are #448.
 Every issue is in Backlog: M16 is designed and captured, not scheduled.
 
+> **Status, 2026-09-29: built and released in v0.9.0 (#604).** This document is
+> the design as approved; where the build departed from it - tokens bound to
+> their instance, Bitbucket Data Center's own variables, Azure DevOps Server
+> left out, `ctrl+o p` pinned to the green head and the session's own base -
+> the M16 section of `docs/ROADMAP.md` says so and why.
+
 ## Context
 
 omatty reads its forge only through `gh`. Three features depend on it: a

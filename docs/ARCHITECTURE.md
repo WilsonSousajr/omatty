@@ -69,21 +69,25 @@ ctrl+o S -> review.Compose -> "\x1b[200~ ... \x1b[201~\r" -> PTY -> claude
 ```
 
 **The tracker.** `ctrl+o i` turns the review column into the project's tracker:
-its open issues and open pull requests, read through `internal/forge`, which is
-the one place `gh` is run. Three calls, all on the operator's own
-authentication, and none of them while omatty is in the background: two
-`gh pr list` for the pull requests every minute (#310, #358), one
-`gh issue list` for the issues every five, and one `gh <kind> view` for the one
-item `enter` opens. Nothing is stored — the rows are derived at render time from
-the last poll, so `state.json` gains nothing and invariant 9 is untouched — and
-omatty writes nothing to the forge. `n` on an issue goes the other way, through
+its open issues and open pull requests, read through `internal/forge`, the one
+place any forge is reached. Since M16 that is every forge omatty reads -
+GitHub, GitLab, Gitea/Forgejo/Codeberg, Bitbucket Cloud and Data Center, Azure
+DevOps - behind one `forge.Router`. It names a project's forge from its
+`origin` remote and reads it through that forge's own CLI (`gh`, `glab`, `tea`,
+`az`) on the operator's own authentication, or, without it, through the
+forge's REST API with a token borrowed from the environment for the one call
+(#452, #453). Three reads, none of them while omatty is in the background: the
+pull requests every minute (#310, #358), the issues every five, and one item
+when `enter` opens it. Nothing is stored — the rows are derived at render time
+from the last poll, so `state.json` gains nothing and invariant 9 is untouched —
+and the tracker writes nothing to the forge. `n` on an issue goes the other way, through
 the same `CreateFunc` the new-session prompt uses, and `a` types the item's
 reference into a session's composer as a bracketed paste with no carriage return
 (invariant 8).
 
 ```
-ctrl+o i -> ui -> IssueListFunc/PRListFunc (cmd wiring) -> forge.CLI (gh) -> forge.Fold*
-enter    -> ui -> ItemFunc                              -> forge.CLI (gh) -> forge.FoldDetail
+ctrl+o i -> ui -> IssueListFunc/PRListFunc (cmd wiring) -> forge.Router -> backend (CLI or REST) -> fold
+enter    -> ui -> ItemFunc                              -> forge.Router -> backend (CLI or REST) -> fold
 n        -> ui -> CreateFunc -> registry.Creator -> vcs.CLI (git worktree add -b)
 a        -> paste.BracketedText("issue #399 ") -> PTY -> claude's composer, unsent
 ```
@@ -114,7 +118,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
 | `internal/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. |
 | `internal/tally` | A project's gate counters and its pull requests → lead time and first-pass rate. Pure; no I/O (#332). |
-| `internal/forge` | omatty's only route to the `gh` CLI: a project's pull requests, its open issues, one item in full, `gh browse` — all read on a timer — and the three writes the ship key makes, only on a keypress (#310, #394, #397, #331). |
+| `internal/forge` | omatty's only route to any forge, and its only HTTP client: a `Router` that names each project's forge from its remote and reads it through the forge's own CLI (`gh`, `glab`, `tea`, `az`) or its REST API - a project's pull requests, its open issues, one item in full, browse - on a timer, and the three writes the ship key makes, only on a keypress (#310, #394, #397, #331, #452-#465). A token is borrowed per call, sent only to the instance it is for, and stored nowhere (#453). |
 | `internal/gate` | A project's own verification commands, run in a session's directory. Verdicts come from exit status only (invariant 12). |
 | `internal/highlight` | omatty's only route to the syntax highlighter (chroma), with omatty's own colour style (#197). |
 | `internal/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
@@ -261,20 +265,21 @@ nothing depends on.
 |---|---|---|---|
 | `internal/tally`, `internal/ui` | 0 | 2, 14 | 1.00 |
 | `internal/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
-| `internal/supervisor` | 1 | 5 | 0.83 |
+| `internal/supervisor` | 1 | 6 | 0.86 |
 | `internal/review` | 1 | 3 | 0.75 |
 | `internal/agent` | 2 | 3 | 0.60 |
-| `internal/detach`, `watcher` | 1–3 | 1–3 | 0.50 |
+| `internal/detach`, `watcher` | 1, 3 | 1, 3 | 0.50 |
 | `internal/registry` | 5 | 3 | 0.38 |
 | `internal/paths` | 6 | 0 | 0.00 |
-| `internal/forge`, `gate`, `golist`, `hooks`, `termwrap`, `vcs`, `fuzzy` | 1–2 | 0 | 0.00 |
-| `internal/coverage` | 2 | 0 | 0.00 |
+| `internal/forge`, `hooks` | 3 | 0 | 0.00 |
+| `internal/coverage`, `fuzzy`, `gate`, `golist`, `termwrap`, `vcs` | 2 | 0 | 0.00 |
 | `internal/highlight`, `keys`, `notify`, `paste` | 1 | 0 | 0.00 |
 
 The chain reads as a clean monotonic descent —
 `cmd → ui → supervisor → agent → watcher → registry → {gate, paths, vcs}` — so
-the Stable Dependencies Principle holds with **0 violations over 40 edges**, the
-tightest being `agent → watcher` at **+0.100**.
+the Stable Dependencies Principle holds with **0 violations over 41 edges**, the
+tightest being `agent → watcher` at **+0.100**. (The 41st is M16's
+`config → forge`, for `[forge.hosts]`: a leaf at I=1.00 onto one at 0.00.)
 
 `internal/tally` (#332) is a leaf nothing depends on, importing `registry` and
 `forge` to turn a project's counters and its pull requests into two numbers. It
@@ -283,7 +288,8 @@ added `registry → forge` and taken registry's own instability up, tightening
 every edge into it; in `gate` it would have given a deliberate stable leaf its
 first outward import. As a leaf at I=1.00 it depends only downwards and pins
 nothing. `internal/forge` is a stable
-leaf like `vcs`: `ui` is its only importer, which is what keeps `gh` inside one
+leaf like `vcs`: it imports nothing of omatty's, and `ui`, `config` and `tally`
+import it, which is what keeps every forge's CLI, and the network, inside one
 package we own.
 
 **That is a gate, not an observation** (#269). It landed report-only on purpose:
