@@ -10,12 +10,13 @@ func (r *Router) CreatePR(repoRoot, head, base, title string) (int, error) {
 	})
 }
 
-// MergePR merges a pull request with the repository's own method (#331).
-func (r *Router) MergePR(repoRoot string, number int) error {
-	_, err := call(r, repoRoot, func(ctx context.Context, b backend) (struct{}, error) {
-		return struct{}{}, b.mergePR(ctx, repoRoot, number)
+// MergePR merges a pull request with the repository's own method (#331), at
+// head - the commit that was green, so a push since is never merged unread
+// (#599) - and reports whether it is merged now rather than accepted.
+func (r *Router) MergePR(repoRoot string, number int, head string) (bool, error) {
+	return call(r, repoRoot, func(ctx context.Context, b backend) (bool, error) {
+		return b.mergePR(ctx, repoRoot, number, head)
 	})
-	return err
 }
 
 // BranchProtected reports whether branch is protected on the project's forge.

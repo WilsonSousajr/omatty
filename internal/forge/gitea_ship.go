@@ -17,6 +17,7 @@ type (
 		Do                string `json:"Do"`
 		DeleteBranch      bool   `json:"delete_branch_after_merge"`
 		WhenChecksSucceed bool   `json:"merge_when_checks_succeed"`
+		HeadCommitID      string `json:"head_commit_id"` // refused if the head moved (#599)
 	}
 )
 
@@ -33,19 +34,21 @@ func (g gtBackend) createPR(ctx context.Context, _, head, base, title string) (i
 
 // mergePR merges with the repository's own default style. Gitea's merge takes
 // no default of its own - "Do" is required - so the repository is read for it.
-func (g gtBackend) mergePR(ctx context.Context, _ string, number int) error {
+//
+// Gitea merges before it answers, so a success is a merge.
+func (g gtBackend) mergePR(ctx context.Context, _ string, number int, head string) (bool, error) {
 	repo, err := getJSON[struct {
 		Style string `json:"default_merge_style"`
 	}](ctx, g.f, g.repo())
 	if err != nil {
-		return err
+		return false, err
 	}
 	style := repo.Style
 	if style == "" { // an instance older than the setting merges with a merge commit
 		style = "merge"
 	}
-	_, err = sendJSON[struct{}](ctx, g.f, "POST", g.repo()+"/pulls/"+strconv.Itoa(number)+"/merge", gtMerge{Do: style})
-	return err
+	_, err = sendJSON[struct{}](ctx, g.f, "POST", g.repo()+"/pulls/"+strconv.Itoa(number)+"/merge", gtMerge{Do: style, HeadCommitID: head})
+	return err == nil, err
 }
 
 // branchProtected is the branch's own protected flag.

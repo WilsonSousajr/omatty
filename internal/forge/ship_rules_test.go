@@ -87,7 +87,7 @@ func TestShip_GitHubMergesWithTheRepositorysMethod_issue464(t *testing.T) {
 		`{"allow_merge_commit": false, "allow_squash_merge": false}`: "",
 	} {
 		s, api := shipForgeNamed(t, "GitHub", map[string]string{"GET /repos/owner/app?": answer})
-		err := s.router(t, api).MergePR(t.TempDir(), 17)
+		_, err := s.router(t, api).MergePR(t.TempDir(), 17, greenHead)
 		w, merged := api.write("PUT", "/pulls/17/merge")
 		switch {
 		case want == "" && (err == nil || merged):
@@ -103,7 +103,7 @@ func TestShip_GitHubMergesWithTheRepositorysMethod_issue464(t *testing.T) {
 func TestShip_GiteaWithNoDefaultStyleMerges_issue464(t *testing.T) {
 	s, api := shipForgeNamed(t, "Gitea", map[string]string{"GET /repos/owner/app?": `{}`})
 
-	err := s.router(t, api).MergePR(t.TempDir(), 17)
+	_, err := s.router(t, api).MergePR(t.TempDir(), 17, greenHead)
 
 	if w, _ := api.write("POST", "/pulls/17/merge"); err != nil || !strings.Contains(asJSON(w.Body), `"Do":"merge"`) {
 		t.Errorf("MergePR = %v, sent %+v; want Do merge", err, w)
@@ -117,6 +117,37 @@ func TestShip_AnOpenWithNoNumberIsAnError_issue464(t *testing.T) {
 		api := &FakeWriteAPI{Routes: map[string]string{s.open[0] + " " + s.open[1]: `{}`}}
 		if n, err := s.router(t, api).CreatePR(t.TempDir(), "feat/parser", "main", "t"); err == nil || n != 0 {
 			t.Errorf("%s: CreatePR = %d, %v; want an error", s.name, n, err)
+		}
+	}
+}
+
+// Regression, #599: a merge names the head the card showed green, so a push
+// after the last poll is never merged unread. Bitbucket, which takes no head,
+// is asked for the pull request's own first and refuses when it moved.
+func TestShip_AHeadThatMovedIsNotMerged_issue599(t *testing.T) {
+	for name, get := range map[string][2]string{
+		"Bitbucket":             {"GET /pullrequests/17", `{"id": 17, "source": {"commit": {"hash": "deadbeefdead"}}}`},
+		"Bitbucket Data Center": {"GET /pull-requests/17", `{"id": 17, "version": 3, "fromRef": {"latestCommit": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"}}`},
+	} {
+		s, api := shipForgeNamed(t, name, map[string]string{get[0]: get[1]})
+		_, err := s.router(t, api).MergePR(t.TempDir(), 17, greenHead)
+		if _, merged := api.write(s.merge[0], s.merge[1]); err == nil || merged {
+			t.Errorf("%s: MergePR = %v, merge sent %v; want a refusal and no merge", name, err, merged)
+		}
+	}
+}
+
+// A merge the forge has only accepted - Azure completes asynchronously,
+// Bitbucket answers 202 past its timeout - is not reported as merged (#464's
+// review): the card would read "merged" for a merge that could still fail.
+func TestShip_AMergeOnlyAcceptedIsNotMerged_issue464(t *testing.T) {
+	for name, route := range map[string][2]string{
+		"Azure DevOps": {"PATCH /pullrequests/17", `{"status": "active", "mergeStatus": "queued"}`},
+		"GitLab":       {"PUT /merge_requests/17/merge", `{"state": "opened", "merge_status": "checking"}`},
+	} {
+		s, api := shipForgeNamed(t, name, map[string]string{route[0]: route[1]})
+		if merged, err := s.router(t, api).MergePR(t.TempDir(), 17, greenHead); err != nil || merged {
+			t.Errorf("%s: MergePR = %v, %v; want accepted, not merged", name, merged, err)
 		}
 	}
 }

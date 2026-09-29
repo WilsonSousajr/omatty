@@ -56,18 +56,25 @@ func (b bdcBackend) createPR(ctx context.Context, _, head, base, title string) (
 	return opened(pr.ID, b.remote.Host, "pull request")
 }
 
-// mergePR merges now, at the version just read: Data Center refuses a merge
-// that does not name the pull request's current version.
-func (b bdcBackend) mergePR(ctx context.Context, _ string, number int) error {
+// mergePR merges now, at the version just read - Data Center refuses a merge
+// that does not name the pull request's current version - if its head is
+// still the one that was green (#599).
+func (b bdcBackend) mergePR(ctx context.Context, _ string, number int, head string) (bool, error) {
 	path := b.repo() + "/pull-requests/" + strconv.Itoa(number)
 	pr, err := getJSON[struct {
-		Version int `json:"version"`
+		Version int   `json:"version"`
+		FromRef dcRef `json:"fromRef"`
 	}](ctx, b.f, path)
 	if err != nil {
-		return err
+		return false, err
 	}
-	_, err = sendJSON[struct{}](ctx, b.f, "POST", path+"/merge?version="+strconv.Itoa(pr.Version), struct{}{})
-	return err
+	if err := stillAt(number, pr.FromRef.LatestCommit, head); err != nil {
+		return false, err
+	}
+	got, err := sendJSON[struct {
+		State string `json:"state"`
+	}](ctx, b.f, "POST", path+"/merge?version="+strconv.Itoa(pr.Version), struct{}{})
+	return got.State == "MERGED", err
 }
 
 // branchProtected is whether any branch permission covers branch, failing

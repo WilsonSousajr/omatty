@@ -50,9 +50,12 @@ func (c ghCLI) createPR(ctx context.Context, repoRoot, head, base, title string)
 // which is the right answer to give the operator rather than picking one for
 // them. Deleting the branch and overriding a failing check are both refused by
 // #331 outright.
-func (c ghCLI) mergePR(ctx context.Context, repoRoot string, number int) error {
-	_, err := c.run(ctx, repoRoot, "pr", "merge", strconv.Itoa(number))
-	return err
+//
+// --match-head-commit refuses a merge whose head moved since it was green
+// (#599); gh merges before it answers, so a success is a merge.
+func (c ghCLI) mergePR(ctx context.Context, repoRoot string, number int, head string) (bool, error) {
+	_, err := c.run(ctx, repoRoot, "pr", "merge", strconv.Itoa(number), "--match-head-commit", head)
+	return err == nil, err
 }
 
 // branchProtected reports whether branch is protected on the forge.

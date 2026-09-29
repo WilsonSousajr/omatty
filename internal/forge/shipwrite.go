@@ -62,6 +62,31 @@ func protectedFlag(flag *bool, err error, branch string) (bool, error) {
 	return *flag, nil
 }
 
+// stillAt refuses a merge whose head moved since the card showed it green:
+// the forge's head for number is now, not head (#599).
+func stillAt(number int, now, head string) error {
+	if SameCommit(now, head) {
+		return nil
+	}
+	return fmt.Errorf("forge: #%d's head is %.12s now, not the %.12s that was green: refusing to merge what nobody verified", number, now, head)
+}
+
+// shortestSure is the fewest leading hex characters taken as a commit: what
+// Bitbucket names a pull request's head by.
+const shortestSure = 12
+
+// SameCommit is whether two names are one commit: equal, or one a prefix of
+// the other at least twelve characters long - Bitbucket's twelve against
+// git's forty (#460's review).
+//
+//	forge.SameCommit("31b8ff8dad0a", "31b8ff8dad0a4c6e8f1a2b3c4d5e6f708192a3b4") // true
+func SameCommit(a, b string) bool {
+	if len(a) > len(b) {
+		a, b = b, a
+	}
+	return a == b || len(a) >= shortestSure && strings.HasPrefix(b, a)
+}
+
 // globMatches is whether a branch-restriction pattern covers branch. `*`
 // matches any run, slashes included - broader than some forges read it, which
 // errs toward protected, the side #331 fails to.

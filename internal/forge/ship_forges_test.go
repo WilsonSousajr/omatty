@@ -67,6 +67,9 @@ func (f *FakeWriteAPI) write(method, part string) (FakeWrite, bool) {
 	return FakeWrite{}, false
 }
 
+// greenHead is the head commit the card showed passing: what a merge pins.
+const greenHead = "c0ffee12c0ffee12c0ffee12c0ffee12c0ffee12"
+
 // shipForge is one forge's end of #331, as a fake would see it.
 type shipForge struct {
 	name, remote string
@@ -75,6 +78,7 @@ type shipForge struct {
 	routes       map[string]string
 	open         [2]string // method and path of the create call
 	merge        [2]string
+	pin          string // how the merge body names the head it merges, when the forge takes one
 	number       int
 	protect      string // the path-part a protection read asks
 	protectedYes string // an answer that says the branch is protected
@@ -86,10 +90,10 @@ type shipForge struct {
 var shipForges = []shipForge{
 	{
 		name: "GitLab", remote: "git@gitlab.com:group/app.git", env: map[string]string{"GITLAB_TOKEN": secret},
-		routes: map[string]string{"POST /merge_requests": `{"iid": 17}`, "PUT /merge_requests/17/merge": `{}`},
+		routes: map[string]string{"POST /merge_requests": `{"iid": 17}`, "PUT /merge_requests/17/merge": `{"state": "merged"}`},
 		open:   [2]string{"POST", "/projects/group%2Fapp/merge_requests"}, merge: [2]string{"PUT", "/merge_requests/17/merge"}, number: 17,
 		protect: "/repository/branches/main", protectedYes: `{"protected": true}`, protectedNo: `{"protected": false}`,
-		noDelete: "should_remove_source_branch",
+		noDelete: "should_remove_source_branch", pin: `"sha":"` + greenHead + `"`,
 	},
 	{
 		name: "Gitea", remote: "https://codeberg.org/owner/app.git", env: codebergToken,
@@ -99,12 +103,15 @@ var shipForges = []shipForge{
 		},
 		open: [2]string{"POST", "/api/v1/repos/owner/app/pulls"}, merge: [2]string{"POST", "/pulls/17/merge"}, number: 17,
 		protect: "/branches/main", protectedYes: `{"protected": true}`, protectedNo: `{"protected": false}`,
-		noDelete: "delete_branch_after_merge", method: `"Do":"squash"`,
+		noDelete: "delete_branch_after_merge", method: `"Do":"squash"`, pin: `"head_commit_id":"` + greenHead + `"`,
 	},
 	{
 		name: "Bitbucket", remote: "git@bitbucket.org:ws/app.git", env: map[string]string{"BITBUCKET_TOKEN": secret},
-		routes: map[string]string{"POST /pullrequests/17/merge": `{}`, "POST /repositories/ws/app/pullrequests": `{"id": 17}`},
-		open:   [2]string{"POST", "/2.0/repositories/ws/app/pullrequests"}, merge: [2]string{"POST", "/pullrequests/17/merge"}, number: 17,
+		routes: map[string]string{
+			"POST /pullrequests/17/merge": `{"state": "MERGED"}`, "POST /repositories/ws/app/pullrequests": `{"id": 17}`,
+			"GET /pullrequests/17": `{"id": 17, "source": {"commit": {"hash": "` + greenHead[:12] + `"}}}`,
+		},
+		open: [2]string{"POST", "/2.0/repositories/ws/app/pullrequests"}, merge: [2]string{"POST", "/pullrequests/17/merge"}, number: 17,
 		protect:      "/branch-restrictions",
 		protectedYes: `{"values": [{"kind": "push", "branch_match_kind": "glob", "pattern": "ma*"}]}`,
 		protectedNo:  `{"values": [{"kind": "push", "branch_match_kind": "glob", "pattern": "release/*"}]}`,
@@ -114,7 +121,8 @@ var shipForges = []shipForge{
 		name: "Bitbucket Data Center", remote: "https://git.corp.example/scm/ops/app.git", hosts: forge.Hosts{"git.corp.example": forge.KindBitbucket},
 		env: dcToken,
 		routes: map[string]string{
-			"POST /pull-requests/17/merge": `{}`, "GET /pull-requests/17": `{"id": 17, "version": 3}`,
+			"POST /pull-requests/17/merge":  `{"state": "MERGED"}`,
+			"GET /pull-requests/17":         `{"id": 17, "version": 3, "fromRef": {"latestCommit": "` + greenHead + `"}}`,
 			"POST /repos/app/pull-requests": `{"id": 17}`,
 		},
 		open: [2]string{"POST", "/rest/api/1.0/projects/ops/repos/app/pull-requests"}, merge: [2]string{"POST", "/pull-requests/17/merge?version=3"}, number: 17,
@@ -127,13 +135,13 @@ var shipForges = []shipForge{
 		routes: map[string]string{
 			"POST /pullrequests":     `{"pullRequestId": 17}`,
 			"GET /pullrequests/17":   `{"pullRequestId": 17, "lastMergeSourceCommit": {"commitId": "abc123"}}`,
-			"PATCH /pullrequests/17": `{}`, "GET /git/repositories/app?": `{"id": "repo-guid"}`,
+			"PATCH /pullrequests/17": `{"status": "completed"}`, "GET /git/repositories/app?": `{"id": "repo-guid"}`,
 		},
 		open: [2]string{"POST", "/org/Proj/_apis/git/repositories/app/pullrequests"}, merge: [2]string{"PATCH", "/pullrequests/17"}, number: 17,
 		protect:      "/policy/configurations",
 		protectedYes: `{"value": [{"isEnabled": true, "isBlocking": true}]}`,
 		protectedNo:  `{"value": [{"isEnabled": false, "isBlocking": true}]}`,
-		noDelete:     "completionOptions",
+		noDelete:     "completionOptions", pin: `"lastMergeSourceCommit":{"commitId":"` + greenHead + `"}`,
 	},
 	{
 		name: "GitHub", remote: "git@github.com:owner/app.git", env: map[string]string{"GH_TOKEN": secret},
@@ -143,7 +151,7 @@ var shipForges = []shipForge{
 		},
 		open: [2]string{"POST", "/repos/owner/app/pulls"}, merge: [2]string{"PUT", "/repos/owner/app/pulls/17/merge"}, number: 17,
 		protect: "/repos/owner/app/branches/main", protectedYes: `{"protected": true}`, protectedNo: `{"protected": false}`,
-		method: `"merge_method":"squash"`,
+		method: `"merge_method":"squash"`, pin: `"sha":"` + greenHead + `"`,
 	},
 }
 
@@ -179,8 +187,9 @@ func TestShip_EveryForgeMergesWithoutDeletingOrWaiting_issue464(t *testing.T) {
 	for _, s := range shipForges {
 		api := &FakeWriteAPI{Routes: s.routes}
 
-		if err := s.router(t, api).MergePR(t.TempDir(), s.number); err != nil {
-			t.Errorf("%s: MergePR = %v", s.name, err)
+		merged, err := s.router(t, api).MergePR(t.TempDir(), s.number, greenHead)
+		if err != nil || !merged {
+			t.Errorf("%s: MergePR = %v, %v; want merged", s.name, merged, err)
 			continue
 		}
 		w, ok := api.write(s.merge[0], s.merge[1])
@@ -209,6 +218,9 @@ func (s shipForge) checkMergeBody(t *testing.T, body string) {
 	}
 	if s.noDelete != "" && !strings.Contains(body, s.noDelete) {
 		t.Errorf("%s: the merge body %s does not say to keep the branch (%s)", s.name, body, s.noDelete)
+	}
+	if s.pin != "" && !strings.Contains(body, s.pin) {
+		t.Errorf("%s: the merge body %s does not pin the head that was green (%s)", s.name, body, s.pin)
 	}
 	if s.method != "" && !strings.Contains(body, s.method) {
 		t.Errorf("%s: the merge body %s does not use the repository's own method (%s)", s.name, body, s.method)

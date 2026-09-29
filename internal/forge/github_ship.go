@@ -16,6 +16,7 @@ type (
 	}
 	ghMerge struct {
 		Method string `json:"merge_method"`
+		SHA    string `json:"sha"` // refused if the head moved (#599)
 	}
 	ghMethods struct {
 		Merge  bool `json:"allow_merge_commit"`
@@ -53,17 +54,19 @@ func (g ghHTTP) createPR(ctx context.Context, _, head, base, title string) (int,
 
 // mergePR merges now with the repository's own method: the first it allows,
 // in the order GitHub's merge button offers them.
-func (g ghHTTP) mergePR(ctx context.Context, _ string, number int) error {
+func (g ghHTTP) mergePR(ctx context.Context, _ string, number int, head string) (bool, error) {
 	allowed, err := getJSON[ghMethods](ctx, g.restAPI(), g.repoPath())
 	if err != nil {
-		return err
+		return false, err
 	}
 	method, err := allowed.first(g.remote.Slug())
 	if err != nil {
-		return err
+		return false, err
 	}
-	_, err = sendJSON[struct{}](ctx, g.restAPI(), "PUT", g.repoPath()+"/pulls/"+strconv.Itoa(number)+"/merge", ghMerge{Method: method})
-	return err
+	got, err := sendJSON[struct {
+		Merged bool `json:"merged"`
+	}](ctx, g.restAPI(), "PUT", g.repoPath()+"/pulls/"+strconv.Itoa(number)+"/merge", ghMerge{Method: method, SHA: head})
+	return got.Merged, err
 }
 
 func (m ghMethods) first(slug string) (string, error) {

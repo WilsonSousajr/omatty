@@ -32,6 +32,9 @@ type ShippedMsg struct {
 	// two happened, so the notice can name what the operator got.
 	Number int
 	Merged bool
+	// Queued is a merge the forge accepted and has not finished - Azure
+	// completes asynchronously - so the notice does not say merged (#464).
+	Queued bool
 	Err    error
 }
 
@@ -161,7 +164,7 @@ func notMergeable(gateGreen bool, pr forge.PR, where string) string {
 // merges. Both calls are off the Update goroutine.
 func (m *Model) mergeUnlessProtected(sess registry.Session, pr forge.PR) tea.Cmd {
 	protected, merge := m.ship.BranchProtected, m.ship.MergePR
-	root, id, number, base := m.projectRoot(sess.Project), sess.ID, pr.Number, sess.Base
+	root, id, number, base, head := m.projectRoot(sess.Project), sess.ID, pr.Number, sess.Base, pr.Head
 	if pr.Base != "" {
 		base = pr.Base // where it would merge, as the forge says (#598)
 	}
@@ -170,7 +173,9 @@ func (m *Model) mergeUnlessProtected(sess registry.Session, pr forge.PR) tea.Cmd
 		if isProtected, err := protected(root, base); err != nil || isProtected {
 			return ShippedMsg{SessionID: id, Number: number, Err: protectedRefusal(base, label, err)}
 		}
-		return ShippedMsg{SessionID: id, Number: number, Merged: true, Err: merge(root, number)}
+		// The head the card showed green: a push since is not merged (#599).
+		merged, err := merge(root, number, head)
+		return ShippedMsg{SessionID: id, Number: number, Merged: merged, Queued: !merged && err == nil, Err: err}
 	}
 }
 
@@ -188,11 +193,14 @@ func protectedRefusal(base string, l forge.Label, err error) error {
 
 // onForge is where a change's checks and protection live, in words: "on
 // GitLab", or "on the forge" for one omatty cannot name (#464).
-func onForge(l forge.Label) string {
+func onForge(l forge.Label) string { return "on " + forgeName(l) }
+
+// forgeName is the forge by name, or "the forge" for one omatty cannot name.
+func forgeName(l forge.Label) string {
 	if l.Forge == "" {
-		return "on the forge"
+		return "the forge"
 	}
-	return "on " + l.Forge
+	return l.Forge
 }
 
 // errShip is a refusal the footer shows. A string is enough: nothing branches on
@@ -200,6 +208,19 @@ func onForge(l forge.Label) string {
 type errShip string
 
 func (e errShip) Error() string { return string(e) }
+
+// shippedNotice names what the operator got: a merge, a merge the forge has
+// only accepted (#464's review), or a pull request opened.
+func (m *Model) shippedNotice(project string, msg ShippedMsg) string {
+	ref := m.changeRef(project, msg.Number)
+	switch {
+	case msg.Merged:
+		return "merged " + ref
+	case msg.Queued:
+		return "asked " + forgeName(m.label(project)) + " to merge " + ref + "; it has not finished yet"
+	}
+	return "pushed, and opened " + ref
+}
 
 // onShipped reports what happened. A push that went and a pull request that did
 // not open must not read as success, which is why the message carries both.
@@ -210,12 +231,7 @@ func (m *Model) onShipped(msg ShippedMsg) tea.Cmd {
 		return nil
 	}
 	sess, ok := m.session(msg.SessionID)
-	ref := m.changeRef(sess.Project, msg.Number)
-	if msg.Merged {
-		m.notice = "merged " + ref
-	} else {
-		m.notice = "pushed, and opened " + ref
-	}
+	m.notice = m.shippedNotice(sess.Project, msg)
 	// The card's pull request state is now a poll behind what just happened.
 	if !ok {
 		return nil

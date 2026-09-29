@@ -366,7 +366,7 @@ type ShipFuncs struct {
 	Shippable       func(sess registry.Session, projectRoot string) (review.Shippable, error)
 	Push            func(dir, branch string) error
 	CreatePR        func(repoRoot, head, base, title string) (int, error)
-	MergePR         func(repoRoot string, number int) error
+	MergePR         func(repoRoot string, number int, head string) (bool, error)
 	BranchProtected func(repoRoot, branch string) (bool, error)
 }
 
@@ -390,7 +390,7 @@ func withForgeShipDefaults(s ShipFuncs) ShipFuncs {
 		s.CreatePR = func(string, string, string, string) (int, error) { return 0, errNoShip }
 	}
 	if s.MergePR == nil {
-		s.MergePR = func(string, int) error { return errNoShip }
+		s.MergePR = func(string, int, string) (bool, error) { return false, errNoShip }
 	}
 	if s.BranchProtected == nil {
 		// True, because the refusal has to fail closed even when unwired.

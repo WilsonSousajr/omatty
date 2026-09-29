@@ -17,9 +17,10 @@ type (
 		RemoveSource bool   `json:"remove_source_branch"`
 	}
 	glMerge struct {
-		RemoveSource         bool `json:"should_remove_source_branch"`
-		WhenPipelineSucceeds bool `json:"merge_when_pipeline_succeeds"`
-		AutoMerge            bool `json:"auto_merge"` // the newer name for the line above
+		RemoveSource         bool   `json:"should_remove_source_branch"`
+		WhenPipelineSucceeds bool   `json:"merge_when_pipeline_succeeds"`
+		AutoMerge            bool   `json:"auto_merge"` // the newer name for the line above
+		SHA                  string `json:"sha"`        // refused if the head moved (#599)
 	}
 )
 
@@ -37,9 +38,11 @@ func (g glBackend) createPR(ctx context.Context, _, head, base, title string) (i
 
 // mergePR merges now, with the project's own merge method, which GitLab
 // applies itself.
-func (g glBackend) mergePR(ctx context.Context, _ string, number int) error {
-	_, err := sendJSON[struct{}](ctx, g.f, "PUT", g.project()+"/merge_requests/"+strconv.Itoa(number)+"/merge", glMerge{})
-	return err
+func (g glBackend) mergePR(ctx context.Context, _ string, number int, head string) (bool, error) {
+	mr, err := sendJSON[struct {
+		State string `json:"state"`
+	}](ctx, g.f, "PUT", g.project()+"/merge_requests/"+strconv.Itoa(number)+"/merge", glMerge{SHA: head})
+	return mr.State == "merged", err
 }
 
 // branchProtected is the branch's own protected flag, which GitLab sets for a

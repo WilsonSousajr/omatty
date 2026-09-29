@@ -22,7 +22,10 @@ type backend interface {
 // name it replaces, which a new backend could reach only at run time.
 type shipper interface {
 	createPR(ctx context.Context, repoRoot, head, base, title string) (int, error)
-	mergePR(ctx context.Context, repoRoot string, number int) error
+	// mergePR merges number at head, the commit the card showed green
+	// (#599), and reports whether the forge says it is merged now - not
+	// only accepted, as an asynchronous merge is (#464's review).
+	mergePR(ctx context.Context, repoRoot string, number int, head string) (bool, error)
 	branchProtected(ctx context.Context, repoRoot, branch string) (bool, error)
 }
 

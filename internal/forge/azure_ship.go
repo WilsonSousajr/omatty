@@ -52,19 +52,17 @@ func (a azBackend) createPR(ctx context.Context, _, head, base, title string) (i
 	return opened(pr.ID, a.host, "pull request")
 }
 
-// mergePR completes the pull request now. Azure completes only at the source
-// commit it was last merged at, so that is read first - a push since then
-// makes the completion fail rather than merge what nobody reviewed.
-func (a azBackend) mergePR(ctx context.Context, _ string, number int) error {
+// mergePR completes the pull request at head, the source commit the card
+// showed green: Azure completes only at the commit it is named, so a push
+// since fails the completion rather than merging what nobody verified (#599).
+// Azure completes asynchronously - "queued" first - so only an answer that
+// says completed is merged (#464's review).
+func (a azBackend) mergePR(ctx context.Context, _ string, number int, head string) (bool, error) {
 	u := a.repoAPI("pullrequests/" + strconv.Itoa(number))
-	pr, err := azGet[struct {
-		LastMergeSource azCommitRef `json:"lastMergeSourceCommit"`
-	}](ctx, a, u)
-	if err != nil {
-		return err
-	}
-	_, err = azSend[struct{}](ctx, a, "PATCH", u, azComplete{Status: "completed", LastMergeSource: pr.LastMergeSource})
-	return err
+	got, err := azSend[struct {
+		Status string `json:"status"`
+	}](ctx, a, "PATCH", u, azComplete{Status: "completed", LastMergeSource: azCommitRef{CommitID: head}})
+	return got.Status == "completed", err
 }
 
 // branchProtected is whether an enabled, blocking policy applies to branch -

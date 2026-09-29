@@ -7,7 +7,6 @@ package ui
 import (
 	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/registry"
-	"strings"
 )
 
 // prFor is the pull request a session's branch has: the newest one, since a
@@ -43,22 +42,7 @@ func isThisWork(pr forge.PR, sess registry.Session, head string) bool {
 	if pr.State == forge.Open {
 		return true
 	}
-	return sess.Worktree && head != "" && sameCommit(pr.Head, head)
-}
-
-// shortestSure is the fewest leading hex characters taken as a commit: what
-// Bitbucket names a pull request's head by.
-const shortestSure = 12
-
-// sameCommit is whether two names are one commit: equal, or one a prefix of
-// the other at least shortestSure long. Bitbucket's twelve against git's forty
-// kept every merged Bitbucket pull request off its session's card (#460's
-// review).
-func sameCommit(a, b string) bool {
-	if len(a) > len(b) {
-		a, b = b, a
-	}
-	return a == b || len(a) >= shortestSure && strings.HasPrefix(b, a)
+	return sess.Worktree && head != "" && forge.SameCommit(pr.Head, head)
 }
 
 // prLabel is "#349" and what to know about it: "?" when the project's last

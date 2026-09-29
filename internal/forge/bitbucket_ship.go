@@ -51,10 +51,23 @@ func (b bbBackend) createPR(ctx context.Context, _, head, base, title string) (i
 	return opened(pr.ID, b.remote.Host, "pull request")
 }
 
-// mergePR merges now, with the repository's default strategy.
-func (b bbBackend) mergePR(ctx context.Context, _ string, number int) error {
-	_, err := sendJSON[struct{}](ctx, b.f, "POST", b.repo()+"/pullrequests/"+strconv.Itoa(number)+"/merge", bbMerge{})
-	return err
+// mergePR merges now, with the repository's default strategy, if the pull
+// request's head is still the one that was green: Bitbucket's merge takes no
+// head, so it is read first (#599). A 202 - a merge Bitbucket is still doing
+// past its timeout - answers no state, so it is not reported merged.
+func (b bbBackend) mergePR(ctx context.Context, _ string, number int, head string) (bool, error) {
+	path := b.repo() + "/pullrequests/" + strconv.Itoa(number)
+	pr, err := getJSON[bbPR](ctx, b.f, path)
+	if err != nil {
+		return false, err
+	}
+	if err := stillAt(number, pr.Source.Commit.Hash, head); err != nil {
+		return false, err
+	}
+	got, err := sendJSON[struct {
+		State string `json:"state"`
+	}](ctx, b.f, "POST", path+"/merge", bbMerge{})
+	return got.State == "MERGED", err
 }
 
 // branchProtected is whether any restriction covers branch. Bitbucket has no
