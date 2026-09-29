@@ -56,6 +56,7 @@ internal/
 │   ├── crap/       [M11] per-function complexity x coverage -> a C.R.A.P. score.
 │   ├── depgraph/   [M11] the internal import graph -> Ca, Ce, instability, SDP.
 │   ├── fuzzy/      subsequence ranking for the session switcher and project picker. Pure.
+│   ├── gate/       [M9] Step, Verdict, Report, the output caps and the prompt: pure.
 │   └── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
@@ -77,7 +78,7 @@ internal/
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
 ├── discover/       proposes repositories to register, from claude's transcript store (#91).
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
-├── gate/           [M9] a project's own verification commands -> per-step verdicts.
+├── gate/           [M9] runs a project's own verification commands; its vocabulary is domain/gate.
 ├── coverage/       [M10] a coverage profile -> per-line verdicts and raw blocks.
 ├── tally/          [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
 └── ui/             bubbletea model, panes, rendering.

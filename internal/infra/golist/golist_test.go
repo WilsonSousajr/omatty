@@ -21,8 +21,11 @@ func TestList_reportsOnlyTheFilesThisPlatformCompiles(t *testing.T) {
 	}
 
 	files := strings.Join(pkgs[0].GoFiles, " ")
-	if !strings.Contains(files, "gate.go") {
-		t.Errorf("GoFiles = %v, want it to hold gate.go", pkgs[0].GoFiles)
+	// runner.go, not gate.go: migration step 3.3 moved gate.go to
+	// internal/domain/gate (#635). The package stays the fixture for the
+	// build-constraint check below, which is what procgroup_*.go are for.
+	if !strings.Contains(files, "runner.go") {
+		t.Errorf("GoFiles = %v, want it to hold runner.go", pkgs[0].GoFiles)
 	}
 	if strings.Contains(files, "_test.go") {
 		t.Errorf("GoFiles = %v, want no test files; go list keeps those apart", pkgs[0].GoFiles)

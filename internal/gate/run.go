@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
 )
 
 // Run executes a project's gate in dir and returns one result per step, in
@@ -70,7 +72,7 @@ func runStep(ctx context.Context, dir string, step Step) StepResult {
 	verdict, code := classify(ctx, err)
 	result := StepResult{Step: step, Verdict: verdict, ExitCode: code, Output: out, Elapsed: time.Since(started)}
 	if step.Kind == KindCoverage {
-		result.Percent = percentIn(result.Output)
+		result.Percent = dgate.PercentIn(result.Output)
 	}
 	return result
 }
@@ -90,7 +92,7 @@ func shellOut(ctx context.Context, dir, run string) (string, error) {
 	var out boundedOutput
 	cmd.Stdout, cmd.Stderr = &out, &out
 	err := cmd.Run()
-	return tail(out.String(), out.dropped), err
+	return dgate.Tail(out.String(), out.dropped), err
 }
 
 // classify turns the error from a finished command into a verdict. Invariant
