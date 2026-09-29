@@ -114,7 +114,7 @@ func gateScene(t *testing.T, terms map[string]termwrap.Terminal, w, h int) *ui.M
 	return leaderOn(m, 'g')
 }
 
-func trackerScene(t *testing.T, terms map[string]termwrap.Terminal, w, h int) *ui.Model {
+func trackerScene(_ *testing.T, terms map[string]termwrap.Terminal, w, h int) *ui.Model {
 	fi := &FakeIssues{Lists: map[string][]forge.Issue{}, Errs: map[string]error{}, Now: fixedNow}
 	fp := &FakePRs{Lists: map[string][]forge.PR{}, Errs: map[string]error{}, Now: fixedNow}
 	fi.Lists["/p/omatty"] = trackerIssues()
