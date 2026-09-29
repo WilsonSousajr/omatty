@@ -389,3 +389,33 @@ func TestTracker_NarrowColumnDropsTheLabelBeforeTheTitle_issue423(t *testing.T) 
 		t.Errorf("at 80 columns the label should give way to the title:\n%q", row)
 	}
 }
+
+// Regression, issue #590: the number column was six cells, so "#14588" ran
+// straight into its label - "#14588impact/un" on Codeberg. The column is as
+// wide as the widest number plus a gap, so every row's label and title start
+// in the same place.
+func TestTracker_AFiveDigitNumberKeepsItsGap_issue590(t *testing.T) {
+	m, fi, _ := trackerModel(t)
+	fi.Lists["/p/omatty"] = append(fi.Lists["/p/omatty"], forge.Issue{
+		Number: 14588, Title: "swap the thing", Labels: []string{"impact/unknown"}, Updated: fixedNow,
+	})
+	openTracker(m)
+
+	wide, narrow := trackerCell(rowContaining(t, m, "#14588")), trackerCell(rowContaining(t, m, "#399"))
+	if !strings.Contains(wide, "#14588 ") {
+		t.Errorf("the five-digit number runs into its label:\n%q", wide)
+	}
+	if labelAt(wide, "#14588") != labelAt(narrow, "#399") {
+		t.Errorf("the labels do not line up:\n%q\n%q", wide, narrow)
+	}
+}
+
+// trackerCell is a frame row's tracker column: what follows the last rule.
+func trackerCell(row string) string { return row[strings.LastIndex(row, "│")+len("│"):] }
+
+// labelAt is where a row's label starts: the first cell after its number
+// that is not a space.
+func labelAt(row, number string) int {
+	after := strings.Index(row, number) + len(number)
+	return after + strings.IndexFunc(row[after:], func(r rune) bool { return r != ' ' })
+}

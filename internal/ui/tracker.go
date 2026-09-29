@@ -372,9 +372,10 @@ func (m *Model) renderTracker(_, h int) []string {
 		return m.withFilterLine(wrapBlock(note, m.columnWidth()), m.columnWidth(), h)
 	}
 	rows := m.trackerRows()
+	numW := trackerNumberWidth(rows)
 	lines := make([]string, 0, len(rows))
 	for i, r := range rows {
-		lines = append(lines, m.trackerLine(r, i == m.review.Tracker.Cursor))
+		lines = append(lines, m.trackerLine(r, i == m.review.Tracker.Cursor, numW))
 	}
 	list := m.withFilterLine(window(lines, m.review.Tracker.Offset, h), m.trackerListWidth(), h)
 	return m.withPreview(list, h)
@@ -403,7 +404,7 @@ func (m *Model) trackerNote() string {
 // trackerLine is one row: the number, one label or CI mark, the title, and how
 // long since it last moved. The cursor row is drawn in the accent, the way a
 // selected card's rail is (#174).
-func (m *Model) trackerLine(r trackerRow, selected bool) string {
+func (m *Model) trackerLine(r trackerRow, selected bool, numW int) string {
 	w := m.trackerListWidth()
 	if r.Kind == rowRule {
 		// The rule does not pan. It is a label rather than content, so it fits
@@ -414,7 +415,7 @@ func (m *Model) trackerLine(r trackerRow, selected bool) string {
 	}
 	// Only the lead pans. The age is pinned to the right edge, so a title
 	// longer than the column is what gets cut - not the age after it (#423).
-	lead, age := trackerParts(r, m.clock(), w)
+	lead, age := trackerParts(r, m.clock(), w, numW)
 	text := m.fitContent(lead, w-len(trackerAgeGap)-trackerAgeCols) + trackerAgeGap + age
 	if selected {
 		return cursorStyle.Render(text)
@@ -440,8 +441,8 @@ const (
 // a fixed trackerAgeCols wide, so the clamp's widest-minus-column is exactly
 // how far the lead must pan for the end of the longest title to show beside
 // the pinned age (#423).
-func trackerText(r trackerRow, now time.Time, w int) string {
-	lead, age := trackerParts(r, now, w)
+func trackerText(r trackerRow, now time.Time, w, numW int) string {
+	lead, age := trackerParts(r, now, w, numW)
 	return lead + trackerAgeGap + age
 }
 
@@ -449,19 +450,31 @@ func trackerText(r trackerRow, now time.Time, w int) string {
 // label and title - which pans, and the age, which stays at the right edge.
 // In a column too narrow for all four the label is left out, since it is the
 // least of them and the title is what a row is read for.
-func trackerParts(r trackerRow, now time.Time, w int) (lead, age string) {
-	number := padRight(r.ref(), trackerNumberCols)
+func trackerParts(r trackerRow, now time.Time, w, numW int) (lead, age string) {
+	number := padRight(r.ref(), numW)
 	age = padLeft(clip(AgeString(now, r.Updated), trackerAgeCols), trackerAgeCols)
 	if r.Kind == rowPR {
 		// Three glyph cells, never given up: they fit where a label does not,
 		// and they are the row's state (#432).
 		return number + r.Label + " " + r.Title, age
 	}
-	if w < trackerNumberCols+trackerLabelCols+trackerMinTitle+len(trackerAgeGap)+trackerAgeCols {
+	if w < numW+trackerLabelCols+trackerMinTitle+len(trackerAgeGap)+trackerAgeCols {
 		return number + r.Title, age
 	}
 	label := padRight(clip(r.Label, trackerLabelCols-1), trackerLabelCols)
 	return number + label + r.Title, age
+}
+
+// trackerNumberWidth is the number column: trackerNumberCols, or the widest
+// number and a gap. A fixed six cells ran "#14588" into its label (#590).
+func trackerNumberWidth(rows []trackerRow) int {
+	w := trackerNumberCols
+	for _, r := range rows {
+		if r.Kind != rowRule {
+			w = max(w, len(r.ref())+1)
+		}
+	}
+	return w
 }
 
 // labelledRule is "── pull requests ─────": a rule that says what is under it.
@@ -477,12 +490,13 @@ func labelledRule(label string, w int) string {
 // skipped - it fits its column by construction, so it can never set the clamp,
 // which is diffMaxWidth's argument for skipping a file header (#291).
 func (m *Model) trackerMaxWidth() int {
-	widest := 0
-	for _, r := range m.trackerRows() {
+	widest, rows := 0, m.trackerRows()
+	numW := trackerNumberWidth(rows)
+	for _, r := range rows {
 		if r.Kind == rowRule {
 			continue
 		}
-		widest = max(widest, lipgloss.Width(trackerText(r, m.clock(), m.trackerListWidth())))
+		widest = max(widest, lipgloss.Width(trackerText(r, m.clock(), m.trackerListWidth(), numW)))
 	}
 	return widest
 }
