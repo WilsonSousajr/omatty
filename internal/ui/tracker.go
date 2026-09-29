@@ -252,14 +252,23 @@ func (m *Model) trackerRows() []trackerRow {
 	if len(prs) == 0 {
 		return rows
 	}
-	// The rule goes with its list: one with nothing under it says a list is
-	// there when it is not (#399). With both lists on screen each is named
-	// (#432); a lone list needs no name.
-	if len(rows) > 0 {
-		rows = append([]trackerRow{{Kind: rowRule, Title: "issues"}}, rows...)
-		rows = append(rows, trackerRow{Kind: rowRule, Title: m.label(project).Change + "s"})
+	return append(m.withRules(project, rows), prs...)
+}
+
+// withRules heads the issues and the pull requests that follow them. The rule
+// goes with its list: one with nothing under it says a list is there when it is
+// not (#399). With both lists on screen each is named (#432); a lone list needs
+// no name - unless its forge keeps no issues, which it says over the list it
+// does keep, where the issues would have been (#460).
+func (m *Model) withRules(project string, issues []trackerRow) []trackerRow {
+	if len(issues) > 0 {
+		issues = append([]trackerRow{{Kind: rowRule, Title: "issues"}}, issues...)
+		return append(issues, trackerRow{Kind: rowRule, Title: m.label(project).Change + "s"})
 	}
-	return append(rows, prs...)
+	if m.noTracker[project] {
+		return []trackerRow{{Kind: rowRule, Title: m.label(project).Short + "s · issues elsewhere"}}
+	}
+	return issues
 }
 
 // matchesFilter reports whether a row survives the filter line. The haystack is

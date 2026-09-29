@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"strconv"
-	"sync"
 )
 
 // gtBackend is the Gitea backend, which is Forgejo's and Codeberg's too: they
@@ -20,9 +19,6 @@ type gtBackend struct {
 	// (#459): nil when a token or tea reads.
 	needsToken *MissingToolError
 }
-
-// giteaPage is the most one page answers: Gitea's own default cap.
-const giteaPage = 50
 
 // codebergLabel and giteaLabel are the words: pull requests, "#12", and the
 // forge named as the operator knows it. Forgejo is Gitea's kind (#451), so a
@@ -84,7 +80,7 @@ func (g gtBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
 		defer close(done)
 		finished, finishedErr = getJSON[[]gtPR](ctx, g.f, g.repo()+"/pulls?state=closed&sort=recentupdate&limit="+finishedWindow)
 	}()
-	open, err := pages[gtPR](ctx, g.f, g.repo()+"/pulls?state=open", 100)
+	open, err := pages(ctx, 100, g.page(g.repo()+"/pulls?state=open"))
 	<-done
 	if err = errors.Join(err, finishedErr); err != nil {
 		return nil, g.listErr(ctx, err)
@@ -109,11 +105,16 @@ func (g gtBackend) statusCI(ctx context.Context, pr PR) (CIState, error) {
 }
 
 func (g gtBackend) listIssues(ctx context.Context, _ string) ([]Issue, error) {
-	issues, err := pages[gtIssue](ctx, g.f, g.repo()+"/issues?state=open&type=issues", 100)
-	if err != nil {
-		return nil, g.listErr(ctx, err)
+	issues, err := pages(ctx, 100, gtPage[gtIssue](g.f, g.repo()+"/issues?state=open&type=issues"))
+	if err == nil {
+		return foldGTIssues(issues), nil
 	}
-	return foldGTIssues(issues), nil
+	if err = g.listErr(ctx, err); err == nil {
+		// The issues unit is off: a mirror's, or an outside tracker's, so the
+		// issues are elsewhere, as Bitbucket's are (#458, #460).
+		return nil, ErrNoTracker
+	}
+	return nil, err
 }
 
 func (g gtBackend) viewIssue(ctx context.Context, _ string, number int) (Detail, error) {
@@ -136,7 +137,7 @@ func (g gtBackend) viewPR(ctx context.Context, _ string, number int) (Detail, er
 // statusPath is a commit's combined status, a whole page of checks at once:
 // Forgejo combines only the page it returns, thirty by default (#458).
 func (g gtBackend) statusPath(sha string) string {
-	return g.repo() + "/commits/" + sha + "/status?limit=" + strconv.Itoa(giteaPage)
+	return g.repo() + "/commits/" + sha + "/status?limit=" + strconv.Itoa(apiPage)
 }
 
 // detail folds an item with its comments; comments that cannot be read leave
@@ -156,35 +157,13 @@ func (g gtBackend) browse(_ context.Context, _ string, number int, pr bool) erro
 	return g.open(webBase(g.remote) + "/" + g.remote.Slug() + "/" + kind + "/" + strconv.Itoa(number))
 }
 
-// pages reads up to most items, every page at once. Gitea caps a page at
-// fifty and #358's windows ask for a hundred, and one page of
-// codeberg.org/forgejo/forgejo's open pull requests took ten seconds: read one
-// after another, two would spend most of the call's budget. Pages past the
-// first short one are dropped.
-func pages[T any](ctx context.Context, f fetcher, path string, most int) ([]T, error) {
-	n := (most + giteaPage - 1) / giteaPage
-	got, errs := make([][]T, n), make([]error, n)
-	var wg sync.WaitGroup
-	for i := range n {
-		wg.Go(func() {
-			got[i], errs[i] = getJSON[[]T](ctx, f, path+"&limit="+strconv.Itoa(giteaPage)+"&page="+strconv.Itoa(i+1))
-		})
-	}
-	wg.Wait()
-	return joinPages(got, errs)
+func (g gtBackend) page(path string) func(context.Context, int) ([]gtPR, error) {
+	return gtPage[gtPR](g.f, path)
 }
 
-// joinPages is the pages in order, up to and including the first short one.
-func joinPages[T any](got [][]T, errs []error) ([]T, error) {
-	var all []T
-	for i, items := range got {
-		if errs[i] != nil {
-			return nil, errs[i]
-		}
-		all = append(all, items...)
-		if len(items) < giteaPage {
-			break
-		}
+// gtPage reads one fifty-item page of a Gitea list.
+func gtPage[T any](f fetcher, path string) func(context.Context, int) ([]T, error) {
+	return func(ctx context.Context, page int) ([]T, error) {
+		return getJSON[[]T](ctx, f, path+"&limit="+strconv.Itoa(apiPage)+"&page="+strconv.Itoa(page))
 	}
-	return all, nil
 }

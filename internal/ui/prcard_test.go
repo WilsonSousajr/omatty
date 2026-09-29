@@ -167,3 +167,25 @@ func TestCard_anOpenFourDigitPullRequestKeepsItsDiffstat_issue357(t *testing.T) 
 		}
 	}
 }
+
+// Bitbucket names a pull request's head by its first twelve characters, and
+// git names the session's by all forty: the same commit, so a merged one
+// still speaks for its session. Shorter than twelve is too short to be sure
+// of, and a different commit never matches (#460's review).
+func TestCard_AShortHeadIsTheSameCommit_issue460(t *testing.T) {
+	full := "31b8ff8dad0a4c6e8f1a2b3c4d5e6f708192a3b4"
+	for head, want := range map[string]string{
+		full[:12]:      "#349 merged      +12 −3",
+		full[:7]:       "parser-fix       +12 −3",
+		"31b8ff8dad0b": "parser-fix       +12 −3",
+	} {
+		terms, _ := fakeTerms(t)
+		m := ui.NewModel(baseDeps(worktreeState(), terms))
+		m.SetRepoStat("s2", review.Stat{Branch: "parser-fix", Added: 12, Removed: 3, Head: full})
+		m.Update(ui.PRsLoadedMsg{Project: "omatty", PRs: []forge.PR{{Number: 349, Branch: "parser-fix", State: forge.Merged, Head: head}}})
+
+		if got := cardMiddle(t, m, "s2"); got != want {
+			t.Errorf("head %q: line two middle = %q, want %q", head, got, want)
+		}
+	}
+}

@@ -120,6 +120,7 @@ type Model struct {
 	issueFailed  map[string]bool
 	issueAsked   map[string]time.Time
 	forgeStopped map[string]error
+	noTracker    map[string]bool // the forge keeps no issues for it (#460)
 	labelOf      LabelFunc
 	turnPending  map[string]bool
 	turnErr      map[string]error

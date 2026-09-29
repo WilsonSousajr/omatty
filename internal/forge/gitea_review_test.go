@@ -31,13 +31,14 @@ func teaWith(t *testing.T, first ...teaAnswer) (*forge.Router, string) {
 }
 
 // A repository whose issues are off - a mirror, or one with an outside
-// tracker - answers its issue list with 404. That is no issues here, not a
-// project on no forge: its pull requests still read (#458).
-func TestGitea_IssuesTurnedOffAreNone_issue458(t *testing.T) {
+// tracker - answers its issue list with 404. That is issues elsewhere, as on
+// Bitbucket, not a project on no forge: its pull requests still read (#458;
+// an empty list until #460 gave the tracker a way to say "elsewhere").
+func TestGitea_IssuesTurnedOffAreElsewhere_issue458(t *testing.T) {
 	r, _ := teaWith(t, at(notFound, "issues?state=open"), repoThere)
 
-	if issues, err := r.ListIssues(t.TempDir()); err != nil || len(issues) != 0 {
-		t.Errorf("ListIssues = %v, %v; want none and no error", issues, err)
+	if issues, err := r.ListIssues(t.TempDir()); !errors.Is(err, forge.ErrNoTracker) || len(issues) != 0 {
+		t.Errorf("ListIssues = %v, %v; want ErrNoTracker", issues, err)
 	}
 	if prs, err := r.ListPRs(t.TempDir()); err != nil || len(prs) == 0 {
 		t.Errorf("ListPRs = %d, %v; want the pull requests read", len(prs), err)

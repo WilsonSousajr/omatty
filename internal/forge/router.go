@@ -71,7 +71,9 @@ type resolved struct {
 
 // labels is each readable forge's words. A forge omatty cannot read yet has
 // none, so its projects keep the neutral label.
-var labels = map[Kind]Label{KindGitHub: GitHub, KindGitLab: gitLabLabel, KindGitea: giteaLabel}
+var labels = map[Kind]Label{
+	KindGitHub: GitHub, KindGitLab: gitLabLabel, KindGitea: giteaLabel, KindBitbucket: bitbucketLabel,
+}
 
 // NewRouter builds a Router that runs each forge's own CLI from PATH.
 func NewRouter(o Options) *Router {
@@ -179,6 +181,8 @@ func (r *Router) pick(repoRoot string, res resolved) (backend, error) {
 		return r.pickGitLab(repoRoot, res.remote)
 	case KindGitea:
 		return r.pickGitea(repoRoot, res.remote)
+	case KindBitbucket:
+		return r.pickBitbucket(res.remote)
 	}
 	return nil, fmt.Errorf("forge: omatty does not read %s yet: %w", res.kind, ErrNoForge)
 }

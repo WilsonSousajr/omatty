@@ -75,3 +75,11 @@ type AuthError struct {
 func (e *AuthError) Error() string {
 	return fmt.Sprintf("forge: %s refused %s (%d)", e.Host, e.TokenEnv, e.Status)
 }
+
+// ErrNoTracker is a forge that keeps no issues for this project: Bitbucket
+// Cloud retired its issue tracker API (CHANGE-3071), and Bitbucket Data Center
+// never had one - the issues are in Jira, which M16 leaves out. The tracker
+// shows the project's pull requests and says where its issues are not.
+//
+//	if errors.Is(err, forge.ErrNoTracker) { /* show pull requests alone */ }
+var ErrNoTracker = errors.New("forge: this forge keeps no issues for the project")
