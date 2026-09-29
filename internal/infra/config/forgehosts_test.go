@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/config"
 )
 
 // [forge.hosts] names a self-hosted forge omatty cannot recognise by its

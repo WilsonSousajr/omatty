@@ -29,7 +29,8 @@ count after the step.
 | 1.1 | #624 | #625 | merged | 28 |
 | 1.2 | #624 | #626 | merged | 28 |
 | 1.3 | #624 | #627 | merged | 28 |
-| 1.4 | #624 | #628 | open | 28 |
+| 1.4 | #624 | #628 | merged | 28 |
+| 1.5 | #624 | this PR | open | 28 |
 
 ## Rules every step follows
 

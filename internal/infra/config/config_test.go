@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/config"
 )
 
 func writeConfig(t *testing.T, home, body string) string {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/config"
+	"github.com/WilsonSousajr/omatty/internal/infra/config"
 )
 
 // tomlKeys walks t's toml tags the way the decoder does: a struct field is a

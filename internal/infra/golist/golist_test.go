@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // The gate tools need the file set the compiler actually agrees to, which is
@@ -12,7 +12,7 @@ import (
 // procgroup_other.go behind //go:build !unix, and a walk would hand a scorer a
 // file neither CI runner ever compiles.
 func TestList_reportsOnlyTheFilesThisPlatformCompiles(t *testing.T) {
-	pkgs, err := golist.List("..", "./gate")
+	pkgs, err := golist.List("../..", "./gate")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func TestList_reportsOnlyTheFilesThisPlatformCompiles(t *testing.T) {
 // go list -json writes a stream of concatenated objects rather than a JSON
 // array, so anything decoding it with Unmarshal gets only the first package.
 func TestList_readsEveryPackageInTheStream(t *testing.T) {
-	pkgs, err := golist.List("..", "./infra/paths", "./fuzzy", "./keys")
+	pkgs, err := golist.List("../..", "./infra/paths", "./fuzzy", "./keys")
 
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func TestList_readsEveryPackageInTheStream(t *testing.T) {
 // the answer is "no packages" - but a pattern go list rejects outright is, and
 // the message has to name what went wrong or the gate step is unreadable.
 func TestList_surfacesWhatGoListSaidWhenItFails(t *testing.T) {
-	_, err := golist.List("..", "./no-such-package-anywhere")
+	_, err := golist.List("../..", "./no-such-package-anywhere")
 
 	if err == nil {
 		t.Fatal("List() error = nil, want the failure surfaced")
@@ -85,7 +85,7 @@ func TestModule_answersTheModulePath(t *testing.T) {
 // never mentions the files it skipped is how a metric silently stops covering
 // half a package.
 func TestList_reportsFilesABuildConstraintExcluded(t *testing.T) {
-	pkgs, err := golist.List("..", "./gate")
+	pkgs, err := golist.List("../..", "./gate")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestModule_outsideAModuleIsAnError(t *testing.T) {
 // `go list -deps` would count the whole reachable graph as one package's
 // dependencies and make every metric derived from it meaningless.
 func TestList_reportsDirectImportsOnly(t *testing.T) {
-	pkgs, err := golist.List("..", "./infra/paths")
+	pkgs, err := golist.List("../..", "./infra/paths")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestList_reportsDirectImportsOnly(t *testing.T) {
 // Test imports are a separate question from production structure, and go list
 // keeps them in separate fields precisely so a caller need not untangle them.
 func TestList_keepsTestImportsApartFromProductionImports(t *testing.T) {
-	pkgs, err := golist.List("..", "./golist")
+	pkgs, err := golist.List("../..", "./infra/golist")
 	if err != nil {
 		t.Fatal(err)
 	}

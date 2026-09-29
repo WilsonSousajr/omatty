@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // The staleness guard compares the profile against every file that can change
@@ -12,13 +12,13 @@ import (
 // keeps those in two further fields; carrying only GoFiles is what let a stale
 // profile through (#385).
 func TestList_carriesTestFilesSoStalenessCanSeeThem_issue385(t *testing.T) {
-	pkgs, err := golist.List("..", "./golist")
+	pkgs, err := golist.List("../..", "./infra/golist")
 	if err != nil {
 		t.Fatal(err)
 	}
-	pkg, ok := packageNamed(pkgs, "github.com/WilsonSousajr/omatty/internal/golist")
+	pkg, ok := packageNamed(pkgs, "github.com/WilsonSousajr/omatty/internal/infra/golist")
 	if !ok {
-		t.Fatal("internal/golist is not in its own listing")
+		t.Fatal("internal/infra/golist is not in its own listing")
 	}
 
 	if !slices.Contains(pkg.XTestGoFiles, "golist_issue385_test.go") {

@@ -26,7 +26,7 @@
 // speculative interfaces AGENTS.md bans (#263).
 package depgraph
 
-import "github.com/WilsonSousajr/omatty/internal/golist"
+import "github.com/WilsonSousajr/omatty/internal/infra/golist"
 
 // Node is one package's coupling.
 type Node struct {

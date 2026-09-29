@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // check applies ADR 0001's layer table to every production import of pkgs.

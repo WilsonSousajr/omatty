@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // NewerSource returns the first source file modified after cutoff.

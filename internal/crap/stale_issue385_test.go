@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/crap"
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // A test added after the profile changes coverage without touching one line of
