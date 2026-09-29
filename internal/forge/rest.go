@@ -141,6 +141,9 @@ func answerError(resp *http.Response, tokenEnv string) error {
 func notJSON(resp *http.Response, host, tokenEnv string) error {
 	contentType := resp.Header.Get("Content-Type")
 	switch {
+	case resp.StatusCode == http.StatusNonAuthoritativeInfo && carriesCredential(resp.Request.Header):
+		// Azure's sign-in page, whatever type it claims (#457's review).
+		return &AuthError{Host: host, TokenEnv: tokenEnv, Status: resp.StatusCode}
 	case strings.Contains(contentType, "json"):
 		return nil
 	case !carriesCredential(resp.Request.Header):

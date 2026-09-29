@@ -70,15 +70,7 @@ func (f *FakeAzureAPI) answer(t *testing.T, w http.ResponseWriter, pq string) {
 		w.WriteHeader(f.Status)
 		return
 	}
-	if scriptedAnswer(w, pq, f.First) {
-		return
-	}
-	if f.Policy != "" && strings.Contains(pq, "/policy/evaluations") {
-		_, _ = w.Write([]byte(f.Policy))
-		return
-	}
-	if f.WIQL != "" && strings.Contains(pq, "/wit/wiql") {
-		_, _ = w.Write([]byte(f.WIQL))
+	if f.scripted(w, pq) {
 		return
 	}
 	for _, route := range azureRoutes {
@@ -92,6 +84,20 @@ func (f *FakeAzureAPI) answer(t *testing.T, w http.ResponseWriter, pq string) {
 		}
 	}
 	w.WriteHeader(http.StatusNotFound)
+}
+
+// scripted answers pq from First, Policy or WIQL, and reports whether it did.
+func (f *FakeAzureAPI) scripted(w http.ResponseWriter, pq string) bool {
+	switch {
+	case scriptedAnswer(w, pq, f.First):
+	case f.Policy != "" && strings.Contains(pq, "/policy/evaluations"):
+		_, _ = w.Write([]byte(f.Policy))
+	case f.WIQL != "" && strings.Contains(pq, "/wit/wiql"):
+		_, _ = w.Write([]byte(f.WIQL))
+	default:
+		return false
+	}
+	return true
 }
 
 // fakeAz is an az whose `account get-access-token` prints a token for Azure
