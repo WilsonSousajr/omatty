@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/paste"
+	"github.com/WilsonSousajr/omatty/internal/domain/paste"
 )
 
 // Invariant 8: a multi-line prompt written raw would submit at each newline,

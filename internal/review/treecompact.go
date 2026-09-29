@@ -11,7 +11,7 @@ package review
 import (
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/fuzzy"
+	"github.com/WilsonSousajr/omatty/internal/domain/fuzzy"
 )
 
 // changeStrength ranks what a directory's letter says: the strongest change

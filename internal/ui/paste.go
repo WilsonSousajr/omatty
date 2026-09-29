@@ -11,7 +11,7 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/paste"
+	"github.com/WilsonSousajr/omatty/internal/domain/paste"
 )
 
 // onPaste delivers a paste to whatever owns the keyboard, the way dispatch

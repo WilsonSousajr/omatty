@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/fuzzy"
+	"github.com/WilsonSousajr/omatty/internal/domain/fuzzy"
 )
 
 func TestMatch_Subsequence(t *testing.T) {

@@ -115,7 +115,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/infra/config` | `~/.omatty/config.toml`. Every key optional; a missing file is every default. The only package that names a TOML library. |
 | `internal/infra/detach` | omatty's only route to `dtach`. Returns a no-op holder when the binary is absent. |
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
-| `internal/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
+| `internal/domain/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
 | `internal/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. |
 | `internal/tally` | A project's gate counters and its pull requests → lead time and first-pass rate. Pure; no I/O (#332). |
 | `internal/infra/forge` | omatty's only route to any forge, and its only HTTP client: a `Router` that names each project's forge from its remote and reads it through the forge's own CLI (`gh`, `glab`, `tea`, `az`) or its REST API - a project's pull requests, its open issues, one item in full, browse - on a timer, and the three writes the ship key makes, only on a keypress (#310, #394, #397, #331, #452-#465). A token is borrowed per call, sent only to the instance it is for, and stored nowhere (#453). |
@@ -124,7 +124,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/infra/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/infra/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
-| `internal/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
+| `internal/domain/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
 | `internal/infra/paths` | Every filesystem location omatty reads or writes. Pure; takes `home` explicitly so tests never touch the real one. |
 | `internal/registry` | Projects, sessions, `state.json`, and the commands that edit them (add, remove, rename, adopt, create, gate, carry). Creating a worktree also carries the project's gitignored paths into it, before the session is registered (#309). |
 | `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |
@@ -261,19 +261,21 @@ Robert Martin's package metrics over `./internal/...`, printed by
 how many it imports, and `I = Ce/(Ca+Ce)` — 0 is a stable leaf, 1 is a package
 nothing depends on.
 
+Paths are relative to `internal/`; the figures are `./scripts/check-deps.sh`'s.
+
 | Package | Ca | Ce | I |
 |---|---|---|---|
-| `internal/tally`, `internal/ui` | 0 | 2, 14 | 1.00 |
-| `internal/infra/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
-| `internal/supervisor` | 1 | 6 | 0.86 |
-| `internal/review` | 1 | 3 | 0.75 |
-| `internal/agent` | 2 | 3 | 0.60 |
-| `internal/infra/detach`, `watcher` | 1, 3 | 1, 3 | 0.50 |
-| `internal/registry` | 5 | 3 | 0.38 |
-| `internal/infra/paths` | 6 | 0 | 0.00 |
-| `internal/infra/forge`, `infra/hooks` | 3 | 0 | 0.00 |
-| `internal/coverage`, `fuzzy`, `gate`, `golist`, `termwrap`, `vcs` | 2 | 0 | 0.00 |
-| `internal/infra/highlight`, `infra/notify`, `keys`, `paste` | 1 | 0 | 0.00 |
+| `tally`, `ui` | 0 | 2, 14 | 1.00 |
+| `infra/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
+| `supervisor` | 1 | 6 | 0.86 |
+| `review` | 1 | 3 | 0.75 |
+| `agent` | 2 | 3 | 0.60 |
+| `infra/detach`, `watcher` | 1, 3 | 1, 3 | 0.50 |
+| `registry` | 5 | 3 | 0.38 |
+| `infra/paths` | 6 | 0 | 0.00 |
+| `infra/forge`, `infra/hooks` | 3 | 0 | 0.00 |
+| `coverage`, `domain/fuzzy`, `gate`, `infra/golist`, `termwrap`, `infra/vcs` | 2 | 0 | 0.00 |
+| `infra/highlight`, `infra/notify`, `keys`, `domain/paste` | 1 | 0 | 0.00 |
 
 The chain reads as a clean monotonic descent —
 `cmd → ui → supervisor → agent → watcher → registry → {gate, paths, vcs}` — so
