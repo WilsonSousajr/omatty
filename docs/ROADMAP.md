@@ -1505,11 +1505,9 @@ UI.
   with a token read from the environment per call and never stored. Bitbucket
   has no official CLI, so it is REST only.
 - **Boards are out**, GitHub Projects included. M16 is issues and PRs.
-- **Every slice sits in Backlog.** M16 is designed, not scheduled.
-
-*Built 2026-09-28/29 and released in v0.9.0 (#604).* Every slice shipped;
-Azure DevOps Server did not, since Services' tokens are not a Server's (#596).
-The README's Forges table says which forge a real run has shown.
+- **Every slice sits in Backlog.** M16 is designed, not scheduled. *(Built
+  2026-09-28/29 and released in v0.9.0 - see "Built" at the end of this
+  section.)*
 
 **The foundation** comes first, and GitHub is the first backend:
 
@@ -1550,6 +1548,39 @@ not probed is named as untested, not claimed.
 **Deliberately out:** boards on every forge; Jira; forge writes beyond #331;
 OAuth, device flow, or any login or token store in omatty; several remotes per
 project; per-check CI detail; SourceHut, Gerrit, Phabricator and CodeCommit.
+
+**Built** 2026-09-28/29 as PRs #573-#603, one per slice, each reviewed before
+it merged; **released in v0.9.0** (#604). Where the build departed from the
+design above, and why:
+
+- **A token goes only to the instance it is for.** The design borrowed each
+  forge's variable per call; review found three sending it to the wrong
+  server - a corporate Gitea token to Codeberg, one Bitbucket token to Cloud
+  and every Data Center host, az's token to an Azure DevOps Server. So
+  `GITEA_TOKEN` is bound by `GITEA_INSTANCE_URL`, as tea's own env login binds
+  it; Data Center has its own `BITBUCKET_DC_TOKEN`, bound by `BITBUCKET_DC_URL`;
+  Azure's credentials go to Services alone, and `AZURE_DEVOPS_EXT_PAT` wins over
+  az's login, which may be another tenant's.
+- **Azure DevOps Server is not read** (#596). The Delivers line above names it,
+  but Services' tokens are not a Server's, and a Server gets a token of its own
+  there.
+- **`ctrl+o p` merges only into the session's own base, at the head that was
+  green** (#598, #599). Both were shipped with #331 on gh and found in #464's
+  review: protection was read on the session's base rather than the pull
+  request's target, and the merge named the pull request, not the commit.
+- **Bitbucket Cloud has no issues to read.** Its issue API answers 410 Gone on
+  every repository (CHANGE-3071), so the tracker shows its pull requests under
+  "PRs · issues elsewhere", as for Data Center, whose issues are in Jira.
+
+**What the real runs showed** (#463's runbook, in #602): GitHub over `gh` and
+REST, GitLab through `glab`, Codeberg over REST, and Azure DevOps over `az` and
+a PAT - the last including open, protection and merge on a scratch repository.
+**Untested, and said so** in the README's Forges table: GitLab over REST, `tea`,
+both Bitbucket backends, and open and merge on every forge but Azure DevOps.
+
+**What it left**, each in Backlog with the `M16` label: #585, a self-managed
+forge under a relative URL root; #594, Bitbucket Cloud's hourly request limit,
+reachable by two projects polled with no CI; #596, Azure DevOps Server.
 
 ## Not on the roadmap
 

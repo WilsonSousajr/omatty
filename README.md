@@ -131,6 +131,7 @@ room. Install with `curl -fsSL https://omatty.com/install.sh | sh` or
 | **M13** Memory and idle CPU | Idle CPU cut by about 55%, and a per-session leak on archive fixed. |
 | **M14** The Tracker | A project's open issues and pull requests in the review column, read through your own `gh` and never written to: counts on every header, one item's body and comments on `enter`, and a worktree session named after the issue you picked. |
 | **M15** The Polish | The review column made worth living in: one list window and one state vocabulary across every face, chrome that names the face you are on, and `ctrl+o z` to zoom it; a gate that reads like a CI check page, a compact tree, a tracker with review state and a preview, a syntax-highlighted diff with file and hunk navigation, and help that opens where you are. |
+| **M16** The Forges | The card's pull request and CI, the tracker, browse and `ctrl+o p` on GitLab, Gitea/Forgejo/Codeberg, Bitbucket and Azure DevOps as on GitHub, through each forge's own CLI or its REST API with a token stored nowhere; `ctrl+o p` merging only the commit that was green, into the branch the session came from. The [Forges](#forges) table says which a real run has shown. |
 
 Pre-1.0 deliberately: the embedded terminal library underneath is itself
 pre-1.0, and the key table, `config.toml` keys and `state.json` schema are
