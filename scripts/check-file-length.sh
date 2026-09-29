@@ -21,6 +21,15 @@
 set -euo pipefail
 limit="${1:-500}"
 [ "$#" -gt 0 ] && shift
+# A limit that is not a number makes every comparison below an error inside
+# an if, which set -e ignores, so every file would pass: a typo would turn
+# the gate green for good.
+case $limit in
+  '' | *[!0-9]*)
+    echo "check-file-length: limit \"$limit\" is not a number" >&2
+    exit 2
+    ;;
+esac
 
 if [ "$#" -gt 0 ]; then
   files=$(printf '%s\n' "$@")

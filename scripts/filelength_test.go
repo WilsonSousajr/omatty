@@ -58,6 +58,22 @@ func TestFileLengthGate_PassesAFileExactlyAtTheLimit_issue609(t *testing.T) {
 	}
 }
 
+// A limit that is not a number made every `[ -gt ]` an error inside an if,
+// which set -e does not catch, so every file compared as "not over" and the
+// gate exited 0: one typo in ci.yml and it is green forever.
+func TestFileLengthGate_RefusesALimitThatIsNotANumber_issue609(t *testing.T) {
+	long := writeLines(t, "long.go", 501)
+
+	out, err := runFileLength(t, repoRoot(t), "5OO", long)
+
+	if err == nil {
+		t.Fatalf("the gate passed with a limit of 5OO:\n%s", out)
+	}
+	if !strings.Contains(out, "is not a number") {
+		t.Errorf("the gate failed without naming the bad limit:\n%s", out)
+	}
+}
+
 // Outside a checkout git ls-files lists nothing, and a gate that measured
 // nothing would report green. It must say it had nothing to measure instead.
 func TestFileLengthGate_RefusesAnEmptyFileList_issue609(t *testing.T) {
