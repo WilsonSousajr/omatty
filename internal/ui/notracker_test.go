@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // A forge that keeps no issues for the project - Bitbucket, whose issues are

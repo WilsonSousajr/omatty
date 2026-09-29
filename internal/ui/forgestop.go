@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // LabelFunc names a project's forge and its unit of change, so no copy in the

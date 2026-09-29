@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // FakeBitbucketDCAPI is a Bitbucket Data Center's REST API as a test server
@@ -54,7 +54,7 @@ func (f *FakeBitbucketDCAPI) serve(t *testing.T) string {
 		}
 		for _, route := range bitbucketDCRoutes {
 			if strings.Contains(pq, route.match) {
-				b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "forge", "bitbucket-dc", route.file))
+				b, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "forge", "bitbucket-dc", route.file))
 				if err != nil {
 					t.Error(err)
 				}
@@ -70,7 +70,7 @@ func (f *FakeBitbucketDCAPI) serve(t *testing.T) string {
 
 // serveDCPR42 answers pull request 42 alone, cut from the open list.
 func serveDCPR42(t *testing.T, w http.ResponseWriter) {
-	b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "forge", "bitbucket-dc", "prs-open.json"))
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "forge", "bitbucket-dc", "prs-open.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

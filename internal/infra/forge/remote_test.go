@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // Every shape a remote takes on every forge omatty reads: https, ssh:// and

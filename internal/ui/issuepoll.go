@@ -1,4 +1,4 @@
-// Each project's open issues (#394): read through internal/forge's gh, one
+// Each project's open issues (#394): read through internal/infra/forge's gh, one
 // call per project, off the render path and kept in memory only. prpoll.go's
 // shape, with two differences that are the whole point of a second poll.
 //
@@ -22,7 +22,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // IssueListFunc lists a repository's open issues. Injected so ui never runs gh

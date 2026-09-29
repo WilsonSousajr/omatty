@@ -1,4 +1,4 @@
-// Command forgeprobe proves the thing internal/forge's unit tests cannot: that
+// Command forgeprobe proves the thing internal/infra/forge's unit tests cannot: that
 // the real gh on this machine answers with the field names the fold reads, in
 // a real repository, using the operator's own authentication.
 //
@@ -38,7 +38,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 

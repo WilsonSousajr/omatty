@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // The forge maps are keyed by project, so archive leaves them alone and

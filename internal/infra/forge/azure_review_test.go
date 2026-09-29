@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // azureAt is a Router over url, named azure when hosts says so, with az.

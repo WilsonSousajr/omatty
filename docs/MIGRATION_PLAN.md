@@ -30,7 +30,8 @@ count after the step.
 | 1.2 | #624 | #626 | merged | 28 |
 | 1.3 | #624 | #627 | merged | 28 |
 | 1.4 | #624 | #628 | merged | 28 |
-| 1.5 | #624 | #629 | open | 28 |
+| 1.5 | #624 | #629 | merged | 28 |
+| 1.6 | #624 | #630 | open | 28 |
 
 ## Rules every step follows
 
@@ -49,6 +50,10 @@ count after the step.
        because the new path places the package itself
      - AGENTS.md's "Repository layout" and `docs/ARCHITECTURE.md`'s package
        table
+     - every path a test builds relative to its own directory
+       (`filepath.Join("..", "..", "testdata", ...)`, `golist.List("..", ...)`).
+       These gain a level when the package moves under a layer directory.
+       1.1 and 1.6 each found this through a failing test.
    - A move PR may exceed the 400-line target; every other PR stays under it.
 3. **Extractions leave aliases behind.** When a type moves out of a mixed
    package, the old package keeps `type X = newpkg.X` so importers keep

@@ -23,7 +23,7 @@ package tally
 import (
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
@@ -51,7 +51,7 @@ func (n Numbers) Measured() bool { return n.Merged > 0 || n.GateRuns > 0 }
 //	n := tally.Of(project, state.Sessions, prs)
 //
 // The pull requests come from the caller because reading them is `gh`'s job and
-// `internal/forge` owns that (invariant 4); passing them in also means this
+// `internal/infra/forge` owns that (invariant 4); passing them in also means this
 // package does no I/O and needs none faked.
 func Of(project registry.Project, sessions []registry.Session, prs []forge.PR) Numbers {
 	n := Numbers{GateRuns: project.GateRuns}
@@ -99,7 +99,7 @@ func leadTime(project registry.Project, sess registry.Session, prs []forge.PR) (
 
 // mergedFor is when branch's pull request merged.
 //
-// `MergedAt`, which `internal/forge` had to start asking gh for: the finished
+// `MergedAt`, which `internal/infra/forge` had to start asking gh for: the finished
 // field set carried state and not the time, so every merged pull request arrived
 // with a zero time and no lead time could ever be computed. Found by running
 // --stats against this repository rather than by a test - the fold was right

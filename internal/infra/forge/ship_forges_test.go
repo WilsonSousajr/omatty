@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // FakeWriteAPI is a forge's REST API for #331's three actions: it answers

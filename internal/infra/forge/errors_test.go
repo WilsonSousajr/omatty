@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // missingTool reports whether err says tool is not installed, however deeply

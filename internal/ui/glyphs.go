@@ -14,8 +14,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // markState is a state omatty draws as a one-cell mark.

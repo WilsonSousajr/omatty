@@ -1,4 +1,4 @@
-// Each project's pull requests (#310): read through internal/forge's gh, one
+// Each project's pull requests (#310): read through internal/infra/forge's gh, one
 // call per project, off the render path and kept in memory only. The shape is
 // repostat.go's, keyed by project instead of session.
 
@@ -10,7 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 

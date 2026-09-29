@@ -3,7 +3,7 @@ package forge_test
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // hostile is text an issue's author controls, carrying an OSC 52 clipboard

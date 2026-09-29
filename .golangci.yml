@@ -83,7 +83,7 @@ linters:
             - "$all"
             - "!$test"
             - "!**/internal/infra/detach/**"
-            - "!**/internal/forge/**"
+            - "!**/internal/infra/forge/**"
             - "!**/internal/gate/**"
             - "!**/internal/infra/golist/**"
             - "!**/internal/infra/notify/**"
@@ -92,8 +92,8 @@ linters:
             - "!**/internal/infra/vcs/**"
           deny:
             - pkg: os/exec
-              desc: "shelling out belongs to infra/detach, forge, gate, infra/golist, infra/notify, supervisor, termwrap and infra/vcs"
-        # The network is a capability for the same reason (#453): internal/forge's
+              desc: "shelling out belongs to infra/detach, infra/forge, gate, infra/golist, infra/notify, supervisor, termwrap and infra/vcs"
+        # The network is a capability for the same reason (#453): internal/infra/forge's
         # REST fallback carries a token borrowed from the environment, and a
         # second HTTP client elsewhere is a second place it could go.
         # scripts/network_test.go asserts the list still matches the code.
@@ -102,10 +102,10 @@ linters:
           files:
             - "$all"
             - "!$test"
-            - "!**/internal/forge/**"
+            - "!**/internal/infra/forge/**"
           deny:
             - pkg: net/http
-              desc: "the network belongs to internal/forge (#453)"
+              desc: "the network belongs to internal/infra/forge (#453)"
     forbidigo:
       forbid:
         # Invariant 5: stdout belongs to the TUI.

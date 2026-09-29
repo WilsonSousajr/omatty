@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // detailJSON is `gh issue view --json` output with the fields FoldDetail reads.

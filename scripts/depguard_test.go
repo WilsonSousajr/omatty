@@ -19,7 +19,7 @@ import (
 // only thing that would say so. internal/termwrap earns its place by naming
 // *exec.Cmd in a signature without ever constructing one - a distinction
 // depguard cannot draw.
-var execAllowed = []string{"infra/detach", "forge", "gate", "infra/golist", "infra/notify", "supervisor", "termwrap", "infra/vcs"}
+var execAllowed = []string{"infra/detach", "infra/forge", "gate", "infra/golist", "infra/notify", "supervisor", "termwrap", "infra/vcs"}
 
 // Regression, issue #260: invariant 4 fences bubbleterm inside internal/termwrap,
 // and AGENTS.md:68 said internal/ui was the only package importing bubbletea.
@@ -125,7 +125,7 @@ func inPackage(path, pkg string) bool {
 	return strings.HasPrefix(path, filepath.Join("internal", pkg)+string(filepath.Separator))
 }
 
-// The gh CLI's twin of the rule above (#310): internal/forge owns gh, so a
+// The gh CLI's twin of the rule above (#310): internal/infra/forge owns gh, so a
 // second package naming it would be a second, unreviewed reader of the forge.
 // Since #452 it fences every forge's CLI, because each is the same capability:
 // glab for GitLab, az for Azure DevOps, tea for Gitea and Forgejo.
@@ -133,7 +133,7 @@ func TestNoGhOutsideForge(t *testing.T) {
 	root := repoRoot(t)
 
 	for _, path := range productionFiles(t, root) {
-		if inPackage(path, "forge") {
+		if inPackage(path, "infra/forge") {
 			continue
 		}
 		b, err := os.ReadFile(filepath.Join(root, path))
@@ -143,13 +143,13 @@ func TestNoGhOutsideForge(t *testing.T) {
 		for _, cli := range forgeCLIs {
 			if line, found := codeLineNaming(string(b), `"`+cli+`"`); found {
 				t.Errorf(`%s names "%s": %s`+"\n"+
-					"every forge CLI is reached through internal/forge alone", path, cli, line)
+					"every forge CLI is reached through internal/infra/forge alone", path, cli, line)
 			}
 		}
 	}
 }
 
-// forgeCLIs is every forge's own CLI, each fenced to internal/forge (#452).
+// forgeCLIs is every forge's own CLI, each fenced to internal/infra/forge (#452).
 var forgeCLIs = []string{"gh", "glab", "az", "tea"}
 
 // realExecImporters asks the toolchain which of our packages import os/exec,

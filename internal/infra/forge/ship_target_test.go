@@ -3,7 +3,7 @@ package forge_test
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // Every fold carries the branch a pull request would merge into, so ctrl+o p

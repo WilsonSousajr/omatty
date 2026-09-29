@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // FakeRemote stands in for vcs.CLI.RemoteURL: one URL for every project, or
