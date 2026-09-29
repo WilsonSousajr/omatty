@@ -158,6 +158,12 @@ func TestREST_NeverSendsATokenOverPlainHTTP_issue453(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "https") || plain.Got != nil {
 		t.Errorf("error = %v, server got a request %v; want the token refused before sending", err, plain.Got != nil)
 	}
+	// Typed, so the UI stops the project with a note: no poll changes a
+	// remote's scheme, and an untyped refusal was asked again forever (#584).
+	var refused *forge.PlainHTTPError
+	if !errors.As(err, &refused) || refused.TokenEnv != "GITLAB_TOKEN" || refused.Host == "" {
+		t.Errorf("error = %#v, want a PlainHTTPError naming the host and GITLAB_TOKEN (#584)", err)
+	}
 	if _, err := forge.RESTGet(srv, srv.URL, forge.Anonymous(), "GITEA_TOKEN", time.Second); err != nil {
 		t.Errorf("an anonymous read over http: %v, want it sent", err)
 	}

@@ -108,7 +108,7 @@ func request(ctx context.Context, method, url string, body io.Reader, a auth, to
 	}
 	a(req)
 	if req.URL.Scheme != "https" && carriesCredential(req.Header) {
-		return nil, fmt.Errorf("forge: refusing to send %s's token to %s over plain http; the remote must be https", tokenEnv, req.URL.Host)
+		return nil, &PlainHTTPError{Host: req.URL.Host, TokenEnv: tokenEnv}
 	}
 	return req, nil
 }

@@ -91,8 +91,12 @@ func bitbucketCI(state string) CIState {
 	switch state {
 	case "SUCCESSFUL":
 		return CIPassing
-	case "FAILED", "STOPPED": // STOPPED is a run someone halted: it did not pass
+	// STOPPED is a run someone halted, and CANCELLED Data Center's STOPPED:
+	// neither passed.
+	case "FAILED", "STOPPED", "CANCELLED":
 		return CIFailing
+	case "UNKNOWN": // Data Center's no result - never running forever (#461's review)
+		return CINone
 	}
 	return CIRunning
 }

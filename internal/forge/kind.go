@@ -38,7 +38,9 @@ var builtInHosts = map[string]Kind{
 
 // sshOver443 is each forge's ssh-over-https-port host and the host every API
 // and web page is on: git reaches it, nothing else does (#454's review).
-var sshOver443 = map[string]string{"ssh.github.com": "github.com", "altssh.gitlab.com": "gitlab.com"}
+var sshOver443 = map[string]string{
+	"ssh.github.com": "github.com", "altssh.gitlab.com": "gitlab.com", "altssh.bitbucket.org": "bitbucket.org",
+}
 
 // webHost is remote as everything but git sees it: an ssh-over-443 host
 // becomes its forge's own, without ssh's port.

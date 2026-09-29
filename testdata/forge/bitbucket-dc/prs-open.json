@@ -1,0 +1,20 @@
+{"size": 2, "limit": 100, "isLastPage": true, "start": 0, "values": [
+ {"id": 42, "title": "Add the audit export", "description": "Exports the audit log as CSV.", "state": "OPEN", "open": true, "draft": false,
+  "createdDate": 1790000000000, "updatedDate": 1790500000000,
+  "fromRef": {"id": "refs/heads/feature/audit-export", "displayId": "feature/audit-export", "latestCommit": "8d51122def5632836d1cb1026e879069e10a1e13",
+              "repository": {"slug": "platform", "project": {"key": "OPS"}}},
+  "toRef": {"id": "refs/heads/main", "displayId": "main", "latestCommit": "0a943a29376f2336b78312d99e65da17048951db",
+            "repository": {"slug": "platform", "project": {"key": "OPS"}}},
+  "author": {"user": {"name": "jdoe", "displayName": "Jane Doe"}},
+  "properties": {"mergeResult": {"outcome": "CONFLICTED", "current": true}},
+  "links": {"self": [{"href": "https://git.corp.example/projects/OPS/repos/platform/pull-requests/42"}]}},
+ {"id": 41, "title": "Bump the base image", "description": "", "state": "OPEN", "open": true, "draft": true,
+  "createdDate": 1789000000000, "updatedDate": 1789400000000,
+  "fromRef": {"id": "refs/heads/bump", "displayId": "bump", "latestCommit": "5b4a1c93b1d1c09e4e8e1e7c0b9fa0e1d2c3b4a5",
+              "repository": {"slug": "platform", "project": {"key": "~JDOE"}}},
+  "toRef": {"id": "refs/heads/main", "displayId": "main", "latestCommit": "0a943a29376f2336b78312d99e65da17048951db",
+            "repository": {"slug": "platform", "project": {"key": "OPS"}}},
+  "author": {"user": {"name": "jdoe", "displayName": "Jane Doe"}},
+  "properties": {"mergeResult": {"outcome": "CLEAN", "current": true}},
+  "links": {"self": [{"href": "https://git.corp.example/projects/OPS/repos/platform/pull-requests/41"}]}}
+]}

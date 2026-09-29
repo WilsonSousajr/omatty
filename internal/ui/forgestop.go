@@ -44,7 +44,8 @@ func (m *Model) stopsForge(project string, err error) bool {
 func stopping(err error) bool {
 	var missing *forge.MissingToolError
 	var refused *forge.AuthError
-	return errors.As(err, &missing) || errors.As(err, &refused) || errors.Is(err, forge.ErrNoForge)
+	var plain *forge.PlainHTTPError
+	return errors.As(err, &missing) || errors.As(err, &refused) || errors.As(err, &plain) || errors.Is(err, forge.ErrNoForge)
 }
 
 // loseForge stops both lists for one project and drops what either had read,
@@ -65,8 +66,8 @@ func (m *Model) loseForge(project string, err error) {
 }
 
 // stoppedNote is the tracker's note for a stopped project: the tool that is
-// missing with its fix, the token the forge refused, or the forge the checkout
-// is not on.
+// missing with its fix, the token the forge refused, a token omatty will not
+// send over http, or the forge the checkout is not on.
 func (m *Model) stoppedNote(project string, err error) string {
 	why, cannotRead := stoppedPhrase(err)
 	if !cannotRead {
@@ -80,11 +81,14 @@ func (m *Model) stoppedNote(project string, err error) string {
 func stoppedPhrase(err error) (string, bool) {
 	var missing *forge.MissingToolError
 	var refused *forge.AuthError
+	var plain *forge.PlainHTTPError
 	switch {
 	case errors.As(err, &missing):
 		return missingPhrase(missing), true
 	case errors.As(err, &refused):
 		return refused.Host + " refused " + refused.TokenEnv + " (" + strconv.Itoa(refused.Status) + ")", true
+	case errors.As(err, &plain):
+		return "omatty sends " + plain.TokenEnv + " only over https, and " + plain.Host + " is http", true
 	}
 	return "", false
 }

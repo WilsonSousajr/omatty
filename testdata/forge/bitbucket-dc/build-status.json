@@ -1,0 +1,4 @@
+{"size": 2, "limit": 25, "isLastPage": true, "start": 0, "values": [
+ {"state": "SUCCESSFUL", "key": "BAMBOO-PLAN-1", "name": "unit tests", "url": "https://ci.corp.example/browse/PLAN-1", "dateAdded": 1790400000000},
+ {"state": "FAILED", "key": "BAMBOO-PLAN-2", "name": "integration", "url": "https://ci.corp.example/browse/PLAN-2", "dateAdded": 1790450000000}
+]}
