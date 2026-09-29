@@ -26,7 +26,7 @@ count after the step.
 | Step | Issue | PR | State | Findings |
 |---|---|---|---|---|
 | 0 | #622 | #623 | merged | 28 |
-| 1.1 | #624 | this PR | open | 28 |
+| 1.1 | #624 | #625 | open | 28 |
 
 ## Rules every step follows
 
