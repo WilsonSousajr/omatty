@@ -24,7 +24,7 @@ func (g Graph) Violations() []Violation {
 // Margin returns the tightest edge in the graph and its slack.
 //
 // It is reported on every run, clean or not, because instability is a ratio of
-// small integers and so moves in jumps: internal/config is Ca=1, Ce=1, and one
+// small integers and so moves in jumps: internal/infra/config is Ca=1, Ce=1, and one
 // new importer takes it from 0.50 to 0.33. A gate that only ever says "clean"
 // gives no warning that the next import will break it, and the reader would
 // have no way to tell a broken architecture from an unrelated import.

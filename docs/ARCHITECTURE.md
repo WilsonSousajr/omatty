@@ -112,7 +112,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 |---|---|
 | `cmd/omatty` | The binary. Flags, dependency construction, `omatty hook`. Thin by rule. |
 | `internal/agent` | What a coding agent is: a command template plus a status adapter. Claude is the only profile (#46). |
-| `internal/config` | `~/.omatty/config.toml`. Every key optional; a missing file is every default. The only package that names a TOML library. |
+| `internal/infra/config` | `~/.omatty/config.toml`. Every key optional; a missing file is every default. The only package that names a TOML library. |
 | `internal/infra/detach` | omatty's only route to `dtach`. Returns a no-op holder when the binary is absent. |
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
 | `internal/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
@@ -264,7 +264,7 @@ nothing depends on.
 | Package | Ca | Ce | I |
 |---|---|---|---|
 | `internal/tally`, `internal/ui` | 0 | 2, 14 | 1.00 |
-| `internal/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
+| `internal/infra/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
 | `internal/supervisor` | 1 | 6 | 0.86 |
 | `internal/review` | 1 | 3 | 0.75 |
 | `internal/agent` | 2 | 3 | 0.60 |
@@ -293,7 +293,7 @@ import it, which is what keeps every forge's CLI, and the network, inside one
 package we own.
 
 **That is a gate, not an observation** (#269). It landed report-only on purpose:
-`I` is a ratio of small integers and moves in jumps — `internal/config` is
+`I` is a ratio of small integers and moves in jumps — `internal/infra/config` is
 Ca=1 Ce=1, and one new importer would take it from 0.50 to 0.33 — so a gate
 failing on a margin nobody had watched move would be one people learn to
 `--no-verify` past. The margin was watched instead, and across every merge from

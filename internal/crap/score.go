@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/coverage"
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // Scores reads every function in pkgs and joins it to a coverage profile,

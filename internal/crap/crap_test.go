@@ -7,7 +7,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/coverage"
 	"github.com/WilsonSousajr/omatty/internal/crap"
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // The published formula, at the points that decide the gate's threshold.

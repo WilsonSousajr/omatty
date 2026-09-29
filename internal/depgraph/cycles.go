@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // TestCycles returns import cycles that run through a package's tests.

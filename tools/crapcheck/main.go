@@ -17,7 +17,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/coverage"
 	"github.com/WilsonSousajr/omatty/internal/crap"
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 func main() {

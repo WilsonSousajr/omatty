@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/depgraph"
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 func main() {

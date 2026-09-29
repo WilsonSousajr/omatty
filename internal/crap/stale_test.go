@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/crap"
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // Reusing the coverage step's profile is what makes this gate nearly free, and

@@ -53,12 +53,13 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
+│   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
 │   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).
+│   ├── golist/     [M11] OUR interface over `go list` (invariant 4 in spirit).
 │   ├── highlight/  [M5] OUR interface over chroma (invariant 4 in spirit).
 │   ├── notify/     desktop notifications for a session needing attention.
 │   ├── paths/      every filesystem location omatty reads or writes. Pure.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
-├── config/         ~/.omatty/config.toml; every key optional. The only TOML importer.
 ├── registry/       projects + sessions + state.json.
 ├── agent/          the agent seam (#46): a command template plus a status adapter.
 ├── forge/          OUR interface over every forge's CLI - gh, glab, az, tea - behind
@@ -75,7 +76,6 @@ internal/
 ├── paste/          bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── gate/           [M9] a project's own verification commands -> per-step verdicts.
 ├── coverage/       [M10] a coverage profile -> per-line verdicts and raw blocks.
-├── golist/         [M11] OUR interface over `go list` (invariant 4 in spirit).
 ├── crap/           [M11] per-function complexity x coverage -> a C.R.A.P. score.
 ├── depgraph/       [M11] the internal import graph -> Ca, Ce, instability, SDP.
 ├── tally/          [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
@@ -203,7 +203,7 @@ not in the gate.
   Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
-  from `infra/detach`, `forge`, `gate`, `golist`, `infra/notify`, `supervisor`,
+  from `infra/detach`, `forge`, `gate`, `infra/golist`, `infra/notify`, `supervisor`,
   `termwrap` and `infra/vcs`, and nowhere else in production code. `termwrap` is on that list because it names
   `*exec.Cmd` in a signature without ever constructing one - a distinction
   depguard cannot draw. `forge` joined for #310 as omatty's one route to the
