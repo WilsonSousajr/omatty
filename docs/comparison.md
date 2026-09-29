@@ -22,7 +22,7 @@ Concretely, and these are the claims worth checking first:
 - **A project carries its gate**: its own `fmt`/`vet`/`lint`/`test`/coverage
   line. omatty runs it in each session's own worktree, puts a verdict per step
   on that session's card, and sends the failures back into the session that
-  caused them with one keystroke (`internal/gate`, `internal/coverage`).
+  caused them with one keystroke (`internal/gate`, `internal/domain/coverage`).
   **As of 2026-09-27, no session manager or agent workspace above about a
   hundred stars does this.** The larger tools show the *remote* verdict, the
   pull request's CI, and so does `claude agents`. Four small tools each do part

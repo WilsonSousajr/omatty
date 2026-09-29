@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/coverage"
+	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 )
 
 const omattyModule = "github.com/WilsonSousajr/omatty"

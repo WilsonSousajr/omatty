@@ -4,7 +4,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/coverage"
+	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"

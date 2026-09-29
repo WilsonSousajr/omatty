@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/coverage"
+	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"

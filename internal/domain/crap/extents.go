@@ -5,7 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 
-	"github.com/WilsonSousajr/omatty/internal/coverage"
+	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 )
 
 // extent is one function declaration's span, in the same coordinates a

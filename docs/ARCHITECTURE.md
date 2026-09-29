@@ -116,7 +116,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/infra/detach` | omatty's only route to `dtach`. Returns a no-op holder when the binary is absent. |
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
 | `internal/domain/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
-| `internal/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. |
+| `internal/domain/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. |
 | `internal/tally` | A project's gate counters and its pull requests → lead time and first-pass rate. Pure; no I/O (#332). |
 | `internal/infra/forge` | omatty's only route to any forge, and its only HTTP client: a `Router` that names each project's forge from its remote and reads it through the forge's own CLI (`gh`, `glab`, `tea`, `az`) or its REST API - a project's pull requests, its open issues, one item in full, browse - on a timer, and the three writes the ship key makes, only on a keypress (#310, #394, #397, #331, #452-#465). A token is borrowed per call, sent only to the instance it is for, and stored nowhere (#453). |
 | `internal/gate` | A project's own verification commands, run in a session's directory. Verdicts come from exit status only (invariant 12). |
@@ -277,7 +277,7 @@ Paths are relative to `internal/`; the figures are `./scripts/check-deps.sh`'s.
 | `registry` | 5 | 3 | 0.38 |
 | `infra/paths` | 6 | 0 | 0.00 |
 | `infra/forge`, `infra/hooks` | 3 | 0 | 0.00 |
-| `coverage`, `domain/fuzzy`, `gate`, `infra/golist`, `termwrap`, `infra/vcs` | 2 | 0 | 0.00 |
+| `domain/coverage`, `domain/fuzzy`, `gate`, `infra/golist`, `termwrap`, `infra/vcs` | 2 | 0 | 0.00 |
 | `infra/highlight`, `infra/notify`, `keys`, `domain/paste` | 1 | 0 | 0.00 |
 
 The chain reads as a clean monotonic descent —

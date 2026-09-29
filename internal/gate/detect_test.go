@@ -169,7 +169,7 @@ func TestDetect_coverageProfile_isTheEcosystemsConvention(t *testing.T) {
 	}
 }
 
-// Python's conventional report is Cobertura XML, which internal/coverage cannot
+// Python's conventional report is Cobertura XML, which internal/domain/coverage cannot
 // read. Proposing a path omatty would fail to parse is worse than proposing
 // none: an empty profile means "no overlay", which is true, while a wrong one
 // means "an overlay that never arrives" and says nothing about why.
