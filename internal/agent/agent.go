@@ -9,7 +9,7 @@
 //
 // Nothing here starts a process. Command returns an argument list, not an
 // *exec.Cmd, so the rule that only internal/supervisor runs a binary and only
-// internal/detach holds it survives the seam (invariant 4). Nothing here can
+// internal/infra/detach holds it survives the seam (invariant 4). Nothing here can
 // read a screen either: Status takes transcript bytes and hook payloads, and
 // a Profile has no field a terminal could be handed through (invariant 2).
 package agent

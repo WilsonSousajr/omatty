@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/agent"
-	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/hooks"
+	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
@@ -30,7 +30,7 @@ type Launcher struct {
 	home      string
 	// holder keeps the process alive across omatty's own exit. It is an
 	// interface, not the dtach type, because invariant 4 keeps the binary
-	// inside internal/detach and because a machine without dtach gets the
+	// inside internal/infra/detach and because a machine without dtach gets the
 	// Plain holder instead (#43).
 	holder detach.Holder
 }

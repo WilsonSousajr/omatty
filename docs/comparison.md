@@ -95,7 +95,7 @@ See "Is this just lazygit?" below, because it is the right question.
   its command line (invariant 3). herdr's Claude integration writes
   `~/.claude/settings.json`.
 - **Sessions outlive the app.** With `dtach`, quitting detaches rather than
-  ends (`internal/detach`). ccmanager restores the session *records* and starts
+  ends (`internal/infra/detach`). ccmanager restores the session *records* and starts
   fresh processes; omatty keeps the process. Keeping the process keeps its
   history: after a reattach `pgup` still reaches the whole conversation in
   Claude Code's own pager, a turn that finished while omatty was closed

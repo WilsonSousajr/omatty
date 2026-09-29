@@ -113,7 +113,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `cmd/omatty` | The binary. Flags, dependency construction, `omatty hook`. Thin by rule. |
 | `internal/agent` | What a coding agent is: a command template plus a status adapter. Claude is the only profile (#46). |
 | `internal/config` | `~/.omatty/config.toml`. Every key optional; a missing file is every default. The only package that names a TOML library. |
-| `internal/detach` | omatty's only route to `dtach`. Returns a no-op holder when the binary is absent. |
+| `internal/infra/detach` | omatty's only route to `dtach`. Returns a no-op holder when the binary is absent. |
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
 | `internal/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
 | `internal/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. |
@@ -268,7 +268,7 @@ nothing depends on.
 | `internal/supervisor` | 1 | 6 | 0.86 |
 | `internal/review` | 1 | 3 | 0.75 |
 | `internal/agent` | 2 | 3 | 0.60 |
-| `internal/detach`, `watcher` | 1, 3 | 1, 3 | 0.50 |
+| `internal/infra/detach`, `watcher` | 1, 3 | 1, 3 | 0.50 |
 | `internal/registry` | 5 | 3 | 0.38 |
 | `internal/infra/paths` | 6 | 0 | 0.00 |
 | `internal/forge`, `hooks` | 3 | 0 | 0.00 |
