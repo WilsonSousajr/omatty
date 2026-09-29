@@ -39,7 +39,7 @@ import (
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/forge"
-	"github.com/WilsonSousajr/omatty/internal/vcs"
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 
 func main() {

@@ -40,7 +40,7 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 - **TUI:** `charm.land/bubbletea/v2`, `lipgloss/v2`, `bubbles/v2`.
 - **Embedded terminal:** `github.com/taigrr/bubbleterm` (pre-1.0 — invariant 4),
   `github.com/creack/pty`.
-- **Git:** the `git` CLI via `os/exec`, wrapped by `internal/vcs`. Not go-git:
+- **Git:** the `git` CLI via `os/exec`, wrapped by `internal/infra/vcs`. Not go-git:
   linked-worktree support is v6-experimental and incomplete.
 - **Diff parsing (M3):** `github.com/bluekeyes/go-gitdiff`.
 - **Syntax highlighting (M5):** `github.com/alecthomas/chroma/v2`, behind
@@ -53,11 +53,11 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
-│   └── paths/      every filesystem location omatty reads or writes. Pure.
+│   ├── paths/      every filesystem location omatty reads or writes. Pure.
+│   └── vcs/        OUR interface over the git CLI (invariant 4).
 ├── config/         ~/.omatty/config.toml; every key optional. The only TOML importer.
 ├── registry/       projects + sessions + state.json.
 ├── agent/          the agent seam (#46): a command template plus a status adapter.
-├── vcs/            OUR interface over the git CLI (invariant 4).
 ├── forge/          OUR interface over every forge's CLI - gh, glab, az, tea - behind
 │                one Router: pull requests, CI and issues, read on a timer;
 │                written only on a keypress (#310, #331, #452).
@@ -196,7 +196,7 @@ not in the gate.
 - **Inject through constructor or parameter.** No package-level mutable state,
   no global singletons, no `init()` side effects.
 - **Wrap third-party libraries behind a thin interface this project owns.**
-  `internal/termwrap` owns bubbleterm and the PTY, `internal/vcs` owns the git
+  `internal/termwrap` owns bubbleterm and the PTY, `internal/infra/vcs` owns the git
   CLI, `internal/forge` owns every forge CLI (gh, glab, az, tea),
   `internal/highlight` owns chroma,
   `internal/review` owns go-gitdiff. No other package may import them.
@@ -204,7 +204,7 @@ not in the gate.
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
   from `detach`, `forge`, `gate`, `golist`, `notify`, `supervisor`,
-  `termwrap` and `vcs`, and nowhere else in production code. `termwrap` is on that list because it names
+  `termwrap` and `infra/vcs`, and nowhere else in production code. `termwrap` is on that list because it names
   `*exec.Cmd` in a signature without ever constructing one - a distinction
   depguard cannot draw. `forge` joined for #310 as omatty's one route to the
   forge, through `gh` - reading on a timer, and since #331 writing on a
@@ -250,7 +250,7 @@ not in the gate.
    hooks are passed with `--settings ~/.omatty/hooks.json`. Zero footprint is a
    feature.
 4. **bubbleterm and git are reachable only through `internal/termwrap` and
-   `internal/vcs`.** bubbleterm is pre-1.0 and will break; the blast radius must
+   `internal/infra/vcs`.** bubbleterm is pre-1.0 and will break; the blast radius must
    stay inside one package we own.
 
    Enforced by `depguard` in `.golangci.yml` (#260) - but only half of it can

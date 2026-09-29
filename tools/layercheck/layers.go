@@ -43,7 +43,6 @@ var transitional = map[string]Layer{
 	"internal/watcher": Service, "internal/watcher/e2e": Service,
 	"internal/config": Infra, "internal/detach": Infra, "internal/forge": Infra, "internal/golist": Infra,
 	"internal/highlight": Infra, "internal/hooks": Infra, "internal/notify": Infra,
-	"internal/vcs":  Infra,
 	"internal/keys": TUI, "internal/termwrap": TUI, "internal/ui": TUI,
 	"internal/pubsub": Pubsub, "internal/cli": CLI, "scripts": Tools,
 }

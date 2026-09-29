@@ -1,7 +1,7 @@
 // Package detach is omatty's only route to the dtach binary.
 //
 // Invariant 4: a third-party program omatty does not control is reachable
-// through one package it owns, the way internal/vcs owns the git CLI and
+// through one package it owns, the way internal/infra/vcs owns the git CLI and
 // internal/termwrap owns bubbleterm. Nothing outside this package names dtach.
 //
 // The problem it solves: quitting omatty closes every PTY, which hangs up the

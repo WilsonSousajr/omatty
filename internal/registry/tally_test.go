@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/registry"
-	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
 
 // #332 needs a start time to measure lead time from, and Session had none. It

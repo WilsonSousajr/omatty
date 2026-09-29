@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
-	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
 
 var shipSession = registry.Session{ID: "s1", Dir: "/wt/s1", Branch: "feat/a", Base: "develop"}

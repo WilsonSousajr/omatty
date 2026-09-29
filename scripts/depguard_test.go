@@ -19,7 +19,7 @@ import (
 // only thing that would say so. internal/termwrap earns its place by naming
 // *exec.Cmd in a signature without ever constructing one - a distinction
 // depguard cannot draw.
-var execAllowed = []string{"detach", "forge", "gate", "golist", "notify", "supervisor", "termwrap", "vcs"}
+var execAllowed = []string{"detach", "forge", "gate", "golist", "notify", "supervisor", "termwrap", "infra/vcs"}
 
 // Regression, issue #260: invariant 4 fences bubbleterm inside internal/termwrap,
 // and AGENTS.md:68 said internal/ui was the only package importing bubbletea.
@@ -99,12 +99,12 @@ func TestDepguard_ExecRuleMatchesTheAllowlist(t *testing.T) {
 
 // Invariant 4's other half, which depguard structurally cannot see: git is
 // reached by a string literal handed to exec, not by an import, so no import
-// rule can fence it. internal/vcs owns the git CLI and nothing else may name it.
+// rule can fence it. internal/infra/vcs owns the git CLI and nothing else may name it.
 func TestNoGitOutsideVcs(t *testing.T) {
 	root := repoRoot(t)
 
 	for _, path := range productionFiles(t, root) {
-		if inPackage(path, "vcs") {
+		if inPackage(path, "infra/vcs") {
 			continue
 		}
 		b, err := os.ReadFile(filepath.Join(root, path))
@@ -113,7 +113,7 @@ func TestNoGitOutsideVcs(t *testing.T) {
 		}
 		if line, found := codeLineNaming(string(b), `"git"`); found {
 			t.Errorf(`%s names "git": %s`+"\n"+
-				"invariant 4 routes the git CLI through internal/vcs alone", path, line)
+				"invariant 4 routes the git CLI through internal/infra/vcs alone", path, line)
 		}
 	}
 }
@@ -180,13 +180,28 @@ func realImporters(t *testing.T, pkg string) map[string]bool {
 
 // shortName turns an import path into the package name a depguard glob uses:
 // the first segment under internal/, so internal/watcher/e2e answers "watcher".
+// Under one of ADR 0001's layer directories it is the first two, so
+// internal/infra/vcs answers "infra/vcs" (#624).
 func shortName(importPath string) string {
 	_, rest, found := strings.Cut(importPath, "/internal/")
 	if !found {
 		return ""
 	}
-	name, _, _ := strings.Cut(rest, "/")
-	return name
+	return packageName(rest)
+}
+
+// layerDirs are ADR 0001's layer directories: a package under one of them is
+// named by its layer and its own directory, not by the layer alone.
+var layerDirs = map[string]bool{"domain": true, "service": true, "infra": true, "tui": true}
+
+// packageName is the depguard-glob name of a path relative to internal/.
+func packageName(rel string) string {
+	first, rest, _ := strings.Cut(rel, "/")
+	if !layerDirs[first] {
+		return first
+	}
+	second, _, _ := strings.Cut(rest, "/")
+	return first + "/" + second
 }
 
 // slicesContains is here rather than slices.Contains only to keep this file
@@ -292,8 +307,8 @@ func negatedInternal(line string) (string, bool) {
 	if !found {
 		return "", false
 	}
-	name, _, ok := strings.Cut(rest, "/")
-	return name, ok && name != ""
+	name := packageName(rest)
+	return name, strings.HasPrefix(rest, name+"/") && name != "" && !strings.HasSuffix(name, "/")
 }
 
 // leadingSpaces counts a line's indentation.
@@ -318,5 +333,25 @@ func TestInPackage_isTheDirectoryNotANamePrefix_issue359(t *testing.T) {
 		if got := inPackage(tt.path, tt.pkg); got != tt.want {
 			t.Errorf("inPackage(%q, %q) = %v, want %v", tt.path, tt.pkg, got, tt.want)
 		}
+	}
+}
+
+// A package under an ADR 0001 layer directory is named by two segments, or
+// every infra adapter would collapse into one allowlist entry, "infra" (#624).
+func TestShortName_layerDirectoriesKeepTheirSecondSegment_issue624(t *testing.T) {
+	cases := map[string]string{
+		"github.com/WilsonSousajr/omatty/internal/vcs":          "vcs",
+		"github.com/WilsonSousajr/omatty/internal/watcher/e2e":  "watcher",
+		"github.com/WilsonSousajr/omatty/internal/infra/vcs":    "infra/vcs",
+		"github.com/WilsonSousajr/omatty/internal/infra/vcs/x":  "infra/vcs",
+		"github.com/WilsonSousajr/omatty/internal/domain/state": "domain/state",
+	}
+	for path, want := range cases {
+		if got := shortName(path); got != want {
+			t.Errorf("shortName(%s) = %q, want %q", path, got, want)
+		}
+	}
+	if name, ok := negatedInternal(`            - "!**/internal/infra/vcs/**"`); !ok || name != "infra/vcs" {
+		t.Errorf("negatedInternal(infra/vcs glob) = %q, %v; want infra/vcs, true", name, ok)
 	}
 }

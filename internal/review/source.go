@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/registry"
-	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
 
 // Source fetches a session's diff through vcs (invariant 4) and parses it.
