@@ -1,19 +1,15 @@
 package review_test
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 // oneFile parses src and returns its only file.
 func oneFile(t *testing.T, src string) review.File {
 	t.Helper()
-	d, err := review.ParseDiff(strings.NewReader(src))
-	if err != nil {
-		t.Fatal(err)
-	}
+	d := parse(t, src)
 	if len(d.Files) != 1 {
 		t.Fatalf("parsed %d files, want 1", len(d.Files))
 	}

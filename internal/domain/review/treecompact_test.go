@@ -3,7 +3,7 @@ package review_test
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 // A chain of directories with one child each is one row: Go trees are deep,

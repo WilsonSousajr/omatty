@@ -60,6 +60,7 @@ internal/
 │   ├── fuzzy/      subsequence ranking for the session switcher and project picker. Pure.
 │   ├── gate/       [M9] Step, Verdict, Report, the output caps and the prompt: pure.
 │   ├── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).
+│   ├── review/     the review model: files, hunks, lines, content anchors (invariant 7), the tree, Compose.
 │   ├── session/    Project, Session, State - what state.json holds (invariant 9) - and placeholder names.
 │   └── status/     a session's status vocabulary: Kind, Status, Event, Tokens, the hook payload, Apply.
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
@@ -81,7 +82,7 @@ internal/
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
 ├── discover/       proposes repositories to register, from claude's transcript store (#91).
-├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
+├── review/         [M3] loads a diff and a turn, previews, reverts; the model is domain/review.
 ├── gate/           [M9] runs a project's own verification commands; its vocabulary is domain/gate.
 ├── tally/          [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
 └── ui/             bubbletea model, panes, rendering.

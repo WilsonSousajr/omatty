@@ -129,6 +129,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/domain/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
 | `internal/infra/paths` | Every filesystem location omatty reads or writes. Pure; takes `home` explicitly so tests never touch the real one. |
 | `internal/registry` | Projects, sessions, `state.json`, and the commands that edit them (add, remove, rename, adopt, create, gate, carry). Creating a worktree also carries the project's gitignored paths into it, before the session is registered (#309). |
+| `internal/domain/review` | The review model: a diff as files, hunks and lines; comments anchored on content, not line numbers (invariant 7); where they land after the diff moves; the file tree; the prompt `Compose` writes. Pure; `internal/review` aliases it until migration step 8.1. |
 | `internal/domain/session` | `Project`, `Session`, `State` - what `state.json` holds, whose JSON tags are invariant 9 - and the placeholder title and branch a new session starts with. Pure; `internal/registry` aliases it until migration step 8.1. |
 | `internal/domain/status` | A session's status vocabulary - `Kind`, `Status`, `Event`, `Tokens`, `SessionState`, `HookPayload` - and `Apply`, which folds an event into a state. Pure; `internal/watcher` and `internal/infra/hooks` alias it until migration step 8.1. |
 | `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 func commentAt(t *testing.T, d review.Diff, p review.Position, n string) review.Comment {

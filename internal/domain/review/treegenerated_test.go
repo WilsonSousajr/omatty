@@ -3,7 +3,7 @@ package review_test
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 // paths returns the visible rows' paths, which is what every assertion here

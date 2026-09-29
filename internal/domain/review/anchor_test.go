@@ -3,7 +3,7 @@ package review_test
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 // Invariant 7: an anchor is the line's content, never its number.

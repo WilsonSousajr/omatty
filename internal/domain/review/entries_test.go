@@ -3,7 +3,7 @@ package review_test
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 func kinds(es []review.Entry) []review.EntryKind {
