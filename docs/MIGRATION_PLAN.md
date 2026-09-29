@@ -43,7 +43,8 @@ count after the step.
 | 3.4 | #635 | #641 | merged | 24 |
 | 3.5 | #635 | #642 | merged | 23 |
 | 3.6a | #635 | #643 | merged | 23 |
-| 3.6b | #635 | #645 | open | 23 |
+| 3.6b | #635 | #645 | merged | 23 |
+| Amendment 3 | #635 | #646 | open | 23 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
@@ -150,7 +151,7 @@ domain half one at a time.
 | 3.5 | `refactor: domain/forge types out of infra/forge` | PR, Issue, Detail, Comment, CI, Kind, Label; aliases in `infra/forge` | M | ADR tree | 1.6 | revert |
 | 3.6a | `refactor: domain/review from review (model)` | anchor, change, comments, compose, digest, entries, pair, place, tree, treecompact, turnplace, shippable; aliases | M | invariants 7 and 8 | 3.1 | revert |
 | 3.6b | `refactor: go-gitdiff parsing to infra/gitdiff` | `review/parse.go`; the depguard `wrappers` rule retargeted | M | invariant 4 in spirit | 3.6a | revert |
-| 3.6c | `refactor: review's file reads to infra/fsread` | the `preview.go` read, the `generated.go` .gitattributes read | M | P5 | 3.4, 3.6a | revert |
+| 3.6c | *Folded into 5.8 by Amendment 3.* | `ui` defaults `Deps.Preview` to `review.ReadPreview`, and the header read serves `Source.Generated`, so moving the reads before `service/review`'s `FileReader` port would add a tui → infra finding. | — | — | — | — |
 | 3.7 | `refactor: domain/agent, cutting its edges to paths, hooks and watcher` | paths arrive as values from `cmd`; the Adapter types from `domain/status` | M | ADR Exceptions (paths); P2 | 3.2 | revert |
 | 3.8 | `refactor: move tally to domain` | after its inputs are domain types | L | ADR tree | 3.1, 3.5 | revert |
 | 3.9 | `refactor: crap and depgraph take their own input types` | *Amendment 1.* Each declares the input struct it reads: import path, imports, file names and their source bytes and mtimes. `tools/crapcheck`, `depcheck` and `layercheck` convert `golist.Package` into it. crap's source and mtime reads (`score.go`, `stale.go`) move into `tools/crapcheck`. Removes 3 findings: crap → golist, crap → os, depgraph → golist. | M | ADR tree (domain is pure) | 2.2 | revert |
@@ -177,7 +178,7 @@ net: a logic PR that changes a row says which row and why (rule 4).
 | 5.6b | `refactor: archive, rename, rebind and fold leave Update` | `archive.go:201`, `rename.go:62`, the rebind and fold writes, `gaterun.go:129` tally | M, **smoke** | P5 | 5.6a | revert |
 | 5.6c | `refactor: discovery and adoption leave Update` | `discovery.go:157` (git rev-parse per root), `adopt.go` | M | P5 | 5.6a, 5.9 | revert |
 | 5.7 | `refactor: the idle sweep and repo stat move to service/sessions` | the sweep and stat tickers publish events; the TUI's `repostat.go` and `sweep.go` ticks are removed | M | ADR event model (timers) | 5.6a | revert |
-| 5.8 | `refactor: service/review` | `review/source.go`, turn loading, ship, revert, behind `DiffSource`, `DiffParser`, `FileReader` and `Shipper` | M | ADR ports | 3.6b, 3.6c, 5.4 | revert |
+| 5.8 | `refactor: service/review` | `review/source.go`, turn loading, ship, revert, behind `DiffSource`, `DiffParser`, `FileReader` and `Shipper`. *Amendment 3:* also 3.6c: `preview.go`'s read and `generated.go`'s header read move to `infra/fsread` behind `FileReader`, and `ui` stops defaulting to `review.ReadPreview` | M | ADR ports | 3.6b, 3.6c, 5.4 | revert |
 | 5.9 | `refactor: service/tracker and service/discovery` | PR and issue polling (`Event[tracker.Snapshot]`), item, browse; `discover` | M | ADR event model | 3.5, 5.1 | revert |
 | 5.10 | `refactor: cmd is the only composition root` | `ui/run.go`'s wiring goes to `cmd`. `RunDeps` and `modelFor` go. `Deps` shrinks to the services and presentation-only settings. Dependencies are plumbed once. | M, **smoke** | P2, audit leak 2, invariant 10 | 5.2–5.9 | revert |
 
@@ -260,6 +261,13 @@ defer the read: 3.4 moves the package whole, and the reads go to
 `infra/fsread` in 5.3 behind the `ProfileReader` port ADR 0001 already plans.
 The alternative was injecting a function through today's
 Deps/RunDeps/modelFor plumbing, the very plumbing 5.10 removes.
+
+**Amendment 3** (2026-09-29, #635). Step 3.6c hit the wall 3.4 did. `ui`
+defaults `Deps.Preview` to `review.ReadPreview`, and `generated.go`'s header
+read serves `Source.Generated`, so moving either read before
+`service/review`'s `FileReader` port would add a tui → infra finding. The
+maintainer folded 3.6c into 5.8, where that port arrives. Stage 3 continues
+with 3.7 and 3.8.
 
 ## When the plan is wrong
 
