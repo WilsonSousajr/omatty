@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/hooks"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 )
 
 // commandFor pulls one event's hook command string out of the rendered JSON,

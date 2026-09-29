@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/hooks"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 )
 
 // Regression, issue #316: /clear moves claude onto a new session id and says

@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/agent"
-	"github.com/WilsonSousajr/omatty/internal/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )

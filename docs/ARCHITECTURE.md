@@ -121,7 +121,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/infra/forge` | omatty's only route to any forge, and its only HTTP client: a `Router` that names each project's forge from its remote and reads it through the forge's own CLI (`gh`, `glab`, `tea`, `az`) or its REST API - a project's pull requests, its open issues, one item in full, browse - on a timer, and the three writes the ship key makes, only on a keypress (#310, #394, #397, #331, #452-#465). A token is borrowed per call, sent only to the instance it is for, and stored nowhere (#453). |
 | `internal/gate` | A project's own verification commands, run in a session's directory. Verdicts come from exit status only (invariant 12). |
 | `internal/infra/highlight` | omatty's only route to the syntax highlighter (chroma), with omatty's own colour style (#197). |
-| `internal/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
+| `internal/infra/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/infra/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
 | `internal/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
@@ -271,7 +271,7 @@ nothing depends on.
 | `internal/infra/detach`, `watcher` | 1, 3 | 1, 3 | 0.50 |
 | `internal/registry` | 5 | 3 | 0.38 |
 | `internal/infra/paths` | 6 | 0 | 0.00 |
-| `internal/infra/forge`, `hooks` | 3 | 0 | 0.00 |
+| `internal/infra/forge`, `infra/hooks` | 3 | 0 | 0.00 |
 | `internal/coverage`, `fuzzy`, `gate`, `golist`, `termwrap`, `vcs` | 2 | 0 | 0.00 |
 | `internal/infra/highlight`, `infra/notify`, `keys`, `paste` | 1 | 0 | 0.00 |
 

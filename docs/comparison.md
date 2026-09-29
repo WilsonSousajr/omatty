@@ -84,7 +84,7 @@ See "Is this just lazygit?" below, because it is the right question.
   `ctrl+o` leader (`internal/keys/router.go`, invariant 1). `claude agents`
   attaches to one background session at a time.
 - **Status from hooks and the transcript, never from the screen**
-  (`internal/hooks`, `internal/watcher`, invariant 2). fleet is hook-driven
+  (`internal/infra/hooks`, `internal/watcher`, invariant 2). fleet is hook-driven
   too, with pane heuristics as a fallback for states no hook reports.
   claude-squad matches English UI strings in a captured tmux pane, ccmanager
   regex-matches Claude's drawn prompt box, and herdr runs a regex manifest
