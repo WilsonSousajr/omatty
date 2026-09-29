@@ -40,7 +40,8 @@ count after the step.
 | 3.1 | #635 | #638 | merged | 25 |
 | 3.2 | #635 | #639 | merged | 24 |
 | Amendment 2 | #635 | #640 | merged | 24 |
-| 3.4 | #635 | #641 | open | 24 |
+| 3.4 | #635 | #641 | merged | 24 |
+| 3.5 | #635 | #642 | open | 23 |
 
 ## Rules every step follows
 
