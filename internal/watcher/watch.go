@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // eventBuffer sizes the channel between the watcher and the UI. A short burst
@@ -45,7 +45,7 @@ type Watch struct {
 //
 // The adapter and the transcript path come from the agent's profile, so
 // this package never names claude's own layout (#46).
-func Start(d WatchDeps, sessions []registry.Session) *Watch {
+func Start(d WatchDeps, sessions []session.Session) *Watch {
 	w := &Watch{
 		deps:    d,
 		events:  make(chan Event, eventBuffer),
@@ -77,7 +77,7 @@ func (w *Watch) Events() <-chan Event { return w.events }
 // The transcript is the conversation's, and so are the ids its events carry:
 // after /clear that is no longer sess.ID, and re-adding the rebound session
 // is how the tailer follows it (#316). The map stays keyed by sess.ID.
-func (w *Watch) Add(sess registry.Session) {
+func (w *Watch) Add(sess session.Session) {
 	conv := sess.ConversationID()
 	tl := Tail(conv, w.deps.TranscriptPath(w.deps.Home, sess.Dir, conv), w.events, w.deps.Clock, pollEvery, w.deps.Adapter)
 	w.mu.Lock()

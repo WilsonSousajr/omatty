@@ -128,6 +128,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/domain/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
 | `internal/infra/paths` | Every filesystem location omatty reads or writes. Pure; takes `home` explicitly so tests never touch the real one. |
 | `internal/registry` | Projects, sessions, `state.json`, and the commands that edit them (add, remove, rename, adopt, create, gate, carry). Creating a worktree also carries the project's gitignored paths into it, before the session is registered (#309). |
+| `internal/domain/session` | `Project`, `Session`, `State` - what `state.json` holds, whose JSON tags are invariant 9 - and the placeholder title and branch a new session starts with. Pure; `internal/registry` aliases it until migration step 8.1. |
 | `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |
 | `internal/supervisor` | The `claude` process behind each session: fresh start vs resume, the PTY, the holder. |
 | `internal/termwrap` | omatty's only route to the terminal emulator (bubbleterm). |
