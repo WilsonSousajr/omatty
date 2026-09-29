@@ -10,7 +10,7 @@ import (
 	"github.com/mattn/go-runewidth"
 
 	"github.com/WilsonSousajr/omatty/internal/discover"
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
 // sessionStore writes one slug directory for cwd holding the given transcripts,

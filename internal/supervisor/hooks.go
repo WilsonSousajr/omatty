@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/WilsonSousajr/omatty/internal/agent"
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
 // InstallHooks regenerates ~/.omatty/hooks.json for the running binary and

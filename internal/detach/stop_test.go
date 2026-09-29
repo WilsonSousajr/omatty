@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/detach"
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
 // heldProcess starts a process that will not exit on its own and records its

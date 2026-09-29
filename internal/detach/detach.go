@@ -22,7 +22,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
 // binary is the program a Holder looks for. Named once here rather than spelled

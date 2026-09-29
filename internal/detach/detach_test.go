@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/detach"
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
 // claudeCommand is the command the supervisor hands the holder: exactly what

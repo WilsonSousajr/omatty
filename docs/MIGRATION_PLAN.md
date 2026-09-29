@@ -1,6 +1,6 @@
 # Migration plan: today's layout to ADR 0001
 
-- **Status:** Proposed (#622). No step starts until this is approved.
+- **Status:** Approved 2026-09-29 (#623); executing (Phase 4).
 - **Target:** `docs/adr/0001-architecture.md` (accepted, #618).
 - **Evidence:** `docs/ARCHITECTURE_AUDIT.md` (#615).
 - **Net:** the Phase 2 characterization tests (#620):
@@ -17,6 +17,16 @@
 
 The audit's pain points are cited as **P1**–**P5**, and the ADR's sections by
 name.
+
+## Progress
+
+Each step's PR adds its own line here. "Findings" is `./scripts/check-layers.sh`'s
+count after the step.
+
+| Step | Issue | PR | State | Findings |
+|---|---|---|---|---|
+| 0 | #622 | #623 | merged | 28 |
+| 1.1 | #624 | #625 | open | 28 |
 
 ## Rules every step follows
 
