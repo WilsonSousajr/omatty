@@ -15,6 +15,9 @@ import (
 func scriptedAnswer(w http.ResponseWriter, pq string, first []giteaAnswer) bool {
 	for _, a := range first {
 		if strings.Contains(pq, a.match) {
+			if a.contentType != "" {
+				w.Header().Set("Content-Type", a.contentType)
+			}
 			w.WriteHeader(a.status)
 			_, _ = w.Write([]byte(a.body))
 			return true

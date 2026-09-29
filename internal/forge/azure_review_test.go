@@ -1,6 +1,7 @@
 package forge_test
 
 import (
+	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
@@ -155,5 +156,72 @@ func TestAzure_AnAbandonedPullRequestIsClosed_issue456(t *testing.T) {
 
 	if pr, ok := prNumbered(prs, 3); err != nil || !ok || pr.State != forge.Closed {
 		t.Errorf("!3 = %+v, %v; want closed", pr, err)
+	}
+}
+
+// A PAT the operator set is the credential for Azure DevOps: az's login may
+// be another tenant's, whose refusal stopped the project with the PAT never
+// tried (#457's review). An explicit variable wins, as GH_TOKEN does over
+// gh's stored login - and az is not even started.
+func TestAzureREST_APATIsPreferredToAzsLogin_issue457(t *testing.T) {
+	az, calls := fakeAz(t, "another-tenants-token")
+	api := &FakeAzureAPI{}
+
+	_, err := azureRouter(t, az, azurePAT, api).ListPRs(t.TempDir())
+
+	want := "Basic " + base64.StdEncoding.EncodeToString([]byte(":"+secret))
+	if err != nil || len(api.Got) == 0 || api.Got[0].Auth != want {
+		t.Errorf("ListPRs = %v, sent %+v; want the PAT", err, api.Got)
+	}
+	if b, _ := os.ReadFile(calls); len(b) != 0 {
+		t.Errorf("az was asked %q with a PAT set", b)
+	}
+}
+
+// Nor does the PAT reach an Azure DevOps Server; and with the CLI forced, the
+// PAT is not the CLI (#457's review).
+func TestAzureREST_ThePATStaysWithServicesAndOffTheCLI_issue457(t *testing.T) {
+	api := &FakeAzureAPI{}
+	server := forge.Hosts{"tfs.corp.example": forge.KindAzure}
+	r := forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: "https://tfs.corp.example/tfs/DefaultCollection/Proj/_git/repo"}).url, Hosts: server},
+		Env:     azurePAT, API: api.serve(t),
+	})
+	if _, err := r.ListPRs(t.TempDir()); err == nil || len(api.Got) != 0 {
+		t.Errorf("a Server: %v after %+v, want nothing sent", err, api.Got)
+	}
+	cli := forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: azureRemote}).url, Transport: forge.TransportCLI},
+		Env:     azurePAT, API: api.serve(t),
+	})
+	var missing *forge.MissingToolError
+	if _, err := cli.ListPRs(t.TempDir()); !errors.As(err, &missing) || len(api.Got) != 0 {
+		t.Errorf("CLI forced: %v after %+v, want az missing and nothing sent", err, api.Got)
+	}
+}
+
+// az's token asks Azure not to redirect to its sign-in page too.
+func TestAzure_AzsLoginAsksForNoSignIn_issue457(t *testing.T) {
+	az, _ := fakeAz(t, secret)
+	api := &FakeAzureAPI{}
+
+	_, _ = azureRouter(t, az, nil, api).ListPRs(t.TempDir())
+
+	if len(api.FedAuth) == 0 || api.FedAuth[0] != "Suppress" {
+		t.Errorf("FedAuthRedirect = %v, want Suppress", api.FedAuth)
+	}
+}
+
+// Azure's 203 and an HTML page are each a refused credential, alone.
+func TestAzureREST_A203AndAnHTMLPageAreEachARefusal_issue457(t *testing.T) {
+	for name, api := range map[string]*FakeAzureAPI{
+		"203 with JSON's type": {Status: 203},
+		"200 of HTML":          {First: []giteaAnswer{{match: "pullrequests", status: 200, contentType: "text/html", body: "<html>sign in</html>"}}},
+	} {
+		_, err := azureRouter(t, "", azurePAT, api).ListPRs(t.TempDir())
+		var refused *forge.AuthError
+		if !errors.As(err, &refused) {
+			t.Errorf("%s: error = %v, want the PAT refused", name, err)
+		}
 	}
 }

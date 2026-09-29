@@ -3,7 +3,9 @@ package forge
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"os/exec"
 	"strings"
 	"time"
@@ -31,17 +33,52 @@ func (r *Router) pickAzure(remote Remote) (backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := azBackend{rest: r.rest, base: base, project: project, repo: repo, host: remote.Host, ci: r.ci, open: r.open}
-	bin, ok := r.cli(KindAzure)
-	if !ok {
-		return nil, &MissingToolError{Tool: "az"}
-	}
-	tok, err := azToken(bin, r.azWait)
+	a, env, err := r.azureAuth()
 	if err != nil {
 		return nil, err
 	}
-	b.auth, b.env = bearer(tok), "az's login"
-	return b, nil
+	return azBackend{rest: r.rest, auth: a, env: env, base: base, project: project, repo: repo, host: remote.Host, ci: r.ci, open: r.open}, nil
+}
+
+// azureAuth is how Azure DevOps is read: the PAT az devops itself reads, as
+// Basic auth with an empty user (#457), when the operator set one - an
+// explicit variable says which organisation it is for, where az's login may
+// be another tenant's, whose refusal stopped the project with the PAT never
+// tried (#457's review); it wins as GH_TOKEN does over gh's stored login.
+// Else az's own token.
+func (r *Router) azureAuth() (auth, string, error) {
+	if pat, env := r.borrow([]string{"AZURE_DEVOPS_EXT_PAT"}); pat != "" && r.transport != TransportCLI {
+		return noSignIn(basicAuth("", pat)), env, nil
+	}
+	bin, ok := r.cli(KindAzure)
+	if !ok {
+		return nil, "", withPAT(&MissingToolError{Tool: "az"})
+	}
+	tok, err := azToken(bin, r.azWait)
+	if err != nil {
+		return nil, "", withPAT(err)
+	}
+	return noSignIn(bearer(tok)), "az's login", nil
+}
+
+// withPAT is a missing az's note with the PAT beside it: either half fixes it.
+// An az that gave no answer in time stays the outage it is.
+func withPAT(err error) error {
+	var missing *MissingToolError
+	if !errors.As(err, &missing) {
+		return err
+	}
+	return &MissingToolError{Tool: missing.Tool, NoLoginFor: missing.NoLoginFor, TokenEnv: "AZURE_DEVOPS_EXT_PAT"}
+}
+
+// noSignIn asks Azure to answer a refused credential with a 401 rather than a
+// redirect to its interactive sign-in page, which is HTML a terminal has no
+// use for (#457). An answer that is still HTML is a refusal all the same.
+func noSignIn(a auth) auth {
+	return func(r *http.Request) {
+		a(r)
+		r.Header.Set("X-TFS-FedAuthRedirect", "Suppress")
+	}
 }
 
 // azureServices is whether host is Azure DevOps Services - dev.azure.com, an
