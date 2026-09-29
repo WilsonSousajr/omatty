@@ -153,6 +153,7 @@ These rules hold for every port:
 | `service/status` | `Notifier` | today's `notify.Notifier` | `infra/notify` |
 | `service/tracker` | `Lister`; `ItemReader`; `Browser` | `PRs`/`Issues(ctx, root)` and the cache-only `Label(root)`; `Item(ctx, root, ref)`; `Open(ctx, url)`, as today's `ForgeBrowseFuncs` | `infra/forge` Router |
 | `service/discovery` | `TranscriptStore`; `Git` | `Sessions(ctx)`; today's `discover.Git` | `infra/transcript`, `infra/vcs` |
+| `tui/*` (declared in `tui/app`) | `Highlighter` | `Lines(path string, lines []string) []string`, today's `highlight.Lines`. *Added by migration Amendment 1 (#635): the TUI colours code while rendering, and without a port it imported `infra/highlight`.* | `infra/highlight` |
 
 **Starting a session.** `service/sessions.Start` returns a value,
 `session.Launch{Argv, Env, Dir}`: the agent's command template, filled in and
