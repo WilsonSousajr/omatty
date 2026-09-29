@@ -1,0 +1,24 @@
+[38;5;245m projects · 2               [m[38;5;238m│[m[1;38;5;253m keys                                              [m
+[38;5;238m────────────────────────────[m[38;5;238m┼[m[38;5;238m───────────────────────────────────────────────────[m
+  [38;5;245m▾ omatty                  [m[38;5;75m│[m  [38;5;75mctrl+o j / k   [m  [38;5;250mnext / previous session, wrappin[m
+[38;5;75m▎[m [38;5;245m○[m [1;38;5;253mmain              [m [38;5;245m    [m [38;5;75m│[m  [38;5;75mctrl+o ] / [   [m  [38;5;250mnext / previous project[m         
+[38;5;75m▎[m                           [38;5;75m│[m  [38;5;75mctrl+o tab     [m  [38;5;250mfold or unfold the project, keep[m
+[38;5;75m▎[m                           [38;5;75m│[m  [38;5;75mctrl+o /       [m  [38;5;250mjump to a session by name or pro[m
+  [38;5;245m○[m [38;5;250mparser-fix        [m [38;5;245m    [m [38;5;75m│[m  [38;5;75mctrl+o n       [m  [38;5;250mnew session on the main checkout[m
+                            [38;5;75m│[m  [38;5;75mctrl+o N       [m  [38;5;250mnew session on a fresh worktree[m 
+                            [38;5;75m│[m  [38;5;75mctrl+o a       [m  [38;5;250mregister a project claude alread[m
+  [38;5;245m▾ api-svc                 [m[38;5;75m│[m  [38;5;75mctrl+o A       [m  [38;5;250madopt a session claude already k[m
+  [38;5;245m○[m [38;5;250mmain              [m [38;5;245m    [m [38;5;75m│[m  [38;5;75mctrl+o R       [m  [38;5;250mrename the selected session[m     
+                            [38;5;75m│[m  [38;5;75mctrl+o B       [m  [38;5;250mrename a worktree session's bran[m
+                            [38;5;75m│[m  [38;5;75mctrl+o x       [m  [38;5;250marchive the session, or forget a[m
+                            [38;5;75m│[m  [38;5;75mctrl+o r       [m  [38;5;250mrestart a crashed session[m       
+                            [38;5;75m│[m  [38;5;75mctrl+o s       [m  [38;5;250mstop the session's process, keep[m
+                            [38;5;75m│[m  [38;5;75mctrl+o u       [m  [38;5;250mput the session's worktree back [m
+                            [38;5;75m│[m  [38;5;75mctrl+o p       [m  [38;5;250mship a green session: push and o[m
+                            [38;5;75m│[m  [38;5;75mctrl+o d       [m  [38;5;250mopen or close the diff pane[m     
+                            [38;5;75m│[m  [38;5;75mctrl+o f       [m  [38;5;250mopen or close the file tree[m     
+                            [38;5;75m│[m  [38;5;75mctrl+o g       [m  [38;5;250mopen or close the gate pane[m     
+                            [38;5;75m│[m  [38;5;75mctrl+o i       [m  [38;5;250mopen or close this project's iss[m
+                            [38;5;75m│[m  [38;5;75mctrl+o z       [m  [38;5;250mzoom the review column over the [m
+                            [38;5;75m│[m[38;5;245mj/k scroll  / filter  esc close  ctrl+c quit[m       
+[38;5;245m esc close  ctrl+c quit[m                                               [38;5;245m3 sessions[m

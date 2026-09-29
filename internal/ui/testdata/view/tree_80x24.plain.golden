@@ -1,0 +1,24 @@
+ projects · 2               │ omatty ▎ main             │ files · main · 1/5    
+────────────────────────────┼───────────────────────────┼─ files ──────────────×
+  ▾ omatty                  │session one                │  M ▾ internal/ui/     
+▎ ○ main                    │                           │    M model.go         
+▎                           │                           │      render.go        
+▎                           │                           │    go.mod             
+  ○ parser-fix              │                           │  A new.txt            
+                            │                           │                       
+                            │                           │                       
+  ▾ api-svc                 │                           │                       
+  ○ main                    │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+ h/l/0 pan  enter open  / filter  a attach  o diff  esc back  ctrl+o ? keys     

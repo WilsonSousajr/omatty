@@ -1,0 +1,30 @@
+ projects · 2               │ omatty ▎ main                                         │ go.mod · 3/3                      
+────────────────────────────┼───────────────────────────────────────────────────────┼─ preview ────────────────────────×
+  ▾ omatty                  │session one                                            │    1  module omatty               
+▎ ○ main                    │                                                       │    2                              
+▎                           │                                                       │    3  go 1.26                     
+▎                           │                                                       │                                   
+  ○ parser-fix              │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+  ▾ api-svc                 │                                                       │                                   
+  ○ main                    │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+ h/l/0 pan  enter open  / filter  a attach  o diff  esc back  ctrl+o ? keys                                   3 sessions
