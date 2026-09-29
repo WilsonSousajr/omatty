@@ -34,8 +34,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"

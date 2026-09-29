@@ -3,7 +3,7 @@ package watcher_test
 import (
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/hooks"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 

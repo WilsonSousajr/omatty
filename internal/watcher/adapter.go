@@ -9,7 +9,7 @@ package watcher
 import (
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/hooks"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 )
 
 // Adapter turns one agent's transcript lines and hook payloads into events.

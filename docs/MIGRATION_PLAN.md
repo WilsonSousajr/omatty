@@ -31,7 +31,8 @@ count after the step.
 | 1.3 | #624 | #627 | merged | 28 |
 | 1.4 | #624 | #628 | merged | 28 |
 | 1.5 | #624 | #629 | merged | 28 |
-| 1.6 | #624 | #630 | open | 28 |
+| 1.6 | #624 | #630 | merged | 28 |
+| 1.7 | #624 | #631 | open | 28 |
 
 ## Rules every step follows
 

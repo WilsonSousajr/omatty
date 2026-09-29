@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/hooks"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 )
 
 // statusEvents is what the listener asks for; every one must be registered,

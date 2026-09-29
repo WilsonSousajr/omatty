@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/hooks"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 )
 
 // shortSocketDir returns a temp dir short enough for a unix socket path;

@@ -41,7 +41,7 @@ var transitional = map[string]Layer{
 	"internal/paste": Domain, "internal/review": Domain, "internal/tally": Domain,
 	"internal/discover": Service, "internal/registry": Service, "internal/supervisor": Service,
 	"internal/watcher": Service, "internal/watcher/e2e": Service,
-	"internal/hooks": Infra, "internal/keys": TUI, "internal/termwrap": TUI, "internal/ui": TUI,
+	"internal/keys": TUI, "internal/termwrap": TUI, "internal/ui": TUI,
 	"internal/pubsub": Pubsub, "internal/cli": CLI, "scripts": Tools,
 }
 

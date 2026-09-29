@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/hooks"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 )
 
 // maxLine bounds a single hook payload read from the socket, matching the cap

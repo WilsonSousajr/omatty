@@ -60,6 +60,7 @@ internal/
 │   │            written only on a keypress (#310, #331, #452).
 │   ├── golist/     [M11] OUR interface over `go list` (invariant 4 in spirit).
 │   ├── highlight/  [M5] OUR interface over chroma (invariant 4 in spirit).
+│   ├── hooks/      the --settings hooks file, and the `omatty hook` command (invariant 11).
 │   ├── notify/     desktop notifications for a session needing attention.
 │   ├── paths/      every filesystem location omatty reads or writes. Pure.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
@@ -68,7 +69,6 @@ internal/
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
 ├── keys/           modal key router. Pure state machine (invariant 1).
-├── hooks/          the --settings hooks file, and the `omatty hook` command (invariant 11).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
 ├── discover/       proposes repositories to register, from claude's transcript store (#91).
 ├── fuzzy/          subsequence ranking for the session switcher and project picker. Pure.
