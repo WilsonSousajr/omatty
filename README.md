@@ -74,7 +74,15 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.8.2**, 2026-09-27 — `curl -fsSL https://omatty.com/install.sh | sh`
+**v0.9.0**, 2026-09-29 — your forge, whichever it is. The card's pull request
+and CI, the tracker, the browser and `ctrl+o p` work on GitLab, Gitea, Forgejo
+and Codeberg, Bitbucket and Azure DevOps as they did on GitHub, through each
+forge's own CLI or its REST API with a token omatty borrows and never stores.
+`ctrl+o p` now merges only the commit the card showed green, and only into the
+branch the session came from (#598, #599). The [Forges](#forges) table says
+which forges a real run has shown.
+
+v0.8.2, 2026-09-27 — `curl -fsSL https://omatty.com/install.sh | sh`
 installs omatty on any macOS or Linux machine, checking the release archive
 against its checksum and handing off to Homebrew when it is there (#517).
 `brew install` stops warning you to report a bug in our tap (#369). A project
