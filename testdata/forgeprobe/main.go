@@ -8,6 +8,7 @@
 //	go run ./testdata/forgeprobe -transport rest /path/to/a/checkout
 //	go run ./testdata/forgeprobe -open feat/x:main /path/to/a/scratch/checkout
 //	go run ./testdata/forgeprobe -protected main -merge 7 /path/to/a/scratch/checkout
+//	go run ./testdata/forgeprobe -browse pr:7 /path/to/a/checkout
 //
 // -open and -merge WRITE to the forge - #331's ship actions, run for real
 // (#464) - so point them only at a scratch repository. -protected only reads.
@@ -34,6 +35,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/forge"
@@ -46,6 +48,7 @@ func main() {
 	open := flag.String("open", "", "head:base - WRITES: open a change for head against base")
 	protected := flag.String("protected", "", "branch - read whether the forge protects it")
 	merge := flag.Int("merge", 0, "number - WRITES: merge that change now, with the repository's own method")
+	browse := flag.String("browse", "", "issue:N or pr:N - open that item's page in the browser")
 	flag.Parse()
 	root := "."
 	if flag.NArg() > 0 {
@@ -54,7 +57,7 @@ func main() {
 	r := forge.NewRouter(forge.Options{Remote: vcs.NewCLI().RemoteURL, Hosts: hostsFor(root, *kind), Transport: transportOf(*transport)})
 	fmt.Println("transport:", map[string]string{"": "auto (CLI first)", "cli": "cli", "rest": "rest"}[*transport])
 	fmt.Println("repository:", root)
-	if probeShip(r, root, *open, *protected, *merge) {
+	if probeShip(r, root, *open, *protected, *merge) || probeBrowse(r, root, *browse) {
 		return
 	}
 	issues := probeIssues(r, root)
@@ -151,6 +154,24 @@ func printDetail(sigil string, d forge.Detail, err error) {
 	for _, c := range d.Comments {
 		fmt.Printf("    comment by %s: %s\n", c.Author, clip(c.Body, 60))
 	}
+}
+
+// probeBrowse opens one item's page, as the tracker's `b` does. Run with an
+// `open` (xdg-open on Linux) and a $BROWSER that print their argument, it
+// shows the URL each forge builds without a browser opening at all.
+func probeBrowse(r *forge.Router, root, item string) bool {
+	kind, n, ok := strings.Cut(item, ":")
+	if !ok {
+		return false
+	}
+	number, err := strconv.Atoi(n)
+	exitOn(err)
+	if kind == "pr" {
+		fmt.Printf("\nBrowsePR(%d) = %v\n", number, r.BrowsePR(root, number))
+		return true
+	}
+	fmt.Printf("\nBrowseIssue(%d) = %v\n", number, r.BrowseIssue(root, number))
+	return true
 }
 
 // probeShip runs the ship actions asked for, and reports whether any were:
