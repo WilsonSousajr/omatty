@@ -65,11 +65,11 @@ linters:
         # third-party surface, so a breaking upgrade has one blast radius.
         wrappers:
           files:
-            - "!**/internal/highlight/**"
+            - "!**/internal/infra/highlight/**"
             - "!**/internal/review/**"
           deny:
             - pkg: github.com/alecthomas/chroma/v2
-              desc: "invariant 4 in spirit - internal/highlight owns chroma"
+              desc: "invariant 4 in spirit - internal/infra/highlight owns chroma"
             - pkg: github.com/bluekeyes/go-gitdiff
               desc: "internal/review owns diff parsing"
 
@@ -86,13 +86,13 @@ linters:
             - "!**/internal/forge/**"
             - "!**/internal/gate/**"
             - "!**/internal/golist/**"
-            - "!**/internal/notify/**"
+            - "!**/internal/infra/notify/**"
             - "!**/internal/supervisor/**"
             - "!**/internal/termwrap/**"
             - "!**/internal/infra/vcs/**"
           deny:
             - pkg: os/exec
-              desc: "shelling out belongs to infra/detach, forge, gate, golist, notify, supervisor, termwrap and infra/vcs"
+              desc: "shelling out belongs to infra/detach, forge, gate, golist, infra/notify, supervisor, termwrap and infra/vcs"
         # The network is a capability for the same reason (#453): internal/forge's
         # REST fallback carries a token borrowed from the environment, and a
         # second HTTP client elsewhere is a second place it could go.

@@ -14,7 +14,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/WilsonSousajr/omatty/internal/highlight"
+	"github.com/WilsonSousajr/omatty/internal/infra/highlight"
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
 

@@ -44,7 +44,7 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
   linked-worktree support is v6-experimental and incomplete.
 - **Diff parsing (M3):** `github.com/bluekeyes/go-gitdiff`.
 - **Syntax highlighting (M5):** `github.com/alecthomas/chroma/v2`, behind
-  `internal/highlight`.
+  `internal/infra/highlight`.
 - **Tests:** stdlib `testing`, `charmbracelet/x/exp/teatest`.
 
 ## Repository layout
@@ -54,6 +54,8 @@ cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).
+│   ├── highlight/  [M5] OUR interface over chroma (invariant 4 in spirit).
+│   ├── notify/     desktop notifications for a session needing attention.
 │   ├── paths/      every filesystem location omatty reads or writes. Pure.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
 ├── config/         ~/.omatty/config.toml; every key optional. The only TOML importer.
@@ -67,12 +69,10 @@ internal/
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── hooks/          the --settings hooks file, and the `omatty hook` command (invariant 11).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
-├── notify/         desktop notifications for a session needing attention.
 ├── discover/       proposes repositories to register, from claude's transcript store (#91).
 ├── fuzzy/          subsequence ranking for the session switcher and project picker. Pure.
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
 ├── paste/          bracketed-paste envelopes for text sent to a PTY (invariant 8).
-├── highlight/      [M5] OUR interface over chroma (invariant 4 in spirit).
 ├── gate/           [M9] a project's own verification commands -> per-step verdicts.
 ├── coverage/       [M10] a coverage profile -> per-line verdicts and raw blocks.
 ├── golist/         [M11] OUR interface over `go list` (invariant 4 in spirit).
@@ -198,12 +198,12 @@ not in the gate.
 - **Wrap third-party libraries behind a thin interface this project owns.**
   `internal/termwrap` owns bubbleterm and the PTY, `internal/infra/vcs` owns the git
   CLI, `internal/forge` owns every forge CLI (gh, glab, az, tea),
-  `internal/highlight` owns chroma,
+  `internal/infra/highlight` owns chroma,
   `internal/review` owns go-gitdiff. No other package may import them.
   Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
-  from `infra/detach`, `forge`, `gate`, `golist`, `notify`, `supervisor`,
+  from `infra/detach`, `forge`, `gate`, `golist`, `infra/notify`, `supervisor`,
   `termwrap` and `infra/vcs`, and nowhere else in production code. `termwrap` is on that list because it names
   `*exec.Cmd` in a signature without ever constructing one - a distinction
   depguard cannot draw. `forge` joined for #310 as omatty's one route to the
