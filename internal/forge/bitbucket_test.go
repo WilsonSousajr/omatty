@@ -18,6 +18,7 @@ import (
 // fixtures recorded from bitbucket.org/atlassianlabs/atlascode.
 type FakeBitbucketAPI struct {
 	Status int
+	First  []giteaAnswer // answers tried before the fixtures
 	mu     sync.Mutex
 	Got    []FakeRequest
 }
@@ -25,7 +26,9 @@ type FakeBitbucketAPI struct {
 var bitbucketRoutes = []struct{ match, file string }{
 	{"pullrequests?state=OPEN", "prs-open.json"},
 	{"pullrequests?state=MERGED", "prs-finished.json"},
-	{"/statuses", "statuses.json"},
+	// Each head's own statuses, so statuses read for the wrong commit are a 404.
+	{"/commit/31b8ff8dad0a/statuses", "statuses.json"},
+	{"/commit/c5e44c05d186/statuses", "statuses.json"},
 	{"pullrequests/1115/comments", "pr-comments.json"},
 	{"pullrequests/1115", "pr.json"},
 }
@@ -40,6 +43,9 @@ func (f *FakeBitbucketAPI) serve(t *testing.T) string {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		if f.Status != 0 {
 			w.WriteHeader(f.Status)
+			return
+		}
+		if scriptedAnswer(w, pq, f.First) {
 			return
 		}
 		for _, route := range bitbucketRoutes {
@@ -171,9 +177,9 @@ func TestBitbucket_ClassifiesTheAnswer_issue460(t *testing.T) {
 	if !errors.As(err, &refused) || refused.TokenEnv != "BITBUCKET_TOKEN" {
 		t.Errorf("401: error = %v, want BITBUCKET_TOKEN refused", err)
 	}
-	if _, err := bitbucketRouter(t, bitbucketToken, &FakeBitbucketAPI{Status: 404}).ListPRs(t.TempDir()); !errors.Is(err, forge.ErrNoForge) {
-		t.Errorf("404: error = %v, want ErrNoForge", err)
-	}
+	// A 404 was ErrNoForge here until #460's review: with a token on every
+	// read, Bitbucket's 404 is a token that cannot see the repository, and
+	// TestBitbucket_A404WithATokenNamesTheToken_issue460 holds it.
 }
 
 // Bitbucket's words: pull requests, "#12". b opens the pull request's page.

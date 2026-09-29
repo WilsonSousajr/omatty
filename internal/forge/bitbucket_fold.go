@@ -5,7 +5,8 @@ import "time"
 // Bitbucket Cloud's REST answers, as it writes them (#460).
 type (
 	bbPage[T any] struct {
-		Values []T `json:"values"`
+		Values []T    `json:"values"`
+		Next   string `json:"next"` // the next page's URL; omatty builds its own, and reads only whether there is one
 	}
 	bbUser struct {
 		Nickname    string `json:"nickname"`
@@ -90,7 +91,7 @@ func bitbucketCI(state string) CIState {
 	switch state {
 	case "SUCCESSFUL":
 		return CIPassing
-	case "FAILED", "STOPPED":
+	case "FAILED", "STOPPED": // STOPPED is a run someone halted: it did not pass
 		return CIFailing
 	}
 	return CIRunning

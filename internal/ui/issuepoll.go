@@ -104,6 +104,9 @@ func (m *Model) onIssues(msg IssuesLoadedMsg) tea.Cmd {
 func (m *Model) issueFailure(project string, err error) {
 	if errors.Is(err, forge.ErrNoTracker) {
 		m.noTracker[project] = true // its pull requests still come (#460)
+		// Issues read before the tracker went away are not current: Gitea's
+		// unit can be switched off mid-run (#460's review).
+		delete(m.issues, project)
 		delete(m.issueFailed, project)
 		return
 	}

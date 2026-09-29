@@ -2,6 +2,9 @@ package forge
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
 	"strconv"
 )
 
@@ -21,12 +24,23 @@ var bitbucketLabel = Label{Forge: "Bitbucket", Change: "pull request", Short: "P
 
 func (b bbBackend) repo() string { return "repositories/" + b.remote.Slug() }
 
-// bbList is one page of Bitbucket's paged answer.
-func bbList[T any](f fetcher, path string) func(context.Context, int) ([]T, error) {
-	return func(ctx context.Context, page int) ([]T, error) {
+// bbPages reads up to most items one page at a time, asking for the next
+// only when the last said there is one. Bitbucket counts every request against
+// an hourly limit, and asking two pages at once, as Gitea's are, doubled the
+// cost of every short list (#460's review).
+func bbPages[T any](ctx context.Context, f fetcher, path string, most int) ([]T, error) {
+	var all []T
+	for page := 1; len(all) < most; page++ {
 		p, err := getJSON[bbPage[T]](ctx, f, path+"&pagelen="+strconv.Itoa(apiPage)+"&page="+strconv.Itoa(page))
-		return p.Values, err
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, p.Values...)
+		if p.Next == "" {
+			break
+		}
 	}
+	return all, nil
 }
 
 func (b bbBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
@@ -38,10 +52,10 @@ func (b bbBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
 		finished, finishedErr = getJSON[bbPage[bbPR]](ctx, b.f,
 			b.repo()+"/pullrequests?state=MERGED&state=DECLINED&sort=-updated_on&pagelen="+finishedWindow)
 	}()
-	open, err := pages(ctx, 100, bbList[bbPR](b.f, b.repo()+"/pullrequests?state=OPEN"))
+	open, err := bbPages[bbPR](ctx, b.f, b.repo()+"/pullrequests?state=OPEN", 100)
 	<-done
 	if err := firstErr(err, finishedErr); err != nil {
-		return nil, repoMissing(err)
+		return nil, bbListErr(err)
 	}
 	prs := append(foldBBPRs(open), foldBBPRs(finished.Values)...)
 	b.ci.fill(ctx, prs, b.ciKey, b.statusCI)
@@ -85,9 +99,24 @@ func (b bbBackend) viewPR(ctx context.Context, _ string, number int) (Detail, er
 	if err != nil {
 		return Detail{}, err
 	}
-	comments, _ := getJSON[bbPage[bbComment]](ctx, b.f, path+"/comments?pagelen=100")
+	comments, err := getJSON[bbPage[bbComment]](ctx, b.f, path+"/comments?pagelen=100")
 	statuses, _ := b.statuses(ctx, pr.Source.Commit.Hash)
-	return foldDetail(pr.flat(comments.Values, statuses)), nil
+	d := foldDetail(pr.flat(comments.Values, statuses))
+	// Comments that failed, or have another page, are not the whole
+	// discussion (#397; #460's review).
+	d.Truncated = d.Truncated || err != nil || comments.Next != ""
+	return d, nil
+}
+
+// bbListErr sorts a list's failure. Every read carries a token, and
+// Bitbucket's 404 says "make sure you are authenticated": a token scoped to
+// another repository is the likelier meaning than no forge, so it is a note
+// naming the token (#460's review).
+func bbListErr(err error) error {
+	if errors.Is(err, errNotFound) {
+		return &AuthError{Host: "api.bitbucket.org", TokenEnv: "BITBUCKET_TOKEN", Status: http.StatusNotFound}
+	}
+	return err
 }
 
 // browse opens the pull request's page; Bitbucket keeps no issues to open.
@@ -109,9 +138,16 @@ func firstErr(errs ...error) error {
 }
 
 // pickBitbucket is Bitbucket Cloud's REST API with BITBUCKET_TOKEN: an API
-// token with its BITBUCKET_USER as Basic auth, or a repository or workspace
-// access token alone as a bearer. There is no CLI to try first.
+// token with its BITBUCKET_USER - the Atlassian account's email - as Basic
+// auth, or a repository or workspace access token alone as a bearer. There is
+// no CLI to try first.
 func (r *Router) pickBitbucket(remote Remote) (backend, error) {
+	if remote.Host != "bitbucket.org" {
+		// Cloud is bitbucket.org alone. A self-hosted host is Data Center,
+		// whose API and token are not Cloud's: its token was going to
+		// api.bitbucket.org (#460's review).
+		return nil, fmt.Errorf("forge: %s is not Bitbucket Cloud, and Data Center is not read yet (#461): %w", remote.Host, ErrNoForge)
+	}
 	tok, _ := r.borrow([]string{"BITBUCKET_TOKEN"})
 	if tok == "" {
 		return nil, &MissingToolError{TokenEnv: "BITBUCKET_TOKEN"}
