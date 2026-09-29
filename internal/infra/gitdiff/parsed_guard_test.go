@@ -1,10 +1,10 @@
-package review_test
+package gitdiff_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 // parsedFixtures is the same generated table domain/review's tests read

@@ -1,4 +1,4 @@
-package review_test
+package gitdiff_test
 
 import (
 	"fmt"
@@ -67,7 +67,7 @@ index 1111111..2222222 100644
 // domain/review's parsed_test.go and this package's parsed_guard_test.go both
 // hold (migration step 3.6a, #635). Run it when the guard fails:
 //
-//	GEN_FIXTURES=1 GEN_DOMAIN=/tmp/d GEN_GUARD=/tmp/g go test ./internal/review -run TestGenerateParsedFixtures
+//	GEN_FIXTURES=1 GEN_DOMAIN=/tmp/d GEN_GUARD=/tmp/g go test ./internal/infra/gitdiff -run TestGenerateParsedFixtures
 //
 // then paste the output between each table's braces.
 func TestGenerateParsedFixtures(t *testing.T) {
