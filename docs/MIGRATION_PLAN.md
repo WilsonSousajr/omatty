@@ -34,7 +34,8 @@ count after the step.
 | 1.6 | #624 | #630 | merged | 28 |
 | 1.7 | #624 | #631 | merged | 28 |
 | 2.1 | #632 | #633 | merged | 28 |
-| 2.2 | #632 | #634 | open | 28 |
+| 2.2 | #632 | #634 | merged | 28 |
+| Amendment 1 | #635 | this PR | open | 28 |
 
 ## Rules every step follows
 
@@ -129,6 +130,7 @@ domain half one at a time.
 | 3.6c | `refactor: review's file reads to infra/fsread` | the `preview.go` read, the `generated.go` .gitattributes read | M | P5 | 3.4, 3.6a | revert |
 | 3.7 | `refactor: domain/agent, cutting its edges to paths, hooks and watcher` | paths arrive as values from `cmd`; the Adapter types from `domain/status` | M | ADR Exceptions (paths); P2 | 3.2 | revert |
 | 3.8 | `refactor: move tally to domain` | after its inputs are domain types | L | ADR tree | 3.1, 3.5 | revert |
+| 3.9 | `refactor: crap and depgraph take their own input types` | *Amendment 1.* Each declares the input struct it reads: import path, imports, file names and their source bytes and mtimes. `tools/crapcheck`, `depcheck` and `layercheck` convert `golist.Package` into it. crap's source and mtime reads (`score.go`, `stale.go`) move into `tools/crapcheck`. Removes 3 findings: crap → golist, crap → os, depgraph → golist. | M | ADR tree (domain is pure) | 2.2 | revert |
 
 ### Stage 4: every git call gets a context and a deadline (a behaviour change)
 
@@ -171,6 +173,7 @@ net: a logic PR that changes a row says which row and why (rule 4).
 | 6.6 | `refactor: screens/tracker and screens/trackeritem` | tracker and item | M | P1, P4 | 6.3 | revert |
 | 6.7 | `refactor: screens/modals, part 1` | the new-session prompt, rename, confirm | M | P4 | 6.3 | revert |
 | 6.8 | `refactor: screens/modals, part 2` | list, picker, adopt, help, switcher | M | P4 | 6.7 | revert |
+| 6.10 | `refactor: the TUI reaches chroma through a Highlighter port` | *Amendment 1.* `tui` declares `Highlighter{ Lines(path string, lines []string) []string }`, today's `highlight.Lines`. `cmd` injects `infra/highlight`. `diffhighlight.go:68` and `tree.go:227` call the port. The SGR goldens must not move. Removes the tui → infra/highlight finding. | L | ADR ports, Enforcement | 6.2 | revert |
 | 6.9 | `refactor: components` | sidebar, card, picklist, editline, listwindow, spinner, meter move out of `app`; `*Model` keeps only view state | M | P1 | 6.4–6.8 | revert |
 
 ### Stage 7: the second driving adapter
@@ -202,13 +205,30 @@ These deferred items land where they fit, not as steps of their own:
 
 ## Size
 
-46 PRs after this one: 7 in Stage 1, 2 in Stage 2, 10 in Stage 3, 1 in Stage
-4, 12 in Stage 5, 9 in Stage 6, 2 in Stage 7, 3 in Stage 8.
+48 PRs after this one: 7 in Stage 1, 2 in Stage 2, 11 in Stage 3, 1 in Stage
+4, 12 in Stage 5, 10 in Stage 6, 2 in Stage 7, 3 in Stage 8 (Amendment 1 added
+3.9 and 6.10).
 
 - **Parallel work:** Stages 1 and 2, and most of Stage 3, can proceed in
   parallel branches, because their packages don't overlap.
 - **Serial work:** Stage 5 onward is mostly serial, because each step feeds
   the next.
+
+## Amendments
+
+**Amendment 1** (2026-09-29, #635). After Stage 2, every one of the 28 layer
+findings was checked against the steps meant to remove it. Four had no step:
+- `domain/crap` → `infra/golist`, `domain/depgraph` → `infra/golist` and
+  `domain/crap` → `os`. Both packages read `golist.Package`, and crap parses
+  and stats source files. **New step 3.9:** each declares its own input
+  types, and the tools do the reading.
+- `ui` → `infra/highlight`. The TUI calls chroma directly while rendering,
+  and the ADR had no port for it. **New step 6.10:** a `Highlighter` port,
+  added to ADR 0001's ports table.
+
+The maintainer chose both (over reclassifying crap/depgraph as tooling, and
+over moving highlight into `tui/`). With them, every current finding has a
+step that removes it, so Stage 8's zero is reachable.
 
 ## When the plan is wrong
 
