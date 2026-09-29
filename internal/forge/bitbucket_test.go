@@ -85,7 +85,7 @@ func TestBitbucket_ListsPullRequestsWithTheirCI_issue460(t *testing.T) {
 		t.Fatal(err)
 	}
 	pr, _ := prNumbered(prs, 1115)
-	want := forge.PR{Number: 1115, Title: pr.Title, Branch: pr.Branch, State: forge.Open, CI: forge.CIPassing, Head: "31b8ff8dad0a", Updated: pr.Updated}
+	want := forge.PR{Number: 1115, Title: pr.Title, Branch: pr.Branch, Base: "main", State: forge.Open, CI: forge.CIPassing, Head: "31b8ff8dad0a", Updated: pr.Updated}
 	if pr != want || !strings.HasPrefix(pr.Branch, "feature/VULN-1872862") || pr.Updated.IsZero() {
 		t.Errorf("#1115 = %+v, want open on its feature branch with a passing pipeline", pr)
 	}

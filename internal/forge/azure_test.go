@@ -152,7 +152,7 @@ func TestAzure_ListsPullRequests_issue456(t *testing.T) {
 		t.Fatal(err)
 	}
 	pr, _ := prNumbered(prs, 11)
-	want := forge.PR{Number: 11, Title: "Retire the bootstrap script", Branch: "retire-bootstrap", State: forge.Open,
+	want := forge.PR{Number: 11, Title: "Retire the bootstrap script", Branch: "retire-bootstrap", Base: "main", State: forge.Open,
 		CI: forge.CIFailing, Conflict: true, Head: "3aae318f1661c50c34effbbf6882119ed161f2d6", Updated: pr.Updated}
 	if pr != want || pr.Updated.IsZero() {
 		t.Errorf("!11 = %+v\nwant a conflicted pull request whose build policy failed", pr)

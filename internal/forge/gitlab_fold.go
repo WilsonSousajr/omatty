@@ -8,6 +8,7 @@ type (
 		IID                 int       `json:"iid"`
 		Title               string    `json:"title"`
 		SourceBranch        string    `json:"source_branch"`
+		TargetBranch        string    `json:"target_branch"`
 		SHA                 string    `json:"sha"`
 		State               string    `json:"state"`
 		Draft               bool      `json:"draft"`
@@ -63,7 +64,7 @@ func foldMRs(in []glMR) []PR {
 	out := make([]PR, len(in))
 	for i, m := range in {
 		out[i] = PR{
-			Number: m.IID, Title: cleanLine(m.Title), Branch: cleanLine(m.SourceBranch),
+			Number: m.IID, Title: cleanLine(m.Title), Branch: cleanLine(m.SourceBranch), Base: cleanLine(m.TargetBranch),
 			State: glState(m.State), Head: m.SHA, Draft: m.Draft,
 			Conflict: m.HasConflicts || m.DetailedMergeStatus == "conflict" || m.DetailedMergeStatus == "need_rebase",
 			Fork:     m.SourceProjectID != m.TargetProjectID,

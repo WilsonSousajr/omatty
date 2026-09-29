@@ -92,7 +92,7 @@ func TestGitLab_ListsMergeRequestsWithTheirCI_issue454(t *testing.T) {
 	prs := gitLabPRs(t)
 
 	mr, _ := prNumbered(prs, 3967)
-	want := forge.PR{Number: 3967, Title: "chore: spec validation added", Branch: "7699-follow-up-validate-spec-for-components",
+	want := forge.PR{Number: 3967, Title: "chore: spec validation added", Branch: "7699-follow-up-validate-spec-for-components", Base: "main",
 		State: forge.Open, CI: forge.CIPassing, Head: "cd159740322d05525356761f62e4f2ceac6228d6", Updated: mr.Updated}
 	if !reflect.DeepEqual(mr, want) || mr.Updated.IsZero() {
 		t.Errorf("!3967 = %+v\nwant %+v", mr, want)

@@ -63,7 +63,7 @@ func foldBBPRs(in []bbPR) []PR {
 	out := make([]PR, len(in))
 	for i, p := range in {
 		out[i] = PR{
-			Number: p.ID, Title: cleanLine(p.Title), Branch: cleanLine(p.Source.Branch.Name),
+			Number: p.ID, Title: cleanLine(p.Title), Branch: cleanLine(p.Source.Branch.Name), Base: cleanLine(p.Destination.Branch.Name),
 			State: bbState(p.State), Head: p.Source.Commit.Hash, Draft: p.Draft,
 			Fork:    p.Source.Repository.FullName != p.Destination.Repository.FullName,
 			Updated: p.UpdatedOn,

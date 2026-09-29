@@ -119,11 +119,26 @@ func notPushable(sess registry.Session, state review.Shippable) string {
 // Five reasons not to, each its own sentence. The protected-branch check is
 // last because it costs a gh call, and it is the one that fails closed.
 func (m *Model) mergeIfGreen(sess registry.Session, pr forge.PR) tea.Cmd {
-	if reason := notMergeable(m.gateGreen(sess.ID) && m.readyToShip(sess.ID), pr, onForge(m.label(sess.Project))); reason != "" {
+	reason := notMergeable(m.gateGreen(sess.ID) && m.readyToShip(sess.ID), pr, onForge(m.label(sess.Project)))
+	if reason == "" {
+		reason = aimedElsewhere(pr, sess.Base)
+	}
+	if reason != "" {
 		m.lastErr = "cannot merge " + m.changeRef(sess.Project, pr.Number) + ": " + reason
 		return nil
 	}
 	return m.mergeUnlessProtected(sess, pr)
+}
+
+// aimedElsewhere names a pull request that merges into another branch than the
+// one the session was forked from, or "" when it does not. One Claude opened
+// against main from a session on develop had develop's protection read and was
+// merged into main (#598).
+func aimedElsewhere(pr forge.PR, base string) string {
+	if pr.Base == "" || base == "" || pr.Base == base {
+		return ""
+	}
+	return "it merges into " + pr.Base + ", not " + base + ", the branch this session was forked from"
 }
 
 // notMergeable names why a pull request must not be merged now, or "" when it
@@ -147,6 +162,9 @@ func notMergeable(gateGreen bool, pr forge.PR, where string) string {
 func (m *Model) mergeUnlessProtected(sess registry.Session, pr forge.PR) tea.Cmd {
 	protected, merge := m.ship.BranchProtected, m.ship.MergePR
 	root, id, number, base := m.projectRoot(sess.Project), sess.ID, pr.Number, sess.Base
+	if pr.Base != "" {
+		base = pr.Base // where it would merge, as the forge says (#598)
+	}
 	label := m.label(sess.Project)
 	return func() tea.Msg {
 		if isProtected, err := protected(root, base); err != nil || isProtected {

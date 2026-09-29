@@ -29,6 +29,7 @@ type shipper struct {
 	Pushed  []string
 	Created []string
 	Merged  []int
+	Asked   []string // the branches whose protection was read
 }
 
 func (s *shipper) shippable(_ registry.Session, _ string) (review.Shippable, error) {
@@ -50,7 +51,10 @@ func (s *shipper) merge(_ string, number int) error {
 	return s.MergeErr
 }
 
-func (s *shipper) protected(_, _ string) (bool, error) { return s.Protected, s.ProtErr }
+func (s *shipper) protected(_, branch string) (bool, error) {
+	s.Asked = append(s.Asked, branch)
+	return s.Protected, s.ProtErr
+}
 
 func (s *shipper) funcs() ui.ShipFuncs {
 	return ui.ShipFuncs{
@@ -410,5 +414,40 @@ func TestModel_pRefusalsNameTheForge_issue464(t *testing.T) {
 		if got := m.View().Content; !strings.Contains(got, want) {
 			t.Errorf("want %q in the refusal:\n%s", want, got)
 		}
+	}
+}
+
+// Regression, #598: protection was read on the session's base, and a pull
+// request that targets another branch - one Claude opened against main from
+// a session forked from develop - was merged there unread. It is refused,
+// naming both branches, and never merged.
+func TestModel_pRefusesAPullRequestAimedElsewhere_issue598(t *testing.T) {
+	sh := &shipper{State: review.Shippable{Commits: 2}}
+	m := modelReadyToShip(t, sh, []forge.PR{
+		{Number: 443, Branch: "feat/parser", Base: "main", State: forge.Open, CI: forge.CIPassing, Head: "abc123"},
+	})
+
+	leaderDeliver(m, key('p'))
+
+	if len(sh.Merged) != 0 {
+		t.Fatalf("merged %v into main from a session based on develop", sh.Merged)
+	}
+	if got := m.View().Content; !strings.Contains(got, "main") || !strings.Contains(got, "develop") {
+		t.Errorf("the refusal does not name both branches:\n%s", got)
+	}
+}
+
+// And a pull request on the session's own base has that base's protection
+// read, as before.
+func TestModel_pReadsProtectionOnThePullRequestsTarget_issue598(t *testing.T) {
+	sh := &shipper{State: review.Shippable{Commits: 2}}
+	m := modelReadyToShip(t, sh, []forge.PR{
+		{Number: 443, Branch: "feat/parser", Base: "develop", State: forge.Open, CI: forge.CIPassing, Head: "abc123"},
+	})
+
+	leaderDeliver(m, key('p'))
+
+	if len(sh.Asked) != 1 || sh.Asked[0] != "develop" || len(sh.Merged) != 1 {
+		t.Errorf("protection asked of %v, merged %v; want develop read and one merge", sh.Asked, sh.Merged)
 	}
 }
