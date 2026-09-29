@@ -101,7 +101,7 @@ func TestGitea_ListsPullRequestsWithTheirCI_issue458(t *testing.T) {
 		t.Fatal(err)
 	}
 	pr, _ := prNumbered(prs, 14587)
-	want := forge.PR{Number: 14587, Title: pr.Title, Branch: "runner-refs/heads/main", State: forge.Open,
+	want := forge.PR{Number: 14587, Title: pr.Title, Branch: "runner-refs/heads/main", Base: "forgejo", State: forge.Open,
 		CI: forge.CIRunning, Fork: true, Head: "ffd52b9a8d6144520b713dfc75c4cad687d5f68e", Updated: pr.Updated}
 	if pr != want || pr.Title == "" {
 		t.Errorf("#14587 = %+v\nwant a fork on runner-refs/heads/main whose checks are pending", pr)

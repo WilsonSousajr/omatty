@@ -14,14 +14,18 @@ type backend interface {
 	viewIssue(ctx context.Context, repoRoot string, number int) (Detail, error)
 	viewPR(ctx context.Context, repoRoot string, number int) (Detail, error)
 	browse(ctx context.Context, repoRoot string, number int, pr bool) error
+	shipper
 }
 
-// shipper is a backend that can carry #331's three actions. Separate from
-// backend because not every transport has them yet (#464), and a backend
-// without them is refused by name rather than given stubs that pretend.
+// shipper is #331's three actions. Every backend carries them since #464, so
+// a forge added without them does not compile - stronger than the refusal by
+// name it replaces, which a new backend could reach only at run time.
 type shipper interface {
 	createPR(ctx context.Context, repoRoot, head, base, title string) (int, error)
-	mergePR(ctx context.Context, repoRoot string, number int) error
+	// mergePR merges number at head, the commit the card showed green
+	// (#599), and reports whether the forge says it is merged now - not
+	// only accepted, as an asynchronous merge is (#464's review).
+	mergePR(ctx context.Context, repoRoot string, number int, head string) (bool, error)
 	branchProtected(ctx context.Context, repoRoot, branch string) (bool, error)
 }
 

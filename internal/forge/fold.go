@@ -47,6 +47,7 @@ type PR struct {
 	Number   int
 	Title    string // empty on a finished one: only the open set is asked for it
 	Branch   string // the head branch, matched against a session's
+	Base     string // the branch it would merge into: where protection is read (#598)
 	State    PRState
 	CI       CIState
 	Conflict bool   // DIRTY or BEHIND: it cannot merge as it stands
@@ -92,6 +93,7 @@ type ghPR struct {
 	Number            int       `json:"number"`
 	Title             string    `json:"title"`
 	HeadRefName       string    `json:"headRefName"`
+	BaseRefName       string    `json:"baseRefName"`
 	HeadRefOid        string    `json:"headRefOid"`
 	IsCrossRepository bool      `json:"isCrossRepository"`
 	State             string    `json:"state"`
@@ -146,6 +148,7 @@ func foldOne(p ghPR) PR {
 		Number:   p.Number,
 		Title:    cleanLine(p.Title), // #483
 		Branch:   cleanLine(p.HeadRefName),
+		Base:     cleanLine(p.BaseRefName),
 		State:    stateOf(p.State),
 		CI:       rollup(p.StatusCheckRollup),
 		Conflict: p.MergeStateStatus == "DIRTY" || p.MergeStateStatus == "BEHIND",

@@ -23,11 +23,11 @@ const checkFields = `commits(last: 1) { nodes { commit { statusCheckRollup { con
 // orders `pr list`, newest first by creation.
 const prsQuery = `query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) {
 	open: pullRequests(states: OPEN, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
-		number title headRefName headRefOid isCrossRepository state isDraft updatedAt
+		number title headRefName baseRefName headRefOid isCrossRepository state isDraft updatedAt
 		mergeStateStatus reviewDecision ` + checkFields + `
 	} }
 	finished: pullRequests(states: [CLOSED, MERGED], first: 30, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
-		number headRefName headRefOid isCrossRepository state mergedAt
+		number headRefName baseRefName headRefOid isCrossRepository state mergedAt
 	} }
 } }`
 

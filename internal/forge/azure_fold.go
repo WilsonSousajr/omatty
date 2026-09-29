@@ -23,6 +23,7 @@ type (
 		IsDraft               bool       `json:"isDraft"`
 		MergeStatus           string     `json:"mergeStatus"`
 		SourceRefName         string     `json:"sourceRefName"`
+		TargetRefName         string     `json:"targetRefName"`
 		CreationDate          time.Time  `json:"creationDate"`
 		ClosedDate            time.Time  `json:"closedDate"`
 		CreatedBy             azIdentity `json:"createdBy"`
@@ -91,6 +92,7 @@ func foldAzPRs(in []azPR) []PR {
 		out[i] = PR{
 			Number: p.PullRequestID, Title: cleanLine(p.Title),
 			Branch: cleanLine(strings.TrimPrefix(p.SourceRefName, "refs/heads/")),
+			Base:   cleanLine(strings.TrimPrefix(p.TargetRefName, "refs/heads/")),
 			State:  azState(p.Status), Head: p.LastMergeSourceCommit.CommitID, Draft: p.IsDraft,
 			Conflict: p.MergeStatus == "conflicts", Fork: p.ForkSource != nil,
 			Updated: p.CreationDate,

@@ -62,13 +62,15 @@ func TestCreatePR_CarriesWhatGhSaid_issue331(t *testing.T) {
 func TestMergePR_MergesAndNamesNoMethod_issue331(t *testing.T) {
 	bin, calls := fakeGH(t, "", "", 0)
 
-	if err := forge.NewCLIWithBin(bin).MergePR(t.TempDir(), 443); err != nil {
-		t.Fatal(err)
+	merged, err := forge.NewCLIWithBin(bin).MergePR(t.TempDir(), 443, "abc123")
+	if err != nil || !merged {
+		t.Fatalf("MergePR = %v, %v; want merged", merged, err)
 	}
 
 	got := callsIn(t, calls)
-	if !strings.Contains(got, "pr merge 443") {
-		t.Errorf("call = %q, want a merge of 443", got)
+	// Pinned to the head that was green (#599).
+	if !strings.Contains(got, "pr merge 443 --match-head-commit abc123") {
+		t.Errorf("call = %q, want a merge of 443 at abc123", got)
 	}
 	for _, never := range []string{"--squash", "--rebase", "--admin", "--delete-branch"} {
 		if strings.Contains(got, never) {
@@ -130,7 +132,7 @@ func TestShipCalls_SayWhenGhIsMissing_issue331(t *testing.T) {
 	if _, err := cli.CreatePR(t.TempDir(), "feat/a", "develop", "t"); !missingTool(err, "gh") {
 		t.Errorf("CreatePR err = %v, want a missing gh", err)
 	}
-	if err := cli.MergePR(t.TempDir(), 1); !missingTool(err, "gh") {
+	if _, err := cli.MergePR(t.TempDir(), 1, "abc123"); !missingTool(err, "gh") {
 		t.Errorf("MergePR err = %v, want a missing gh", err)
 	}
 	if _, err := cli.BranchProtected(t.TempDir(), "main"); !missingTool(err, "gh") {

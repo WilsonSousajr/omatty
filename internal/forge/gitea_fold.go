@@ -66,7 +66,7 @@ func foldGTPRs(in []gtPR) []PR {
 	out := make([]PR, len(in))
 	for i, p := range in {
 		out[i] = PR{
-			Number: p.Number, Title: cleanLine(p.Title), Branch: cleanLine(p.Head.Ref),
+			Number: p.Number, Title: cleanLine(p.Title), Branch: cleanLine(p.Head.Ref), Base: cleanLine(p.Base.Ref),
 			State: gtState(p), Head: p.Head.SHA, Draft: p.Draft,
 			Conflict: gtConflict(p), Fork: gtFork(p),
 			Updated: p.UpdatedAt, MergedAt: p.MergedAt,

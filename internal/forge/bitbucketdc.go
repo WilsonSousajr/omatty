@@ -189,7 +189,7 @@ func foldDCPRs(in []dcPR) []PR {
 	out := make([]PR, len(in))
 	for i, p := range in {
 		out[i] = PR{
-			Number: p.ID, Title: cleanLine(p.Title), Branch: cleanLine(p.FromRef.DisplayID),
+			Number: p.ID, Title: cleanLine(p.Title), Branch: cleanLine(p.FromRef.DisplayID), Base: cleanLine(p.ToRef.DisplayID),
 			State: bbState(p.State), Head: p.FromRef.LatestCommit, Draft: p.Draft,
 			Conflict: p.Properties.MergeResult.Outcome == "CONFLICTED",
 			Fork:     p.FromRef.Repository.Project.Key+"/"+p.FromRef.Repository.Slug != p.ToRef.Repository.Project.Key+"/"+p.ToRef.Repository.Slug,

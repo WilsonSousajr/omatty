@@ -90,9 +90,23 @@ func (c restClient) send(ctx context.Context, method, url string, body io.Reader
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if err := answerError(resp, tokenEnv); err != nil {
+		if quietSuccess(method, resp) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return readBounded(resp.Body, url)
+}
+
+// quietSuccess is a write the forge answered 2xx with nothing at all - Gitea's
+// merge says 200 and no body, a 204 says done - which is done, not an answer
+// omatty cannot read (#464). A sign-in page is never one: it has a body.
+func quietSuccess(method string, resp *http.Response) bool {
+	if method == http.MethodGet || resp.StatusCode/100 != 2 || resp.StatusCode == http.StatusNonAuthoritativeInfo {
+		return false
+	}
+	head, _ := io.ReadAll(io.LimitReader(resp.Body, 1))
+	return len(head) == 0
 }
 
 // request builds one call with its auth applied, and refuses one that would

@@ -32,6 +32,9 @@ type ShippedMsg struct {
 	// two happened, so the notice can name what the operator got.
 	Number int
 	Merged bool
+	// Queued is a merge the forge accepted and has not finished - Azure
+	// completes asynchronously - so the notice does not say merged (#464).
+	Queued bool
 	Err    error
 }
 
@@ -119,21 +122,36 @@ func notPushable(sess registry.Session, state review.Shippable) string {
 // Five reasons not to, each its own sentence. The protected-branch check is
 // last because it costs a gh call, and it is the one that fails closed.
 func (m *Model) mergeIfGreen(sess registry.Session, pr forge.PR) tea.Cmd {
-	if reason := notMergeable(m.gateGreen(sess.ID) && m.readyToShip(sess.ID), pr); reason != "" {
+	reason := notMergeable(m.gateGreen(sess.ID) && m.readyToShip(sess.ID), pr, onForge(m.label(sess.Project)))
+	if reason == "" {
+		reason = aimedElsewhere(pr, sess.Base)
+	}
+	if reason != "" {
 		m.lastErr = "cannot merge " + m.changeRef(sess.Project, pr.Number) + ": " + reason
 		return nil
 	}
 	return m.mergeUnlessProtected(sess, pr)
 }
 
+// aimedElsewhere names a pull request that merges into another branch than the
+// one the session was forked from, or "" when it does not. One Claude opened
+// against main from a session on develop had develop's protection read and was
+// merged into main (#598).
+func aimedElsewhere(pr forge.PR, base string) string {
+	if pr.Base == "" || base == "" || pr.Base == base {
+		return ""
+	}
+	return "it merges into " + pr.Base + ", not " + base + ", the branch this session was forked from"
+}
+
 // notMergeable names why a pull request must not be merged now, or "" when it
-// may be.
-func notMergeable(gateGreen bool, pr forge.PR) string {
+// may be; where is the forge it is on, "on GitLab" (#464).
+func notMergeable(gateGreen bool, pr forge.PR, where string) string {
 	switch {
 	case !gateGreen:
 		return "the local gate is not green"
 	case pr.CI != forge.CIPassing:
-		return "its checks are not passing on the forge"
+		return "its checks are not passing " + where
 	case pr.Conflict:
 		return "it cannot merge as it stands"
 	case pr.Draft:
@@ -146,13 +164,18 @@ func notMergeable(gateGreen bool, pr forge.PR) string {
 // merges. Both calls are off the Update goroutine.
 func (m *Model) mergeUnlessProtected(sess registry.Session, pr forge.PR) tea.Cmd {
 	protected, merge := m.ship.BranchProtected, m.ship.MergePR
-	root, id, number, base := m.projectRoot(sess.Project), sess.ID, pr.Number, sess.Base
-	change := m.label(sess.Project).Change
+	root, id, number, base, head := m.projectRoot(sess.Project), sess.ID, pr.Number, sess.Base, pr.Head
+	if pr.Base != "" {
+		base = pr.Base // where it would merge, as the forge says (#598)
+	}
+	label := m.label(sess.Project)
 	return func() tea.Msg {
 		if isProtected, err := protected(root, base); err != nil || isProtected {
-			return ShippedMsg{SessionID: id, Number: number, Err: protectedRefusal(base, change, err)}
+			return ShippedMsg{SessionID: id, Number: number, Err: protectedRefusal(base, label, err)}
 		}
-		return ShippedMsg{SessionID: id, Number: number, Merged: true, Err: merge(root, number)}
+		// The head the card showed green: a push since is not merged (#599).
+		merged, err := merge(root, number, head)
+		return ShippedMsg{SessionID: id, Number: number, Merged: merged, Queued: !merged && err == nil, Err: err}
 	}
 }
 
@@ -161,11 +184,23 @@ func (m *Model) mergeUnlessProtected(sess registry.Session, pr forge.PR) tea.Cmd
 // A protection flag it could not read refuses too, and says so differently: the
 // operator can merge on the forge, and being told why is more use than being
 // told no.
-func protectedRefusal(base, change string, err error) error {
+func protectedRefusal(base string, l forge.Label, err error) error {
 	if err != nil {
-		return errShip("cannot tell whether " + base + " is protected, so refusing to merge: " + err.Error())
+		return errShip("cannot tell whether " + base + " is protected " + onForge(l) + ", so refusing to merge: " + err.Error())
 	}
-	return errShip(base + " is protected; omatty moves a protected branch only by a promotion " + change)
+	return errShip(base + " is protected " + onForge(l) + "; omatty moves a protected branch only by a promotion " + l.Change)
+}
+
+// onForge is where a change's checks and protection live, in words: "on
+// GitLab", or "on the forge" for one omatty cannot name (#464).
+func onForge(l forge.Label) string { return "on " + forgeName(l) }
+
+// forgeName is the forge by name, or "the forge" for one omatty cannot name.
+func forgeName(l forge.Label) string {
+	if l.Forge == "" {
+		return "the forge"
+	}
+	return l.Forge
 }
 
 // errShip is a refusal the footer shows. A string is enough: nothing branches on
@@ -173,6 +208,19 @@ func protectedRefusal(base, change string, err error) error {
 type errShip string
 
 func (e errShip) Error() string { return string(e) }
+
+// shippedNotice names what the operator got: a merge, a merge the forge has
+// only accepted (#464's review), or a pull request opened.
+func (m *Model) shippedNotice(project string, msg ShippedMsg) string {
+	ref := m.changeRef(project, msg.Number)
+	switch {
+	case msg.Merged:
+		return "merged " + ref
+	case msg.Queued:
+		return "asked " + forgeName(m.label(project)) + " to merge " + ref + "; it has not finished yet"
+	}
+	return "pushed, and opened " + ref
+}
 
 // onShipped reports what happened. A push that went and a pull request that did
 // not open must not read as success, which is why the message carries both.
@@ -183,12 +231,7 @@ func (m *Model) onShipped(msg ShippedMsg) tea.Cmd {
 		return nil
 	}
 	sess, ok := m.session(msg.SessionID)
-	ref := m.changeRef(sess.Project, msg.Number)
-	if msg.Merged {
-		m.notice = "merged " + ref
-	} else {
-		m.notice = "pushed, and opened " + ref
-	}
+	m.notice = m.shippedNotice(sess.Project, msg)
 	// The card's pull request state is now a poll behind what just happened.
 	if !ok {
 		return nil

@@ -119,7 +119,7 @@ func TestBitbucketDC_ListsPullRequests_issue461(t *testing.T) {
 	}
 
 	pr, _ := prNumbered(prs, 42)
-	want := forge.PR{Number: 42, Title: "Add the audit export", Branch: "feature/audit-export", State: forge.Open,
+	want := forge.PR{Number: 42, Title: "Add the audit export", Branch: "feature/audit-export", Base: "main", State: forge.Open,
 		CI: forge.CIFailing, Conflict: true, Head: "8d51122def5632836d1cb1026e879069e10a1e13", Updated: pr.Updated}
 	if pr != want || pr.Updated.IsZero() {
 		t.Errorf("#42 = %+v\nwant %+v", pr, want)
