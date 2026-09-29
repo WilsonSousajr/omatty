@@ -56,6 +56,7 @@ internal/
 │   ├── coverage/   [M10] a coverage profile -> per-line verdicts and raw blocks.
 │   ├── crap/       [M11] per-function complexity x coverage -> a C.R.A.P. score.
 │   ├── depgraph/   [M11] the internal import graph -> Ca, Ce, instability, SDP.
+│   ├── forge/      a forge's work, forge-independent: PR, Issue, Detail, CI and review state, Label.
 │   ├── fuzzy/      subsequence ranking for the session switcher and project picker. Pure.
 │   ├── gate/       [M9] Step, Verdict, Report, the output caps and the prompt: pure.
 │   ├── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).

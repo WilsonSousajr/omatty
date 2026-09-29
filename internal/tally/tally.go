@@ -23,8 +23,8 @@ package tally
 import (
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // Numbers is one project's measurement.

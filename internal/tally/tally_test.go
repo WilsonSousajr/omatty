@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/tally"
 )
 
