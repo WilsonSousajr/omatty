@@ -50,7 +50,7 @@ var detectors = []struct {
 	{detectGo, "cover.out"},
 	{detectCargo, "lcov.info"},
 	{detectNode, "coverage/lcov.info"},
-	// Python's conventional report is Cobertura XML, which internal/coverage
+	// Python's conventional report is Cobertura XML, which internal/domain/coverage
 	// does not read. Proposing a path omatty would fail to parse is worse than
 	// proposing none: "no overlay" is true and legible, while a wrong path is
 	// an overlay that never arrives and never says why.

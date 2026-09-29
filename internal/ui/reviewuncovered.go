@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 
-	"github.com/WilsonSousajr/omatty/internal/coverage"
+	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
 
