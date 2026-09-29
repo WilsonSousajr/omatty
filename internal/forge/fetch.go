@@ -18,6 +18,8 @@ import (
 // and one fold serves both: a UI test cannot tell them apart (spec rule 4).
 type fetcher interface {
 	get(ctx context.Context, path string) ([]byte, error)
+	// send is one write with a JSON body: #331's ship actions (#464).
+	send(ctx context.Context, method, path string, body []byte) ([]byte, error)
 }
 
 // cliAPI runs `<bin> api --hostname <host> <path>` in the project's root: the
@@ -28,19 +30,40 @@ type cliAPI struct {
 }
 
 func (c cliAPI) get(ctx context.Context, path string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, c.bin, "api", "--hostname", c.host, path)
-	cmd.Dir = c.dir
-	cmd.WaitDelay = time.Second // #356, as ghCLI.run
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
+	return c.run(ctx, path, nil, "api", "--hostname", c.host, path)
+}
+
+// send is glab's --method with the body on stdin, typed as JSON: glab sends
+// --input as it is, and GitLab reads an untyped body as a form.
+func (c cliAPI) send(ctx context.Context, method, path string, body []byte) ([]byte, error) {
+	return c.run(ctx, path, body, "api", "--hostname", c.host, "--method", method, path,
+		"--input", "-", "--header", "Content-Type: application/json")
+}
+
+func (c cliAPI) run(ctx context.Context, path string, stdin []byte, args ...string) ([]byte, error) {
+	out, stderr, err := runAPI(ctx, c.bin, c.dir, stdin, args)
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("forge: %s api %s gave no answer in %v: %w", c.bin, path, c.timeout, ctx.Err())
 	}
 	if err != nil {
-		return nil, apiFailure(c.host, c.bin, strings.TrimSpace(stderr.String()), err)
+		return nil, apiFailure(c.host, c.bin, strings.TrimSpace(stderr), err)
 	}
 	return out, nil
+}
+
+// runAPI runs one CLI api call in dir, with stdin as the request's body when
+// it has one: glab's and tea's shared half.
+func runAPI(ctx context.Context, bin, dir string, stdin []byte, args []string) ([]byte, string, error) {
+	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Dir = dir
+	cmd.WaitDelay = time.Second // #356, as ghCLI.run
+	if stdin != nil {
+		cmd.Stdin = bytes.NewReader(stdin)
+	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	return out, stderr.String(), err
 }
 
 // httpStatusIn is the "(HTTP 404)" glab and tea end an API failure with.
@@ -86,16 +109,20 @@ type teaAPI struct {
 var statusLine = regexp.MustCompile(`(?m)^HTTP/\S+ (\d{3})`)
 
 func (c teaAPI) get(ctx context.Context, path string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, c.bin, "api", "--login", c.login, "--include", "/"+path)
-	cmd.Dir = c.dir
-	cmd.WaitDelay = time.Second
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
+	return c.run(ctx, path, nil, "api", "--login", c.login, "--include", "/"+path)
+}
+
+// send is tea's -X with the JSON body read from stdin by -d @-.
+func (c teaAPI) send(ctx context.Context, method, path string, body []byte) ([]byte, error) {
+	return c.run(ctx, path, body, "api", "--login", c.login, "--include", "-X", method, "-d", "@-", "/"+path)
+}
+
+func (c teaAPI) run(ctx context.Context, path string, stdin []byte, args ...string) ([]byte, error) {
+	out, stderr, err := runAPI(ctx, c.bin, c.dir, stdin, args)
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("forge: tea api %s gave no answer in %v: %w", path, c.timeout, ctx.Err())
 	}
-	return teaVerdict(c.host, out, stderr.String(), err)
+	return teaVerdict(c.host, out, stderr, err)
 }
 
 // teaVerdict sorts one finished tea call by the status line it printed.
@@ -146,4 +173,8 @@ type restAPI struct {
 
 func (r restAPI) get(ctx context.Context, path string) ([]byte, error) {
 	return r.rest.get(ctx, r.base+"/"+path, r.auth, r.env)
+}
+
+func (r restAPI) send(ctx context.Context, method, path string, body []byte) ([]byte, error) {
+	return r.rest.send(ctx, method, r.base+"/"+path, bytes.NewReader(body), r.auth, r.env)
 }

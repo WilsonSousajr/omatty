@@ -119,7 +119,7 @@ func notPushable(sess registry.Session, state review.Shippable) string {
 // Five reasons not to, each its own sentence. The protected-branch check is
 // last because it costs a gh call, and it is the one that fails closed.
 func (m *Model) mergeIfGreen(sess registry.Session, pr forge.PR) tea.Cmd {
-	if reason := notMergeable(m.gateGreen(sess.ID) && m.readyToShip(sess.ID), pr); reason != "" {
+	if reason := notMergeable(m.gateGreen(sess.ID) && m.readyToShip(sess.ID), pr, onForge(m.label(sess.Project))); reason != "" {
 		m.lastErr = "cannot merge " + m.changeRef(sess.Project, pr.Number) + ": " + reason
 		return nil
 	}
@@ -127,13 +127,13 @@ func (m *Model) mergeIfGreen(sess registry.Session, pr forge.PR) tea.Cmd {
 }
 
 // notMergeable names why a pull request must not be merged now, or "" when it
-// may be.
-func notMergeable(gateGreen bool, pr forge.PR) string {
+// may be; where is the forge it is on, "on GitLab" (#464).
+func notMergeable(gateGreen bool, pr forge.PR, where string) string {
 	switch {
 	case !gateGreen:
 		return "the local gate is not green"
 	case pr.CI != forge.CIPassing:
-		return "its checks are not passing on the forge"
+		return "its checks are not passing " + where
 	case pr.Conflict:
 		return "it cannot merge as it stands"
 	case pr.Draft:
@@ -147,10 +147,10 @@ func notMergeable(gateGreen bool, pr forge.PR) string {
 func (m *Model) mergeUnlessProtected(sess registry.Session, pr forge.PR) tea.Cmd {
 	protected, merge := m.ship.BranchProtected, m.ship.MergePR
 	root, id, number, base := m.projectRoot(sess.Project), sess.ID, pr.Number, sess.Base
-	change := m.label(sess.Project).Change
+	label := m.label(sess.Project)
 	return func() tea.Msg {
 		if isProtected, err := protected(root, base); err != nil || isProtected {
-			return ShippedMsg{SessionID: id, Number: number, Err: protectedRefusal(base, change, err)}
+			return ShippedMsg{SessionID: id, Number: number, Err: protectedRefusal(base, label, err)}
 		}
 		return ShippedMsg{SessionID: id, Number: number, Merged: true, Err: merge(root, number)}
 	}
@@ -161,11 +161,20 @@ func (m *Model) mergeUnlessProtected(sess registry.Session, pr forge.PR) tea.Cmd
 // A protection flag it could not read refuses too, and says so differently: the
 // operator can merge on the forge, and being told why is more use than being
 // told no.
-func protectedRefusal(base, change string, err error) error {
+func protectedRefusal(base string, l forge.Label, err error) error {
 	if err != nil {
-		return errShip("cannot tell whether " + base + " is protected, so refusing to merge: " + err.Error())
+		return errShip("cannot tell whether " + base + " is protected " + onForge(l) + ", so refusing to merge: " + err.Error())
 	}
-	return errShip(base + " is protected; omatty moves a protected branch only by a promotion " + change)
+	return errShip(base + " is protected " + onForge(l) + "; omatty moves a protected branch only by a promotion " + l.Change)
+}
+
+// onForge is where a change's checks and protection live, in words: "on
+// GitLab", or "on the forge" for one omatty cannot name (#464).
+func onForge(l forge.Label) string {
+	if l.Forge == "" {
+		return "on the forge"
+	}
+	return "on " + l.Forge
 }
 
 // errShip is a refusal the footer shows. A string is enough: nothing branches on

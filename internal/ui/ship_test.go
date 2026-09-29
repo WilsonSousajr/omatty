@@ -73,8 +73,18 @@ func shipState() registry.State {
 // and is at rest - the three facts readyToShip is made of.
 func modelReadyToShip(t *testing.T, sh *shipper, prs []forge.PR) *ui.Model {
 	t.Helper()
+	return modelReadyToShipOn(t, sh, prs, nil)
+}
+
+// modelReadyToShipOn is modelReadyToShip on a forge labelled by label; nil
+// keeps baseDeps' own.
+func modelReadyToShipOn(t *testing.T, sh *shipper, prs []forge.PR, label ui.LabelFunc) *ui.Model {
+	t.Helper()
 	st := shipState()
 	d := baseDeps(st, fakeTermsFor(st))
+	if label != nil {
+		d.Label = label
+	}
 	d.Ship = sh.funcs()
 	d.PRs = func(string) ([]forge.PR, error) { return prs, nil }
 	m := ui.NewModel(d)
@@ -376,5 +386,29 @@ func TestModel_pRefusesToMergeOnAFailedGate_issue471(t *testing.T) {
 
 	if len(sh.Merged) != 0 {
 		t.Fatalf("merged %v on a failing gate", sh.Merged)
+	}
+}
+
+// Every forge's refusals say which forge they are about: the checks that are
+// not passing, the branch that is protected, and the protection omatty could
+// not read are all on GitLab here (#464).
+func TestModel_pRefusalsNameTheForge_issue464(t *testing.T) {
+	failing := []forge.PR{{Number: 443, Branch: "feat/parser", State: forge.Open, CI: forge.CIFailing, Head: "abc123"}}
+	passing := []forge.PR{{Number: 443, Branch: "feat/parser", State: forge.Open, CI: forge.CIPassing, Head: "abc123"}}
+	for want, c := range map[string]struct {
+		sh  *shipper
+		prs []forge.PR
+	}{
+		"not passing on GitLab":                  {&shipper{State: review.Shippable{Commits: 2}}, failing},
+		"develop is protected on GitLab":         {&shipper{State: review.Shippable{Commits: 2}, Protected: true}, passing},
+		"whether develop is protected on GitLab": {&shipper{State: review.Shippable{Commits: 2}, ProtErr: errors.New("HTTP 404")}, passing},
+	} {
+		m := modelReadyToShipOn(t, c.sh, c.prs, labelOf(gitLab))
+
+		leaderDeliver(m, key('p'))
+
+		if got := m.View().Content; !strings.Contains(got, want) {
+			t.Errorf("want %q in the refusal:\n%s", want, got)
+		}
 	}
 }
