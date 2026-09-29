@@ -1,0 +1,24 @@
+ projects · 2               │ keys                                              
+────────────────────────────┼───────────────────────────────────────────────────
+  ▾ omatty                  │  ctrl+o j / k     next / previous session, wrappin
+▎ ○ main                    │  ctrl+o ] / [     next / previous project         
+▎                           │  ctrl+o tab       fold or unfold the project, keep
+▎                           │  ctrl+o /         jump to a session by name or pro
+  ○ parser-fix              │  ctrl+o n         new session on the main checkout
+                            │  ctrl+o N         new session on a fresh worktree 
+                            │  ctrl+o a         register a project claude alread
+  ▾ api-svc                 │  ctrl+o A         adopt a session claude already k
+  ○ main                    │  ctrl+o R         rename the selected session     
+                            │  ctrl+o B         rename a worktree session's bran
+                            │  ctrl+o x         archive the session, or forget a
+                            │  ctrl+o r         restart a crashed session       
+                            │  ctrl+o s         stop the session's process, keep
+                            │  ctrl+o u         put the session's worktree back 
+                            │  ctrl+o p         ship a green session: push and o
+                            │  ctrl+o d         open or close the diff pane     
+                            │  ctrl+o f         open or close the file tree     
+                            │  ctrl+o g         open or close the gate pane     
+                            │  ctrl+o i         open or close this project's iss
+                            │  ctrl+o z         zoom the review column over the 
+                            │j/k scroll  / filter  esc close  ctrl+c quit       
+ esc close  ctrl+c quit                                               3 sessions
