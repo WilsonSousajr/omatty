@@ -77,7 +77,7 @@ func (b bbBackend) mergePR(ctx context.Context, _ string, number int, head strin
 func (b bbBackend) branchProtected(ctx context.Context, _, branch string) (bool, error) {
 	page, err := getJSON[bbRestrictions](ctx, b.f, b.repo()+"/branch-restrictions?pagelen=100")
 	if err != nil {
-		return true, err
+		return true, needsAdmin(err, "BITBUCKET_TOKEN")
 	}
 	return page.cover(branch), nil
 }

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -40,21 +41,44 @@ func (f *FakeWriteAPI) serve(t *testing.T) string {
 		f.Got = append(f.Got, FakeWrite{Method: r.Method, Path: pq, Host: r.Header.Get("X-Original-Host"), Body: body})
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		for route, answer := range f.Routes {
-			method, part, _ := strings.Cut(route, " ")
-			if r.Method != method || !strings.Contains(pq, part) {
-				continue
-			}
-			if answer == "" { // an answer with nothing to say: Gitea's merge
-				w.Header().Del("Content-Type")
-			}
-			_, _ = w.Write([]byte(answer))
+		answer, ok := f.route(r.Method, pq)
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.WriteHeader(http.StatusNotFound)
+		writeAnswer(w, answer)
 	}))
 	t.Cleanup(srv.Close)
 	return srv.URL
+}
+
+// route is the answer to method and pq: of the routes that match, the one
+// whose match ends latest - a merge's path holds its create's, which ends
+// earlier, and map order is random.
+func (f *FakeWriteAPI) route(method, pq string) (string, bool) {
+	end, answer := -1, ""
+	for route, a := range f.Routes {
+		m, part, _ := strings.Cut(route, " ")
+		at := strings.LastIndex(pq, part)
+		if m == method && at >= 0 && at+len(part) > end {
+			end, answer = at+len(part), a
+		}
+	}
+	return answer, end >= 0
+}
+
+// writeAnswer writes a scripted answer: "" is one with nothing to say, as
+// Gitea's merge is, and "!403 {...}" is that status, then the body.
+func writeAnswer(w http.ResponseWriter, answer string) {
+	if answer == "" {
+		w.Header().Del("Content-Type")
+	}
+	if status, rest, ok := strings.Cut(answer, " "); ok && strings.HasPrefix(status, "!") {
+		code, _ := strconv.Atoi(status[1:])
+		w.WriteHeader(code)
+		answer = rest
+	}
+	_, _ = w.Write([]byte(answer))
 }
 
 // write is the request whose method and path hold method and part.
@@ -79,6 +103,7 @@ type shipForge struct {
 	open         [2]string // method and path of the create call
 	merge        [2]string
 	pin          string // how the merge body names the head it merges, when the forge takes one
+	from, to     string // how the open body names the head branch and the base
 	number       int
 	protect      string // the path-part a protection read asks
 	protectedYes string // an answer that says the branch is protected
@@ -93,6 +118,7 @@ var shipForges = []shipForge{
 		routes: map[string]string{"POST /merge_requests": `{"iid": 17}`, "PUT /merge_requests/17/merge": `{"state": "merged"}`},
 		open:   [2]string{"POST", "/projects/group%2Fapp/merge_requests"}, merge: [2]string{"PUT", "/merge_requests/17/merge"}, number: 17,
 		protect: "/repository/branches/main", protectedYes: `{"protected": true}`, protectedNo: `{"protected": false}`,
+		from: `"source_branch":"feat/parser"`, to: `"target_branch":"main"`,
 		noDelete: "should_remove_source_branch", pin: `"sha":"` + greenHead + `"`,
 	},
 	{
@@ -103,6 +129,7 @@ var shipForges = []shipForge{
 		},
 		open: [2]string{"POST", "/api/v1/repos/owner/app/pulls"}, merge: [2]string{"POST", "/pulls/17/merge"}, number: 17,
 		protect: "/branches/main", protectedYes: `{"protected": true}`, protectedNo: `{"protected": false}`,
+		from: `"head":"feat/parser"`, to: `"base":"main"`,
 		noDelete: "delete_branch_after_merge", method: `"Do":"squash"`, pin: `"head_commit_id":"` + greenHead + `"`,
 	},
 	{
@@ -115,7 +142,8 @@ var shipForges = []shipForge{
 		protect:      "/branch-restrictions",
 		protectedYes: `{"values": [{"kind": "push", "branch_match_kind": "glob", "pattern": "ma*"}]}`,
 		protectedNo:  `{"values": [{"kind": "push", "branch_match_kind": "glob", "pattern": "release/*"}]}`,
-		noDelete:     "close_source_branch",
+		from:         `"source":{"branch":{"name":"feat/parser"}}`, to: `"destination":{"branch":{"name":"main"}}`,
+		noDelete: "close_source_branch",
 	},
 	{
 		name: "Bitbucket Data Center", remote: "https://git.corp.example/scm/ops/app.git", hosts: forge.Hosts{"git.corp.example": forge.KindBitbucket},
@@ -126,7 +154,8 @@ var shipForges = []shipForge{
 			"POST /repos/app/pull-requests": `{"id": 17}`,
 		},
 		open: [2]string{"POST", "/rest/api/1.0/projects/ops/repos/app/pull-requests"}, merge: [2]string{"POST", "/pull-requests/17/merge?version=3"}, number: 17,
-		protect:      "/rest/branch-permissions/2.0/projects/ops/repos/app/restrictions",
+		protect: "/rest/branch-permissions/2.0/projects/ops/repos/app/restrictions",
+		from:    `"fromRef":{"id":"refs/heads/feat/parser"`, to: `"toRef":{"id":"refs/heads/main"`,
 		protectedYes: `{"isLastPage": true, "values": [{"type": "read-only", "matcher": {"id": "refs/heads/main", "type": {"id": "BRANCH"}}}]}`,
 		protectedNo:  `{"isLastPage": true, "values": [{"type": "read-only", "matcher": {"id": "refs/heads/release", "type": {"id": "BRANCH"}}}]}`,
 	},
@@ -139,9 +168,10 @@ var shipForges = []shipForge{
 		},
 		open: [2]string{"POST", "/org/Proj/_apis/git/repositories/app/pullrequests"}, merge: [2]string{"PATCH", "/pullrequests/17"}, number: 17,
 		protect:      "/policy/configurations",
-		protectedYes: `{"value": [{"isEnabled": true, "isBlocking": true}]}`,
-		protectedNo:  `{"value": [{"isEnabled": false, "isBlocking": true}]}`,
-		noDelete:     "completionOptions", pin: `"lastMergeSourceCommit":{"commitId":"` + greenHead + `"}`,
+		protectedYes: `{"value": [{"isEnabled": true, "isBlocking": true, "settings": {"scope": [{"refName": "refs/heads/main"}]}}]}`,
+		protectedNo:  `{"value": [{"isEnabled": false, "isBlocking": true, "settings": {"scope": [{"refName": "refs/heads/main"}]}}]}`,
+		from:         `"sourceRefName":"refs/heads/feat/parser"`, to: `"targetRefName":"refs/heads/main"`,
+		noDelete: "completionOptions", pin: `"lastMergeSourceCommit":{"commitId":"` + greenHead + `"}`,
 	},
 	{
 		name: "GitHub", remote: "git@github.com:owner/app.git", env: map[string]string{"GH_TOKEN": secret},
@@ -151,6 +181,7 @@ var shipForges = []shipForge{
 		},
 		open: [2]string{"POST", "/repos/owner/app/pulls"}, merge: [2]string{"PUT", "/repos/owner/app/pulls/17/merge"}, number: 17,
 		protect: "/repos/owner/app/branches/main", protectedYes: `{"protected": true}`, protectedNo: `{"protected": false}`,
+		from: `"head":"feat/parser"`, to: `"base":"main"`,
 		method: `"merge_method":"squash"`, pin: `"sha":"` + greenHead + `"`,
 	},
 }
@@ -175,8 +206,11 @@ func TestShip_EveryForgeOpensAChange_issue464(t *testing.T) {
 			continue
 		}
 		w, ok := api.write(s.open[0], s.open[1])
-		if !ok || !strings.Contains(asJSON(w.Body), "feat/parser") || !strings.Contains(asJSON(w.Body), "Parse the thing") {
-			t.Errorf("%s: sent %+v, want %s %s naming the branch and title", s.name, api.Got, s.open[0], s.open[1])
+		body := asJSON(w.Body)
+		// Each branch in its own field: a head and a base swapped would open a
+		// change the wrong way round (#464's review).
+		if !ok || !strings.Contains(body, s.from) || !strings.Contains(body, s.to) || !strings.Contains(body, "Parse the thing") {
+			t.Errorf("%s: sent %s, want %s from %s to %s with the title", s.name, body, s.open[0], s.from, s.to)
 		}
 	}
 }
@@ -310,4 +344,20 @@ func mustRead(t *testing.T, path string) []byte {
 		t.Fatal(err)
 	}
 	return b
+}
+
+// glab carries the merge as the PUT GitLab's API asks for: a method fixed to
+// POST passed every create and would not merge (#464's review).
+func TestShip_GlabMergesWithAPut_issue464(t *testing.T) {
+	bin, calls, _ := fakeWriter(t, "glab", "", `{"state": "merged"}`)
+	r := forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: "git@gitlab.com:group/app.git"}).url},
+		Bins:    map[forge.Kind]string{forge.KindGitLab: bin},
+	})
+
+	merged, err := r.MergePR(t.TempDir(), 17, greenHead)
+
+	if got := string(mustRead(t, calls)); err != nil || !merged || !strings.Contains(got, "--method PUT projects/group%2Fapp/merge_requests/17/merge") {
+		t.Errorf("MergePR = %v, %v; glab was called:\n%s", merged, err, got)
+	}
 }

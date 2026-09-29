@@ -85,6 +85,6 @@ func (m ghMethods) first(slug string) (string, error) {
 func (g ghHTTP) branchProtected(ctx context.Context, _, branch string) (bool, error) {
 	b, err := getJSON[struct {
 		Protected *bool `json:"protected"`
-	}](ctx, g.restAPI(), g.repoPath()+"/branches/"+branch)
+	}](ctx, g.restAPI(), g.repoPath()+"/branches/"+branchPath(branch))
 	return protectedFlag(b.Protected, err, branch)
 }

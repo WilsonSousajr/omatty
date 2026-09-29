@@ -27,10 +27,17 @@ type (
 		} `json:"completionOptions"`
 	}
 	azPolicies struct {
-		Value []struct {
-			IsEnabled  bool `json:"isEnabled"`
-			IsBlocking bool `json:"isBlocking"`
-		} `json:"value"`
+		Value []azPolicy `json:"value"`
+	}
+	azPolicy struct {
+		IsEnabled  bool `json:"isEnabled"`
+		IsBlocking bool `json:"isBlocking"`
+		Settings   struct {
+			Scope []struct {
+				RefName   *string `json:"refName"`
+				MatchKind string  `json:"matchKind"`
+			} `json:"scope"`
+		} `json:"settings"`
 	}
 )
 
@@ -80,9 +87,25 @@ func (a azBackend) branchProtected(ctx context.Context, _, branch string) (bool,
 		return true, err
 	}
 	for _, p := range policies.Value {
-		if p.IsEnabled && p.IsBlocking {
+		if p.guards() {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+// guards is whether the policy gates a merge into its branch: enabled,
+// blocking, and scoped to a branch - by name, prefix, or the default branch.
+// A repository-wide setting, a file size limit, is scoped to no branch and
+// gates no merge (#464's review).
+func (p azPolicy) guards() bool {
+	if !p.IsEnabled || !p.IsBlocking {
+		return false
+	}
+	for _, s := range p.Settings.Scope {
+		if s.RefName != nil && *s.RefName != "" || s.MatchKind == "DefaultBranch" {
+			return true
+		}
+	}
+	return false
 }

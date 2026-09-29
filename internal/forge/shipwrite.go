@@ -10,7 +10,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -60,6 +62,23 @@ func protectedFlag(flag *bool, err error, branch string) (bool, error) {
 		return true, fmt.Errorf("forge: the answer about branch %q carried no protected flag", branch)
 	}
 	return *flag, nil
+}
+
+// branchPath is a branch name as a URL path: its slashes kept, which GitHub
+// and Gitea read as part of the name, and everything else escaped - release#2
+// is not release (#464's review).
+func branchPath(branch string) string { return (&url.URL{Path: branch}).EscapedPath() }
+
+// needsAdmin names what a refused restrictions read lacks: Bitbucket, Cloud
+// and Data Center alike, shows branch restrictions to a repository admin
+// alone, so a token that reads everything else is refused here (#464's
+// review) - and the merge is refused with it, protected being unknowable.
+func needsAdmin(err error, tokenEnv string) error {
+	var refused *AuthError
+	if !errors.As(err, &refused) {
+		return err
+	}
+	return fmt.Errorf("forge: reading branch restrictions needs repository admin, which %s lacks: %w", tokenEnv, err)
 }
 
 // stillAt refuses a merge whose head moved since the card showed it green:

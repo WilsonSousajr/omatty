@@ -2,7 +2,9 @@ package forge
 
 import (
 	"context"
+	"regexp"
 	"strconv"
+	"strings"
 )
 
 // The bodies Bitbucket Data Center's pull request endpoints read. Its merge
@@ -30,14 +32,17 @@ type (
 	// that only the model can resolve.
 	dcRestrictions struct {
 		Values []struct {
-			Matcher struct {
-				ID   string `json:"id"`
-				Type struct {
-					ID string `json:"id"`
-				} `json:"type"`
-			} `json:"matcher"`
+			Matcher dcMatcher `json:"matcher"`
 		} `json:"values"`
 		IsLastPage bool `json:"isLastPage"`
+	}
+	// dcMatcher is what a permission applies to: a branch, a pattern, or a
+	// branching-model category or branch only the model can resolve.
+	dcMatcher struct {
+		ID   string `json:"id"`
+		Type struct {
+			ID string `json:"id"`
+		} `json:"type"`
 	}
 )
 
@@ -82,26 +87,62 @@ func (b bdcBackend) mergePR(ctx context.Context, _ string, number int, head stri
 func (b bdcBackend) branchProtected(ctx context.Context, _, branch string) (bool, error) {
 	page, err := getJSON[dcRestrictions](ctx, b.f, "branch-permissions/2.0/projects/"+b.key+"/repos/"+b.slug+"/restrictions?limit=100")
 	if err != nil {
-		return true, err
+		return true, needsAdmin(err, "BITBUCKET_DC_TOKEN")
 	}
 	return page.cover(branch), nil
 }
 
 func (p dcRestrictions) cover(branch string) bool {
 	for _, r := range p.Values {
-		m := r.Matcher
-		switch m.Type.ID {
-		case "BRANCH":
-			if m.ID == "refs/heads/"+branch || m.ID == branch {
-				return true
-			}
-		case "PATTERN":
-			if globMatches(m.ID, branch) || globMatches(m.ID, "refs/heads/"+branch) {
-				return true
-			}
-		default: // a branching-model matcher only the model can resolve
+		if r.Matcher.covers(branch) {
 			return true
 		}
 	}
 	return !p.IsLastPage
+}
+
+// covers is whether the matcher applies to branch; a branching-model matcher
+// only the model can resolve is taken to, the side #331 fails to.
+func (m dcMatcher) covers(branch string) bool {
+	switch m.Type.ID {
+	case "BRANCH":
+		return m.ID == "refs/heads/"+branch || m.ID == branch
+	case "PATTERN":
+		return dcPatternMatches(m.ID, branch)
+	}
+	return true
+}
+
+// dcPatternMatches matches a branch-permission pattern as Data Center does
+// (#464's review; anchored, it failed open): Ant-style - `**` spans segments,
+// `*` and `?` stay within one, a trailing `/` covers everything under it -
+// against any suffix of refs/heads/<branch> that starts a segment.
+func dcPatternMatches(pattern, branch string) bool {
+	if strings.HasSuffix(pattern, "/") {
+		pattern += "**"
+	}
+	var re strings.Builder
+	re.WriteString(`(^|/)`)
+	for i := 0; i < len(pattern); i++ {
+		re.WriteString(antToken(pattern, &i))
+	}
+	matched, err := regexp.MatchString(re.String()+"$", "refs/heads/"+branch)
+	return matched || err != nil
+}
+
+// antToken is the regexp for the pattern token at *i, advancing past it.
+func antToken(pattern string, i *int) string {
+	switch rest := pattern[*i:]; {
+	case strings.HasPrefix(rest, "**/"):
+		*i += 2
+		return `(.*/)?`
+	case strings.HasPrefix(rest, "**"):
+		*i++
+		return `.*`
+	case rest[0] == '*':
+		return `[^/]*`
+	case rest[0] == '?':
+		return `[^/]`
+	}
+	return regexp.QuoteMeta(pattern[*i : *i+1])
 }

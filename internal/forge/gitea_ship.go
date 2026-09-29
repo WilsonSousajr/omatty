@@ -23,6 +23,9 @@ type (
 
 // createPR opens a pull request for head against base (#464).
 func (g gtBackend) createPR(ctx context.Context, _, head, base, title string) (int, error) {
+	if g.needsToken != nil {
+		return 0, g.needsToken // an anonymous read opens nothing (#464's review)
+	}
 	pr, err := sendJSON[struct {
 		Number int `json:"number"`
 	}](ctx, g.f, "POST", g.repo()+"/pulls", gtOpen{Head: head, Base: base, Title: title})
@@ -37,6 +40,9 @@ func (g gtBackend) createPR(ctx context.Context, _, head, base, title string) (i
 //
 // Gitea merges before it answers, so a success is a merge.
 func (g gtBackend) mergePR(ctx context.Context, _ string, number int, head string) (bool, error) {
+	if g.needsToken != nil {
+		return false, g.needsToken
+	}
 	repo, err := getJSON[struct {
 		Style string `json:"default_merge_style"`
 	}](ctx, g.f, g.repo())
@@ -55,6 +61,6 @@ func (g gtBackend) mergePR(ctx context.Context, _ string, number int, head strin
 func (g gtBackend) branchProtected(ctx context.Context, _, branch string) (bool, error) {
 	b, err := getJSON[struct {
 		Protected *bool `json:"protected"`
-	}](ctx, g.f, g.repo()+"/branches/"+branch)
+	}](ctx, g.f, g.repo()+"/branches/"+branchPath(branch))
 	return protectedFlag(b.Protected, err, branch)
 }

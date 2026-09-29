@@ -1,8 +1,11 @@
 package forge_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/WilsonSousajr/omatty/internal/forge"
 )
 
 // shipForgeNamed is one row of shipForges, with routes added over its own.
@@ -149,5 +152,92 @@ func TestShip_AMergeOnlyAcceptedIsNotMerged_issue464(t *testing.T) {
 		if merged, err := s.router(t, api).MergePR(t.TempDir(), 17, greenHead); err != nil || merged {
 			t.Errorf("%s: MergePR = %v, %v; want accepted, not merged", name, merged, err)
 		}
+	}
+}
+
+// Data Center matches a branch permission's pattern the Ant way, against a
+// suffix of refs/heads/<branch>: `**` spans segments, a trailing `/` covers
+// everything under it, `*` stays within one segment. Matched anchored, each of
+// these read as unprotected and would have been merged into (#464's review).
+func TestShip_DataCenterPatternsMatchAsDataCenterDoes_issue464(t *testing.T) {
+	for _, c := range []struct {
+		pattern, branch string
+		protected       bool
+	}{
+		{"heads/**/master", "master", true},
+		{"PROJECT-*", "stable/PROJECT-new", true},
+		{"release/", "release/2.0", true},
+		{"heads/release/*", "release/1", true},
+		{"develop", "team/develop", true},
+		{"release/*", "main", false},
+		{"release/*", "release/1/2", false},
+	} {
+		answer := `{"isLastPage": true, "values": [{"matcher": {"id": "` + c.pattern + `", "type": {"id": "PATTERN"}}}]}`
+		s, _ := shipForgeNamed(t, "Bitbucket Data Center", nil)
+		_, api := shipForgeNamed(t, "Bitbucket Data Center", map[string]string{"GET " + s.protect: answer})
+		got, err := s.router(t, api).BranchProtected(t.TempDir(), c.branch)
+		if err != nil || got != c.protected {
+			t.Errorf("%q on %q: protected = %v, %v; want %v", c.pattern, c.branch, got, err, c.protected)
+		}
+	}
+}
+
+// Reading Bitbucket's branch restrictions needs repository admin: a token
+// without it is refused, and the refusal says so rather than asking for a
+// token that works everywhere else (#464's review).
+func TestShip_BitbucketProtectionNamesTheAdminItNeeds_issue464(t *testing.T) {
+	for _, name := range []string{"Bitbucket", "Bitbucket Data Center"} {
+		s, _ := shipForgeNamed(t, name, nil)
+		_, api := shipForgeNamed(t, name, map[string]string{"GET " + s.protect: "!403 {}"})
+		got, err := s.router(t, api).BranchProtected(t.TempDir(), "main")
+		if !got || err == nil || !strings.Contains(err.Error(), "admin") {
+			t.Errorf("%s: protected = %v, %v; want protected, and the admin it needs named", name, got, err)
+		}
+	}
+}
+
+// Azure's protection is a blocking policy scoped to the branch - or to the
+// default branch - and a repository-wide setting, a file size limit, gates no
+// merge; the read names the repository and the ref (#464's review).
+func TestShip_AzureProtectionIsABranchPolicy_issue464(t *testing.T) {
+	for answer, want := range map[string]bool{
+		`{"value": [{"isEnabled": true, "isBlocking": true, "settings": {"scope": [{"repositoryId": "repo-guid"}]}}]}`:                     false,
+		`{"value": [{"isEnabled": true, "isBlocking": false, "settings": {"scope": [{"refName": "refs/heads/main"}]}}]}`:                   false,
+		`{"value": [{"isEnabled": true, "isBlocking": true, "settings": {"scope": [{"refName": null, "matchKind": "DefaultBranch"}]}}]}`:   true,
+		`{"value": [{"isEnabled": true, "isBlocking": true, "settings": {"scope": [{"refName": "refs/heads/", "matchKind": "Prefix"}]}}]}`: true,
+	} {
+		s, _ := shipForgeNamed(t, "Azure DevOps", nil)
+		_, api := shipForgeNamed(t, "Azure DevOps", map[string]string{"GET " + s.protect: answer})
+		got, err := s.router(t, api).BranchProtected(t.TempDir(), "main")
+		if err != nil || got != want {
+			t.Errorf("%s: protected = %v, %v; want %v", answer, got, err, want)
+		}
+		if w, ok := api.write("GET", "/policy/configurations"); !ok || !strings.Contains(w.Path, "repositoryId=repo-guid") || !strings.Contains(w.Path, "refName=refs%2Fheads%2Fmain") {
+			t.Errorf("asked %+v, want the repository and the ref named", w)
+		}
+	}
+}
+
+// A branch name is escaped in a path: release#2 is not release.
+func TestShip_ABranchNameIsEscapedInItsPath_issue464(t *testing.T) {
+	for _, name := range []string{"GitHub", "Gitea"} {
+		s, api := shipForgeNamed(t, name, nil)
+		_, _ = s.router(t, api).BranchProtected(t.TempDir(), "release#2")
+		if w, ok := api.write("GET", "/branches/release%232"); !ok {
+			t.Errorf("%s: asked %+v, want /branches/release%%232", name, w)
+		}
+	}
+}
+
+// An anonymous Gitea read cannot open or merge anything: it says so before
+// sending, with the note that names what is missing (#464's review).
+func TestShip_AnAnonymousGiteaDoesNotWrite_issue464(t *testing.T) {
+	s, api := shipForgeNamed(t, "Gitea", nil)
+	s.env = nil
+	_, err := s.router(t, api).CreatePR(t.TempDir(), "feat/parser", "main", "t")
+
+	var missing *forge.MissingToolError
+	if !errors.As(err, &missing) || len(api.Got) != 0 {
+		t.Errorf("CreatePR = %v after %+v, want the token note and nothing sent", err, api.Got)
 	}
 }
