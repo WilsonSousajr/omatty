@@ -271,9 +271,14 @@ key table.
 
 ### Enforcement
 
-- **New depguard rules** encode the layer table above. They run
-  **report-only** from the safety-net phase and switch to **enforcing** in the
-  last migration PR.
+- **`tools/layercheck`** (`scripts/check-layers.sh`) encodes the layer table
+  above. It has run **report-only** in CI since the safety-net phase (#620),
+  and it switches to **enforcing** (`-enforce`) in the last migration PR.
+  - *Amended 2026-09-29 (#622):* this bullet first said "new depguard rules".
+    #620 built a tool instead. depguard matches import paths against
+    per-file globs, so it cannot express "domain may import nothing but
+    domain and stdlib", and it has no report-only mode. depguard keeps the
+    per-library fences below.
 - **Today's fences carry over under the new paths**, and their `go list`
   assertions (`scripts/depguard_test.go`, `scripts/network_test.go`) move with
   them:
