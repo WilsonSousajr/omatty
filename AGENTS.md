@@ -498,7 +498,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 - `docs/ARCHITECTURE_AUDIT.md` and `docs/adr/` — the 2026-09-29 audit (#615)
   and the architecture decisions it led to. `0001-architecture.md` (#618) is
   the target layout: `domain/`, `service/`, `infra/`, `pubsub`, `tui/`, `cli`.
-  Until it is accepted and migrated, the layout above describes the code.
+  Until the migration lands, the layout above describes the code.
 - `internal/agent` package doc — the agent seam (#46): an agent is a command
   template plus a status adapter, and why the adapter interface lives in
   `watcher`.

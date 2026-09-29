@@ -1,6 +1,6 @@
 # ADR 0001: A hexagonal layout for omatty
 
-- **Status:** Proposed (#618). Nothing moves until this is accepted.
+- **Status:** Accepted 2026-09-29 (#618, PR #619).
 - **Date:** 2026-09-29
 - **Evidence:** `docs/ARCHITECTURE_AUDIT.md` (#615). Every "pain point" below
   refers to that document.
