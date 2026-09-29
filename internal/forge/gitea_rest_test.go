@@ -327,16 +327,16 @@ func TestGiteaREST_AnSSHRemoteReadsOverHTTPSWithItsToken_issue459(t *testing.T) 
 }
 
 // Read anonymously, a repository whose issues are off answers 404 on the
-// list and 200 on itself: none to show, not a note asking for a token -
+// list and 200 on itself: issues elsewhere, not a note asking for a token -
 // Codeberg's mirrors are the common case.
-func TestGiteaREST_AnonymousIssuesTurnedOffAreNone_issue459(t *testing.T) {
+func TestGiteaREST_AnonymousIssuesTurnedOffAreElsewhere_issue459(t *testing.T) {
 	api := &FakeGiteaAPI{First: []giteaAnswer{
 		{match: "issues?state=open", status: 404, body: `{}`},
 		{match: "/repos/forgejo/forgejo?", status: 200, body: `{"id": 73144}`},
 	}}
 
-	if issues, err := restGitea(t, nil, api).ListIssues(t.TempDir()); err != nil || len(issues) != 0 {
-		t.Errorf("ListIssues = %v, %v; want none and no error", issues, err)
+	if issues, err := restGitea(t, nil, api).ListIssues(t.TempDir()); !errors.Is(err, forge.ErrNoTracker) || len(issues) != 0 {
+		t.Errorf("ListIssues = %v, %v; want ErrNoTracker", issues, err)
 	}
 }
 

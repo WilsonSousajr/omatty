@@ -106,10 +106,15 @@ func (g gtBackend) statusCI(ctx context.Context, pr PR) (CIState, error) {
 
 func (g gtBackend) listIssues(ctx context.Context, _ string) ([]Issue, error) {
 	issues, err := pages(ctx, 100, gtPage[gtIssue](g.f, g.repo()+"/issues?state=open&type=issues"))
-	if err != nil {
-		return nil, g.listErr(ctx, err)
+	if err == nil {
+		return foldGTIssues(issues), nil
 	}
-	return foldGTIssues(issues), nil
+	if err = g.listErr(ctx, err); err == nil {
+		// The issues unit is off: a mirror's, or an outside tracker's, so the
+		// issues are elsewhere, as Bitbucket's are (#458, #460).
+		return nil, ErrNoTracker
+	}
+	return nil, err
 }
 
 func (g gtBackend) viewIssue(ctx context.Context, _ string, number int) (Detail, error) {
