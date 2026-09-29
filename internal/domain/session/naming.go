@@ -1,7 +1,7 @@
 // What a session may be called: the placeholder it carries before its first
 // prompt names it (#127).
 
-package registry
+package session
 
 import "strings"
 

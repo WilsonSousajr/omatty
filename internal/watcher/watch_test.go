@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // shortHome is a HOME short enough for a unix socket path; macOS caps
@@ -34,8 +34,8 @@ func claudeDeps(home string) WatchDeps {
 	return WatchDeps{Home: home, Clock: time.Now, Adapter: ClaudeAdapter(), TranscriptPath: paths.Transcript}
 }
 
-func twoSessions() []registry.Session {
-	return []registry.Session{
+func twoSessions() []session.Session {
+	return []session.Session{
 		{ID: "s1", Project: "p", Title: "one", Dir: "/p"},
 		{ID: "s2", Project: "p", Title: "two", Dir: "/p"},
 	}
@@ -48,7 +48,7 @@ func TestStart_OneTailerPerSessionAndAddGrowsIt_issue77(t *testing.T) {
 	if len(w.tailers) != 2 {
 		t.Fatalf("%d tailers for 2 sessions, want 2", len(w.tailers))
 	}
-	w.Add(registry.Session{ID: "s3", Project: "p", Title: "three", Dir: "/p"})
+	w.Add(session.Session{ID: "s3", Project: "p", Title: "three", Dir: "/p"})
 	if len(w.tailers) != 3 {
 		t.Errorf("%d tailers after Add, want 3", len(w.tailers))
 	}
@@ -113,7 +113,7 @@ func TestWatch_AddingTheSameSessionTwiceStopsTheDisplacedTailer_issue40(t *testi
 	defer w.Close()
 	first := w.tailers["s1"]
 
-	w.Add(registry.Session{ID: "s1", Project: "p", Title: "one again", Dir: "/p"})
+	w.Add(session.Session{ID: "s1", Project: "p", Title: "one again", Dir: "/p"})
 
 	select {
 	case <-first.Done():
@@ -152,8 +152,8 @@ func TestStart_ListensOnTheHookSocket_issue77(t *testing.T) {
 func TestStart_DegradesToTailerOnlyWhenTheSocketCannotBind_issue49(t *testing.T) {
 	// A HOME long enough that the socket path exceeds the macOS sun_path cap.
 	home := filepath.Join(t.TempDir(), strings.Repeat("x", 120))
-	sess := registry.Session{ID: "s1", Project: "p", Title: "one", Dir: "/p"}
-	w := Start(claudeDeps(home), []registry.Session{sess})
+	sess := session.Session{ID: "s1", Project: "p", Title: "one", Dir: "/p"}
+	w := Start(claudeDeps(home), []session.Session{sess})
 	defer w.Close()
 	if w.listener != nil {
 		t.Fatal("precondition: the listener bound on an over-long path")
@@ -185,7 +185,7 @@ func TestWatch_AddTailsTheReboundConversation_issue316(t *testing.T) {
 	defer w.Close()
 	first := w.tailers["s1"]
 
-	w.Add(registry.Session{ID: "s1", Project: "p", Title: "one", Dir: "/p", Conversation: "c1"})
+	w.Add(session.Session{ID: "s1", Project: "p", Title: "one", Dir: "/p", Conversation: "c1"})
 
 	tl := w.tailers["s1"]
 	if want := paths.Transcript(home, "/p", "c1"); tl.path != want || tl.sessionID != "c1" {

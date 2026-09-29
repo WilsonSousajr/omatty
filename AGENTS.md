@@ -57,7 +57,8 @@ internal/
 │   ├── depgraph/   [M11] the internal import graph -> Ca, Ce, instability, SDP.
 │   ├── fuzzy/      subsequence ranking for the session switcher and project picker. Pure.
 │   ├── gate/       [M9] Step, Verdict, Report, the output caps and the prompt: pure.
-│   └── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).
+│   ├── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).
+│   └── session/    Project, Session, State - what state.json holds (invariant 9) - and placeholder names.
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
 │   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).
@@ -70,7 +71,7 @@ internal/
 │   ├── notify/     desktop notifications for a session needing attention.
 │   ├── paths/      every filesystem location omatty reads or writes. Pure.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
-├── registry/       projects + sessions + state.json.
+├── registry/       persists projects and sessions to state.json; the record itself is domain/session.
 ├── agent/          the agent seam (#46): a command template plus a status adapter.
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.

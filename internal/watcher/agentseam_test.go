@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -69,7 +69,7 @@ func TestStart_TailsThePathTheProfileNames_issue46(t *testing.T) {
 	w := watcher.Start(watcher.WatchDeps{
 		Home: home, Clock: time.Now, Adapter: a,
 		TranscriptPath: func(_, _, _ string) string { return path },
-	}, []registry.Session{{ID: "s1", Dir: "/w"}})
+	}, []session.Session{{ID: "s1", Dir: "/w"}})
 	defer w.Close()
 
 	select {

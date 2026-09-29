@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/tally"
 )
 
@@ -14,8 +14,8 @@ var start = time.Date(2026, 9, 26, 9, 0, 0, 0, time.UTC)
 // #332's first number: session start to the pull request merging. omatty holds
 // every timestamp it needs already - it had just never measured anything.
 func TestOf_LeadTimeIsSessionStartToTheMergedPullRequest_issue332(t *testing.T) {
-	project := registry.Project{Name: "omatty", Root: "/p/omatty"}
-	sessions := []registry.Session{
+	project := session.Project{Name: "omatty", Root: "/p/omatty"}
+	sessions := []session.Session{
 		{ID: "s1", Project: "omatty", Branch: "feat/a", Started: start},
 		{ID: "s2", Project: "omatty", Branch: "feat/b", Started: start},
 	}
@@ -37,8 +37,8 @@ func TestOf_LeadTimeIsSessionStartToTheMergedPullRequest_issue332(t *testing.T) 
 // An open pull request is not a lead time yet, and a session with no start time
 // - every one written before #332 - cannot contribute one.
 func TestOf_CountsOnlyWhatItCanMeasure_issue332(t *testing.T) {
-	project := registry.Project{Name: "omatty"}
-	sessions := []registry.Session{
+	project := session.Project{Name: "omatty"}
+	sessions := []session.Session{
 		{ID: "s1", Project: "omatty", Branch: "feat/a", Started: start},
 		{ID: "s2", Project: "omatty", Branch: "feat/open", Started: start},
 		{ID: "s3", Project: "omatty", Branch: "feat/old"}, // no Started
@@ -61,8 +61,8 @@ func TestOf_CountsOnlyWhatItCanMeasure_issue332(t *testing.T) {
 
 // Another project's sessions are not this project's measurement.
 func TestOf_IgnoresOtherProjectsSessions_issue332(t *testing.T) {
-	project := registry.Project{Name: "omatty"}
-	sessions := []registry.Session{
+	project := session.Project{Name: "omatty"}
+	sessions := []session.Session{
 		{ID: "s1", Project: "omatty", Branch: "feat/a", Started: start},
 		{ID: "s2", Project: "api-svc", Branch: "feat/a", Started: start},
 	}
@@ -75,7 +75,7 @@ func TestOf_IgnoresOtherProjectsSessions_issue332(t *testing.T) {
 
 // #332's second number, straight off the counters the UI keeps.
 func TestOf_FirstPassRateIsTheShareThatPassed_issue332(t *testing.T) {
-	project := registry.Project{Name: "omatty", GateRuns: 8, GateFirstPass: 6}
+	project := session.Project{Name: "omatty", GateRuns: 8, GateFirstPass: 6}
 
 	got := tally.Of(project, nil, nil)
 
@@ -90,7 +90,7 @@ func TestOf_FirstPassRateIsTheShareThatPassed_issue332(t *testing.T) {
 // Nothing measured is not zero percent. A rate over no runs is not a number,
 // and reporting 0% would read as "the gate never passes".
 func TestOf_NoRunsIsNotAZeroRate_issue332(t *testing.T) {
-	got := tally.Of(registry.Project{Name: "omatty"}, nil, nil)
+	got := tally.Of(session.Project{Name: "omatty"}, nil, nil)
 
 	if got.Measured() {
 		t.Error("Measured() is true with nothing measured")
@@ -105,7 +105,7 @@ func TestOf_NoRunsIsNotAZeroRate_issue332(t *testing.T) {
 func TestOf_APullRequestWithNoSessionIsNotMeasured_issue332(t *testing.T) {
 	prs := []forge.PR{{Number: 1, Branch: "someone-else", State: forge.Merged, MergedAt: start}}
 
-	if got := tally.Of(registry.Project{Name: "omatty"}, nil, prs).Merged; got != 0 {
+	if got := tally.Of(session.Project{Name: "omatty"}, nil, prs).Merged; got != 0 {
 		t.Errorf("Merged = %d, want 0", got)
 	}
 }
@@ -114,10 +114,10 @@ func TestOf_APullRequestWithNoSessionIsNotMeasured_issue332(t *testing.T) {
 // which a wrong system clock or a re-used branch name can produce - is not a
 // negative lead time. It is not a measurement.
 func TestOf_RefusesANegativeLeadTime_issue332(t *testing.T) {
-	sessions := []registry.Session{{ID: "s1", Project: "omatty", Branch: "feat/a", Started: start}}
+	sessions := []session.Session{{ID: "s1", Project: "omatty", Branch: "feat/a", Started: start}}
 	prs := []forge.PR{{Number: 1, Branch: "feat/a", State: forge.Merged, MergedAt: start.Add(-time.Hour)}}
 
-	if got := tally.Of(registry.Project{Name: "omatty"}, sessions, prs); got.Merged != 0 {
+	if got := tally.Of(session.Project{Name: "omatty"}, sessions, prs); got.Merged != 0 {
 		t.Errorf("Merged = %d with a merge before the start, want 0", got.Merged)
 	}
 }

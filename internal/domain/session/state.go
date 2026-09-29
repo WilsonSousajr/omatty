@@ -1,10 +1,16 @@
-// Package registry holds omatty's projects and sessions and persists them.
-package registry
+// Package session is omatty's record of its projects and sessions - Project,
+// Session, State - and the placeholder names a new one starts with. It is
+// what state.json holds, so its JSON tags are invariant 9: renaming one loses
+// every saved session. Persisting it is internal/registry's business.
+//
+//	st := session.State{Version: session.Version}
+//	id := st.Sessions[0].ConversationID()
+package session
 
 import (
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 )
 
 // Version is the state.json schema version. Bump only with a migration.

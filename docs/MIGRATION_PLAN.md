@@ -36,7 +36,8 @@ count after the step.
 | 2.1 | #632 | #633 | merged | 28 |
 | 2.2 | #632 | #634 | merged | 28 |
 | Amendment 1 | #635 | #636 | merged | 28 |
-| 3.3 | #635 | #637 | open | 26 |
+| 3.3 | #635 | #637 | merged | 26 |
+| 3.1 | #635 | #638 | open | 25 |
 
 ## Rules every step follows
 
@@ -64,6 +65,13 @@ count after the step.
    package, the old package keeps `type X = newpkg.X` so importers keep
    compiling. The importers then move over in small PRs. Stage 8 deletes the
    aliases, so none outlives the migration.
+   - **Aliases alone can break the SDP gate.** If every importer keeps using
+     the aliases, the new domain package has one dependent, so it can be
+     *less* stable than the package that depends on it. Step 3.1 hit exactly
+     this: `registry` → `domain/session` at -0.056. So an extraction also
+     points enough of the type-only importers at the new package, in the same
+     PR, to keep the margin healthy, and says which it moved.
+
 4. **Moves never change behaviour, and the net says so.**
    - A move or extraction PR changes **no golden**.
    - A logic PR may change a golden only when its description names the row

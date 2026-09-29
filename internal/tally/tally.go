@@ -23,8 +23,8 @@ package tally
 import (
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // Numbers is one project's measurement.
@@ -53,7 +53,7 @@ func (n Numbers) Measured() bool { return n.Merged > 0 || n.GateRuns > 0 }
 // The pull requests come from the caller because reading them is `gh`'s job and
 // `internal/infra/forge` owns that (invariant 4); passing them in also means this
 // package does no I/O and needs none faked.
-func Of(project registry.Project, sessions []registry.Session, prs []forge.PR) Numbers {
+func Of(project session.Project, sessions []session.Session, prs []forge.PR) Numbers {
 	n := Numbers{GateRuns: project.GateRuns}
 	if project.GateRuns > 0 {
 		n.FirstPass = float64(project.GateFirstPass) / float64(project.GateRuns)
@@ -80,7 +80,7 @@ func Of(project registry.Project, sessions []registry.Session, prs []forge.PR) N
 // before #332 and has no start time, or its branch has no merged pull request.
 // Each of those is "not measured" rather than zero, because a zero would pull
 // the mean down as though the work had been instant.
-func leadTime(project registry.Project, sess registry.Session, prs []forge.PR) (time.Duration, bool) {
+func leadTime(project session.Project, sess session.Session, prs []forge.PR) (time.Duration, bool) {
 	if sess.Project != project.Name || sess.Started.IsZero() || sess.Branch == "" {
 		return 0, false
 	}
