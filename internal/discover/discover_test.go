@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/discover"
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
 // FakeGit answers for a fixed set of directories: anything under a known

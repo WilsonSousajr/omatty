@@ -21,7 +21,7 @@
 //
 // What is deliberately NOT here is distance from the main sequence. Go declares
 // interfaces at the consumer and usually unexported, so a stable pure leaf like
-// internal/paths scores maximum distance while being exactly what AGENTS.md
+// internal/infra/paths scores maximum distance while being exactly what AGENTS.md
 // designed it to be. Gating on that number would demand precisely the
 // speculative interfaces AGENTS.md bans (#263).
 package depgraph

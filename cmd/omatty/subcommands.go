@@ -15,7 +15,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/config"
 	"github.com/WilsonSousajr/omatty/internal/discover"
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/vcs"
 )

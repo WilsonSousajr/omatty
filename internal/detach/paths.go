@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
 // maxSocketPath is the kernel's cap on a unix socket path. sun_path is 104

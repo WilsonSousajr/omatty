@@ -125,7 +125,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
 | `internal/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
-| `internal/paths` | Every filesystem location omatty reads or writes. Pure; takes `home` explicitly so tests never touch the real one. |
+| `internal/infra/paths` | Every filesystem location omatty reads or writes. Pure; takes `home` explicitly so tests never touch the real one. |
 | `internal/registry` | Projects, sessions, `state.json`, and the commands that edit them (add, remove, rename, adopt, create, gate, carry). Creating a worktree also carries the project's gitignored paths into it, before the session is registered (#309). |
 | `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |
 | `internal/supervisor` | The `claude` process behind each session: fresh start vs resume, the PTY, the holder. |
@@ -270,7 +270,7 @@ nothing depends on.
 | `internal/agent` | 2 | 3 | 0.60 |
 | `internal/detach`, `watcher` | 1, 3 | 1, 3 | 0.50 |
 | `internal/registry` | 5 | 3 | 0.38 |
-| `internal/paths` | 6 | 0 | 0.00 |
+| `internal/infra/paths` | 6 | 0 | 0.00 |
 | `internal/forge`, `hooks` | 3 | 0 | 0.00 |
 | `internal/coverage`, `fuzzy`, `gate`, `golist`, `termwrap`, `vcs` | 2 | 0 | 0.00 |
 | `internal/highlight`, `keys`, `notify`, `paste` | 1 | 0 | 0.00 |
@@ -307,7 +307,7 @@ pairs instability with abstractness and calls a stable, concrete package the
 distance — and they are the ones this architecture is proudest of. The reason is
 that Go declares interfaces at the *consumer*, and usually unexported:
 `watcher.Adapter` lives in `watcher` precisely so `agent` can satisfy it, which
-is the paragraph below. `internal/paths` is Ca=6, Ce=0, pure, and has no
+is the paragraph below. `internal/infra/paths` is Ca=6, Ce=0, pure, and has no
 exported interface because nothing needs one. Gating on distance would demand
 exactly the speculative interfaces AGENTS.md bans. Do not "fix" these numbers.
 
@@ -325,4 +325,4 @@ package that reads every agent's status.
 - `docs/superpowers/specs/2026-09-01-omatty-design.md` - the design this
   repository implements, and the two concerns it flagged before building.
 - The package docs - every exported identifier carries its intent and an
-  example; `internal/agent` and `internal/paths` are the two to read first.
+  example; `internal/agent` and `internal/infra/paths` are the two to read first.

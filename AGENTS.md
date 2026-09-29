@@ -52,7 +52,8 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 ```
 cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
-├── paths/          every filesystem location omatty reads or writes. Pure.
+├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
+│   └── paths/      every filesystem location omatty reads or writes. Pure.
 ├── config/         ~/.omatty/config.toml; every key optional. The only TOML importer.
 ├── registry/       projects + sessions + state.json.
 ├── agent/          the agent seam (#46): a command template plus a status adapter.

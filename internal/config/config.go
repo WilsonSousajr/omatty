@@ -16,7 +16,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/WilsonSousajr/omatty/internal/forge"
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
 // Naming is the [naming] table: whether omatty spends a headless agent call

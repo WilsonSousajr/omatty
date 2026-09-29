@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/agent"
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 

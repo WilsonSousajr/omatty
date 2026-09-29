@@ -11,7 +11,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/detach"
 	"github.com/WilsonSousajr/omatty/internal/hooks"
-	"github.com/WilsonSousajr/omatty/internal/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"

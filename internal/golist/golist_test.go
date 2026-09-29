@@ -35,7 +35,7 @@ func TestList_reportsOnlyTheFilesThisPlatformCompiles(t *testing.T) {
 // go list -json writes a stream of concatenated objects rather than a JSON
 // array, so anything decoding it with Unmarshal gets only the first package.
 func TestList_readsEveryPackageInTheStream(t *testing.T) {
-	pkgs, err := golist.List("..", "./paths", "./fuzzy", "./keys")
+	pkgs, err := golist.List("..", "./infra/paths", "./fuzzy", "./keys")
 
 	if err != nil {
 		t.Fatal(err)
@@ -115,14 +115,14 @@ func TestModule_outsideAModuleIsAnError(t *testing.T) {
 // `go list -deps` would count the whole reachable graph as one package's
 // dependencies and make every metric derived from it meaningless.
 func TestList_reportsDirectImportsOnly(t *testing.T) {
-	pkgs, err := golist.List("..", "./paths")
+	pkgs, err := golist.List("..", "./infra/paths")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, imported := range pkgs[0].Imports {
 		if strings.Contains(imported, "/internal/") {
-			t.Errorf("internal/paths imports %s; it is meant to be a pure leaf", imported)
+			t.Errorf("internal/infra/paths imports %s; it is meant to be a pure leaf", imported)
 		}
 	}
 }
