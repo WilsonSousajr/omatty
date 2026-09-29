@@ -14,7 +14,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // FakeAzureAPI is Azure DevOps's REST API as a test server over the fixtures
@@ -75,7 +75,7 @@ func (f *FakeAzureAPI) answer(t *testing.T, w http.ResponseWriter, pq string) {
 	}
 	for _, route := range azureRoutes {
 		if strings.Contains(pq, route.match) {
-			b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "forge", "azure", route.file))
+			b, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "forge", "azure", route.file))
 			if err != nil {
 				t.Error(err)
 			}

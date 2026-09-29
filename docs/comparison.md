@@ -113,7 +113,7 @@ remote machines.
 Several forges are the same kind of fact (M16). omatty reads a project's pull
 requests, CI, issues and items on GitHub, GitLab, Azure DevOps,
 Gitea/Forgejo/Codeberg and Bitbucket Cloud and Data Center, through each
-forge's own CLI or its REST API (`internal/forge`), and ships to each with
+forge's own CLI or its REST API (`internal/infra/forge`), and ships to each with
 `ctrl+o p`. The README's Forges table says which of those a real run has
 shown and which are still untested. Others got there first on the forges most
 teams use: Orca's cards carry GitLab merge requests and their CI

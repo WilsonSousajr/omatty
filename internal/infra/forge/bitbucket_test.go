@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // FakeBitbucketAPI is Bitbucket Cloud's REST API (/2.0) as a test server over
@@ -50,7 +50,7 @@ func (f *FakeBitbucketAPI) serve(t *testing.T) string {
 		}
 		for _, route := range bitbucketRoutes {
 			if strings.Contains(pq, route.match) {
-				b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "forge", "bitbucket", route.file))
+				b, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "forge", "bitbucket", route.file))
 				if err != nil {
 					t.Error(err)
 				}

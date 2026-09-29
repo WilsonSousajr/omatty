@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // giteaRoutes maps a request's path and query to its recorded fixture, for
@@ -27,7 +27,7 @@ var giteaRoutes = []struct{ match, file string }{
 
 func giteaFixture(t *testing.T, name string) string {
 	t.Helper()
-	p, err := filepath.Abs(filepath.Join("..", "..", "testdata", "forge", "gitea", name))
+	p, err := filepath.Abs(filepath.Join("..", "..", "..", "testdata", "forge", "gitea", name))
 	if err != nil {
 		t.Fatal(err)
 	}

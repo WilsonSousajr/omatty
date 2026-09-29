@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // FakeGitLabAPI is GitLab's REST API as a test server over the same recorded
@@ -61,7 +61,7 @@ func (f *FakeGitLabAPI) serve(t *testing.T) string {
 func serveFixture(t *testing.T, w http.ResponseWriter, pathAndQuery string) {
 	for _, route := range gitLabRoutes {
 		if strings.Contains(pathAndQuery, route.match) {
-			b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "forge", "gitlab", route.file))
+			b, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "forge", "gitlab", route.file))
 			if err != nil {
 				t.Error(err)
 			}

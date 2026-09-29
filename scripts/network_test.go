@@ -5,8 +5,8 @@ import "testing"
 // networkAllowed are the packages permitted to reach the network (#453). The
 // network is a capability for the reason shelling out is: a second package
 // with an HTTP client is a second, unreviewed place a borrowed token could go.
-// internal/forge's REST fallback is the one.
-var networkAllowed = []string{"forge"}
+// internal/infra/forge's REST fallback is the one.
+var networkAllowed = []string{"infra/forge"}
 
 // The allowlist names the packages that import net/http - no more, no fewer -
 // for the erosion reason TestDepguard_ExecAllowlistMatchesReality gives.

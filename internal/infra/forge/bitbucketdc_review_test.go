@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // cloudAndDC is one Router over a Cloud project and a Data Center one, as an

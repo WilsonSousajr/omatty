@@ -13,14 +13,14 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // fixture reads one recorded answer from testdata/forge/<kind>/: public
 // repositories only, never a token (AGENTS.md, Security).
 func fixture(t *testing.T, kind, name string) string {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "forge", kind, name))
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "forge", kind, name))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -55,6 +55,9 @@ internal/
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
 │   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).
+│   ├── forge/      OUR interface over every forge's CLI - gh, glab, az, tea - behind
+│   │            one Router: pull requests, CI and issues, read on a timer;
+│   │            written only on a keypress (#310, #331, #452).
 │   ├── golist/     [M11] OUR interface over `go list` (invariant 4 in spirit).
 │   ├── highlight/  [M5] OUR interface over chroma (invariant 4 in spirit).
 │   ├── notify/     desktop notifications for a session needing attention.
@@ -62,9 +65,6 @@ internal/
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
 ├── registry/       projects + sessions + state.json.
 ├── agent/          the agent seam (#46): a command template plus a status adapter.
-├── forge/          OUR interface over every forge's CLI - gh, glab, az, tea - behind
-│                one Router: pull requests, CI and issues, read on a timer;
-│                written only on a keypress (#310, #331, #452).
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
 ├── keys/           modal key router. Pure state machine (invariant 1).
@@ -197,13 +197,13 @@ not in the gate.
   no global singletons, no `init()` side effects.
 - **Wrap third-party libraries behind a thin interface this project owns.**
   `internal/termwrap` owns bubbleterm and the PTY, `internal/infra/vcs` owns the git
-  CLI, `internal/forge` owns every forge CLI (gh, glab, az, tea),
+  CLI, `internal/infra/forge` owns every forge CLI (gh, glab, az, tea),
   `internal/infra/highlight` owns chroma,
   `internal/review` owns go-gitdiff. No other package may import them.
   Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
-  from `infra/detach`, `forge`, `gate`, `infra/golist`, `infra/notify`, `supervisor`,
+  from `infra/detach`, `infra/forge`, `gate`, `infra/golist`, `infra/notify`, `supervisor`,
   `termwrap` and `infra/vcs`, and nowhere else in production code. `termwrap` is on that list because it names
   `*exec.Cmd` in a signature without ever constructing one - a distinction
   depguard cannot draw. `forge` joined for #310 as omatty's one route to the
@@ -257,7 +257,7 @@ not in the gate.
    be. bubbleterm is an import, so a rule can fence it. git is a *string
    literal* handed to `exec`, which no import rule can see, so that half is
    `TestNoGitOutsideVcs` in `scripts/depguard_test.go`. The forge CLIs follow
-   the same rule for the same reason: `internal/forge` owns gh (#310), and
+   the same rule for the same reason: `internal/infra/forge` owns gh (#310), and
    since #452 glab, az and tea too; `TestNoGhOutsideForge` is their fence.
 
    depguard can only ever fail in one direction: it catches an import that

@@ -14,7 +14,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // nameFloor is the least a header keeps for its project's name: fifteen cells,

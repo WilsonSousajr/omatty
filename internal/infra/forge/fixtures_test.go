@@ -19,7 +19,7 @@ var (
 // AGENTS.md allows no emails in testdata, and each fixture README says so
 // (#588).
 func TestFixtures_CarryNoEmailAddress_issue588(t *testing.T) {
-	root := filepath.Join("..", "..", "testdata", "forge")
+	root := filepath.Join("..", "..", "..", "testdata", "forge")
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err

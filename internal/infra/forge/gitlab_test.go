@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // fakeGlab is a glab whose `api` answers each path from the recorded GitLab
@@ -25,7 +25,7 @@ func fakeGlabWith(t *testing.T, extra []glabRoute) (bin, calls string) {
 	t.Helper()
 	dir := t.TempDir()
 	calls = filepath.Join(dir, "calls")
-	fx := func(name string) string { return filepath.Join("..", "..", "testdata", "forge", "gitlab", name) }
+	fx := func(name string) string { return filepath.Join("..", "..", "..", "testdata", "forge", "gitlab", name) }
 	abs := func(name string) string {
 		p, err := filepath.Abs(fx(name))
 		if err != nil {
