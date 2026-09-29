@@ -115,12 +115,14 @@ func azState(s string) PRState {
 	return Open
 }
 
-// buildPolicies is the evaluations that are CI: enabled build validation, not
+// ciPolicies is the evaluations that are CI: enabled build validation, and
+// the Status policies external CI - GitHub Actions, Jenkins - gates a pull
+// request through, which a real probe found read as no CI at all (#456). Not
 // a reviewer count or a linked work item.
-func buildPolicies(in []azEvaluation) []azEvaluation {
+func ciPolicies(in []azEvaluation) []azEvaluation {
 	var out []azEvaluation
 	for _, e := range in {
-		if e.Configuration.IsEnabled && e.Configuration.Type.DisplayName == "Build" {
+		if kind := e.Configuration.Type.DisplayName; e.Configuration.IsEnabled && (kind == "Build" || kind == "Status") {
 			out = append(out, e)
 		}
 	}

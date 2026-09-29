@@ -20,6 +20,7 @@ import (
 type FakeAzureAPI struct {
 	Status      int
 	ContentType string
+	Policy      string // when set, the policy evaluations every pull request has
 	mu          sync.Mutex
 	Got         []FakeRequest
 	Bodies      []string
@@ -61,6 +62,10 @@ func (f *FakeAzureAPI) answer(t *testing.T, w http.ResponseWriter, pq string) {
 	w.Header().Set("Content-Type", contentType)
 	if f.Status != 0 {
 		w.WriteHeader(f.Status)
+		return
+	}
+	if f.Policy != "" && strings.Contains(pq, "/policy/evaluations") {
+		_, _ = w.Write([]byte(f.Policy))
 		return
 	}
 	for _, route := range azureRoutes {
@@ -240,5 +245,29 @@ func TestAzure_WithoutAzIsAMissingTool_issue456(t *testing.T) {
 	var missing *forge.MissingToolError
 	if !errors.As(err, &missing) || missing.Tool != "az" {
 		t.Errorf("error = %v, want az missing", err)
+	}
+}
+
+// azEvaluation is one policy evaluation as Azure writes it, for FakeAzureAPI.Policy.
+func azEvaluation(kind, status string) string {
+	return `{"status": "` + status + `", "configuration": {"isEnabled": true, "type": {"displayName": "` + kind + `"}}}`
+}
+
+// External CI - GitHub Actions, Jenkins - gates an Azure pull request through
+// a Status policy, not a Build one: found by a real probe, where an approved
+// status policy read as no CI at all (#456). Both are CI; the worst of them
+// is the card's mark, and a reviewer policy still is not.
+func TestAzure_AStatusPolicyIsCI_issue456(t *testing.T) {
+	az, _ := fakeAz(t, secret)
+	for want, policies := range map[forge.CIState][]string{
+		forge.CIPassing: {azEvaluation("Status", "approved"), azEvaluation("Minimum number of reviewers", "rejected")},
+		forge.CIFailing: {azEvaluation("Status", "rejected"), azEvaluation("Build", "approved")},
+		forge.CIRunning: {azEvaluation("Status", "queued")},
+	} {
+		api := &FakeAzureAPI{Policy: `{"value": [` + strings.Join(policies, ",") + `]}`}
+		prs, err := azureRouter(t, az, nil, api).ListPRs(t.TempDir())
+		if pr, _ := prNumbered(prs, 11); err != nil || pr.CI != want {
+			t.Errorf("%v: CI = %v, %v; want %v", policies, pr.CI, err, want)
+		}
 	}
 }

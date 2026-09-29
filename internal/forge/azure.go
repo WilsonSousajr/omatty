@@ -132,5 +132,5 @@ func (a azBackend) builds(ctx context.Context, number int) ([]azEvaluation, erro
 	}
 	artifact := "vstfs:///CodeReview/CodeReviewId/" + pr.Repository.Project.ID + "/" + strconv.Itoa(number)
 	evals, err := azGet[azList[azEvaluation]](ctx, a, a.api("policy/evaluations?artifactId="+url.QueryEscape(artifact))+"-preview.1")
-	return buildPolicies(evals.Value), err
+	return ciPolicies(evals.Value), err
 }
