@@ -1,4 +1,4 @@
-package review_test
+package gitdiff_test
 
 // twoFileDiff is a modified file with one hunk and a brand-new file, in the
 // exact shape `git diff` and `git diff --no-index /dev/null` emit.
@@ -21,4 +21,17 @@ index 0000000..3333333
 @@ -0,0 +1,2 @@
 +fresh
 +file
+`
+
+// dupBraceDiff has the same line twice in one hunk, for the nth-occurrence
+// anchor tests.
+const dupBraceDiff = `diff --git a/x.go b/x.go
+index 1111111..2222222 100644
+--- a/x.go
++++ b/x.go
+@@ -1,3 +1,3 @@
+ }
+-old
++new
+ }
 `

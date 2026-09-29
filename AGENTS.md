@@ -69,6 +69,7 @@ internal/
 │   ├── forge/      OUR interface over every forge's CLI - gh, glab, az, tea - behind
 │   │            one Router: pull requests, CI and issues, read on a timer;
 │   │            written only on a keypress (#310, #331, #452).
+│   ├── gitdiff/    [ADR 0001] the only go-gitdiff importer: git's unified diff -> domain/review.Diff.
 │   ├── golist/     [M11] OUR interface over `go list` (invariant 4 in spirit).
 │   ├── highlight/  [M5] OUR interface over chroma (invariant 4 in spirit).
 │   ├── hooks/      the --settings hooks file, and the `omatty hook` command (invariant 11).
@@ -205,7 +206,7 @@ not in the gate.
   `internal/termwrap` owns bubbleterm and the PTY, `internal/infra/vcs` owns the git
   CLI, `internal/infra/forge` owns every forge CLI (gh, glab, az, tea),
   `internal/infra/highlight` owns chroma,
-  `internal/review` owns go-gitdiff. No other package may import them.
+  `internal/infra/gitdiff` owns go-gitdiff. No other package may import them.
   Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable

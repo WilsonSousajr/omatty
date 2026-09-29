@@ -66,12 +66,12 @@ linters:
         wrappers:
           files:
             - "!**/internal/infra/highlight/**"
-            - "!**/internal/review/**"
+            - "!**/internal/infra/gitdiff/**"
           deny:
             - pkg: github.com/alecthomas/chroma/v2
               desc: "invariant 4 in spirit - internal/infra/highlight owns chroma"
             - pkg: github.com/bluekeyes/go-gitdiff
-              desc: "internal/review owns diff parsing"
+              desc: "internal/infra/gitdiff owns diff parsing"
 
         # Shelling out is a capability, not a convenience. These six are the
         # packages that do it today; scripts/depguard_test.go asserts the list

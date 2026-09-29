@@ -1,15 +1,16 @@
-package review_test
+package gitdiff_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 )
 
 func parse(t *testing.T, raw string) review.Diff {
 	t.Helper()
-	d, err := review.ParseDiff(strings.NewReader(raw))
+	d, err := gitdiff.ParseDiff(strings.NewReader(raw))
 	if err != nil {
 		t.Fatalf("ParseDiff() error = %v", err)
 	}
@@ -72,7 +73,7 @@ func TestParseDiff_EmptyInputIsAnEmptyDiff(t *testing.T) {
 func TestParseDiff_TruncatedHunkNamesTheProblem(t *testing.T) {
 	truncated := "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1,5 +1,5 @@\n context\n"
 
-	_, err := review.ParseDiff(strings.NewReader(truncated))
+	_, err := gitdiff.ParseDiff(strings.NewReader(truncated))
 
 	if err == nil {
 		t.Fatal("ParseDiff(truncated hunk) returned nil, want an error")

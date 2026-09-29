@@ -123,6 +123,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/domain/forge` | A forge's work, independent of the forge: `PR` and its state, CI and review, `Issue`, `Detail` with its `Comment`s and `Check`s, and `Label`, how a forge names things. `internal/infra/forge` returns these and aliases them until migration step 8.1. |
 | `internal/domain/gate` | The gate's vocabulary - `Step`, `Verdict`, `StepResult`, `Report` - the output caps and the prompt `Compose` writes. Pure; `internal/gate` aliases it until migration step 8.1. |
 | `internal/infra/highlight` | omatty's only route to the syntax highlighter (chroma), with omatty's own colour style (#197). |
+| `internal/infra/gitdiff` | The only package that imports go-gitdiff: parses git's unified output into `domain/review.Diff`, numbering every line on both sides. |
 | `internal/infra/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/infra/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
@@ -255,7 +256,7 @@ and the tests substitute a named fake for it.
 Every seam above is now an enforced import rule rather than a convention:
 `depguard` in `.golangci.yml` fences bubbleterm and the PTY to `termwrap`,
 bubbletea to `{ui, termwrap}`, chroma to `highlight` and go-gitdiff to
-`review`, and `os/exec` to the six packages that shell out. The git seam is the
+`infra/gitdiff`, and `os/exec` to the six packages that shell out. The git seam is the
 exception depguard cannot see - git is reached by a string literal, not an
 import - so `TestNoGitOutsideVcs` covers it instead (#260).
 

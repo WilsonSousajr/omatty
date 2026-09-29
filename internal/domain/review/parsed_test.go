@@ -7,13 +7,12 @@ import (
 )
 
 // parsed holds every diff these tests build, already parsed by
-// internal/review's real ParseDiff (migration step 3.6a, #635). The parser
-// wraps go-gitdiff and stays behind in internal/review (then infra/gitdiff),
-// so calling it from here would make domain/review_test -> review ->
-// domain/review, the test-graph cycle check-deps refuses. The literals are
-// generated, never edited: internal/review's parsed_generate_test.go writes
-// them, and its parsed_guard_test.go fails the moment ParseDiff stops
-// producing them.
+// the real ParseDiff (migration step 3.6a, #635), which wraps go-gitdiff and
+// lives in internal/infra/gitdiff. Calling it from here would make
+// domain/review_test -> gitdiff -> domain/review, the test-graph cycle
+// check-deps refuses. The literals are generated, never edited: infra/gitdiff's
+// parsed_generate_test.go writes them, and its parsed_guard_test.go fails the
+// moment ParseDiff stops producing them.
 var parsed = map[string]review.Diff{
 	"diff --git a/a.go b/a.go\nindex 1111111..2222222 100644\n--- a/a.go\n+++ b/a.go\n@@ -10,3 +10,3 @@ func f() {\n \ta := 1\n-\tb := 2\n+\tb := 3\n }\n":                                                                                                                                                                                                                                                   review.Diff{Files: []review.File{review.File{Path: "a.go", OldPath: "a.go", Status: 0, Binary: false, Hunks: []review.Hunk{review.Hunk{Header: "@@ -10,3 +10,3 @@ func f() {", Lines: []review.Line{review.Line{Kind: 0, Text: "\ta := 1", OldNo: 10, NewNo: 10}, review.Line{Kind: 2, Text: "\tb := 2", OldNo: 11, NewNo: 0}, review.Line{Kind: 1, Text: "\tb := 3", OldNo: 0, NewNo: 11}, review.Line{Kind: 0, Text: "}", OldNo: 12, NewNo: 12}}}}}}},
 	"diff --git a/a.go b/a.go\nindex 1111111..2222222 100644\n--- a/a.go\n+++ b/a.go\n@@ -10,3 +10,3 @@ func f() {\n \ta := 1\n-\tb := 2\n+\tb := 4\n }\n":                                                                                                                                                                                                                                                   review.Diff{Files: []review.File{review.File{Path: "a.go", OldPath: "a.go", Status: 0, Binary: false, Hunks: []review.Hunk{review.Hunk{Header: "@@ -10,3 +10,3 @@ func f() {", Lines: []review.Line{review.Line{Kind: 0, Text: "\ta := 1", OldNo: 10, NewNo: 10}, review.Line{Kind: 2, Text: "\tb := 2", OldNo: 11, NewNo: 0}, review.Line{Kind: 1, Text: "\tb := 4", OldNo: 0, NewNo: 11}, review.Line{Kind: 0, Text: "}", OldNo: 12, NewNo: 12}}}}}}},
@@ -35,7 +34,7 @@ func parse(t *testing.T, raw string) review.Diff {
 	t.Helper()
 	d, ok := parsed[raw]
 	if !ok {
-		t.Fatalf("no pre-parsed diff for this input; regenerate with GEN_FIXTURES=1 (see parsed_generate_test.go in internal/review)")
+		t.Fatalf("no pre-parsed diff for this input; regenerate with GEN_FIXTURES=1 (see parsed_generate_test.go in internal/infra/gitdiff)")
 	}
 	return d
 }

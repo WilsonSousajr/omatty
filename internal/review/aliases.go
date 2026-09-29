@@ -1,6 +1,11 @@
 package review
 
-import dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+import (
+	"io"
+
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
+)
 
 // The review model - a diff as files, hunks and lines; comments anchored on
 // content (invariant 7); the tree; the prompt Compose writes - moved to
@@ -148,3 +153,9 @@ func AnchorFor(session, turn Diff, p Position) Anchor { return dreview.AnchorFor
 func PlaceIn(session, turn Diff, comments []Comment) Placed {
 	return dreview.PlaceIn(session, turn, comments)
 }
+
+// ParseDiff is gitdiff.ParseDiff: parsing moved to internal/infra/gitdiff
+// (migration step 3.6b), the one package that imports go-gitdiff.
+//
+//	d, err := review.ParseDiff(strings.NewReader(raw))
+func ParseDiff(r io.Reader) (Diff, error) { return gitdiff.ParseDiff(r) }
