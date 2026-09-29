@@ -38,7 +38,8 @@ count after the step.
 | Amendment 1 | #635 | #636 | merged | 28 |
 | 3.3 | #635 | #637 | merged | 26 |
 | 3.1 | #635 | #638 | merged | 25 |
-| 3.2 | #635 | #639 | open | 24 |
+| 3.2 | #635 | #639 | merged | 24 |
+| Amendment 2 | #635 | this PR | open | 24 |
 
 ## Rules every step follows
 
@@ -133,7 +134,7 @@ domain half one at a time.
 | 3.1 | `refactor: domain/session from registry` | `registry/state.go` types and `ConversationID`, `naming.go`, the per-project gate config type; aliases in `registry`. The `state.json` golden must not move. | M | invariant 9, ADR ports (session types) | 3.3 | revert |
 | 3.2 | `refactor: domain/status from watcher and hooks` | `watcher/event.go`, `status.go`; `hooks.Payload` → `status.HookPayload`; aliases | M | ADR event model | 1.7 | revert |
 | 3.3 | `refactor: domain/gate from gate` | `Step`, `StepResult`, `Report`, `Verdict`, `compose.go`, the percentage parse (`coverage.go`); aliases. The runner stays. | M | invariant 12 | 0 | revert; blocks 3.1 |
-| 3.4 | `refactor: domain/coverage; the profile read to infra/fsread` | the parsers to `domain/coverage`, `load.go` to a new `infra/fsread` | M | ADR tree | 0 | revert |
+| 3.4 | `refactor: domain/coverage` | the package moves to `domain/coverage` whole. *Amendment 2:* `load.go` and `module.go` (the two file reads) stay with it until step 5.3, because `ui` calls `coverage.Load` directly, and moving the reads to infra now would add a tui → infra finding. | M | ADR tree | 0 | revert |
 | 3.5 | `refactor: domain/forge types out of infra/forge` | PR, Issue, Detail, Comment, CI, Kind, Label; aliases in `infra/forge` | M | ADR tree | 1.6 | revert |
 | 3.6a | `refactor: domain/review from review (model)` | anchor, change, comments, compose, digest, entries, pair, place, tree, treecompact, turnplace, shippable; aliases | M | invariants 7 and 8 | 3.1 | revert |
 | 3.6b | `refactor: go-gitdiff parsing to infra/gitdiff` | `review/parse.go`; the depguard `wrappers` rule retargeted | M | invariant 4 in spirit | 3.6a | revert |
@@ -157,7 +158,7 @@ net: a logic PR that changes a row says which row and why (rule 4).
 |---|---|---|---|---|---|---|
 | 5.1 | `feat: internal/pubsub` | `Broker[T]` with `Publish` (waits) and `Offer` (drops and counts); `Event[T]`. It has no users yet. | L | ADR event model | 0 | revert |
 | 5.2 | `refactor: service/status, infra/transcript, infra/hookserver` | `watcher/watch.go`, `adapter.go`, `guard.go` and `transcript.go` become the service. The tailer goes to `infra/transcript` and publishes with `Publish`. The listener goes to `infra/hookserver` and publishes with `Offer` (invariant 11). The TUI subscribes where it read `Deps.Events`. | H, **smoke** | ADR event model, invariants 2 and 11 | 3.2, 5.1 | revert; blocks 5.8, 7.1 |
-| 5.3 | `refactor: service/gate and infra/gateexec` | the runner and bound become the service, which publishes `Event[gate.Report]`. `run.go`, `procgroup_*` and `detect.go` go to `infra/gateexec`. The exec allowlist changes as the ADR records. | M, **smoke** (`gateprobe`) | invariant 12, ADR Enforcement | 3.3, 5.1 | revert |
+| 5.3 | `refactor: service/gate and infra/gateexec` | the runner and bound become the service, which publishes `Event[gate.Report]`. `run.go`, `procgroup_*` and `detect.go` go to `infra/gateexec`. The exec allowlist changes as the ADR records. *Amendment 2:* `domain/coverage`'s `load.go` and `module.go` move to a new `infra/fsread`, behind `service/gate`'s `ProfileReader` port; `ui` stops calling `coverage.Load`. Removes the coverage → os finding. | M, **smoke** (`gateprobe`) | invariant 12, ADR Enforcement | 3.3, 5.1 | revert |
 | 5.4 | `refactor: service/sessions (state and commands)` | registry's commands and create become the service. `store.go` and carry's copy go to `infra/store` behind `StateStore`. The ports carry `ctx`. | M | ADR ports, P2 | 3.1, 4.1 | revert; blocks 5.5–5.7 |
 | 5.5 | `refactor: starting a session returns session.Launch` | `supervisor/launch.go` becomes `sessions.Start`, which returns argv/env/dir. The `Holder` port works over argv. `tui/terminal` (still `termwrap`) spawns. `namer.go` goes to `infra/agentcli`. | H, **smoke** + `dtachprobe` | ADR "Starting a session", invariant 9 | 5.4 | revert |
 | 5.6a | `refactor: create and start leave Update` | `sessionlife.go:90/44/107` become Cmds; `Event[session.Session]` feeds the sidebar | H, **smoke** | P5, audit leak 5 | 5.5 | revert |
@@ -239,6 +240,14 @@ findings was checked against the steps meant to remove it. Four had no step:
 The maintainer chose both (over reclassifying crap/depgraph as tooling, and
 over moving highlight into `tui/`). With them, every current finding has a
 step that removes it, so Stage 8's zero is reachable.
+
+**Amendment 2** (2026-09-29, #635). Step 3.4 as written moved coverage's
+file reads to `infra/fsread`. But `ui` calls `coverage.Load` directly, so the
+move would add a tui → infra finding and break rule 5. The maintainer chose to
+defer the read: 3.4 moves the package whole, and the reads go to
+`infra/fsread` in 5.3 behind the `ProfileReader` port ADR 0001 already plans.
+The alternative was injecting a function through today's
+Deps/RunDeps/modelFor plumbing, the very plumbing 5.10 removes.
 
 ## When the plan is wrong
 
