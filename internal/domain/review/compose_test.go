@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 func TestCompose_OneNumberedItemPerCommentWithFileLineQuoteAndNote_issue23(t *testing.T) {

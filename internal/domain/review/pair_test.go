@@ -3,7 +3,7 @@ package review_test
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 // changed is a diff that touched these paths and nothing else, which is all

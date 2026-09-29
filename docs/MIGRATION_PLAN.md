@@ -41,7 +41,16 @@ count after the step.
 | 3.2 | #635 | #639 | merged | 24 |
 | Amendment 2 | #635 | #640 | merged | 24 |
 | 3.4 | #635 | #641 | merged | 24 |
-| 3.5 | #635 | #642 | open | 23 |
+| 3.5 | #635 | #642 | merged | 23 |
+| 3.6a | #635 | this PR | open | 23 |
+
+*Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
+"belonged to the pure half". They did not. Those imports are in `run.go`,
+`detect.go` and `procgroup_*.go`, which stayed. The 28 → 26 drop was
+reclassifying the rest of `internal/gate` as service, which does not flag `os`
+or `syscall`. The work is still visible as `gate` → `os/exec` and goes in 5.3.
+From 3.6a on, a mixed package keeps its old classification until the step
+that empties it, so the count moves only when code does.
 
 ## Rules every step follows
 
