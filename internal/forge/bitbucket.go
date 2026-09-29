@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 )
 
 // bbBackend is the Bitbucket Cloud backend (#460): pull requests and their
@@ -136,37 +138,72 @@ func firstErr(errs ...error) error {
 	return nil
 }
 
-// pickBitbucket is Bitbucket's REST API with BITBUCKET_TOKEN: an API token
-// with its BITBUCKET_USER as Basic auth, or an access token alone as a bearer.
-// There is no CLI to try first. bitbucket.org is Cloud; any other host the
-// operator named as bitbucket is Data Center (#461), whose API is its own.
+// pickBitbucket is Bitbucket's REST API; there is no CLI to try first.
+// bitbucket.org is Cloud, read with BITBUCKET_TOKEN - an API token with its
+// BITBUCKET_USER, the Atlassian account's email, as Basic auth, or an access
+// token alone as a bearer. Any
+// other host the operator named as bitbucket is Data Center (#461), whose API
+// and whose token are its own.
 func (r *Router) pickBitbucket(remote Remote) (backend, error) {
-	tok, _ := r.borrow([]string{"BITBUCKET_TOKEN"})
-	if tok == "" {
-		return nil, &MissingToolError{TokenEnv: "BITBUCKET_TOKEN"}
-	}
-	a := bearer(tok)
-	if user, _ := r.borrow([]string{"BITBUCKET_USER"}); user != "" {
-		a = basicAuth(user, tok)
-	}
 	if remote.Host != "bitbucket.org" {
-		return r.dataCenter(remote, a)
+		return r.dataCenter(remote)
+	}
+	a := r.bitbucketAuth("BITBUCKET_TOKEN", "BITBUCKET_USER")
+	if a == nil {
+		return nil, &MissingToolError{TokenEnv: "BITBUCKET_TOKEN"}
 	}
 	f := restAPI{rest: r.rest, base: "https://api.bitbucket.org/2.0", auth: a, env: "BITBUCKET_TOKEN"}
 	return bbBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
 }
 
-// dataCenter is the Data Center backend for remote, whose web root carries any
-// context path its clone URL had.
-func (r *Router) dataCenter(remote Remote, a auth) (backend, error) {
+// bitbucketAuth is tokenEnv's token as Basic auth with userEnv's user, or as
+// a bearer alone; nil when the token is unset.
+func (r *Router) bitbucketAuth(tokenEnv, userEnv string) auth {
+	tok, _ := r.borrow([]string{tokenEnv})
+	if tok == "" {
+		return nil
+	}
+	if user, _ := r.borrow([]string{userEnv}); user != "" {
+		return basicAuth(user, tok)
+	}
+	return bearer(tok)
+}
+
+// dataCenter is the Data Center backend for remote. Its token is
+// BITBUCKET_DC_TOKEN, sent only to the instance BITBUCKET_DC_URL names: one
+// BITBUCKET_TOKEN went to Cloud and to every Data Center host alike, and an
+// Atlassian API token covers the whole account (#461's review). An http
+// instance is refused before any token is asked about.
+func (r *Router) dataCenter(remote Remote) (backend, error) {
 	contextPath, key, slug, err := dcCoordinates(remote)
 	if err != nil {
 		return nil, err
+	}
+	web, bound := r.dcWebRoot(remote, contextPath)
+	if u, err := url.Parse(web); err != nil || u.Scheme != "https" {
+		return nil, &PlainHTTPError{Host: strings.TrimPrefix(web, "http://"), TokenEnv: "BITBUCKET_DC_TOKEN"}
+	}
+	a := r.bitbucketAuth("BITBUCKET_DC_TOKEN", "BITBUCKET_DC_USER")
+	if a == nil || !bound {
+		return nil, &MissingToolError{TokenEnv: "BITBUCKET_DC_TOKEN for " + web}
+	}
+	f := restAPI{rest: r.rest, base: web + "/rest", auth: a, env: "BITBUCKET_DC_TOKEN"}
+	return bdcBackend{f: f, remote: remote, web: web, key: key, slug: slug, ci: r.ci, open: r.open}, nil
+}
+
+// dcWebRoot is the instance's web root, and whether BITBUCKET_DC_URL names
+// the instance. An https clone carries its own - port and context path; an
+// ssh clone carries neither, so the variable gives it, and without it the
+// root is https on the host (#461's review).
+func (r *Router) dcWebRoot(remote Remote, contextPath string) (string, bool) {
+	instance, _ := r.borrow([]string{"BITBUCKET_DC_URL"})
+	bound := instance != "" && namesInstance(instance, remote)
+	if remote.Scheme == "ssh" && bound {
+		return strings.TrimSuffix(instance, "/"), true
 	}
 	web := webBase(remote)
 	if contextPath != "" {
 		web += "/" + contextPath
 	}
-	f := restAPI{rest: r.rest, base: web + "/rest", auth: a, env: "BITBUCKET_TOKEN"}
-	return bdcBackend{f: f, remote: remote, web: web, key: key, slug: slug, ci: r.ci, open: r.open}, nil
+	return web, bound
 }

@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -28,7 +29,9 @@ type bdcBackend struct {
 func dcCoordinates(r Remote) (contextPath, key, slug string, err error) {
 	path := r.Path
 	for i, seg := range path {
-		if strings.EqualFold(seg, "scm") {
+		// Only an http(s) clone has the /scm/ prefix: over ssh, a project
+		// keyed SCM is a project (#461's review).
+		if r.Scheme != "ssh" && strings.EqualFold(seg, "scm") {
 			contextPath, path = strings.Join(path[:i], "/"), path[i+1:]
 			break
 		}
@@ -74,6 +77,10 @@ func (b bdcBackend) buildCI(ctx context.Context, pr PR) (CIState, error) {
 	return worst, nil
 }
 
+// builds is a commit's builds from build-status/1.0, which Atlassian marks
+// deprecated since 7.14 and caps at the last hundred; it is still the one
+// endpoint that lists every build of a commit - the repository-scoped one
+// needs each build's key (#461's review).
 func (b bdcBackend) builds(ctx context.Context, head string) ([]dcBuild, error) {
 	page, err := getJSON[bbPage[dcBuild]](ctx, b.f, "build-status/1.0/commits/"+head)
 	return page.Values, err
@@ -91,9 +98,13 @@ func (b bdcBackend) viewPR(ctx context.Context, _ string, number int) (Detail, e
 	if err != nil {
 		return Detail{}, err
 	}
-	activity, _ := getJSON[bbPage[dcActivity]](ctx, b.f, path+"/activities?limit=100")
+	activity, err := getJSON[dcActivities](ctx, b.f, path+"/activities?limit=100")
 	builds, _ := b.builds(ctx, pr.FromRef.LatestCommit)
-	return foldDetail(pr.flat(activity.Values, builds)), nil
+	d := foldDetail(pr.flat(activity.Values, builds))
+	// A feed with more pages, or none at all, is not the whole discussion
+	// (#397; #461's review).
+	d.Truncated = d.Truncated || err != nil || !activity.IsLastPage
+	return d, nil
 }
 
 func (b bdcBackend) browse(_ context.Context, _ string, number int, pr bool) error {
@@ -143,13 +154,21 @@ type (
 			} `json:"self"`
 		} `json:"links"`
 	}
+	dcComment struct {
+		ID          int         `json:"id"`
+		Text        string      `json:"text"`
+		Author      dcUser      `json:"author"`
+		CreatedDate int64       `json:"createdDate"`
+		Replies     []dcComment `json:"comments"`
+	}
 	dcActivity struct {
-		Action  string `json:"action"`
-		Comment struct {
-			Text        string `json:"text"`
-			Author      dcUser `json:"author"`
-			CreatedDate int64  `json:"createdDate"`
-		} `json:"comment"`
+		Action        string    `json:"action"`
+		CommentAction string    `json:"commentAction"`
+		Comment       dcComment `json:"comment"`
+	}
+	dcActivities struct {
+		Values     []dcActivity `json:"values"`
+		IsLastPage bool         `json:"isLastPage"`
 	}
 	dcBuild struct {
 		State     string `json:"state"`
@@ -190,13 +209,44 @@ func (p dcPR) flat(activity []dcActivity, builds []dcBuild) ghDetail {
 	if len(p.Links.Self) > 0 {
 		d.URL = p.Links.Self[0].Href
 	}
-	for _, a := range activity {
-		if a.Action == "COMMENTED" {
-			d.Comments = append(d.Comments, ghComment{Author: ghUser{Login: a.Comment.Author.DisplayName}, Body: a.Comment.Text, CreatedAt: millis(a.Comment.CreatedDate)})
-		}
+	for _, c := range thread(activity) {
+		d.Comments = append(d.Comments, ghComment{Author: ghUser{Login: c.Author.DisplayName}, Body: c.Text, CreatedAt: millis(c.CreatedDate)})
 	}
 	for _, s := range builds {
 		d.Checks = append(d.Checks, statusCheck(s.Name, bitbucketCI(s.State), millis(s.DateAdded), time.Time{}))
 	}
 	return d
+}
+
+// thread is a pull request's comments as written (#461's review): each one an
+// added or replied activity carries, with the replies nested under it, once
+// each and oldest first. An edit or a deletion is not a comment, and a deleted
+// comment is left out.
+func thread(activity []dcActivity) []dcComment {
+	deleted, seen := map[int]bool{}, map[int]bool{}
+	for _, a := range activity {
+		if a.CommentAction == "DELETED" {
+			deleted[a.Comment.ID] = true
+		}
+	}
+	var out []dcComment
+	for _, a := range activity {
+		if a.Action == "COMMENTED" && a.CommentAction != "EDITED" && a.CommentAction != "DELETED" {
+			out = gather(out, a.Comment, seen, deleted)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedDate < out[j].CreatedDate })
+	return out
+}
+
+// gather adds c and its replies, depth first, to out.
+func gather(out []dcComment, c dcComment, seen, deleted map[int]bool) []dcComment {
+	if !seen[c.ID] && !deleted[c.ID] {
+		seen[c.ID] = true
+		out = append(out, c)
+	}
+	for _, r := range c.Replies {
+		out = gather(out, r, seen, deleted)
+	}
+	return out
 }

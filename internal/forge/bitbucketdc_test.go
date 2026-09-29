@@ -18,6 +18,7 @@ import (
 // over the synthetic fixtures in testdata/forge/bitbucket-dc/.
 type FakeBitbucketDCAPI struct {
 	Status int
+	First  []giteaAnswer // answers tried before the fixtures
 	mu     sync.Mutex
 	Got    []FakeRequest
 }
@@ -26,7 +27,9 @@ var bitbucketDCRoutes = []struct{ match, file string }{
 	{"pull-requests?state=OPEN", "prs-open.json"},
 	{"pull-requests?state=MERGED", "prs-merged.json"},
 	{"pull-requests?state=DECLINED", "prs-declined.json"},
-	{"/rest/build-status/1.0/commits/", "build-status.json"},
+	// Each head's own builds, so a build read for the wrong commit is a 404.
+	{"/rest/build-status/1.0/commits/8d51122def5632836d1cb1026e879069e10a1e13", "build-status.json"},
+	{"/rest/build-status/1.0/commits/5b4a1c93b1d1c09e4e8e1e7c0b9fa0e1d2c3b4a5", "build-status.json"},
 	{"pull-requests/42/activities", "activities.json"},
 }
 
@@ -40,6 +43,9 @@ func (f *FakeBitbucketDCAPI) serve(t *testing.T) string {
 		w.Header().Set("Content-Type", "application/json;charset=UTF-8")
 		if f.Status != 0 {
 			w.WriteHeader(f.Status)
+			return
+		}
+		if scriptedAnswer(w, pq, f.First) {
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, "/pull-requests/42") {
@@ -83,7 +89,9 @@ func dcRouter(t *testing.T, url string, env map[string]string, api *FakeBitbucke
 	})
 }
 
-var dcToken = map[string]string{"BITBUCKET_TOKEN": secret}
+// dcToken is a Data Center token bound to the instance it is for (#461's
+// review: one BITBUCKET_TOKEN went to Cloud and every Data Center host alike).
+var dcToken = map[string]string{"BITBUCKET_DC_TOKEN": secret, "BITBUCKET_DC_URL": "https://git.corp.example"}
 
 // A Data Center host - any Bitbucket host but bitbucket.org - is read through
 // its own /rest/api/1.0 with a bearer HTTP access token, and its clone URL's
@@ -149,15 +157,15 @@ func TestBitbucketDC_ClassifiesTheAnswer_issue461(t *testing.T) {
 	url := "https://git.corp.example/scm/ops/platform.git"
 	_, err := dcRouter(t, url, dcToken, &FakeBitbucketDCAPI{Status: 401}).ListPRs(t.TempDir())
 	var refused *forge.AuthError
-	if !errors.As(err, &refused) || refused.TokenEnv != "BITBUCKET_TOKEN" {
-		t.Errorf("401: error = %v, want BITBUCKET_TOKEN refused", err)
+	if !errors.As(err, &refused) || refused.TokenEnv != "BITBUCKET_DC_TOKEN" {
+		t.Errorf("401: error = %v, want BITBUCKET_DC_TOKEN refused", err)
 	}
 	if _, err := dcRouter(t, url, dcToken, &FakeBitbucketDCAPI{Status: 404}).ListPRs(t.TempDir()); !errors.Is(err, forge.ErrNoForge) {
 		t.Errorf("404: error = %v, want ErrNoForge", err)
 	}
 	var missing *forge.MissingToolError
 	if _, err := dcRouter(t, url, nil, &FakeBitbucketDCAPI{}).ListPRs(t.TempDir()); !errors.As(err, &missing) {
-		t.Errorf("no token: error = %v, want BITBUCKET_TOKEN unset", err)
+		t.Errorf("no token: error = %v, want BITBUCKET_DC_TOKEN unset", err)
 	}
 }
 
@@ -200,8 +208,8 @@ func TestBitbucketDC_AnHTTPRemoteStopsWithANote_issue584(t *testing.T) {
 	_, err := dcRouter(t, "http://git.corp.example/scm/ops/platform.git", dcToken, api).ListPRs(t.TempDir())
 
 	var plain *forge.PlainHTTPError
-	if !errors.As(err, &plain) || plain.TokenEnv != "BITBUCKET_TOKEN" || plain.Host != "git.corp.example" {
-		t.Errorf("error = %v, want BITBUCKET_TOKEN refused over http to git.corp.example", err)
+	if !errors.As(err, &plain) || plain.TokenEnv != "BITBUCKET_DC_TOKEN" || plain.Host != "git.corp.example" {
+		t.Errorf("error = %v, want BITBUCKET_DC_TOKEN refused over http to git.corp.example", err)
 	}
 	if len(api.Got) != 0 {
 		t.Errorf("sent %+v, want nothing", api.Got)

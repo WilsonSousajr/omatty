@@ -134,19 +134,22 @@ func loginFor(list []byte, remote Remote) string {
 }
 
 // serves is whether the login reads the instance remote is on, however the
-// two write it (#458's review): hosts in any case; an ssh remote by the
-// login's host alone, since its port is ssh's, or by the login's own ssh
-// host; an http(s) remote by host and port, a scheme's default port written
-// or not.
+// two write it (#458's review): by its URL, or for an ssh remote by the
+// login's own ssh host.
 func (l teaLoginEntry) serves(remote Remote) bool {
-	u, err := url.Parse(l.URL)
-	if err != nil {
+	return namesInstance(l.URL, remote) || remote.Scheme == "ssh" && strings.EqualFold(l.SSHHost, remote.Host)
+}
+
+// namesInstance is whether rawURL is the instance remote is on: hosts in any
+// case; an ssh remote by host alone, since its port is ssh's; an http(s)
+// remote by host and port, a scheme's default port written or not. A tea
+// login (#458) and BITBUCKET_DC_URL (#461) are matched the same way.
+func namesInstance(rawURL string, remote Remote) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil || !strings.EqualFold(u.Hostname(), remote.Host) {
 		return false
 	}
-	if remote.Scheme == "ssh" {
-		return strings.EqualFold(u.Hostname(), remote.Host) || strings.EqualFold(l.SSHHost, remote.Host)
-	}
-	return strings.EqualFold(u.Hostname(), remote.Host) && webPort(u.Scheme, u.Port()) == webPort(remote.Scheme, remote.Port)
+	return remote.Scheme == "ssh" || webPort(u.Scheme, u.Port()) == webPort(remote.Scheme, remote.Port)
 }
 
 // webPort is a port with a scheme's default written in.
