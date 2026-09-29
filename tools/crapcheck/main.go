@@ -6,7 +6,7 @@
 // It lives in tools/ rather than internal/ because it is a main: inside ./...
 // so gofmt, vet, lint and build all cover it, outside ./internal/... so that an
 // untestable entry point does not pull the 90% coverage gate down. Everything
-// worth testing is in internal/crap; this is wiring.
+// worth testing is in internal/domain/crap; this is wiring.
 package main
 
 import (
@@ -16,7 +16,7 @@ import (
 	"os"
 
 	"github.com/WilsonSousajr/omatty/internal/coverage"
-	"github.com/WilsonSousajr/omatty/internal/crap"
+	"github.com/WilsonSousajr/omatty/internal/domain/crap"
 	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 

@@ -266,7 +266,7 @@ Paths are relative to `internal/`; the figures are `./scripts/check-deps.sh`'s.
 | Package | Ca | Ce | I |
 |---|---|---|---|
 | `tally`, `ui` | 0 | 2, 14 | 1.00 |
-| `infra/config`, `crap`, `depgraph`, `discover` | 0 | 1–2 | 1.00 |
+| `infra/config`, `domain/crap`, `domain/depgraph`, `discover` | 0 | 1–2 | 1.00 |
 | `supervisor` | 1 | 6 | 0.86 |
 | `review` | 1 | 3 | 0.75 |
 | `agent` | 2 | 3 | 0.60 |

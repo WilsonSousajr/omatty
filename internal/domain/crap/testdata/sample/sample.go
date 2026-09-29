@@ -1,5 +1,5 @@
 // Package sample is a fixture. It is under testdata, so nothing compiles it;
-// internal/crap parses it as source. Each function's cyclomatic complexity is
+// internal/domain/crap parses it as source. Each function's cyclomatic complexity is
 // stated above it, and those numbers are what the tests assert.
 package sample
 

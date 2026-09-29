@@ -36,8 +36,7 @@ var prefixes = []struct {
 // shows up as a finding. The migration empties it; an entry left after its
 // package moved is dead and harmless.
 var transitional = map[string]Layer{
-	"internal/agent": Domain, "internal/coverage": Domain, "internal/crap": Domain,
-	"internal/depgraph": Domain, "internal/gate": Domain,
+	"internal/agent": Domain, "internal/coverage": Domain, "internal/gate": Domain,
 	"internal/review": Domain, "internal/tally": Domain,
 	"internal/discover": Service, "internal/registry": Service, "internal/supervisor": Service,
 	"internal/watcher": Service, "internal/watcher/e2e": Service,
