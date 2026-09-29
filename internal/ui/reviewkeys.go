@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/paste"
+	"github.com/WilsonSousajr/omatty/internal/domain/paste"
 	"github.com/WilsonSousajr/omatty/internal/review"
 )
 

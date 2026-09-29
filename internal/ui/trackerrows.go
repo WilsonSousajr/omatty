@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/fuzzy"
+	"github.com/WilsonSousajr/omatty/internal/domain/fuzzy"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 

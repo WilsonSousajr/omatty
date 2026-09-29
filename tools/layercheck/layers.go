@@ -37,8 +37,8 @@ var prefixes = []struct {
 // package moved is dead and harmless.
 var transitional = map[string]Layer{
 	"internal/agent": Domain, "internal/coverage": Domain, "internal/crap": Domain,
-	"internal/depgraph": Domain, "internal/fuzzy": Domain, "internal/gate": Domain,
-	"internal/paste": Domain, "internal/review": Domain, "internal/tally": Domain,
+	"internal/depgraph": Domain, "internal/gate": Domain,
+	"internal/review": Domain, "internal/tally": Domain,
 	"internal/discover": Service, "internal/registry": Service, "internal/supervisor": Service,
 	"internal/watcher": Service, "internal/watcher/e2e": Service,
 	"internal/keys": TUI, "internal/termwrap": TUI, "internal/ui": TUI,

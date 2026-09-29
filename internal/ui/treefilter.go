@@ -1,6 +1,6 @@
 // The tree's type-to-filter line (#198): / opens it inside the focused column,
 // so the leader router is not involved (invariant 1); the session switcher's
-// list does the same with internal/fuzzy.
+// list does the same with internal/domain/fuzzy.
 
 package ui
 

@@ -6,7 +6,7 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/paste"
+	"github.com/WilsonSousajr/omatty/internal/domain/paste"
 )
 
 // attachSelected attaches the row under the tree cursor.

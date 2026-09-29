@@ -8,7 +8,7 @@ package ui
 import (
 	"strconv"
 
-	"github.com/WilsonSousajr/omatty/internal/fuzzy"
+	"github.com/WilsonSousajr/omatty/internal/domain/fuzzy"
 )
 
 // pickItem is one row of a pick list. ID is what the caller resolves back to a

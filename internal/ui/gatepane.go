@@ -17,8 +17,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/paste"
 	"github.com/WilsonSousajr/omatty/internal/gate"
-	"github.com/WilsonSousajr/omatty/internal/paste"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
 

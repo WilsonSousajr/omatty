@@ -52,6 +52,9 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 ```
 cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
+├── domain/         [ADR 0001] entities and pure logic, stdlib only; moving here one step at a time.
+│   ├── fuzzy/      subsequence ranking for the session switcher and project picker. Pure.
+│   └── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
 │   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).
@@ -71,9 +74,7 @@ internal/
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
 ├── discover/       proposes repositories to register, from claude's transcript store (#91).
-├── fuzzy/          subsequence ranking for the session switcher and project picker. Pure.
 ├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
-├── paste/          bracketed-paste envelopes for text sent to a PTY (invariant 8).
 ├── gate/           [M9] a project's own verification commands -> per-step verdicts.
 ├── coverage/       [M10] a coverage profile -> per-line verdicts and raw blocks.
 ├── crap/           [M11] per-function complexity x coverage -> a C.R.A.P. score.
