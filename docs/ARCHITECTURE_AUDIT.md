@@ -6,7 +6,7 @@ ADR, and it waits on review of this page.
 
 Line references are to `develop` @ `1243cb2`. #611 and #612 move some of the
 cited declarations between files without changing them (#609):
-`model.go:393-652` → `msgroute.go`, `model.go:654-718` → `resize.go`, and the
+`model.go:391-652` → `msgroute.go`, `model.go:654-718` → `resize.go`, and the
 titles and coverage marks out of `reviewview.go` and the rows and rendering out
 of `tracker.go`.
 
@@ -150,7 +150,7 @@ file across the repository's whole history (730 commits since 2026-09-01):
 |---|---|---|---|---|
 | 1 | `*Model` god object | High: every feature adds fields and methods to one type | `model.go` **84**, the highest in the repo | `model.go:28-221`: 100 fields (about 25 injected funcs, about 35 per-session maps, channels, sub-view state, a frame memo). 518 methods. `Update` → `routeMsg` (`model.go:409`) runs through an 11-link chain of type switches (`onHeartbeat` … `onWindowFocus`, `model.go:425-652`), split only to stay under funlen, not by responsibility |
 | 2 | Dependency plumbing in three places | High: each new capability edits `wiring.go`, `RunDeps`, `modelFor` and `Deps` | `run.go` 49, `main.go` 35, `deps.go` 30, `wiring.go` 27 (141 total) | `cmd/omatty/wiring.go:112-398` → `ui.RunDeps` (`run.go:101`, 41 fields) → `modelFor` copy (`run.go:206-222`) → `ui.Deps` (`deps.go:67`, 46 fields). `vcs.NewCLI()` is constructed three times (`wiring.go:114,191,388`) |
-| 3 | Keybindings with no single source | Medium-high: a key added to a switch and missed in help drifts silently; one binding answers to three spellings | `modalview.go` 46, `routing.go` 31, `reviewkeys.go` 15 | 24 `switch key` sites across `routing.go`, `reviewkeys.go`, `treekeys.go`, `gatepane.go`, `tracker.go`, `trackeritem.go`, `diffnav.go`, `pan.go` and others. The help tables are hand-maintained separately (`modalview.go:42-171`). Spellings like `"shift+n", "shift+N", "N"` are repeated per site (`routing.go:150`). No `bubbles/key`: the module is in go.mod but unused |
+| 3 | Keybindings with no single source | Medium-high: a key added to a switch and missed in help drifts silently; one binding answers to three spellings | `modalview.go` 46, `routing.go` 31, `reviewkeys.go` 15 | 24 `switch key` sites across `routing.go`, `reviewkeys.go`, `treekeys.go`, `gatepane.go`, `tracker.go`, `trackeritem.go`, `diffnav.go`, `pan.go` and others. The help tables are hand-maintained separately (`modalview.go:42-171`). Spellings are repeated per site: `routing.go:154`, `diffnav.go:27` and `gatepane.go:201` all still accept `"shift+N"`, which the comment at `routing.go:153` says never occurs and was dead (#87). A fix recorded in one site's comment never reached the others. No `bubbles/key`: bubbles is not a dependency at all |
 | 4 | Mode state as unions in one struct | Medium: every view's state is live at once, and "which fields matter now" is implicit | `review.go` 34, `reviewview.go` 32, `modal.go` 15 | `ReviewPane` (`review.go:80`) holds the state of six views (Diff, Tree, Preview, Gate, Tracker, TrackerItem; `review.go:55-67`). `modalKind` has 10 values over one `modal` struct (`modal.go:21-76`). Both are the natural cut line for a per-screen type |
 | 5 | Blocking I/O in `Update`, no git timeout | High when it bites (a frozen TUI); low day to day | `archive.go` 22, `vcs/git.go` 14 | Leaks 5 and 6 above: `sessionlife.go:90`, `discovery.go:157`, `vcs/git.go:91` |
 
@@ -171,9 +171,11 @@ because `check-coverage.sh` reads the profile total (93.8%).
   packages.
 - **Bubble Tea v2 is already in use** (`charm.land/*/v2`), so no migration
   track is needed.
-- **`bubbles/key` and `help.Model` would be a new import in practice.**
-  bubbles is in go.mod but imported nowhere. Pain point 3 is the argument for
-  it; the ADR has to make it.
+- **`bubbles/key` and `help.Model` would be a new dependency.** bubbles is
+  not in `go.mod` or `go.sum` (AGENTS.md's stack line, which lists
+  `bubbles/v2`, is stale). So adopting it means `go mod tidy`, govulncheck
+  and a depguard decision, and AGENTS.md asks for that case to be argued.
+  Pain point 3 is the argument; the ADR has to make it.
 - **Interfaces live with the consumer here already** (`watcher.Adapter` sits
   in `watcher`, `registry.RepoRooter` in `registry`). Ports would follow that,
   not a central `ports` package.
