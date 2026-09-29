@@ -1,11 +1,12 @@
-// Package watcher derives each session's live status from two sources: hook
-// events over a unix socket (fast, and the only source that can tell "waiting
-// for you" from "tool running") and the transcript JSONL (the truth on
-// attach, self-healing, and the only source of age and tokens).
+// Package status is what omatty knows about a session's state: the Kind of
+// each event a transcript or a hook reports, the Status a card shows, the
+// token usage, the hook payload, and Apply, which folds an event into a
+// session's state. It is pure; reading transcripts and hooks is
+// internal/watcher's business (invariant 2: status comes from JSONL and hooks,
+// never from the screen).
 //
-// Invariant 2: status comes from these structured sources, never from the
-// rendered terminal.
-package watcher
+//	st = status.Apply(st, status.Event{SessionID: id, Kind: status.TurnEnded, At: now})
+package status
 
 import (
 	"time"
@@ -34,8 +35,8 @@ const (
 // Tokens is a session's cumulative usage.
 type Tokens struct{ In, Out, CacheRead, CacheWrite int }
 
-// add accumulates one response's counters.
-func (t *Tokens) add(u Tokens) {
+// Add accumulates one response's counters.
+func (t *Tokens) Add(u Tokens) {
 	t.In += u.In
 	t.Out += u.Out
 	t.CacheRead += u.CacheRead

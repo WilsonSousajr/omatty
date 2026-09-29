@@ -9,7 +9,7 @@ package watcher
 import (
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 )
 
 // Adapter turns one agent's transcript lines and hook payloads into events.
@@ -23,7 +23,7 @@ type Adapter interface {
 	// tail.
 	DeriveKind(entries []Entry) (Kind, time.Time, bool)
 	// KindOf maps a hook payload to the event it represents.
-	KindOf(p hooks.Payload) (Kind, bool)
+	KindOf(p dstatus.HookPayload) (Kind, bool)
 }
 
 // TranscriptPathFunc is where an agent writes a session's transcript. A
@@ -52,7 +52,7 @@ type claudeStatus struct{}
 
 func (claudeStatus) ParseEntry(line []byte) (Entry, bool)               { return ParseEntry(line) }
 func (claudeStatus) DeriveKind(entries []Entry) (Kind, time.Time, bool) { return DeriveKind(entries) }
-func (claudeStatus) KindOf(p hooks.Payload) (Kind, bool)                { return KindOf(p) }
+func (claudeStatus) KindOf(p dstatus.HookPayload) (Kind, bool)          { return KindOf(p) }
 
 // ClaudeAdapter is the Adapter for claude's own transcript and hook shapes.
 func ClaudeAdapter() Adapter { return claudeStatus{} }

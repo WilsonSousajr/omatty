@@ -1,4 +1,4 @@
-package watcher
+package status
 
 // Status is a session's live state, derived from the JSONL transcript and
 // hook events (invariant 2). It lives with its producer and is deliberately

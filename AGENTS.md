@@ -58,7 +58,8 @@ internal/
 │   ├── fuzzy/      subsequence ranking for the session switcher and project picker. Pure.
 │   ├── gate/       [M9] Step, Verdict, Report, the output caps and the prompt: pure.
 │   ├── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).
-│   └── session/    Project, Session, State - what state.json holds (invariant 9) - and placeholder names.
+│   ├── session/    Project, Session, State - what state.json holds (invariant 9) - and placeholder names.
+│   └── status/     a session's status vocabulary: Kind, Status, Event, Tokens, the hook payload, Apply.
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
 │   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).

@@ -161,7 +161,7 @@ func (tl *Tailer) ingest(line []byte) {
 	// repeating the same usage under the same message id; count it once. A
 	// line without an id (older transcripts, fixtures) still counts (issue #59).
 	if e.Type == "assistant" && (e.MessageID == "" || e.MessageID != tl.lastUsageID) {
-		tl.usage.add(e.Usage)
+		tl.usage.Add(e.Usage)
 		tl.lastUsageID = e.MessageID
 		tl.usageDirty = true
 	}
