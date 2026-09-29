@@ -66,6 +66,9 @@ jobs:
       # Same cheapest-first rule internal/gate's Detect already documents.
       - name: dependency structure
         run: ./scripts/check-deps.sh
+      # Same cheapest-first rule: a wc over every tracked .go file (#609).
+      - name: file length
+        run: ./scripts/check-file-length.sh 500
       - name: install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULN_VERSION }}
       - name: vulnerabilities

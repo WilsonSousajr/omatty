@@ -104,6 +104,7 @@ go mod tidy -diff                             # go.mod and go.sum are tidy
 golangci-lint run                             # + depguard: invariant 4, enforced
 govulncheck ./...                             # no reachable known vulnerability
 ./scripts/check-deps.sh                       # package coupling; test-graph cycles
+./scripts/check-file-length.sh 500            # every tracked .go file, tests included (#609)
 shellcheck scripts/*.sh                       # POSIX sh; install.sh is piped into sh (#517)
 go test ./... -race
 ./scripts/check-coverage.sh 90
@@ -150,6 +151,8 @@ not in the gate.
 
 - **Functions 4–20 lines.** Longer means it does more than one thing — split it.
 - **Files under 500 lines.** Longer means the package boundary is wrong.
+  `./scripts/check-file-length.sh 500` checks every tracked `.go` file, tests
+  included (#609); the limit, like C.R.A.P.'s, only moves down.
 - One thing per function, one responsibility per package (SRP).
 - **Names must be specific and unique** — a good name returns fewer than 5 grep
   hits in this repo. Banned: `data`, `handler`, `manager`, `util`, `helper`,
@@ -437,7 +440,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
   | | |
   |---|---|
-  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, `go test -race`, 90% coverage, C.R.A.P. under 12, `go build` — on `ubuntu-latest` and `macos-latest` |
+  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, files under 500 lines, `go test -race`, 90% coverage, C.R.A.P. under 12, `go build` — on `ubuntu-latest` and `macos-latest` |
   | The real-binary smoke test | Rule 2 in `docs/ROADMAP.md`, run against a scratch `HOME` with `testdata/fake-claude`, **read by a person** |
 
   The gate is the same one every milestone clears, for the same reason: the
