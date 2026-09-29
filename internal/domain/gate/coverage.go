@@ -27,14 +27,14 @@ var (
 	numberPattern  = regexp.MustCompile(`[0-9]+(?:\.[0-9]+)?`)
 )
 
-// percentIn reads a coverage percentage out of a step's output, or 0.
+// PercentIn reads a coverage percentage out of a step's output, or 0.
 //
 // It picks a line before it picks a number, because the interesting number is
 // rarely the first or the last one present. "coverage 92.4% meets the 90%
 // gate" wants the first percentage on its line, while a run that prints a
 // threshold and then a total wants the later line - one rule cannot be "first"
 // or "last" over the whole output and satisfy both.
-func percentIn(out string) float64 {
+func PercentIn(out string) float64 {
 	line := summaryLine(out)
 	if line == "" {
 		return 0
