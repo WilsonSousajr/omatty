@@ -6,6 +6,8 @@ import (
 	"io"
 	"net"
 	"time"
+
+	"github.com/WilsonSousajr/omatty/internal/domain/status"
 )
 
 // maxPayload bounds what a hook reads. A PostToolUse carries the whole
@@ -26,19 +28,12 @@ const maxField = 1024
 // share a directory (#316).
 const SessionEnv = "OMATTY_SESSION"
 
-// Payload is the slice of a hook's stdin that status needs.
+// Payload is status.HookPayload, the slice of a hook's stdin that status
+// needs. It moved to internal/domain/status (migration step 3.2); this alias
+// keeps callers compiling until step 8.1 deletes it.
 //
-// Source is SessionStart's reason ("startup", "resume", "clear", "compact").
-// OmattySession is never read from stdin: Report stamps it from SessionEnv,
-// so a payload cannot claim a pane it was not launched in (#316).
-type Payload struct {
-	SessionID        string `json:"session_id"`
-	HookEventName    string `json:"hook_event_name"`
-	NotificationType string `json:"notification_type,omitempty"`
-	ToolName         string `json:"tool_name,omitempty"`
-	Source           string `json:"source,omitempty"`
-	OmattySession    string `json:"omatty_session,omitempty"`
-}
+//	p, ok := hooks.ParsePayload(os.Stdin)
+type Payload = status.HookPayload
 
 // Report reads a hook payload from stdin and forwards it to omatty's socket as
 // one JSON line, stamped with omattySession - the value of SessionEnv in the

@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 )
 
 // maxLine bounds a single hook payload read from the socket, matching the cap
@@ -58,7 +58,7 @@ func HookEventNames() []string {
 
 // KindOf maps a hook payload to the status event it represents. ok is false
 // for events omatty does not track, which the listener drops.
-func KindOf(p hooks.Payload) (Kind, bool) {
+func KindOf(p dstatus.HookPayload) (Kind, bool) {
 	if p.HookEventName == "Notification" {
 		return notificationKind(p.NotificationType)
 	}
@@ -207,7 +207,7 @@ func (l *Listener) decode(conn net.Conn) (Event, bool) {
 	if !ok {
 		return Event{}, false
 	}
-	var p hooks.Payload
+	var p dstatus.HookPayload
 	if json.Unmarshal(line, &p) != nil {
 		return Event{}, false
 	}
