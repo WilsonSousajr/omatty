@@ -9,7 +9,7 @@
 // order to refuse. Everything else about the forge is still refused - no
 // comment, no close, no label, no review.
 //
-// It is to gh what internal/vcs is to git (invariant 4 in spirit): the one
+// It is to gh what internal/infra/vcs is to git (invariant 4 in spirit): the one
 // package that runs the binary, so the rest of omatty sees typed values and
 // never parses gh's output itself.
 package forge

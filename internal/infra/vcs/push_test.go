@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/vcs"
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 
 // bareRemote gives dir an `origin` pointing at a bare repository, so a push

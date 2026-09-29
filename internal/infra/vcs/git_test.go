@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/vcs"
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 
 // newRepo builds a real one-commit git repository in a temp dir. omatty

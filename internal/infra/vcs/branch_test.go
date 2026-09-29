@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/vcs"
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 
 // #151 renames a worktree's placeholder branch once its first prompt has said

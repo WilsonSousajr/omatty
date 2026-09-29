@@ -57,7 +57,7 @@ claude --settings ~/.omatty/hooks.json
 
 **Review round trip.** The review column asks for a diff through a typed
 function `cmd/omatty` hands the model at startup; the function calls
-`internal/vcs`, which is the one place git is run. `internal/review` splits
+`internal/infra/vcs`, which is the one place git is run. `internal/review` splits
 the diff into hunks, holds the operator's comments anchored on content -
 file, hunk header, line hash - rather than line numbers, and composes the one
 message that sends them back. `ui` writes that message into the session's PTY
@@ -131,7 +131,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/supervisor` | The `claude` process behind each session: fresh start vs resume, the PTY, the holder. |
 | `internal/termwrap` | omatty's only route to the terminal emulator (bubbleterm). |
 | `internal/ui` | The bubbletea model: sidebar, panes, modals, review column, rendering. |
-| `internal/vcs` | omatty's only route to git, via the CLI. |
+| `internal/infra/vcs` | omatty's only route to git, via the CLI. |
 | `internal/watcher` | Transcript tailer + hook listener → typed status events, through an `Adapter`. |
 | `testdata/` | `fake-claude`, `ptyrun`, `screen`, `dtachprobe`: the harness for the real-PTY smoke test the gate cannot replace. |
 

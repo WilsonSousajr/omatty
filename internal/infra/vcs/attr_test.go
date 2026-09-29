@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/vcs"
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 
 // The first of #338's three detections is the one the project itself declares:

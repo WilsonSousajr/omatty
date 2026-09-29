@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/vcs"
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 
 // FakeGit answers the diff surface from canned values and records the calls in
@@ -91,7 +91,7 @@ func (f *FakeGit) ListFiles(dir string) ([]string, error) {
 }
 
 // RenameBranch records the rename #151 asks for; git's own behaviour is
-// proved against the real binary in internal/vcs.
+// proved against the real binary in internal/infra/vcs.
 func (f *FakeGit) RenameBranch(_, old, name string) error {
 	f.RenamedFrom, f.RenamedTo = old, name
 	return f.RenameErr

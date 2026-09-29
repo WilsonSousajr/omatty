@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/vcs"
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 
 // Regression, issue #29: exec.Cmd fails at exec time when Dir is not a

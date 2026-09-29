@@ -311,7 +311,7 @@ func TestPropose_EmptyStoreIsNotAnError(t *testing.T) {
 }
 
 // RenameBranch records the rename #151 asks for; git's own behaviour is
-// proved against the real binary in internal/vcs.
+// proved against the real binary in internal/infra/vcs.
 func (f *FakeGit) RenameBranch(_, old, name string) error {
 	f.RenamedFrom, f.RenamedTo = old, name
 	return f.RenameErr

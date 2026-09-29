@@ -8,10 +8,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/vcs"
 )
 
 var errDiskFull = errors.New("disk full")

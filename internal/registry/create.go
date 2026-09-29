@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/vcs"
+	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 
 // CreatorOpts is where a Creator puts worktrees and what it forks them from.

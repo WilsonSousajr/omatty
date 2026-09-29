@@ -2,7 +2,7 @@
 //
 //	pkgs, err := golist.List(root, "./internal/...")
 //
-// It exists for the reason internal/vcs exists: a tool invoked as a subprocess
+// It exists for the reason internal/infra/vcs exists: a tool invoked as a subprocess
 // is a seam, and the blast radius of its output format changing belongs inside
 // one package we own. The gate tools that score complexity and map the import
 // graph both need the same answer from it, and neither should be parsing
