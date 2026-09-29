@@ -40,7 +40,7 @@ func checkImport(module string, layer Layer, imp string) (Finding, bool) {
 		return Finding{To: short(imp, module), Rule: rule}, slices.Contains(mayNotReach[layer], to)
 	}
 	rule := string(layer) + " may not import " + imp
-	if layer == Domain && !stdlib(imp) {
+	if layer == Domain && domainMayNotImport(imp) {
 		return Finding{To: imp, Rule: rule}, true
 	}
 	for _, banned := range mayNotImport[layer] {
@@ -51,11 +51,25 @@ func checkImport(module string, layer Layer, imp string) (Finding, bool) {
 	return Finding{}, false
 }
 
+// domainMayNotImport is ADR 0001's "any I/O package": anything outside the
+// standard library, and the parts of it that do I/O.
+func domainMayNotImport(imp string) bool {
+	if !stdlib(imp) || ioStdlib[imp] {
+		return true
+	}
+	for _, tree := range ioTrees {
+		if strings.HasPrefix(imp, tree) && !pureNet[imp] {
+			return true
+		}
+	}
+	return false
+}
+
 // stdlib reports whether imp is a standard-library path: its first element has
 // no dot, which every module path's host does.
 func stdlib(imp string) bool {
 	first, _, _ := strings.Cut(imp, "/")
-	return !strings.Contains(first, ".")
+	return !strings.Contains(first, ".") && imp != "C"
 }
 
 func short(importPath, module string) string {

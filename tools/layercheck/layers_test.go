@@ -93,3 +93,21 @@ func assertOneFinding(t *testing.T, findings []Finding, want string) {
 		t.Errorf("findings %v, want exactly one containing %q", findings, want)
 	}
 }
+
+// ADR 0001 bans every I/O package from domain, not four named ones. The first
+// version matched os, os/exec, net and net/http exactly, so gate's syscall and
+// a cgo "C" import passed (#620 review).
+func TestCheck_domainImportingAnyIOPackageIsAFinding_issue620(t *testing.T) {
+	for _, imp := range []string{"syscall", "C", "unsafe", "plugin", "os/signal", "os/user", "net/rpc", "net/smtp", "io/ioutil"} {
+		findings := check(mod, []golist.Package{pkg("internal/domain/gate", imp)})
+		assertOneFinding(t, findings, "domain may not import "+imp)
+	}
+}
+
+// Parsing a URL or an address is not I/O; domain may do both.
+func TestCheck_domainMayParseURLsAndAddresses_issue620(t *testing.T) {
+	findings := check(mod, []golist.Package{pkg("internal/domain/forge", "net/url", "net/netip", "strings")})
+	if len(findings) != 0 {
+		t.Errorf("pure parsing packages gave findings %v", findings)
+	}
+}

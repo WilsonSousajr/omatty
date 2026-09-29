@@ -1,6 +1,7 @@
 package registry_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -19,7 +20,7 @@ func everyFieldSet() registry.State {
 		Projects: []registry.Project{{
 			Name:          "omatty",
 			Root:          "/src/omatty",
-			Gate:          []gate.Step{{Name: "test", Run: "go test ./...", Kind: "coverage"}},
+			Gate:          []gate.Step{{Name: "test", Run: "go test ./...", Kind: "coverage", Profile: "cover.out"}},
 			Carry:         []string{".env"},
 			GateRuns:      7,
 			GateFirstPass: 5,
@@ -76,14 +77,41 @@ func TestState_goldenLoadsBackToTheSameState_issue620(t *testing.T) {
 }
 
 // A field added later with its zero value in everyFieldSet would be hidden
-// by omitempty and escape the golden. This keeps the pin complete.
+// by omitempty and escape the golden. The walk recurses into slices of
+// structs, because gate.Step's profile lives there and the first version of
+// this test, checking only the top level, let it through (#620 review).
 func TestState_everyFieldIsSetInTheSchemaFixture_issue620(t *testing.T) {
-	st := everyFieldSet()
-	for _, v := range []reflect.Value{reflect.ValueOf(st), reflect.ValueOf(st.Projects[0]), reflect.ValueOf(st.Sessions[0])} {
-		for i := 0; i < v.NumField(); i++ {
-			if v.Field(i).IsZero() {
-				t.Errorf("%s.%s is zero in everyFieldSet, so the golden does not pin it", v.Type().Name(), v.Type().Field(i).Name)
-			}
-		}
+	for _, path := range zeroFields(reflect.ValueOf(everyFieldSet()), "State") {
+		t.Errorf("%s is zero in everyFieldSet, so the golden does not pin it", path)
 	}
+}
+
+// zeroFields names every zero field under v, descending into structs and the
+// struct elements of slices. time.Time is a leaf: its fields are unexported.
+func zeroFields(v reflect.Value, path string) []string {
+	if v.Kind() == reflect.Slice {
+		return zeroSlice(v, path)
+	}
+	if v.Kind() != reflect.Struct || v.Type() == reflect.TypeOf(time.Time{}) {
+		if v.IsZero() {
+			return []string{path}
+		}
+		return nil
+	}
+	var out []string
+	for i := 0; i < v.NumField(); i++ {
+		out = append(out, zeroFields(v.Field(i), path+"."+v.Type().Field(i).Name)...)
+	}
+	return out
+}
+
+func zeroSlice(v reflect.Value, path string) []string {
+	if v.Len() == 0 {
+		return []string{path}
+	}
+	var out []string
+	for i := 0; i < v.Len(); i++ {
+		out = append(out, zeroFields(v.Index(i), fmt.Sprintf("%s[%d]", path, i))...)
+	}
+	return out
 }

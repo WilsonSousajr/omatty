@@ -8,7 +8,8 @@
         {
           "name": "test",
           "run": "go test ./...",
-          "kind": "coverage"
+          "kind": "coverage",
+          "profile": "cover.out"
         }
       ],
       "carry": [

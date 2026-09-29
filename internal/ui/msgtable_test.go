@@ -16,6 +16,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
@@ -70,14 +71,47 @@ func routedMsgs() []routedMsg {
 func TestUpdate_everyRoutedMessageIsPinned_issue620(t *testing.T) {
 	var rows []string
 	for _, r := range routedMsgs() {
-		terms, _ := fakeTerms(t)
-		m := diffScene(t, terms, 120, 30)
-		before := m.View().Content
-		_, cmd := m.Update(r.msg)
-		rows = append(rows, fmt.Sprintf("%-20s -> cmd=%s frameChanged=%t %s",
-			r.caseName, cmdYield(cmd), m.View().Content != before, m.Fingerprint()))
+		rows = append(rows, fmt.Sprintf("%-20s -> %s", r.caseName, msgOutcome(t, r.msg)))
 	}
 	assertGolden(t, "msgs.golden", []byte(strings.Join(rows, "\n")+"\n"))
+}
+
+// msgOutcome delivers msg to a fresh diff scene and says what it did: what the
+// command yields one level down, whether the frame changed, and the model's
+// fingerprint afterwards.
+//
+// pty is how many messages reached the fake terminals: Update's fallthrough
+// broadcasts to every terminal, so a case the router drops shows up here even
+// when the model does not change.
+func msgOutcome(t *testing.T, msg tea.Msg) string {
+	terms, fakes := fakeTerms(t)
+	m := diffScene(t, terms, 120, 30)
+	sentBefore := ptyTotal(fakes)
+	before := m.View().Content
+	_, cmd := m.Update(msg)
+	return fmt.Sprintf("cmd=%s pty=%d frameChanged=%t %s", cmdYield(cmd), ptyTotal(fakes)-sentBefore,
+		m.View().Content != before, observe(m))
+}
+
+func ptyTotal(fakes map[string]*termwrap.Fake) int {
+	n := 0
+	for _, f := range fakes {
+		n += len(f.Msgs)
+	}
+	return n
+}
+
+// A routed message whose row reads exactly like the unrouted one pins nothing:
+// the router could drop its case and the table would not move. Each routed
+// row must differ from the fallthrough's (#620 review).
+func TestUpdate_everyRoutedRowDiffersFromTheFallthrough_issue620(t *testing.T) {
+	msgs := routedMsgs()
+	fallthroughRow := msgOutcome(t, msgs[len(msgs)-1].msg)
+	for _, r := range msgs[:len(msgs)-1] {
+		if msgOutcome(t, r.msg) == fallthroughRow {
+			t.Errorf("%s reads exactly like an unrouted message: its row pins nothing", r.caseName)
+		}
+	}
 }
 
 // The table must have a row for every case in msgroute.go, so a message type
@@ -123,14 +157,19 @@ func exprName(e ast.Expr) string {
 	return fmt.Sprintf("%T", e)
 }
 
+// cmdDeadline is how long cmdYield waits for a command before calling it a
+// timer. It must sit well under every tick the model arms - a test holds it to
+// half of the shortest - and well over what a fake takes, which is
+// microseconds.
+const cmdDeadline = 50 * time.Millisecond
+
 // cmdYield names what cmd produces one level down, sorted. A leaf that has not
-// answered in 250 ms is a timer - the shortest real tick is a second, and every
-// fake answers in microseconds - and is recorded as pending, not waited for.
+// answered within cmdDeadline is a timer, recorded as pending, not waited for.
 func cmdYield(cmd tea.Cmd) string {
 	if cmd == nil {
 		return "nil"
 	}
-	msg, ok := runWithin(cmd, 250*time.Millisecond)
+	msg, ok := runWithin(cmd, cmdDeadline)
 	if !ok {
 		return "pending"
 	}
@@ -162,4 +201,15 @@ func typeName(msg tea.Msg) string {
 		return "none"
 	}
 	return reflect.TypeOf(msg).String()
+}
+
+// The first version of this table assumed the shortest real tick was a
+// second; previewRest is 250 ms, exactly the deadline, so a row that armed it
+// would flip between pending and previewRestMsg from run to run (#620 review).
+func TestUpdate_deadlineIsWellUnderEveryTick_issue620(t *testing.T) {
+	for _, p := range ui.TickPeriods() {
+		if p < 2*cmdDeadline {
+			t.Errorf("a %v tick is within twice the %v deadline: a row arming it could flip", p, cmdDeadline)
+		}
+	}
 }

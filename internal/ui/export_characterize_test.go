@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -38,4 +39,14 @@ func UnexportedRouted(sessionID string) map[string]tea.Msg {
 		"previewRestMsg":     previewRestMsg{},
 		"sessionRelaunchMsg": sessionRelaunchMsg{Session: registry.Session{ID: sessionID}},
 	}
+}
+
+// TickPeriods is every tea.Tick period the model arms itself, so the message
+// table can prove its "pending" deadline is well under all of them (#620
+// review). spinEvery is left out: Deps.SpinTick injects that one, and the
+// tests answer it at once.
+//
+//	for _, p := range ui.TickPeriods() { ... }
+func TickPeriods() []time.Duration {
+	return []time.Duration{tickEvery, statEvery, prEvery, issueEvery, previewRest, sweepCap}
 }

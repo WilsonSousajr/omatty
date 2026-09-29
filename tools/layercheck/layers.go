@@ -74,9 +74,9 @@ var mayNotReach = map[Layer][]Layer{
 }
 
 // mayNotImport is the same column for packages outside the module, matched by
-// prefix. Domain's non-stdlib ban is separate (external below).
+// prefix. Domain's is a different shape - everything that is not pure stdlib -
+// so it is domainMayNotImport in check.go.
 var mayNotImport = map[Layer][]string{
-	Domain:  {"os", "os/exec", "net", "net/http"},
 	Service: {"os/exec", "net/http", "charm.land/"},
 	Infra:   {"charm.land/"},
 	CLI:     {"charm.land/"},
@@ -94,3 +94,13 @@ func (f Finding) String() string {
 	}
 	return fmt.Sprintf("%s -> %s: %s", f.From, f.To, f.Rule)
 }
+
+// ioStdlib is the standard library domain may not import: every package that
+// reaches the process, the filesystem, the network or outside Go. The os/ and
+// net/ trees are banned whole (ioTrees), less the two that only parse.
+var ioStdlib = map[string]bool{"C": true, "os": true, "net": true, "syscall": true,
+	"unsafe": true, "plugin": true, "io/ioutil": true}
+
+var ioTrees = []string{"os/", "net/"}
+
+var pureNet = map[string]bool{"net/url": true, "net/netip": true}

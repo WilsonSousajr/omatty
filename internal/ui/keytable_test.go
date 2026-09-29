@@ -1,6 +1,8 @@
 package ui_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"sort"
@@ -31,13 +33,13 @@ var keyContexts = []keyContext{
 		press(m, ctrl('o'))
 		return m
 	}, "armed=true"},
-	{"diff", diffScene, "focus=1/true armed=false modal=\"\" view=0"},
+	{"diff", pressingIn(diffScene, key('j'), key('j')), "focus=1/true armed=false modal=\"\" view=0 sel=s1 open=true focused=true zoom=false diff=2"},
 	{"diff_note", pressingIn(diffScene, key('j'), key('j'), key('j'), key('j'), key('j'), key('c')), "diff=5 files=0 gate=0 tracker=-1 filter=\"\" note=true"},
-	{"tree", treeScene, "focus=1/true armed=false modal=\"\" view=1"},
+	{"tree", pressingIn(treeScene, key('j')), "focus=1/true armed=false modal=\"\" view=1 sel=s1 open=true focused=true zoom=false diff=0 files=1"},
 	{"tree_filter", pressingIn(treeScene, key('/')), "focus=3/true"},
 	{"preview", previewScene, "view=2"},
-	{"gate", gateScene, "view=3"},
-	{"tracker", trackerScene, "view=4"},
+	{"gate", pressingIn(gateScene, key('j')), "view=3 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=1"},
+	{"tracker", pressingIn(trackerScene, key('j')), "view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1"},
 	{"tracker_item", trackerItemScene, "view=5"},
 	{"help", then(terminalScene, '?'), "modal=\"keys\""},
 	{"new_session", then(terminalScene, 'n'), "modal=\"new session\""},
@@ -96,6 +98,14 @@ func TestKeys_everyKeyInEveryContextIsPinned_issue620(t *testing.T) {
 	assertGolden(t, "keys.golden", []byte(strings.Join(rows, "\n")+"\n"))
 }
 
+// observe is what a row records of the model: its fingerprint, which names
+// the state, plus a hash of the frame, which catches what the fingerprint
+// cannot name - typed text, folded directories, pan, scroll.
+func observe(m *ui.Model) string {
+	sum := sha256.Sum256([]byte(m.View().Content))
+	return m.Fingerprint() + " frame=" + hex.EncodeToString(sum[:4])
+}
+
 // keyRow presses k in a fresh c and says what happened: how many messages the
 // selected session's PTY received, which message types the key's commands
 // produced, and the model's fingerprint afterwards.
@@ -110,7 +120,7 @@ func keyRow(t *testing.T, c keyContext, k tea.KeyPressMsg) string {
 	_, cmd := m.Update(k)
 	msgs := settleRecording(m, cmd, 0)
 	return fmt.Sprintf("%q code=%d mod=%d text=%q -> pty=%d msgs=%s %s",
-		k.String(), k.Code, k.Mod, k.Text, ptyCount(fakes, sel)-before, strings.Join(msgs, ","), m.Fingerprint())
+		k.String(), k.Code, k.Mod, k.Text, ptyCount(fakes, sel)-before, strings.Join(msgs, ","), observe(m))
 }
 
 func ptyCount(fakes map[string]*termwrap.Fake, id string) int {
@@ -146,3 +156,23 @@ func settleRecording(m *ui.Model, cmd tea.Cmd, depth int) []string {
 	sort.Strings(seen)
 	return seen
 }
+
+// In a context that takes text, a typed letter must change the row: a table
+// that cannot tell "inserted a" from "dropped a" pins nothing about the one
+// behaviour a key.Binding migration is likeliest to break (#620 review).
+func TestKeys_typingIsObservableInTextContexts_issue620(t *testing.T) {
+	for _, c := range keyContexts {
+		if !textContexts[c.name] {
+			continue
+		}
+		terms, _ := fakeTerms(t)
+		m := c.in(t, terms, 120, 30)
+		before := observe(m)
+		pressAndSettle(m, key('a'))
+		if observe(m) == before {
+			t.Errorf("typing a in %s changes nothing the table records", c.name)
+		}
+	}
+}
+
+var textContexts = map[string]bool{"diff_note": true, "tree_filter": true, "new_session": true, "switcher": true}
