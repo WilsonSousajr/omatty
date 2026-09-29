@@ -143,6 +143,9 @@ func notJSON(resp *http.Response, host, tokenEnv string) error {
 	switch {
 	case strings.Contains(contentType, "json"):
 		return nil
+	case !carriesCredential(resp.Request.Header):
+		// An anonymous read refused nothing: a captive portal's page is an
+		// outage, not a token to set (#589's review).
 	case resp.StatusCode == http.StatusNonAuthoritativeInfo, strings.HasPrefix(contentType, "text/html"):
 		return &AuthError{Host: host, TokenEnv: tokenEnv, Status: resp.StatusCode}
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"sync"
 )
 
 // gtBackend is the Gitea backend, which is Forgejo's and Codeberg's too: they
@@ -15,6 +16,9 @@ type gtBackend struct {
 	remote Remote
 	ci     *ciCache
 	open   func(url string) error
+	// needsToken is what an anonymous REST read's refusal says is missing
+	// (#459): nil when a token or tea reads.
+	needsToken *MissingToolError
 }
 
 // giteaPage is the most one page answers: Gitea's own default cap.
@@ -30,31 +34,64 @@ var (
 
 func (g gtBackend) repo() string { return "repos/" + g.remote.Slug() }
 
-func (g gtBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
-	open, err := pages[gtPR](ctx, g.f, g.repo()+"/pulls?state=open", 100)
-	if err != nil {
-		return nil, g.listErr(ctx, err)
+// listErr sorts a list's failure. Gitea answers a list whose unit is off - a
+// mirror's issues, an outside tracker - with 404, so a 404 on a repository
+// that is there is an empty list, nil (#458's review), and one that cannot be
+// judged is an outage, asked again next poll (#589's review). Read
+// anonymously, a refusal or a 404 on a repository omatty cannot see is one
+// that needs a token - Gitea answers a stranger's question about a private
+// repository with 404 - so it says to set one rather than going quiet as a
+// project on no forge (#459). With a token, a 404 is no forge.
+func (g gtBackend) listErr(ctx context.Context, err error) error {
+	if errors.Is(err, errNotFound) {
+		if off, outage := g.unitOff(ctx); off || outage != nil {
+			return outage
+		}
 	}
-	finished, err := getJSON[[]gtPR](ctx, g.f, g.repo()+"/pulls?state=closed&sort=recentupdate&limit="+finishedWindow)
-	if err != nil {
+	if g.needsToken != nil && refusedAnonymously(err) {
+		return g.needsToken
+	}
+	return repoMissing(err)
+}
+
+// unitOff reads the repository behind a list's 404: there, so the list's
+// unit is off; gone or hidden, so the 404 stands; or unreadable for a reason
+// that passes, returned as the outage it is.
+func (g gtBackend) unitOff(ctx context.Context) (bool, error) {
+	_, err := g.f.get(ctx, g.repo())
+	var refused *AuthError
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, errNotFound), errors.As(err, &refused):
+		return false, nil
+	}
+	return false, err
+}
+
+// refusedAnonymously is a 404, a 401 or a 403 - how Gitea turns a stranger
+// away. A page where JSON was expected is not one: no token was refused.
+func refusedAnonymously(err error) bool {
+	var refused *AuthError
+	return errors.Is(err, errNotFound) || errors.As(err, &refused) && (refused.Status == 401 || refused.Status == 403)
+}
+
+func (g gtBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
+	var finished []gtPR
+	var finishedErr error
+	done := make(chan struct{})
+	go func() { // alongside the open pages: each can take seconds on a busy repository
+		defer close(done)
+		finished, finishedErr = getJSON[[]gtPR](ctx, g.f, g.repo()+"/pulls?state=closed&sort=recentupdate&limit="+finishedWindow)
+	}()
+	open, err := pages[gtPR](ctx, g.f, g.repo()+"/pulls?state=open", 100)
+	<-done
+	if err = errors.Join(err, finishedErr); err != nil {
 		return nil, g.listErr(ctx, err)
 	}
 	prs := append(foldGTPRs(open), foldGTPRs(finished)...)
 	g.ci.fill(ctx, prs, g.ciKey, g.statusCI)
 	return prs, nil
-}
-
-// listErr sorts a list's failure. Gitea answers a list whose unit is off - a
-// mirror's issues, a repository with an outside tracker - with 404, so a 404
-// on a repository that is there is an empty list (nil), and only one on a
-// repository that is gone is no forge (#458's review).
-func (g gtBackend) listErr(ctx context.Context, err error) error {
-	if errors.Is(err, errNotFound) {
-		if _, repoErr := g.f.get(ctx, g.repo()); repoErr == nil {
-			return nil
-		}
-	}
-	return repoMissing(err)
 }
 
 func (g gtBackend) ciKey(pr PR) string {
@@ -119,14 +156,30 @@ func (g gtBackend) browse(_ context.Context, _ string, number int, pr bool) erro
 	return g.open(webBase(g.remote) + "/" + g.remote.Slug() + "/" + kind + "/" + strconv.Itoa(number))
 }
 
-// pages reads a list page by page until a short page or max: Gitea caps a
-// page at fifty, and #358's windows ask for a hundred.
+// pages reads up to most items, every page at once. Gitea caps a page at
+// fifty and #358's windows ask for a hundred, and one page of
+// codeberg.org/forgejo/forgejo's open pull requests took ten seconds: read one
+// after another, two would spend most of the call's budget. Pages past the
+// first short one are dropped.
 func pages[T any](ctx context.Context, f fetcher, path string, most int) ([]T, error) {
+	n := (most + giteaPage - 1) / giteaPage
+	got, errs := make([][]T, n), make([]error, n)
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Go(func() {
+			got[i], errs[i] = getJSON[[]T](ctx, f, path+"&limit="+strconv.Itoa(giteaPage)+"&page="+strconv.Itoa(i+1))
+		})
+	}
+	wg.Wait()
+	return joinPages(got, errs)
+}
+
+// joinPages is the pages in order, up to and including the first short one.
+func joinPages[T any](got [][]T, errs []error) ([]T, error) {
 	var all []T
-	for page := 1; len(all) < most; page++ {
-		items, err := getJSON[[]T](ctx, f, path+"&limit="+strconv.Itoa(giteaPage)+"&page="+strconv.Itoa(page))
-		if err != nil {
-			return nil, err
+	for i, items := range got {
+		if errs[i] != nil {
+			return nil, errs[i]
 		}
 		all = append(all, items...)
 		if len(items) < giteaPage {

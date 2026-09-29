@@ -136,19 +136,17 @@ func TestGitea_UnreadCommentsMarkTheItemCut_issue458(t *testing.T) {
 }
 
 // A tea older than 0.12 has no api command: it holds the login and can read
-// nothing, so it is a missing tool, not "?" forever (#458).
-func TestGitea_ATeaWithoutAPIIsTooOld_issue458(t *testing.T) {
+// nothing, so it is passed over for REST, as a tea with no login is (#458).
+func TestGitea_AnOldTeaIsPassedOver_issue458(t *testing.T) {
 	bin, calls := fakeTeaWith(t, codebergLogin, nil, 3)
+	api := &FakeGiteaAPI{}
 	r := forge.NewTestRouter(forge.TestEnv{
 		Options: forge.Options{Remote: (&FakeRemote{URL: "https://codeberg.org/forgejo/forgejo.git"}).url},
-		Bins:    map[forge.Kind]string{forge.KindGitea: bin},
+		Bins:    map[forge.Kind]string{forge.KindGitea: bin}, API: api.serve(t),
 	})
-	_, _ = r.ListIssues(t.TempDir())
-	_, err := r.ListIssues(t.TempDir())
 
-	var missing *forge.MissingToolError
-	if !errors.As(err, &missing) || missing.Tool != "tea 0.12 or later" {
-		t.Errorf("error = %v, want tea 0.12 or later missing", err)
+	if _, err := r.ListIssues(t.TempDir()); err != nil || len(api.Got) == 0 {
+		t.Errorf("ListIssues = %v after %d API calls, want it read over REST", err, len(api.Got))
 	}
 	if b, _ := os.ReadFile(calls); strings.Contains(string(b), "--login") || !strings.Contains(string(b), "api --help") {
 		t.Errorf("tea was called:\n%s\nwant api --help asked and no read", b)
@@ -182,5 +180,23 @@ func TestGitea_ALoginIsFoundHoweverTheHostIsWritten_issue458(t *testing.T) {
 		if used := strings.Contains(string(b), "--login work"); used != c.found {
 			t.Errorf("%s against a login at %s (ssh %q): used = %v, want %v", c.remote, c.loginURL, c.sshHost, used, c.found)
 		}
+	}
+}
+
+// With the CLI forced, a tea older than 0.12 is named as that: the answer
+// TestGitea_AnOldTeaIsPassedOver_issue458 no longer checks now that REST
+// stands in for it (#589's review).
+func TestGitea_AnOldTeaForcedToTheCLISaysSo_issue458(t *testing.T) {
+	bin, _ := fakeTeaWith(t, codebergLogin, nil, 3)
+	r := forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: "https://codeberg.org/forgejo/forgejo.git"}).url, Transport: forge.TransportCLI},
+		Bins:    map[forge.Kind]string{forge.KindGitea: bin},
+	})
+
+	_, err := r.ListIssues(t.TempDir())
+
+	var missing *forge.MissingToolError
+	if !errors.As(err, &missing) || missing.Tool != "tea 0.12 or later" {
+		t.Errorf("error = %v, want tea 0.12 or later missing", err)
 	}
 }

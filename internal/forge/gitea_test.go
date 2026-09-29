@@ -222,23 +222,3 @@ func TestGitea_BrowseOpensTheItemsPage_issue458(t *testing.T) {
 		t.Errorf("opened %v, want %v", opened, want)
 	}
 }
-
-// Without tea, or with a tea that has no login for the host, there is no CLI
-// path; #459 adds the REST one. Until then it is a missing tool.
-func TestGitea_ATeaWithoutALoginForTheHostIsNotUsed_issue458_issue586(t *testing.T) {
-	r, calls := teaRouter(t, `[]`)
-
-	_, err := r.ListPRs(t.TempDir())
-
-	var missing *forge.MissingToolError
-	if !errors.As(err, &missing) || missing.Tool != "tea" {
-		t.Errorf("error = %v, want tea missing", err)
-	}
-	// tea is installed; what it lacks is a login for this host (#586).
-	if missing != nil && (missing.NoLoginFor != "codeberg.org" || !strings.Contains(err.Error(), "tea has no login for codeberg.org")) {
-		t.Errorf("error = %v (%+v), want tea's missing login for codeberg.org named", err, missing)
-	}
-	if b, _ := os.ReadFile(calls); strings.Contains(string(b), "api") {
-		t.Errorf("tea api was run with no login for the host:\n%s", b)
-	}
-}

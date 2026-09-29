@@ -40,6 +40,7 @@ type FakeGitHubAPI struct {
 type FakeRequest struct {
 	Host, Path, Auth, Query string
 	Vars                    FakeVars
+	Scheme                  string // the scheme the request was meant to go by
 }
 
 // FakeVars is a GraphQL request's variables.
@@ -59,7 +60,9 @@ func (f *FakeGitHubAPI) serve(t *testing.T) *httptest.Server {
 		}
 		_ = json.Unmarshal(body, &req)
 		f.mu.Lock()
-		f.Got = append(f.Got, FakeRequest{r.Header.Get("X-Original-Host"), r.URL.Path, r.Header.Get("Authorization"), req.Query, req.Variables})
+		f.Got = append(f.Got, FakeRequest{
+			Host: r.Header.Get("X-Original-Host"), Path: r.URL.Path, Auth: r.Header.Get("Authorization"), Query: req.Query, Vars: req.Variables,
+		})
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		if f.Status != 0 {

@@ -117,9 +117,12 @@ func NewTestRouter(e TestEnv) *Router {
 		r.bins[kind] = bin
 	}
 	r.getenv = func(k string) string { return e.Env[k] }
-	if e.API != "" {
-		r.rest = restTo(e.API)
+	// No test reaches the network: without a test server, every request is
+	// refused on a local port nothing listens on.
+	if e.API == "" {
+		e.API = "http://127.0.0.1:1"
 	}
+	r.rest = restTo(e.API)
 	if e.Open != nil {
 		r.open = e.Open
 	}
@@ -143,6 +146,7 @@ type toServer struct{ base *url.URL }
 func (t toServer) RoundTrip(req *http.Request) (*http.Response, error) {
 	out := req.Clone(req.Context())
 	out.Header.Set("X-Original-Host", req.URL.Host)
+	out.Header.Set("X-Original-Scheme", req.URL.Scheme)
 	out.URL.Scheme, out.URL.Host, out.Host = t.base.Scheme, t.base.Host, t.base.Host
 	return http.DefaultTransport.RoundTrip(out)
 }
