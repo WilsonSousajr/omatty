@@ -1,0 +1,29 @@
+{
+ "count": 2,
+ "value": [
+  {
+   "status": "rejected",
+   "configuration": {
+    "isEnabled": true,
+    "isBlocking": true,
+    "type": {
+     "displayName": "Build"
+    },
+    "settings": {
+     "displayName": "CI build"
+    }
+   }
+  },
+  {
+   "status": "approved",
+   "configuration": {
+    "isEnabled": true,
+    "isBlocking": true,
+    "type": {
+     "displayName": "Minimum number of reviewers"
+    },
+    "settings": {}
+   }
+  }
+ ]
+}

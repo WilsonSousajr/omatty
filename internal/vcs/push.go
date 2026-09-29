@@ -60,3 +60,17 @@ func (c *CLI) HasRemote(dir string) (bool, error) {
 	}
 	return false, nil
 }
+
+// RemoteURL is origin's URL as git holds it, which is how omatty learns which
+// forge a project is on (#450): forge parses it, so it is passed on unchanged.
+// It may carry a credential (https://oauth2:<token>@host/...), so a caller must
+// not log it raw.
+//
+//	url, err := vcs.NewCLI().RemoteURL(project.Root)
+func (c *CLI) RemoteURL(dir string) (string, error) {
+	out, err := c.run(dir, "remote", "get-url", remoteName)
+	if err != nil {
+		return "", fmt.Errorf("vcs: reading the %s remote of %q: %w", remoteName, dir, err)
+	}
+	return out, nil
+}

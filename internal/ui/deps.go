@@ -115,7 +115,7 @@ type Deps struct {
 	HooksDown bool
 	// PRs lists a project's pull requests for its cards (#310) and Issues its
 	// open issues for the tracker (#394). Unwired, each says gh is missing,
-	// which stops every poll: what every test sees.
+	// which stops every project's poll: what every test sees.
 	PRs    PRListFunc
 	Issues IssueListFunc
 	// Item reads one issue or pull request in full, on the keypress that opens
@@ -123,7 +123,10 @@ type Deps struct {
 	Item ForgeItemFuncs
 	// Browse opens one item in the operator's browser (#398). Unwired, it names
 	// the missing wiring.
-	Browse BrowseFunc
+	Browse ForgeBrowseFuncs
+	// Label names each project's forge and its unit of change for the copy
+	// (#449). Unwired, it is GitHub's, matching the missing gh above.
+	Label LabelFunc
 	// Rename persists a session's new title (#41), and Name reads the first
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
@@ -224,14 +227,9 @@ func (d Deps) withPRDefaults() Deps {
 	if d.Issues == nil {
 		d.Issues = noIssues
 	}
-	if d.Item.Issue == nil {
-		d.Item.Issue = noItem
-	}
-	if d.Item.PR == nil {
-		d.Item.PR = noItem
-	}
-	if d.Browse == nil {
-		d.Browse = noBrowse
+	d.Item, d.Browse = d.Item.orUnwired(), d.Browse.orUnwired()
+	if d.Label == nil {
+		d.Label = unwiredLabel
 	}
 	return d
 }
@@ -368,7 +366,7 @@ type ShipFuncs struct {
 	Shippable       func(sess registry.Session, projectRoot string) (review.Shippable, error)
 	Push            func(dir, branch string) error
 	CreatePR        func(repoRoot, head, base, title string) (int, error)
-	MergePR         func(repoRoot string, number int) error
+	MergePR         func(repoRoot string, number int, head string) (bool, error)
 	BranchProtected func(repoRoot, branch string) (bool, error)
 }
 
@@ -392,7 +390,7 @@ func withForgeShipDefaults(s ShipFuncs) ShipFuncs {
 		s.CreatePR = func(string, string, string, string) (int, error) { return 0, errNoShip }
 	}
 	if s.MergePR == nil {
-		s.MergePR = func(string, int) error { return errNoShip }
+		s.MergePR = func(string, int, string) (bool, error) { return false, errNoShip }
 	}
 	if s.BranchProtected == nil {
 		// True, because the refusal has to fail closed even when unwired.

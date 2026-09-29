@@ -50,7 +50,7 @@ func sessionMaps(m *Model) map[string]reflect.Value {
 var skipSessionMaps = map[string]bool{
 	"prs": true, "prPending": true, "prFailed": true, "prAsked": true,
 	"issues": true, "issuePending": true, "issueFailed": true, "issueAsked": true,
-	"notGitHub": true,
+	"forgeStopped": true, "noTracker": true,
 }
 
 // mapsHolding is the names of the session maps that still hold id, sorted so

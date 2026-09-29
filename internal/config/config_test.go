@@ -3,11 +3,13 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/config"
+	"github.com/WilsonSousajr/omatty/internal/forge"
 )
 
 func writeConfig(t *testing.T, home, body string) string {
@@ -25,14 +27,14 @@ func TestLoad_MissingFileIsEveryDefault_issue44(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() on a missing file: %v, want nil", err)
 	}
-	if got != config.Defaults(home) {
+	if !reflect.DeepEqual(got, config.Defaults(home)) {
 		t.Errorf("Load() = %+v, want Defaults %+v", got, config.Defaults(home))
 	}
 }
 
 func TestLoad_ReadsEveryKey_issue44(t *testing.T) {
 	home := t.TempDir()
-	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\nauto = true\n[sessions]\nlazy_start = false\n[ui]\nicons = \"nerd\"\n")
+	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\nauto = true\n[sessions]\nlazy_start = false\n[ui]\nicons = \"nerd\"\n[forge.hosts]\n\"git.corp.example\" = \"gitlab\"\n")
 	got, err := config.Load(path, home)
 	if err != nil {
 		t.Fatal(err)
@@ -41,8 +43,9 @@ func TestLoad_ReadsEveryKey_issue44(t *testing.T) {
 		Leader: "ctrl+a", ClaudeBin: "/opt/claude", WorktreeRoot: "/vol/wt", BaseBranch: "develop",
 		Naming: config.Naming{Model: true}, Gate: config.Gate{MaxParallel: 3, Auto: true},
 		Sessions: config.Sessions{LazyStart: false}, UI: config.UI{Icons: config.IconsNerd},
+		Forge: config.Forge{Hosts: forge.Hosts{"git.corp.example": forge.KindGitLab}},
 	}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Load() = %+v, want %+v", got, want)
 	}
 }

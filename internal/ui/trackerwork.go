@@ -25,7 +25,26 @@ import (
 // gh itself (invariant 4 in spirit).
 type BrowseFunc func(projectRoot string, number int) error
 
-// noBrowse is the Deps.Browse default: it names the missing wiring rather than
+// ForgeBrowseFuncs is the pair of openers, one per list, for the reason
+// ForgeItemFuncs is a pair: GitLab, Azure and Bitbucket number changes and
+// issues apart, so a number alone names the wrong item there (#452).
+type ForgeBrowseFuncs struct {
+	Issue BrowseFunc
+	PR    BrowseFunc
+}
+
+// orUnwired fills either missing half with noBrowse.
+func (f ForgeBrowseFuncs) orUnwired() ForgeBrowseFuncs {
+	if f.Issue == nil {
+		f.Issue = noBrowse
+	}
+	if f.PR == nil {
+		f.PR = noBrowse
+	}
+	return f
+}
+
+// noBrowse is the Deps.Browse default for either half: it names the missing wiring rather than
 // appearing to succeed, because a browser that silently never opens is the one
 // failure the operator cannot see from inside the terminal.
 func noBrowse(_ string, number int) error {
@@ -88,7 +107,11 @@ func (m *Model) actionTarget() (trackerRow, bool) {
 	if t.ItemPR {
 		kind = rowPR
 	}
-	return trackerRow{Kind: kind, Number: t.ItemNumber, Title: m.openItemTitle()}, true
+	row := trackerRow{Kind: kind, Number: t.ItemNumber, Title: m.openItemTitle()}
+	if t.ItemPR {
+		row.Sigil = m.label(t.Project).Sigil
+	}
+	return row, true
 }
 
 // openItemTitle is the open item's title: the read item's own, or the list row's
@@ -124,13 +147,12 @@ func (m *Model) trackerRowAtCursor() (trackerRow, bool) {
 // the reason every other branch name is: the issue's own punctuation must reach
 // neither a ref nor a path (#127).
 func (m *Model) startSessionOnIssue(row trackerRow) tea.Cmd {
-	number := "#" + strconv.Itoa(row.Number)
 	if row.Kind == rowPR {
-		m.lastErr = number + " already has a branch; n starts a session on an issue"
+		m.lastErr = row.ref() + " already has a branch; n starts a session on an issue"
 		return nil
 	}
 	project := m.review.Tracker.Project
-	title := number + " " + row.Title
+	title := row.ref() + " " + row.Title
 	branch := registry.Slug(strconv.Itoa(row.Number) + " " + row.Title)
 	cmd, err := m.addSession(project, title, branch, true)
 	if err != nil {
@@ -153,24 +175,27 @@ func (m *Model) attachItem(row trackerRow) tea.Cmd {
 		return nil
 	}
 	m.review.Focused = false
-	return term.SendInput(paste.BracketedText(itemReference(row) + " "))
+	return term.SendInput(paste.BracketedText(m.itemReference(row) + " "))
 }
 
 // itemReference names the item in words a prompt can carry: "issue #399", not a
 // bare number, since a session's project holds both kinds and claude reads it as
-// text either way.
-func itemReference(row trackerRow) string {
+// text either way. A change takes its forge's words, "merge request !400" (#449).
+func (m *Model) itemReference(row trackerRow) string {
 	kind := "issue"
 	if row.Kind == rowPR {
-		kind = "pull request"
+		kind = m.label(m.review.Tracker.Project).Change
 	}
-	return kind + " #" + strconv.Itoa(row.Number)
+	return kind + " " + row.ref()
 }
 
 // browseItem hands the item to the operator's browser off the Update goroutine:
 // gh spawns an opener, and a slow one must not hold the frame.
 func (m *Model) browseItem(row trackerRow) tea.Cmd {
-	browse, root, number := m.browse, m.projectRoot(m.review.Tracker.Project), row.Number
+	browse, root, number := m.browse.Issue, m.projectRoot(m.review.Tracker.Project), row.Number
+	if row.Kind == rowPR {
+		browse = m.browse.PR
+	}
 	return func() tea.Msg {
 		return BrowsedMsg{Number: number, Err: browse(root, number)}
 	}

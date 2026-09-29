@@ -124,8 +124,8 @@ func TestHeaderRow_UnknownCountsLeaveTheHeaderAsItWas_issue395(t *testing.T) {
 		name string
 		err  error
 	}{
-		{"gh is missing", forge.ErrNoGH},
-		{"not a GitHub repository", fmt.Errorf("forge: no git remotes found: %w", forge.ErrNotGitHub)},
+		{"gh is missing", noGH},
+		{"not a GitHub repository", fmt.Errorf("forge: no git remotes found: %w", forge.ErrNoForge)},
 	} {
 		m, fi, fp := modelWithBothLists(t)
 		fi.Lists["/p/omatty"], fp.Lists["/p/omatty"] = openIssues(13), []forge.PR{{State: forge.Open}}

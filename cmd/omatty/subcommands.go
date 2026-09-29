@@ -36,17 +36,17 @@ func dispatch(cmd string, args []string, home string, cfg config.Config, store *
 	case "adopt":
 		return adoptSessions(store, home, vcs.NewCLI(), args, os.Stdin)
 	default:
-		return dispatchSettings(cmd, args, store)
+		return dispatchSettings(cmd, args, store, newRouter(cfg, vcs.NewCLI()).ListPRs)
 	}
 }
 
 // dispatchSettings runs the per-project settings subcommands, and owns the
 // unknown-command error. Split from dispatch to keep each inside funlen: they
 // share a shape - resolve a project, then show, set or clear one field of it.
-func dispatchSettings(cmd string, args []string, store *registry.Store) error {
+func dispatchSettings(cmd string, args []string, store *registry.Store, prs prLister) error {
 	switch cmd {
 	case "gate":
-		return gateCommand(store, args, os.Stdin)
+		return gateCommand(store, args, os.Stdin, prs)
 	case "carry":
 		return carryCommand(store, args)
 	default:

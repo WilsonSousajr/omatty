@@ -55,7 +55,7 @@ func TestStatsLines_ReportsTheGateRateWithNoMergedWorkYet_issue332(t *testing.T)
 func TestGateCommand_statsWritesNothing_issue332(t *testing.T) {
 	store, _ := gateFixture(t)
 
-	if err := gateCommand(store, []string{"omatty", "--stats"}, strings.NewReader("")); err != nil {
+	if err := gateCommand(store, []string{"omatty", "--stats"}, strings.NewReader(""), nil); err != nil {
 		t.Fatalf("gateCommand(--stats) error = %v", err)
 	}
 
@@ -69,7 +69,7 @@ func TestGateCommand_statsWritesNothing_issue332(t *testing.T) {
 func TestGateCommand_statsNeedsAKnownProject_issue332(t *testing.T) {
 	store, _ := gateFixture(t)
 
-	if err := gateCommand(store, []string{"ghost", "--stats"}, strings.NewReader("")); err == nil {
+	if err := gateCommand(store, []string{"ghost", "--stats"}, strings.NewReader(""), nil); err == nil {
 		t.Error("--stats on an unknown project should fail")
 	}
 }

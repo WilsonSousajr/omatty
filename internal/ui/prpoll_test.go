@@ -122,7 +122,7 @@ func TestModel_aSessionAtRestPollsItsOwnProject_issue310(t *testing.T) {
 // Review Focus 5: without gh there is nothing to ask, ever, this run.
 func TestModel_withoutGhNothingIsAskedAgain_issue310(t *testing.T) {
 	m, f := modelWithPRs(t)
-	f.Errs["/p/omatty"], f.Errs["/p/api-svc"] = forge.ErrNoGH, forge.ErrNoGH
+	f.Errs["/p/omatty"], f.Errs["/p/api-svc"] = noGH, noGH
 	deliver(m, m.PollPRs())
 	f.Asked = nil
 	f.later()
@@ -141,7 +141,7 @@ func TestModel_withoutGhNothingIsAskedAgain_issue310(t *testing.T) {
 // A project that is not on GitHub stops; the others carry on.
 func TestModel_aProjectNotOnGitHubStopsAlone_issue310(t *testing.T) {
 	m, f := modelWithPRs(t)
-	f.Errs["/p/omatty"] = fmt.Errorf("forge: no git remotes found: %w", forge.ErrNotGitHub)
+	f.Errs["/p/omatty"] = fmt.Errorf("forge: no git remotes found: %w", forge.ErrNoForge)
 	deliver(m, m.PollPRs())
 	f.Asked = nil
 	f.later()
@@ -241,11 +241,11 @@ func TestModel_losingGhOrGitHubDropsTheLastVerdict_issue310(t *testing.T) {
 	f.Lists["/p/api-svc"] = []forge.PR{{Number: 8, Branch: "feat-y"}}
 	deliver(m, m.PollPRs())
 
-	m.Update(ui.PRsLoadedMsg{Project: "api-svc", Err: fmt.Errorf("gone: %w", forge.ErrNotGitHub)})
+	m.Update(ui.PRsLoadedMsg{Project: "api-svc", Err: fmt.Errorf("gone: %w", forge.ErrNoForge)})
 	if len(m.PRsOf("api-svc")) != 0 || m.PRFailed("api-svc") {
 		t.Errorf("api-svc kept %+v (failed %v) after it stopped mapping to GitHub", m.PRsOf("api-svc"), m.PRFailed("api-svc"))
 	}
-	m.Update(ui.PRsLoadedMsg{Project: "omatty", Err: forge.ErrNoGH})
+	m.Update(ui.PRsLoadedMsg{Project: "omatty", Err: noGH})
 	if len(m.PRsOf("omatty")) != 0 {
 		t.Errorf("omatty kept %+v after gh went missing", m.PRsOf("omatty"))
 	}

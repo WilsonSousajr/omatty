@@ -117,7 +117,7 @@ func TestModel_noIssuePollWhileBlurredAndOneOnFocus_issue394(t *testing.T) {
 func TestModel_withoutGhNeitherListIsAskedAgain_issue394(t *testing.T) {
 	m, f := modelWithIssues(t)
 	for _, root := range []string{"/p/omatty", "/p/api-svc", "/p/empty"} {
-		f.Errs[root] = forge.ErrNoGH
+		f.Errs[root] = noGH
 	}
 	deliver(m, m.PollIssues())
 	f.Asked = nil
@@ -136,7 +136,7 @@ func TestModel_withoutGhNeitherListIsAskedAgain_issue394(t *testing.T) {
 // learning it stops the other asking too.
 func TestModel_aProjectNotOnGitHubStopsBothLists_issue394(t *testing.T) {
 	m, f := modelWithIssues(t)
-	f.Errs["/p/omatty"] = fmt.Errorf("forge: no git remotes found: %w", forge.ErrNotGitHub)
+	f.Errs["/p/omatty"] = fmt.Errorf("forge: no git remotes found: %w", forge.ErrNoForge)
 	deliver(m, m.PollIssues())
 	f.Asked = nil
 	f.later()

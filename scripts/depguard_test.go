@@ -127,6 +127,8 @@ func inPackage(path, pkg string) bool {
 
 // The gh CLI's twin of the rule above (#310): internal/forge owns gh, so a
 // second package naming it would be a second, unreviewed reader of the forge.
+// Since #452 it fences every forge's CLI, because each is the same capability:
+// glab for GitLab, az for Azure DevOps, tea for Gitea and Forgejo.
 func TestNoGhOutsideForge(t *testing.T) {
 	root := repoRoot(t)
 
@@ -138,17 +140,26 @@ func TestNoGhOutsideForge(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if line, found := codeLineNaming(string(b), `"gh"`); found {
-			t.Errorf(`%s names "gh": %s`+"\n"+
-				"the gh CLI is reached through internal/forge alone", path, line)
+		for _, cli := range forgeCLIs {
+			if line, found := codeLineNaming(string(b), `"`+cli+`"`); found {
+				t.Errorf(`%s names "%s": %s`+"\n"+
+					"every forge CLI is reached through internal/forge alone", path, cli, line)
+			}
 		}
 	}
 }
 
+// forgeCLIs is every forge's own CLI, each fenced to internal/forge (#452).
+var forgeCLIs = []string{"gh", "glab", "az", "tea"}
+
 // realExecImporters asks the toolchain which of our packages import os/exec,
 // rather than grepping for the string - an import block is the compiler's
 // answer, and a grep would count the word in a comment.
-func realExecImporters(t *testing.T) map[string]bool {
+func realExecImporters(t *testing.T) map[string]bool { return realImporters(t, "os/exec") }
+
+// realImporters is which of our packages import pkg, by the same route: since
+// #453 the network is a capability too, fenced the way shelling out is.
+func realImporters(t *testing.T, pkg string) map[string]bool {
 	t.Helper()
 	cmd := exec.Command("go", "list", "-f", "{{.ImportPath}} {{join .Imports \" \"}}", "./internal/...")
 	cmd.Dir = repoRoot(t)
@@ -160,7 +171,7 @@ func realExecImporters(t *testing.T) map[string]bool {
 	found := map[string]bool{}
 	for _, line := range strings.Split(string(out), "\n") {
 		path, imports, ok := strings.Cut(line, " ")
-		if ok && slicesContains(strings.Fields(imports), "os/exec") {
+		if ok && slicesContains(strings.Fields(imports), pkg) {
 			found[shortName(path)] = true
 		}
 	}

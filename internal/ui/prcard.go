@@ -5,8 +5,6 @@
 package ui
 
 import (
-	"strconv"
-
 	"github.com/WilsonSousajr/omatty/internal/forge"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
@@ -44,14 +42,14 @@ func isThisWork(pr forge.PR, sess registry.Session, head string) bool {
 	if pr.State == forge.Open {
 		return true
 	}
-	return sess.Worktree && head != "" && pr.Head == head
+	return sess.Worktree && head != "" && forge.SameCommit(pr.Head, head)
 }
 
 // prLabel is "#349" and what to know about it: "?" when the project's last
 // poll failed - unknown is never shown as the old verdict (Orca #18484) -
 // "merged" or "closed", or the CI mark. Uncoloured, as the gate strip is.
 func (m *Model) prLabel(pr forge.PR, project string) string {
-	label := "#" + strconv.Itoa(pr.Number)
+	label := m.changeRef(project, pr.Number)
 	switch {
 	case m.prFailed[project]:
 		return label + " ?"

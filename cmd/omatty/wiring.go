@@ -86,17 +86,24 @@ func turnFuncs(src *review.Source) ui.TurnFuncs {
 }
 
 // shipFuncs is #331's push, open and merge: git for the worktree and the push,
-// gh for the pull request. omatty's first write to the forge, and it happens only
-// on a keypress, on one session, after a person has read the verdict.
-func shipFuncs(src *review.Source, git *vcs.CLI) ui.ShipFuncs {
-	gh := forge.NewCLI()
+// the project's forge for the pull request. omatty's first write to the forge,
+// and it happens only on a keypress, on one session, after a person has read
+// the verdict.
+func shipFuncs(src *review.Source, git *vcs.CLI, fg *forge.Router) ui.ShipFuncs {
 	return ui.ShipFuncs{
 		Shippable:       src.Shippable,
 		Push:            git.Push,
-		CreatePR:        gh.CreatePR,
-		MergePR:         gh.MergePR,
-		BranchProtected: gh.BranchProtected,
+		CreatePR:        fg.CreatePR,
+		MergePR:         fg.MergePR,
+		BranchProtected: fg.BranchProtected,
 	}
+}
+
+// newRouter is the one forge reader a run uses (#452): each project's forge is
+// read off its origin by git, with the operator's [forge.hosts] before the
+// built-in table.
+func newRouter(cfg config.Config, git *vcs.CLI) *forge.Router {
+	return forge.NewRouter(forge.Options{Remote: git.RemoteURL, Hosts: cfg.Forge.Hosts})
 }
 
 // tuiDeps wires the TUI's dependencies: the launcher, the terminal factory,
@@ -105,7 +112,7 @@ func shipFuncs(src *review.Source, git *vcs.CLI) ui.ShipFuncs {
 func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps {
 	home, hooksFile, w, h := env.Home, env.HooksFile, env.Width, env.Height
 	git, holder := vcs.NewCLI(), env.Holder
-	src := review.NewSource(git)
+	src, fg := review.NewSource(git), newRouter(env.Cfg, git)
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h,
 		Stop:      holder.Stop,
@@ -120,19 +127,19 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 		Stat:      src.Stat,
 		Turn:      turnFuncs(src),
 		Files:     git.ListFiles,
-		Generated: src.Generated, Ship: shipFuncs(src, git),
+		Generated: src.Generated, Ship: shipFuncs(src, git, fg),
 	}
-	return withStoreDeps(withTableDeps(withForgeDeps(deps), env.Cfg), store, home, git)
+	return withStoreDeps(withTableDeps(withForgeDeps(deps, fg), env.Cfg), store, home, git)
 }
 
-// withForgeDeps points both gh-backed lists at one forge CLI: the pull requests
-// a card shows (#310) and the open issues the tracker lists (#394) share a
-// binary, a bound and the operator's own authentication.
-func withForgeDeps(deps ui.RunDeps) ui.RunDeps {
-	gh := forge.NewCLI()
-	deps.PRs, deps.Issues = gh.ListPRs, gh.ListIssues
-	deps.Item = ui.ForgeItemFuncs{Issue: gh.ViewIssue, PR: gh.ViewPR}
-	deps.Browse = gh.Browse
+// withForgeDeps points every forge-backed call at one Router: the pull requests
+// a card shows (#310), the open issues the tracker lists (#394), an item, the
+// browser and the words the copy uses share a resolved forge per project, a
+// bound and the operator's own authentication (#452).
+func withForgeDeps(deps ui.RunDeps, fg *forge.Router) ui.RunDeps {
+	deps.PRs, deps.Issues, deps.Label = fg.ListPRs, fg.ListIssues, fg.Label
+	deps.Item = ui.ForgeItemFuncs{Issue: fg.ViewIssue, PR: fg.ViewPR}
+	deps.Browse = ui.ForgeBrowseFuncs{Issue: fg.BrowseIssue, PR: fg.BrowsePR}
 	return deps
 }
 

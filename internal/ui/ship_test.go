@@ -29,6 +29,9 @@ type shipper struct {
 	Pushed  []string
 	Created []string
 	Merged  []int
+	Heads   []string // the head each merge was pinned to
+	Queued  bool     // the forge accepted the merge and has not finished it
+	Asked   []string // the branches whose protection was read
 }
 
 func (s *shipper) shippable(_ registry.Session, _ string) (review.Shippable, error) {
@@ -45,12 +48,15 @@ func (s *shipper) create(_, head, base, _ string) (int, error) {
 	return 443, s.CreateErr
 }
 
-func (s *shipper) merge(_ string, number int) error {
-	s.Merged = append(s.Merged, number)
-	return s.MergeErr
+func (s *shipper) merge(_ string, number int, head string) (bool, error) {
+	s.Merged, s.Heads = append(s.Merged, number), append(s.Heads, head)
+	return !s.Queued && s.MergeErr == nil, s.MergeErr
 }
 
-func (s *shipper) protected(_, _ string) (bool, error) { return s.Protected, s.ProtErr }
+func (s *shipper) protected(_, branch string) (bool, error) {
+	s.Asked = append(s.Asked, branch)
+	return s.Protected, s.ProtErr
+}
 
 func (s *shipper) funcs() ui.ShipFuncs {
 	return ui.ShipFuncs{
@@ -73,8 +79,18 @@ func shipState() registry.State {
 // and is at rest - the three facts readyToShip is made of.
 func modelReadyToShip(t *testing.T, sh *shipper, prs []forge.PR) *ui.Model {
 	t.Helper()
+	return modelReadyToShipOn(t, sh, prs, nil)
+}
+
+// modelReadyToShipOn is modelReadyToShip on a forge labelled by label; nil
+// keeps baseDeps' own.
+func modelReadyToShipOn(t *testing.T, sh *shipper, prs []forge.PR, label ui.LabelFunc) *ui.Model {
+	t.Helper()
 	st := shipState()
 	d := baseDeps(st, fakeTermsFor(st))
+	if label != nil {
+		d.Label = label
+	}
 	d.Ship = sh.funcs()
 	d.PRs = func(string) ([]forge.PR, error) { return prs, nil }
 	m := ui.NewModel(d)
@@ -376,5 +392,93 @@ func TestModel_pRefusesToMergeOnAFailedGate_issue471(t *testing.T) {
 
 	if len(sh.Merged) != 0 {
 		t.Fatalf("merged %v on a failing gate", sh.Merged)
+	}
+}
+
+// Every forge's refusals say which forge they are about: the checks that are
+// not passing, the branch that is protected, and the protection omatty could
+// not read are all on GitLab here (#464).
+func TestModel_pRefusalsNameTheForge_issue464(t *testing.T) {
+	failing := []forge.PR{{Number: 443, Branch: "feat/parser", State: forge.Open, CI: forge.CIFailing, Head: "abc123"}}
+	passing := []forge.PR{{Number: 443, Branch: "feat/parser", State: forge.Open, CI: forge.CIPassing, Head: "abc123"}}
+	for want, c := range map[string]struct {
+		sh  *shipper
+		prs []forge.PR
+	}{
+		"not passing on GitLab":                  {&shipper{State: review.Shippable{Commits: 2}}, failing},
+		"develop is protected on GitLab":         {&shipper{State: review.Shippable{Commits: 2}, Protected: true}, passing},
+		"whether develop is protected on GitLab": {&shipper{State: review.Shippable{Commits: 2}, ProtErr: errors.New("HTTP 404")}, passing},
+	} {
+		m := modelReadyToShipOn(t, c.sh, c.prs, labelOf(gitLab))
+
+		leaderDeliver(m, key('p'))
+
+		if got := m.View().Content; !strings.Contains(got, want) {
+			t.Errorf("want %q in the refusal:\n%s", want, got)
+		}
+	}
+}
+
+// Regression, #598: protection was read on the session's base, and a pull
+// request that targets another branch - one Claude opened against main from
+// a session forked from develop - was merged there unread. It is refused,
+// naming both branches, and never merged.
+func TestModel_pRefusesAPullRequestAimedElsewhere_issue598(t *testing.T) {
+	sh := &shipper{State: review.Shippable{Commits: 2}}
+	m := modelReadyToShip(t, sh, []forge.PR{
+		{Number: 443, Branch: "feat/parser", Base: "main", State: forge.Open, CI: forge.CIPassing, Head: "abc123"},
+	})
+
+	leaderDeliver(m, key('p'))
+
+	if len(sh.Merged) != 0 {
+		t.Fatalf("merged %v into main from a session based on develop", sh.Merged)
+	}
+	if got := m.View().Content; !strings.Contains(got, "main") || !strings.Contains(got, "develop") {
+		t.Errorf("the refusal does not name both branches:\n%s", got)
+	}
+}
+
+// And a pull request on the session's own base has that base's protection
+// read, as before.
+func TestModel_pReadsProtectionOnThePullRequestsTarget_issue598(t *testing.T) {
+	sh := &shipper{State: review.Shippable{Commits: 2}}
+	m := modelReadyToShip(t, sh, []forge.PR{
+		{Number: 443, Branch: "feat/parser", Base: "develop", State: forge.Open, CI: forge.CIPassing, Head: "abc123"},
+	})
+
+	leaderDeliver(m, key('p'))
+
+	if len(sh.Asked) != 1 || sh.Asked[0] != "develop" || len(sh.Merged) != 1 {
+		t.Errorf("protection asked of %v, merged %v; want develop read and one merge", sh.Asked, sh.Merged)
+	}
+}
+
+// Regression, #599: the merge is pinned to the head the card showed green,
+// so a push after the last poll is never merged unread.
+func TestModel_pMergesTheHeadThatWasGreen_issue599(t *testing.T) {
+	sh := &shipper{State: review.Shippable{Commits: 2}}
+	m := modelReadyToShip(t, sh, []forge.PR{
+		{Number: 443, Branch: "feat/parser", State: forge.Open, CI: forge.CIPassing, Head: "abc123"},
+	})
+
+	leaderDeliver(m, key('p'))
+
+	if len(sh.Heads) != 1 || sh.Heads[0] != "abc123" {
+		t.Errorf("merged at %v, want the green head abc123", sh.Heads)
+	}
+}
+
+// A merge the forge only accepted is not called merged (#464's review).
+func TestModel_pSaysAQueuedMergeIsNotDone_issue464(t *testing.T) {
+	sh := &shipper{State: review.Shippable{Commits: 2}, Queued: true}
+	m := modelReadyToShip(t, sh, []forge.PR{
+		{Number: 443, Branch: "feat/parser", State: forge.Open, CI: forge.CIPassing, Head: "abc123"},
+	})
+
+	leaderDeliver(m, key('p'))
+
+	if got := m.View().Content; strings.Contains(got, "merged #443") || !strings.Contains(got, "has not finished") {
+		t.Errorf("a queued merge reads as done:\n%s", got)
 	}
 }

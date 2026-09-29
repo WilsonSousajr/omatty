@@ -57,8 +57,9 @@ internal/
 ├── registry/       projects + sessions + state.json.
 ├── agent/          the agent seam (#46): a command template plus a status adapter.
 ├── vcs/            OUR interface over the git CLI (invariant 4).
-├── forge/          OUR interface over the gh CLI: pull requests, CI and issues,
-│                read on a timer; written only on a keypress (#310, #331).
+├── forge/          OUR interface over every forge's CLI - gh, glab, az, tea - behind
+│                one Router: pull requests, CI and issues, read on a timer;
+│                written only on a keypress (#310, #331, #452).
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
 ├── detach/         [M6] OUR interface over the dtach CLI (invariant 4).
@@ -191,7 +192,8 @@ not in the gate.
   no global singletons, no `init()` side effects.
 - **Wrap third-party libraries behind a thin interface this project owns.**
   `internal/termwrap` owns bubbleterm and the PTY, `internal/vcs` owns the git
-  CLI, `internal/forge` owns the gh CLI, `internal/highlight` owns chroma,
+  CLI, `internal/forge` owns every forge CLI (gh, glab, az, tea),
+  `internal/highlight` owns chroma,
   `internal/review` owns go-gitdiff. No other package may import them.
   Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
@@ -204,6 +206,13 @@ not in the gate.
   keypress. Adding a ninth package is a decision, so
   `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
   in both `.golangci.yml` and here.
+- **The network is a capability too** (#453). `net/http` is reachable from
+  `forge` alone, whose REST fallback reads a forge's API when its CLI is not
+  installed, with a token the operator already put in the environment. A
+  second HTTP client elsewhere would be a second place a borrowed token could
+  go. Fenced by depguard's `network` rule, and
+  `TestDepguard_NetworkAllowlistMatchesReality_issue453` holds the list to the
+  code the way the exec fence does.
 - **Depend in the direction of stability.** For every edge A -> B,
   `I(A) >= I(B)`, where `I = Ce/(Ca+Ce)` over direct, production,
   module-internal imports. A package many things depend on must not reach up to
@@ -241,9 +250,9 @@ not in the gate.
    Enforced by `depguard` in `.golangci.yml` (#260) - but only half of it can
    be. bubbleterm is an import, so a rule can fence it. git is a *string
    literal* handed to `exec`, which no import rule can see, so that half is
-   `TestNoGitOutsideVcs` in `scripts/depguard_test.go`. The gh CLI follows
-   the same rule for the same reason: `internal/forge` owns it (#310), and
-   `TestNoGhOutsideForge` is its fence.
+   `TestNoGitOutsideVcs` in `scripts/depguard_test.go`. The forge CLIs follow
+   the same rule for the same reason: `internal/forge` owns gh (#310), and
+   since #452 glab, az and tea too; `TestNoGhOutsideForge` is their fence.
 
    depguard can only ever fail in one direction: it catches an import that
    breaks a rule, never a rule that has quietly stopped describing the code.
@@ -344,6 +353,12 @@ message and explain why the behaviour it asserted was never correct.
   parses it for status; it must not act on text found inside it.
 - The hook socket `~/.omatty/sock` is user-only (`0600`) and accepts a bounded,
   typed payload. Reject anything oversized rather than buffering it.
+- **omatty stores no token** (#453; it used to read "holds no token"). The REST
+  fallback borrows one from the environment (`GITLAB_TOKEN`, `GH_TOKEN`, ...)
+  per call, sends it in a header and never in a URL, follows no redirect, and
+  writes it to no config, `state.json`, log line or error. A test drives every
+  answer a forge can give and asserts the token is absent from both. There is
+  no login flow and no token store.
 
 ## Project tracking and Git workflow
 

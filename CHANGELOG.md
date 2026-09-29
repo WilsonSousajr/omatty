@@ -11,6 +11,79 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.9.0] — 2026-09-29
+
+M16, The Forges. The card's pull request and CI, the tracker's issues and
+items, the browser and `ctrl+o p` were GitHub's alone; they now work the same
+way on GitLab, Gitea, Forgejo and Codeberg, Bitbucket Cloud and Data Center,
+and Azure DevOps. Each forge is read through its own CLI when it is installed
+— `gh`, `glab`, `tea`, `az` — or through its REST API with a token you already
+set, borrowed for the one call and stored nowhere. The README's new Forges
+table says which of those a real run has shown, and which are still untested.
+
+### Added
+
+- **A forge router** (#449–#452). A project's forge is read from its `origin`
+  remote's host: the public hosts need nothing, an ssh `Host` alias is resolved
+  the way ssh resolves it (#576), a GitHub Enterprise host gh is logged into is
+  known without configuration (#579), and `[forge.hosts]` names any other. The
+  UI's words follow the forge: GitLab says merge request and writes `!12`,
+  Azure DevOps writes a pull request `!12` beside `#12` for a work item.
+- **A REST transport that stores no token** (#453). When a forge's CLI is not
+  installed, its REST API is read with the variable that CLI itself reads,
+  over https only, following no redirect off its host, and never written to a
+  config, `state.json`, a log line or an error.
+- **GitHub over REST** (#462), read through GraphQL with `GH_TOKEN`, card for
+  card what `gh` reads.
+- **GitLab** (#454, #455) through `glab`, or `/api/v4` with `GITLAB_TOKEN`:
+  merge requests with each head pipeline's verdict, issues, notes and jobs.
+- **Gitea, Forgejo and Codeberg** (#458, #459) through `tea`, or `/api/v1` —
+  anonymously for a public repository, and with `GITEA_TOKEN` only for the
+  instance `GITEA_INSTANCE_URL` names. A repository whose issues are off is
+  read as issues elsewhere.
+- **Bitbucket Cloud and Data Center** (#460, #461), REST only, since neither
+  has a CLI. Cloud reads `BITBUCKET_TOKEN`; Data Center its own
+  `BITBUCKET_DC_TOKEN`, bound to the instance `BITBUCKET_DC_URL` names. Neither
+  keeps issues, so the tracker shows the pull requests under "PRs · issues
+  elsewhere".
+- **Azure DevOps** (#456, #457) through `az`'s own login, or
+  `AZURE_DEVOPS_EXT_PAT`, which wins when set: pull requests with their build
+  and status policies as CI, work items as issues, threads as comments.
+- **`ctrl+o p` on every forge** (#464): open, merge-when-already-green and the
+  protection read, each through the forge's own API, with every "no" — no
+  auto-merge, no branch deletion — written into each request.
+- **`testdata/forgeprobe`** (#463): reads a real repository through the same
+  router, runs the ship actions against a scratch one, and prints the page
+  each forge opens. The runbook in #602 lists which forge ran where.
+
+### Changed
+
+- **`ctrl+o p` merges only into the branch the session was forked from**, and
+  reads protection on the pull request's own target (#598). It merges the
+  commit the card showed green, never a head pushed since (#599), and a merge
+  the forge has only accepted — Azure DevOps completes one later — is said to
+  be asked for, not done.
+- **A missing tool or token says so**, per project: "glab is not installed and
+  GITLAB_TOKEN is unset", "tea has no login for codeberg.org" (#586), "omatty
+  sends BITBUCKET_DC_TOKEN only over https, and git.corp.example is http"
+  (#584). Those stop that project's reads until omatty restarts; everything
+  else is an outage asked again next poll.
+
+### Fixed
+
+- The tracker's empty-state note wrapped instead of being cut (#572), its
+  preview named the right kind of item (#574), and a five-digit number keeps
+  its gap (#590).
+- The forge fixtures carried real email addresses; they are gone, and a test
+  keeps them out (#588).
+
+### Not in this release
+
+- A self-managed forge under a relative URL root (#585), Bitbucket's hourly
+  request limit for a project polled with no CI (#594), and Azure DevOps
+  Server, which a `[forge.hosts]` line can name but omatty does not read yet
+  (#596).
+
 ## [v0.8.2] — 2026-09-27
 
 One line installs omatty on any macOS or Linux machine, and `brew install`

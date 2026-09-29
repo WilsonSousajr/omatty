@@ -3,23 +3,15 @@ package forge
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
 	"time"
 )
 
-// ErrNoGH is ListPRs' answer when gh is not installed: nothing to ask, and
-// not a failure to report again on every poll.
-var ErrNoGH = errors.New("forge: gh is not on PATH")
-
-// ErrNotGitHub is ListPRs' answer for a checkout gh cannot map to a GitHub
-// repository - no remote, another host, or not a repository at all.
-var ErrNotGitHub = errors.New("forge: not a GitHub repository")
-
 // notGitHub is gh's stderr for each way a checkout has no GitHub repository,
-// read off gh 2.87.3.
+// read off gh 2.87.3. Each is ErrNoForge: gh was ErrNotGitHub's only source
+// until #449 named the answer for every forge.
 var notGitHub = []string{
 	"no git remotes found",
 	"none of the git remotes configured for this repository point to a known GitHub host",
@@ -31,7 +23,7 @@ var notGitHub = []string{
 // it is a draft, and its age (#393). All three are cheap fields on a call
 // already being made; statusCheckRollup stays the only expensive one.
 // reviewDecision joined for #432's review glyph, the same cheap-field argument.
-const openFields = "number,title,headRefName,headRefOid,isCrossRepository,state,isDraft,updatedAt,mergeStateStatus,statusCheckRollup,reviewDecision"
+const openFields = "number,title,headRefName,baseRefName,headRefOid,isCrossRepository,state,isDraft,updatedAt,mergeStateStatus,statusCheckRollup,reviewDecision"
 
 // finishedFields leaves the checks out: a merged or closed card shows no CI
 // mark, and the rollup is the expensive part of the answer (#358). It leaves
@@ -41,7 +33,7 @@ const openFields = "number,title,headRefName,headRefOid,isCrossRepository,state,
 // that the cards never did. Cheap, on a call already being made - the same trade
 // openFields' own comment describes, where statusCheckRollup stays the only
 // expensive field.
-const finishedFields = "number,headRefName,headRefOid,isCrossRepository,state,mergedAt"
+const finishedFields = "number,headRefName,baseRefName,headRefOid,isCrossRepository,state,mergedAt"
 
 // finishedWindow is how many recently finished pull requests are read. A
 // finished one only matters when it is the work at a worktree's HEAD, which
@@ -49,10 +41,11 @@ const finishedFields = "number,headRefName,headRefOid,isCrossRepository,state,me
 // set is asked for whole rather than through this window (#358).
 const finishedWindow = "30"
 
-// CLI runs the gh binary.
-//
-//	prs, err := forge.NewCLI().ListPRs("/p/omatty")
-type CLI struct {
+// ghCLI is the GitHub backend: the operator's own gh, run in the project's
+// root, which resolves the repository from the remote and authenticates as the
+// operator. omatty holds nothing. The Router finds gh on PATH before it builds
+// one, and gives each call its context.
+type ghCLI struct {
 	bin     string
 	timeout time.Duration
 }
@@ -63,22 +56,15 @@ type CLI struct {
 // (#356).
 const listTimeout = 30 * time.Second
 
-// NewCLI returns a CLI that invokes "gh" from PATH.
-func NewCLI() *CLI { return &CLI{bin: "gh", timeout: listTimeout} }
-
 // ListPRs is the repository's open pull requests, then its most recently
 // finished ones: two calls for the whole project, never one per pull request,
 // which is what tripped GitHub's secondary rate limit before. One `--state
 // all` call ordered by creation dropped an open pull request older than the
 // newest hundred off its card (#358). gh resolves the repository from
 // repoRoot's remote and uses the operator's own authentication; omatty holds
-// nothing.
-func (c *CLI) ListPRs(repoRoot string) ([]PR, error) {
-	ctx, cancel, err := c.bounded()
-	if err != nil {
-		return nil, err
-	}
-	defer cancel()
+// nothing. Both calls share ctx: the promise is an answer inside thirty
+// seconds, not thirty seconds for each half of it (#356).
+func (c ghCLI) listPRs(ctx context.Context, repoRoot string) ([]PR, error) {
 	open, err := c.list(ctx, repoRoot, "open", "100", openFields)
 	if err != nil {
 		return nil, err
@@ -94,14 +80,7 @@ func (c *CLI) ListPRs(repoRoot string) ([]PR, error) {
 // #358's rule applied to the other list. Closed issues are not read at all -
 // the tracker answers "what is open", and a closed one is history the forge
 // already keeps.
-//
-//	issues, err := forge.NewCLI().ListIssues("/p/omatty")
-func (c *CLI) ListIssues(repoRoot string) ([]Issue, error) {
-	ctx, cancel, err := c.bounded()
-	if err != nil {
-		return nil, err
-	}
-	defer cancel()
+func (c ghCLI) listIssues(ctx context.Context, repoRoot string) ([]Issue, error) {
 	out, err := c.run(ctx, repoRoot, "issue", "list", "--state", "open", "--limit", issueWindow, "--json", issueFields)
 	if err != nil {
 		return nil, err
@@ -109,20 +88,8 @@ func (c *CLI) ListIssues(repoRoot string) ([]Issue, error) {
 	return FoldIssues(out)
 }
 
-// bounded refuses when gh is not installed and otherwise returns the context
-// one exported call is given. One context per call and not per gh invocation:
-// ListPRs makes two, and the promise is an answer inside thirty seconds, not
-// thirty seconds for each half of it (#356).
-func (c *CLI) bounded() (context.Context, context.CancelFunc, error) {
-	if _, err := exec.LookPath(c.bin); err != nil {
-		return nil, nil, ErrNoGH
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	return ctx, cancel, nil
-}
-
 // list is one `gh pr list` in repoRoot. gh's "closed" includes merged.
-func (c *CLI) list(ctx context.Context, repoRoot, state, limit, fields string) ([]PR, error) {
+func (c ghCLI) list(ctx context.Context, repoRoot, state, limit, fields string) ([]PR, error) {
 	out, err := c.run(ctx, repoRoot, "pr", "list", "--state", state, "--limit", limit, "--json", fields)
 	if err != nil {
 		return nil, err
@@ -130,10 +97,10 @@ func (c *CLI) list(ctx context.Context, repoRoot, state, limit, fields string) (
 	return Fold(out)
 }
 
-// run is one gh invocation in repoRoot, and the only place this package starts
-// a process. Both lists share it so neither can drift from the other's
+// run is one gh invocation in repoRoot, and the only place the gh backend
+// starts a process. Both lists share it so neither can drift from the other's
 // bounding, classification or diagnostics.
-func (c *CLI) run(ctx context.Context, repoRoot string, args ...string) ([]byte, error) {
+func (c ghCLI) run(ctx context.Context, repoRoot string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, c.bin, args...)
 	cmd.Dir = repoRoot
 	// A grandchild holding stdout must not outlive the kill (#356), the same
@@ -166,7 +133,7 @@ func called(args []string) string {
 func classify(repoRoot, call, stderr string, err error) error {
 	for _, s := range notGitHub {
 		if strings.Contains(stderr, s) {
-			return fmt.Errorf("forge: %s: %w", stderr, ErrNotGitHub)
+			return fmt.Errorf("forge: %s: %w", stderr, ErrNoForge)
 		}
 	}
 	return fmt.Errorf("forge: gh %s in %q: %s: %w", call, repoRoot, stderr, err)

@@ -10,6 +10,7 @@
 package forge
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -20,19 +21,12 @@ import (
 // only place it reports one.
 var prNumberInURL = regexp.MustCompile(`/pull/(\d+)`)
 
-// CreatePR opens a pull request for head against base and returns its number.
-//
-//	n, err := forge.NewCLI().CreatePR(root, sess.Branch, sess.Base, title)
+// createPR opens a pull request for head against base and returns its number.
 //
 // `--fill` takes the body from the branch's commits, which is the operator's own
 // writing; omatty composes nothing on their behalf. The title is passed because
 // a session has one and it is better than the last commit subject.
-func (c *CLI) CreatePR(repoRoot, head, base, title string) (int, error) {
-	ctx, cancel, err := c.bounded()
-	if err != nil {
-		return 0, err
-	}
-	defer cancel()
+func (c ghCLI) createPR(ctx context.Context, repoRoot, head, base, title string) (int, error) {
 	out, err := c.run(ctx, repoRoot, "pr", "create",
 		"--head", head, "--base", base, "--title", title, "--fill")
 	if err != nil {
@@ -49,28 +43,22 @@ func (c *CLI) CreatePR(repoRoot, head, base, title string) (int, error) {
 	return n, nil
 }
 
-// MergePR merges the pull request, with the repository's own merge method.
-//
-//	err := forge.NewCLI().MergePR(root, 443)
+// mergePR merges the pull request, with the repository's own merge method.
 //
 // No method flag, and no `--delete-branch` or `--admin`. The method a repository
 // allows is its own setting; a repository that allows several makes gh say so,
 // which is the right answer to give the operator rather than picking one for
 // them. Deleting the branch and overriding a failing check are both refused by
 // #331 outright.
-func (c *CLI) MergePR(repoRoot string, number int) error {
-	ctx, cancel, err := c.bounded()
-	if err != nil {
-		return err
-	}
-	defer cancel()
-	_, err = c.run(ctx, repoRoot, "pr", "merge", strconv.Itoa(number))
-	return err
+//
+// --match-head-commit refuses a merge whose head moved since it was green
+// (#599); gh merges before it answers, so a success is a merge.
+func (c ghCLI) mergePR(ctx context.Context, repoRoot string, number int, head string) (bool, error) {
+	_, err := c.run(ctx, repoRoot, "pr", "merge", strconv.Itoa(number), "--match-head-commit", head)
+	return err == nil, err
 }
 
-// BranchProtected reports whether branch is protected on the forge.
-//
-//	protected, err := forge.NewCLI().BranchProtected(root, sess.Base)
+// branchProtected reports whether branch is protected on the forge.
 //
 // The branch object's own `protected` flag, which needs no admin scope - unlike
 // the protection *settings*, which do. This is the bound #331's own text does
@@ -81,12 +69,7 @@ func (c *CLI) MergePR(repoRoot string, number int) error {
 // **It fails closed.** On any error it returns true beside the error, so a caller
 // that reads the bool without the error still refuses. The one case this check
 // exists for is the one where being wrong cannot be undone.
-func (c *CLI) BranchProtected(repoRoot, branch string) (bool, error) {
-	ctx, cancel, err := c.bounded()
-	if err != nil {
-		return true, err
-	}
-	defer cancel()
+func (c ghCLI) branchProtected(ctx context.Context, repoRoot, branch string) (bool, error) {
 	out, err := c.run(ctx, repoRoot, "api",
 		"repos/{owner}/{repo}/branches/"+branch, "--jq", ".protected")
 	if err != nil {

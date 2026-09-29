@@ -74,7 +74,15 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.8.2**, 2026-09-27 — `curl -fsSL https://omatty.com/install.sh | sh`
+**v0.9.0**, 2026-09-29 — your forge, whichever it is. The card's pull request
+and CI, the tracker, the browser and `ctrl+o p` work on GitLab, Gitea, Forgejo
+and Codeberg, Bitbucket and Azure DevOps as they did on GitHub, through each
+forge's own CLI or its REST API with a token omatty borrows and never stores.
+`ctrl+o p` now merges only the commit the card showed green, and only into the
+branch the session came from (#598, #599). The [Forges](#forges) table says
+which forges a real run has shown.
+
+v0.8.2, 2026-09-27 — `curl -fsSL https://omatty.com/install.sh | sh`
 installs omatty on any macOS or Linux machine, checking the release archive
 against its checksum and handing off to Homebrew when it is there (#517).
 `brew install` stops warning you to report a bug in our tap (#369). A project
@@ -406,6 +414,8 @@ idle_stop = "0"            # stop a session quiet this long, keeping it; "0" is 
 
 [ui]
 icons = "plain"            # "nerd" draws every state mark with a Nerd Font's icons
+
+[forge.hosts]              # empty: only the public forges' hosts are recognised
 ```
 
 `ui.icons` is `"plain"` unless you ask: a Nerd Font glyph in a terminal without
@@ -441,6 +451,26 @@ you did not ask to end costs a turn if omatty is wrong about quiet.
 on, a session that finishes a turn is gated immediately and a red result
 notifies you when omatty is not the window you are looking at. Either way, only
 a gate you confirmed is ever run.
+
+`[forge.hosts]` names a forge omatty cannot recognise by its hostname, such as a
+self-managed GitLab, a Forgejo, a Bitbucket Data Center or a GitHub Enterprise.
+An Azure DevOps Server can be named too, but is not read yet: Azure's tokens
+are for Azure DevOps Services, and a Server gets a token of its own in #596.
+
+```toml
+[forge.hosts]
+"git.corp.example" = "gitlab"
+"code.internal"    = "forgejo"
+"ghe.corp.example" = "github"
+```
+
+The kinds are `github`, `gitlab`, `azure`, `gitea` (or its alias `forgejo`) and
+`bitbucket`. A project's forge is read from its `origin` remote's host. The
+public hosts - github.com, gitlab.com, dev.azure.com, codeberg.org, gitea.com,
+bitbucket.org - need no line here, and a line here overrides them. A host
+omatty does not know shows no pull requests or issues rather than a guess. An
+unknown kind, or a key that is not a bare host name (a scheme, a port or a
+path in it would never match), is refused at startup.
 
 A project that has no sessions yet is selectable too: `ctrl+o ]` reaches
 it, the pane says which project is empty, and `ctrl+o n` creates its first
@@ -641,10 +671,48 @@ the branch after the issue (`399-filter-the-tracker`) and titles the session
 `issue #399 ` into the composer **and stops** - no carriage return, so nothing
 is sent until you send it. omatty never submits a turn on your behalf.
 
-Everything here is read through your own `gh`, with your own authentication.
-The tracker itself writes nothing: no comment, no close, no label. The board
-stays GitHub's; this is a window onto it. The one thing omatty does write to the
-forge is `ctrl+o p`, below - and only on that keypress.
+Everything here is read through your forge's own CLI, with your own
+authentication, or through its REST API with a token you already set - see
+[Forges](#forges). The tracker itself writes nothing: no comment, no close, no
+label. The board stays the forge's; this is a window onto it. The one thing
+omatty does write to the forge is `ctrl+o p`, below - and only on that
+keypress.
+
+## Forges
+
+A project's forge is read from its `origin` remote's host, and each forge is
+read through its own CLI when it is installed, or its REST API when it is not,
+with a token borrowed from the environment for that one call. omatty stores no
+token: not in its config, `state.json`, a log line or an error, and never over
+plain `http`.
+
+| Forge | CLI | REST, without the CLI | Pull requests + CI | Issues | Item | Browse | Ship (`ctrl+o p`) |
+|---|---|---|---|---|---|---|---|
+| GitHub, GitHub Enterprise | `gh` | `GH_TOKEN` or `GITHUB_TOKEN`; `GH_ENTERPRISE_TOKEN` on an Enterprise host | ✓ | ✓ | ✓ | ✓ | through `gh` (#331), not yet run by the probe; protection read over both |
+| GitLab, self-managed GitLab | `glab` | `GITLAB_TOKEN` (or `GITLAB_ACCESS_TOKEN`) | ✓ through `glab`; REST untested | ✓ | ✓ | ✓ | untested; protection read through `glab` |
+| Gitea, Forgejo, Codeberg | `tea` 0.12 or later, with a login for the host | `GITEA_TOKEN` with `GITEA_INSTANCE_URL` naming the host; a public repository reads anonymously | ✓ over REST; `tea` untested | ✓ | ✓ | ✓ | untested; protection read over REST |
+| Bitbucket Cloud | none exists | `BITBUCKET_TOKEN`: an access token alone, or an API token with `BITBUCKET_USER`, your Atlassian account's email | untested | elsewhere: Bitbucket retired its issue API | untested | untested | untested; protection needs repository admin |
+| Bitbucket Data Center | none exists | `BITBUCKET_DC_TOKEN` with `BITBUCKET_DC_URL` naming the instance (and `BITBUCKET_DC_USER` for Basic auth) | untested | elsewhere, in Jira | untested | untested | untested; protection needs repository admin |
+| Azure DevOps | `az`, logged in | `AZURE_DEVOPS_EXT_PAT` | ✓ | ✓ work items | ✓ | ✓ | ✓ open, protection and merge, over both |
+
+A ✓ is a claim a real run showed: `testdata/forgeprobe` against a real
+repository on that forge, read by a person (#463). *Untested* means the code is
+there and its tests pass against recorded answers, and no real run has been
+made yet - usually for want of a token or an instance to run it against. The
+issues column says *elsewhere* where the forge keeps no issues of its own; the
+tracker then lists the pull requests under a rule saying so.
+
+A token is only ever sent to the instance it is for. Gitea's and Bitbucket
+Data Center's are bound by `GITEA_INSTANCE_URL` and `BITBUCKET_DC_URL` - for an
+ssh clone, which carries no web address, the latter also says where the
+instance's web root is, context path and port included - and a Bitbucket Cloud
+token goes to Bitbucket Cloud alone.
+
+Without the CLI and without the token, a project's column says which is
+missing - "glab is not installed and GITLAB_TOKEN is unset" - and omatty stops
+asking that forge until it restarts. A token the forge refuses says so the same
+way, naming the host and the variable. A forge omatty cannot recognise by its
+host is named in `[forge.hosts]`, above.
 
 ## Shipping a green session
 
@@ -652,8 +720,9 @@ forge is `ctrl+o p`, below - and only on that keypress.
 with a reason the rest of the time.
 
 **No pull request yet:** it pushes the branch and opens one against the branch
-the worktree was forked from, with `gh pr create --fill`, so the body is your own
-commits. It refuses if the worktree has uncommitted work — the gate verified a
+the worktree was forked from - with `gh pr create --fill` on GitHub, so the body
+is your own commits, and with an empty description elsewhere: omatty composes
+nothing on your behalf. It refuses if the worktree has uncommitted work — the gate verified a
 working tree and a push moves commits, so shipping uncommitted work would open a
 pull request that differs from what was checked. Commit it in the session; omatty
 will not write a commit message for you, the same way it never submits a turn for
@@ -661,25 +730,41 @@ you.
 
 **A pull request already open:** it merges it, but only when **both** verdicts are
 already green — your gate here, and the checks on the forge. Otherwise it says
-which one is missing. It uses the repository's own merge method, never
-`--delete-branch`, never `--admin`, and it **refuses to merge into a protected
-branch** at all: `main` moves by a promotion pull request, and a key that could
+which one is missing. It uses the repository's own merge method, never deletes
+the branch, never overrides a check, and it **refuses to merge into a protected
+branch** at all, as the forge itself reports protection - a protected branch on
+GitHub, GitLab or Gitea, a restriction on Bitbucket, a blocking branch policy on
+Azure DevOps: `main` moves by a promotion pull request, and a key that could
 merge there would route around omatty's own release gate. If it cannot tell
-whether the base is protected, it refuses.
+whether the base is protected, it refuses. On Bitbucket, reading branch
+restrictions needs repository admin; without it, every merge is refused, and
+the refusal says why.
+
+It merges into the branch the session was forked from and nowhere else: a pull
+request Claude opened against another branch is refused, naming both, and
+protection is read on the branch the pull request actually targets. And it
+merges the commit the card showed green: a push after the last poll is never
+merged unread, on any forge. Azure DevOps completes a merge after accepting
+it, so there the notice says the merge was asked for and has not finished yet.
+
+GitHub can delete a branch on merge by a repository setting,
+`delete_branch_on_merge`, which no merge request can turn off: on a repository
+with it on, the branch goes when the pull request merges, whoever merges it.
 
 What it will never do is merge when the checks *go* green. That acts because a
 check changed, with nobody reading, which is the line this whole tool is built
-around — and GitHub's auto-merge already does it, on the forge, where it belongs.
+around — and every forge's own auto-merge already does it, on the forge, where it
+belongs. omatty turns it off by name in every merge it sends.
 `docs/ROADMAP.md` argues the boundary in full.
 
-The cost, on top of the two `gh pr list` calls the cards already make: one
-`gh issue list` per project every five minutes, one more when you open the
-tracker or press `r`, and one `gh issue view` or `gh pr view` for an item you
-open, cached until you press `r` on it. Nothing at all while omatty is in the
-background, never more than once in thirty seconds for one project, and nothing
-after `gh` is found missing. An item is read to 64 KiB and says so if there was
-more. Without `gh`, or for a repository that is not on GitHub, the column says
-which and the sidebar headers stay as they were.
+The cost, on top of the pull request reads the cards already make: one issue
+list per project every five minutes, one more when you open the tracker or press
+`r`, and one read of an item you open, cached until you press `r` on it. Nothing
+at all while omatty is in the background, never more than once in thirty seconds
+for one project, and nothing after the forge's CLI and token are both found
+missing. An item is read to 64 KiB and says so if there was more. For a
+repository on no forge omatty reads, the column says so and the sidebar headers
+stay as they were.
 
 ## Session status
 
@@ -700,8 +785,8 @@ is holding.
 | `∅` | claude exited (`ctrl+o r` restarts it) |
 
 A card's second line names the session's branch and its diffstat. Once that
-branch has a pull request on GitHub, the branch becomes the pull request and
-one mark for it, read through your own `gh`:
+branch has a pull request on the project's forge, the branch becomes the pull
+request and one mark for it (GitLab and Azure DevOps write it `!349`):
 
 | Line two | Meaning |
 |---|---|
@@ -713,12 +798,13 @@ one mark for it, read through your own `gh`:
 | `#349 merged` / `#349 closed` | the pull request is done |
 | `#349 ?` | the last read failed; the old verdict is not shown as current |
 
-omatty reads each project's pull requests with two `gh pr list` calls - the
-open ones, then the thirty most recently finished - when omatty regains focus,
-when a session finishes a turn, and every minute while it has focus - never
-while it is in the background, never more than once in thirty seconds for one
-project, and never for longer than thirty seconds. Without `gh`, or for a repository that is not on GitHub, the card shows
-the branch as before and says so once in the log. A pull request from a fork is
+omatty reads each project's pull requests - the open ones, then the thirty most
+recently finished - when omatty regains focus, when a session finishes a turn,
+and every minute while it has focus - never while it is in the background,
+never more than once in thirty seconds for one project, and never for longer
+than thirty seconds. A check verdict that is final is kept for its commit and
+not asked again. For a repository on no forge omatty reads, the card shows the
+branch as before and says so once in the log. A pull request from a fork is
 never taken for the session's, whatever its branch is called; a session on the
 main checkout shows open pull requests only, and a merged or closed one shows
 only while the checkout is still at its head commit.

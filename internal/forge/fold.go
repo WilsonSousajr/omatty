@@ -47,6 +47,7 @@ type PR struct {
 	Number   int
 	Title    string // empty on a finished one: only the open set is asked for it
 	Branch   string // the head branch, matched against a session's
+	Base     string // the branch it would merge into: where protection is read (#598)
 	State    PRState
 	CI       CIState
 	Conflict bool   // DIRTY or BEHIND: it cannot merge as it stands
@@ -92,6 +93,7 @@ type ghPR struct {
 	Number            int       `json:"number"`
 	Title             string    `json:"title"`
 	HeadRefName       string    `json:"headRefName"`
+	BaseRefName       string    `json:"baseRefName"`
 	HeadRefOid        string    `json:"headRefOid"`
 	IsCrossRepository bool      `json:"isCrossRepository"`
 	State             string    `json:"state"`
@@ -126,11 +128,17 @@ func Fold(raw []byte) ([]PR, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return nil, fmt.Errorf("forge: reading gh's pull request list: %w", err)
 	}
+	return foldPRs(in), nil
+}
+
+// foldPRs is Fold past the decoding, shared with the HTTP path, which decodes
+// GitHub's GraphQL answer into the same ghPR gh itself answers with (#462).
+func foldPRs(in []ghPR) []PR {
 	out := make([]PR, len(in))
 	for i, p := range in {
 		out[i] = foldOne(p)
 	}
-	return out, nil
+	return out
 }
 
 // foldOne is one element of gh's list as omatty's own type. Split from Fold when
@@ -140,6 +148,7 @@ func foldOne(p ghPR) PR {
 		Number:   p.Number,
 		Title:    cleanLine(p.Title), // #483
 		Branch:   cleanLine(p.HeadRefName),
+		Base:     cleanLine(p.BaseRefName),
 		State:    stateOf(p.State),
 		CI:       rollup(p.StatusCheckRollup),
 		Conflict: p.MergeStateStatus == "DIRTY" || p.MergeStateStatus == "BEHIND",

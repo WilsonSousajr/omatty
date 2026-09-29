@@ -22,7 +22,10 @@ func fakeGH(t *testing.T, out, errOut string, code int) (bin, calls string) {
 			t.Fatal(err)
 		}
 	}
+	// `auth token --hostname` is how the Router asks whether gh has a login
+	// for a host (#579); this gh has none, as a real one for an unknown host.
 	script := "#!/bin/sh\n" +
+		`[ "$1 $2" = "auth token" ] && exit 1` + "\n" +
 		`printf '%s|%s\n' "$PWD" "$*" >> '` + calls + "'\n" +
 		`cat '` + filepath.Join(dir, "out") + "'\n" +
 		`cat '` + filepath.Join(dir, "err") + "' >&2\n" +
@@ -54,8 +57,8 @@ func TestCLI_ListPRsRunsItsListsInTheRepoRoot_issue310(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
-		"pr list --state open --limit 100 --json number,title,headRefName,headRefOid,isCrossRepository,state,isDraft,updatedAt,mergeStateStatus,statusCheckRollup,reviewDecision",
-		"pr list --state closed --limit 30 --json number,headRefName,headRefOid,isCrossRepository,state,mergedAt",
+		"pr list --state open --limit 100 --json number,title,headRefName,baseRefName,headRefOid,isCrossRepository,state,isDraft,updatedAt,mergeStateStatus,statusCheckRollup,reviewDecision",
+		"pr list --state closed --limit 30 --json number,headRefName,baseRefName,headRefOid,isCrossRepository,state,mergedAt",
 	}
 	lines := strings.Split(strings.TrimSpace(string(got)), "\n")
 	if len(lines) != len(want) {
@@ -79,8 +82,8 @@ func TestCLI_ListPRsRecognisesARepoThatIsNotOnGitHub_issue310(t *testing.T) {
 	} {
 		bin, _ := fakeGH(t, "", stderr, 1)
 		_, err := forge.NewCLIWithBin(bin).ListPRs(t.TempDir())
-		if !errors.Is(err, forge.ErrNotGitHub) {
-			t.Errorf("stderr %q: error = %v, want ErrNotGitHub", stderr, err)
+		if !errors.Is(err, forge.ErrNoForge) {
+			t.Errorf("stderr %q: error = %v, want ErrNoForge", stderr, err)
 		}
 	}
 }
@@ -92,7 +95,7 @@ func TestCLI_ListPRsCarriesAnyOtherFailure_issue310(t *testing.T) {
 
 	_, err := forge.NewCLIWithBin(bin).ListPRs(t.TempDir())
 
-	if err == nil || errors.Is(err, forge.ErrNotGitHub) || errors.Is(err, forge.ErrNoGH) {
+	if err == nil || errors.Is(err, forge.ErrNoForge) || missingTool(err, "gh") {
 		t.Fatalf("error = %v, want an ordinary error", err)
 	}
 	if !strings.Contains(err.Error(), "Bad credentials") {
@@ -102,11 +105,11 @@ func TestCLI_ListPRsCarriesAnyOtherFailure_issue310(t *testing.T) {
 
 // Without gh there is nothing to ask, and that must read as "not installed",
 // never as a failed call: the gate learned it with a missing tool (#248).
-func TestCLI_ListPRsWithoutGhIsErrNoGH_issue310(t *testing.T) {
+func TestCLI_ListPRsWithoutGhIsAMissingTool_issue310(t *testing.T) {
 	_, err := forge.NewCLIWithBin(filepath.Join(t.TempDir(), "no-such-gh")).ListPRs(t.TempDir())
 
-	if !errors.Is(err, forge.ErrNoGH) {
-		t.Errorf("error = %v, want ErrNoGH", err)
+	if !missingTool(err, "gh") {
+		t.Errorf("error = %v, want a missing gh", err)
 	}
 }
 

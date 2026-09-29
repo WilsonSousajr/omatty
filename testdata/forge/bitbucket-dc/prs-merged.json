@@ -1,0 +1,5 @@
+{"size": 1, "limit": 30, "isLastPage": true, "start": 0, "values": [
+ {"id": 40, "title": "Retire the old cron", "state": "MERGED", "open": false, "createdDate": 1788000000000, "updatedDate": 1788600000000, "closedDate": 1788500000000,
+  "fromRef": {"displayId": "retire-cron", "latestCommit": "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00", "repository": {"slug": "platform", "project": {"key": "OPS"}}},
+  "toRef": {"displayId": "main", "repository": {"slug": "platform", "project": {"key": "OPS"}}}}
+]}

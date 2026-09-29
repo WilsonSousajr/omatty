@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-09-27, when v0.8.2 promoted `develop` to `main` (#567).
+Last revised 2026-09-29, when v0.9.0 promoted `develop` to `main` (#604).
 Every milestone is built; what is left is under "What is left", and how a
 release reaches `main` is under "Releases".
 
@@ -42,7 +42,8 @@ not only the coverage gate. See "Rules" at the end for why.
 | — | **Released** | **v0.8.0**, 2026-09-27. Folding a project (#505) and the go-to-market docs pass (#513-#515, #548, #549) promoted to `main` (#553). See "Releases". |
 | — | **Released** | **v0.8.1**, 2026-09-27. The README's recording re-shot with real Claude Code (#556), promoted to `main` (#558). See "Releases". |
 | — | **Released** | **v0.8.2**, 2026-09-27. The one-line install (#517), the cask's hook as `postflight_steps` (#369), the symlinked-transcript fix (#564) and scrollback after a reattach verified (#336), promoted to `main` (#567). See "Releases". |
-| M16 | The Forges | **Planned** 2026-09-26: GitLab, Azure DevOps, Gitea/Forgejo/Codeberg and Bitbucket at GitHub's parity, #449-#465, in Backlog. See the M16 section. |
+| M16 | The Forges | **Done.** All seventeen slices #449-#465, built 2026-09-28/29 as PRs #573-#603, with ten defects the reviews and real runs found (#572, #574, #576, #579, #584, #586, #588, #590, #598, #599). Released in v0.9.0. Three it found stay in Backlog: #585, #594 and #596 (Azure DevOps Server). See the M16 section. |
+| — | **Released** | **v0.9.0**, 2026-09-29. M16, The Forges, promoted to `main` (#604). See "Releases". |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -1019,6 +1020,7 @@ in a hurry to make it.
 | v0.8.0 | 2026-09-27 | Folding a project behind its sidebar header (#505); the README opened on the workspace with a recording (#549), the comparison corrected against primary sources (#515) with a herdr deep dive (#548), and the research refresh and go-to-market pass (#513, #514). 6 issues. (#553) |
 | v0.8.1 | 2026-09-27 | The README's recording re-shot with real Claude Code, showing the whole workspace (#556). Docs and one image; no code changed. (#558) |
 | v0.8.2 | 2026-09-27 | `curl -fsSL https://omatty.com/install.sh \| sh` (#517); the cask's install hook written as `postflight_steps` without waiting on GoReleaser (#369); a project behind a symlink finds its transcript (#564), found by the real Claude Code probe that closed #336 without code. 4 issues. (#567) |
+| v0.9.0 | 2026-09-29 | M16 The Forges: GitLab, Gitea/Forgejo/Codeberg, Bitbucket Cloud and Data Center and Azure DevOps beside GitHub, each through its CLI or its REST API with a token stored nowhere; `ctrl+o p` on every forge, pinned to the green head and the session's own base (#598, #599); the forge probe and the support matrix. 27 issues. (#604) |
 
 ## M12 - The Field
 
@@ -1504,6 +1506,10 @@ UI.
   has no official CLI, so it is REST only.
 - **Boards are out**, GitHub Projects included. M16 is issues and PRs.
 - **Every slice sits in Backlog.** M16 is designed, not scheduled.
+
+*Built 2026-09-28/29 and released in v0.9.0 (#604).* Every slice shipped;
+Azure DevOps Server did not, since Services' tokens are not a Server's (#596).
+The README's Forges table says which forge a real run has shown.
 
 **The foundation** comes first, and GitHub is the first backend:
 

@@ -95,18 +95,14 @@ func roundLead(d time.Duration) string {
 
 // reportStats is the --stats branch of `omatty gate`, kept out of gateCommand
 // so that command stays a list of flag arms.
-func reportStats(store *registry.Store, project registry.Project) error {
+//
+// prs is the forge reader, the TUI's own Router's ListPRs, so a project named
+// in [forge.hosts] gets its lead time here too (#452). A machine without the
+// forge's tool gets no lead time and the gate rate still prints.
+func reportStats(store *registry.Store, project registry.Project, prs prLister) error {
 	st, err := store.Load()
 	if err != nil {
 		return err
 	}
-	return gateStats(project, st.Sessions, gatePRs())
+	return gateStats(project, st.Sessions, prs)
 }
-
-// gatePRs is the forge reader --stats uses: the operator's own gh, read-only.
-//
-// Built here rather than passed through gateCommand's signature, because every
-// other form of the command needs no forge at all and `cmd/` stays thin
-// (invariant 10). A machine without gh gets no lead time and the gate rate
-// still prints.
-func gatePRs() prLister { return forge.NewCLI().ListPRs }

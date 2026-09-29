@@ -110,6 +110,18 @@ and working over SSH are facts about omatty, not distinctions: `claude agents`,
 herdr, ccmanager and fleet span repositories, and herdr, Orca and emdash reach
 remote machines.
 
+Several forges are the same kind of fact (M16). omatty reads a project's pull
+requests, CI, issues and items on GitHub, GitLab, Azure DevOps,
+Gitea/Forgejo/Codeberg and Bitbucket Cloud and Data Center, through each
+forge's own CLI or its REST API (`internal/forge`), and ships to each with
+`ctrl+o p`. The README's Forges table says which of those a real run has
+shown and which are still untested. Others got there first on the forges most
+teams use: Orca's cards carry GitLab merge requests and their CI
+(`issues-orca.md` B, #18484), and herdr-reviewr's read-only pull request tab
+covers GitHub, GitLab and Azure DevOps (`herdr.md` §6). What omatty adds is
+breadth - Gitea, Forgejo, Codeberg and Bitbucket too - and that each forge's
+merge sends #331's bounds in its own words.
+
 ## Where others are ahead
 
 The list that makes the rest of the page worth reading.
