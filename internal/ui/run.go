@@ -7,7 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/agent"
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
@@ -174,7 +174,8 @@ type RunDeps struct {
 	// Leader is the configured leader key; empty means DefaultLeader (#44).
 	Leader string
 	// Agent is the profile every session runs: its status adapter and its
-	// transcript location feed the watcher (#46). The zero value is claude.
+	// transcript location feed the watcher (#46). cmd sets it from its
+	// catalog; there is no default here (#653).
 	Agent agent.Profile
 	// GateParallel bounds how many gates run at once (#229). Zero is raised
 	// to one by the Runner, so an unset config is a working default.
@@ -236,12 +237,11 @@ func modelFor(
 }
 
 // watchDeps is the watcher's slice of the agent profile: its status adapter
-// and its transcript location. An unset profile is claude (#46).
+// and its transcript location. cmd sets the profile: the catalog that could
+// supply a default is composed there, out of this package's reach (ADR 0001,
+// migration step 5.2b, #653).
 func watchDeps(d RunDeps) status.WatchDeps {
 	profile := d.Agent
-	if profile.Status == nil {
-		profile = agent.Claude()
-	}
 	return status.WatchDeps{Home: d.Home, Clock: time.Now, OpenTranscript: d.OpenTranscript, ListenHooks: d.ListenHooks,
 		Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}
 }

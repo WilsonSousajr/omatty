@@ -4,8 +4,13 @@
 // that transcript into omatty's neutral status vocabulary.
 //
 // Claude is the only profile today (#46). It exists as a profile rather than
-// as the hardcoded default it was, so a second agent is a new file here and
+// as the hardcoded default it was, so a second agent is a new catalog entry and
 // not a simultaneous edit to supervisor, watcher, paths and cmd.
+//
+// The catalog - which profiles exist, and the implementations each one
+// carries - is composed in cmd/omatty (ADR 0001, migration step 5.2b,
+// #653): a profile names a transcript parser, a settings renderer and a
+// path function, and those live in layers this package may not import.
 //
 // Nothing here starts a process. Command returns an argument list, not an
 // *exec.Cmd, so the rule that only internal/supervisor runs a binary and only
@@ -14,17 +19,12 @@
 // a Profile has no field a terminal could be handed through (invariant 2).
 package agent
 
-import (
-	"fmt"
-	"strings"
-
-	"github.com/WilsonSousajr/omatty/internal/service/status"
-)
+import "github.com/WilsonSousajr/omatty/internal/domain/status"
 
 // Profile is one agent. Every field is a pure function or a value, so a
 // Profile is safe to copy and carries no lifecycle.
 type Profile struct {
-	// Name is what state.json records and what Lookup answers to.
+	// Name is what state.json records and what the catalog in cmd/omatty looks up.
 	Name string
 	// DefaultBin is the binary to run when the config file names none.
 	DefaultBin string
@@ -47,18 +47,18 @@ type Profile struct {
 	Status status.Adapter
 }
 
-// Lookup returns the profile a Session names. An empty name is claude: every
-// session written before #46 has one, and an empty value that is derivable
-// is what lets state.json stay at Version 1 (invariant 9).
+// ClaudeCommand is claude's argument list. A session that has never spoken
+// starts with --session-id, which lets omatty choose the uuid and so know
+// the transcript path (invariant 2). Once a transcript exists claude refuses
+// that flag - "Session ID <uuid> is already in use" - because the transcript
+// itself is the claim, so it is resumed instead (#36). Either way --settings
+// names omatty's own file, never the user's (invariant 3).
 //
-//	p, err := agent.Lookup(sess.Agent)
-func Lookup(name string) (Profile, error) {
-	if name == "" || name == Claude().Name {
-		return Claude(), nil
+//	argv := agent.ClaudeCommand("claude", id, dir, false, "/h/.omatty/hooks.json")
+func ClaudeCommand(bin, sessionID, _ string, resume bool, settingsFile string) []string {
+	flag := "--session-id"
+	if resume {
+		flag = "--resume"
 	}
-	return Profile{}, fmt.Errorf("agent %q is not one omatty knows, want one of %s", name, strings.Join(Names(), ", "))
+	return []string{bin, flag, sessionID, "--settings", settingsFile}
 }
-
-// Names is every profile omatty knows, for Lookup's error and for the config
-// file's documentation.
-func Names() []string { return []string{Claude().Name} }

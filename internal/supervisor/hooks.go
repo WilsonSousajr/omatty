@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/WilsonSousajr/omatty/internal/agent"
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
@@ -16,7 +16,7 @@ import (
 // --settings on a missing file (issue #31) and the binary path moves with
 // `go install`. It was four steps of logic in cmd (invariant 10, issue #79).
 //
-//	hooksFile, err := supervisor.InstallHooks(agent.Claude(), home)
+//	hooksFile, err := supervisor.InstallHooks(profile, home)
 //
 // The events and the settings schema are the profile's (#46). One file for
 // the whole app: a second agent whose schema differs will need a file per

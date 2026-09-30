@@ -12,8 +12,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/discover"
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
@@ -37,7 +37,7 @@ func runTUI(home string, cfg config.Config, store *registry.Store) error {
 		return err
 	}
 	// Claude is the only profile today; an empty name resolves to it (#46).
-	profile, err := agent.Lookup("")
+	profile, err := lookupAgent("")
 	if err != nil {
 		return err
 	}

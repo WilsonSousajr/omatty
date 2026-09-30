@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
@@ -30,7 +29,7 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := &fakeHolder{Wrapped: exec.Command("dtach", "-A", "/s.sock")}
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", home, h)
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", home, h)
 
 	if _, err := l.Command(registry.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"}); err != nil {
 		t.Fatal(err)
@@ -48,7 +47,7 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 // names its pane (#316). It carries the row's ID, which never changes, so it
 // stays right across any number of clears.
 func TestLauncher_ExportsTheOwningSession_issue316(t *testing.T) {
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 
 	cmd, err := l.Command(registry.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"})
 	if err != nil {
@@ -67,7 +66,7 @@ func TestLauncher_ExportsTheOwningSession_issue316(t *testing.T) {
 // in, the inner session's /clear would re-bind the outer pane (#316).
 func TestLauncher_ReplacesAnInheritedOwningSession_issue316(t *testing.T) {
 	t.Setenv(hooks.SessionEnv, "outer-pane")
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 
 	cmd, err := l.Command(registry.Session{ID: "row-1", Dir: "/w"})
 	if err != nil {

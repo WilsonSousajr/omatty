@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/agent"
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -17,7 +17,7 @@ import (
 
 // Launcher builds and starts the claude process for a session.
 //
-//	l := supervisor.NewLauncher(agent.Claude(), cfg.ClaudeBin, paths.HooksFile(home), home, detach.New(home))
+//	l := supervisor.NewLauncher(profile, cfg.ClaudeBin, paths.HooksFile(home), home, detach.New(home))
 //	term, err := l.Start(termwrap.Start, sess, 80, 24)
 //
 // One profile per Launcher because M7 has one agent. When a second arrives,

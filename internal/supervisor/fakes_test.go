@@ -3,7 +3,22 @@ package supervisor_test
 import (
 	"context"
 	"os/exec"
+
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
+
+// claudeProfile stands in for cmd's catalog entry, which this package cannot
+// import (ADR 0001, migration step 5.2b, #653): claude's own command template
+// and adapter, with the transcript slugged as given. Resolving a symlinked
+// directory is the catalog's job, pinned in cmd/omatty (#564).
+func claudeProfile() agent.Profile {
+	return agent.Profile{Name: "claude", DefaultBin: "claude", Command: agent.ClaudeCommand,
+		TranscriptPath: paths.Transcript, HookEvents: status.HookEventNames,
+		RenderSettings: hooks.Render, Status: status.ClaudeAdapter()}
+}
 
 // fakeHolder stands in for detach.Holder, recording what the launcher asked it
 // to wrap and answering with a command the test can recognise. A named type,

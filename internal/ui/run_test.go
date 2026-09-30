@@ -6,13 +6,21 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/agent"
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
+
+// claudeProfile stands in for cmd's catalog entry, which this package cannot
+// import (ADR 0001, migration step 5.2b, #653). Starting a terminal needs
+// only the command template and where to look for a transcript.
+func claudeProfile() agent.Profile {
+	return agent.Profile{Name: "claude", DefaultBin: "claude", Command: agent.ClaudeCommand, TranscriptPath: paths.Transcript}
+}
 
 func TestStartTerminals_OnePerSessionInItsOwnDirectory(t *testing.T) {
 	var dirs []string
@@ -22,7 +30,7 @@ func TestStartTerminals_OnePerSessionInItsOwnDirectory(t *testing.T) {
 	}
 
 	terms := ui.StartTerminals(
-		twoProjectState(), every(twoProjectState()), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
+		twoProjectState(), every(twoProjectState()), supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
 
 	if len(terms) != 3 {
 		t.Errorf("started %d terminals, want 3", len(terms))
@@ -52,7 +60,7 @@ func TestStartTerminals_AFailedStartLeavesOnlyThatSessionStopped_issue317(t *tes
 	}
 
 	terms := ui.StartTerminals(
-		twoProjectState(), every(twoProjectState()), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
+		twoProjectState(), every(twoProjectState()), supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
 
 	if terms["s1"] != nil || terms["s2"] == nil || terms["s3"] == nil {
 		t.Errorf("started %v, want s2 and s3 with s1 left stopped", keysOf(terms))
@@ -69,7 +77,7 @@ func TestStartTerminals_StartsOnlyTheWantedSessions_issue317(t *testing.T) {
 	}
 
 	terms := ui.StartTerminals(
-		twoProjectState(), map[string]bool{"s2": true}, supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
+		twoProjectState(), map[string]bool{"s2": true}, supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
 
 	if len(terms) != 1 || terms["s2"] == nil || calls != 1 {
 		t.Errorf("started %v with %d factory calls, want only s2 and one call", keysOf(terms), calls)
@@ -102,7 +110,7 @@ func TestStartTerminals_EmptyRegistryStartsNothing(t *testing.T) {
 	}
 
 	terms := ui.StartTerminals(
-		emptyState(), every(emptyState()), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
+		emptyState(), every(emptyState()), supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
 
 	if len(terms) != 0 || called != 0 {
 		t.Errorf("started %d terminals with %d factory calls, want 0 and 0", len(terms), called)
@@ -117,7 +125,7 @@ func TestStartTerminals_WrapsEveryTerminalInAGuard(t *testing.T) {
 	}
 
 	terms := ui.StartTerminals(
-		twoProjectState(), every(twoProjectState()), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
+		twoProjectState(), every(twoProjectState()), supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, ui.DefaultLeader)
 
 	for id, term := range terms {
 		if _, ok := term.(*termwrap.Guard); !ok {
@@ -136,7 +144,7 @@ func TestStartTerminals_BirthsThePTYAtThePaneSize_issue51(t *testing.T) {
 		return termwrap.NewFake(""), nil
 	}
 
-	ui.StartTerminals(oneSessionState(), every(oneSessionState()), supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}),
+	ui.StartTerminals(oneSessionState(), every(oneSessionState()), supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}),
 		factory, 140, 40, ui.DefaultLeader)
 
 	// PaneSize(140, 40) is 112x37, and the PTY is the whole pane now that the
@@ -168,7 +176,7 @@ func (h *heldHolder) Held(id string) (bool, error) { return h.IDs[id], h.Err }
 // The boot asks the holder which sessions are already running, so their
 // panes can be nudged to repaint; a failed check reads as fresh (#191).
 func TestHeldSessions_AsksTheHolderPerSession_issue191(t *testing.T) {
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &heldHolder{IDs: map[string]bool{"s2": true}})
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &heldHolder{IDs: map[string]bool{"s2": true}})
 
 	held := ui.HeldSessions(l, twoProjectState())
 
@@ -178,7 +186,7 @@ func TestHeldSessions_AsksTheHolderPerSession_issue191(t *testing.T) {
 }
 
 func TestHeldSessions_AFailedCheckReadsAsFresh_issue191(t *testing.T) {
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(),
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(),
 		&heldHolder{IDs: map[string]bool{"s1": true}, Err: errors.New("stat exploded")})
 
 	if held := ui.HeldSessions(l, twoProjectState()); len(held) != 0 {
