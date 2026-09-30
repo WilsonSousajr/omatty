@@ -313,6 +313,7 @@ func (m *Model) forgetCardMaps(id string) {
 	delete(m.activeAt, id)    // the idle sweep's floor (#319)
 	delete(m.turnPending, id) // the turn baseline's bookkeeping (#311)
 	delete(m.turnErr, id)
+	delete(m.starting, id) // a start in flight lands on no pane (#653)
 }
 
 // WorktreeRemovedMsg carries the outcome of a worktree removal into Update.

@@ -5,12 +5,12 @@
 package ui
 
 import (
-	"fmt"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
+	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
 
 // sessionRelaunchMsg carries a session whose held claude has been ended and
@@ -36,26 +36,11 @@ func (m *Model) restartSelected() tea.Cmd {
 	return m.stopSessionCmd(sess, sessionRelaunchMsg{Session: sess})
 }
 
-// relaunch starts the replacement process. The old terminal is closed only
-// after the new one starts, so a failed restart never leaves the pane empty;
-// the launcher resumes the transcript (#36) so nothing is lost.
-func (m *Model) relaunch(sess sessions.Session) tea.Cmd {
-	w, h := m.ptySize()
-	term, err := m.start(sess, w, h)
-	if err != nil {
-		m.lastErr = fmt.Sprintf("restarting %s: %v", sess.Title, err)
-		return nil
-	}
-	if old := m.terms[sess.ID]; old != nil {
-		_ = old.Close()
-	}
-	m.terms[sess.ID] = term
-	m.markActive(sess.ID) // a fresh process is not idle (#319)
-	// Born at the live size, so no Resize races claude's startup (issue #73).
-	// The replacement process gets its own clipboard wait: the old one ended
-	// with the terminal it was reading (#212).
-	return tea.Batch(term.Init(), m.waitForClipboard(sess.ID))
-}
+// relaunch starts the replacement process, off the Update goroutine
+// (#653); restarted puts it in place. The old terminal is closed only after
+// the new one starts, so a failed restart never leaves the pane empty; the
+// launcher resumes the transcript (#36) so nothing is lost.
+func (m *Model) relaunch(sess sessions.Session) tea.Cmd { return m.startCmd(sess, true) }
 
 // submitPrompt creates the session. A worktree prompt uses the buffer as both
 // the session title and the branch name, and for that prompt the buffer is
@@ -72,26 +57,11 @@ func (m *Model) submitPrompt() tea.Cmd {
 	project := m.SelectedProject()
 	title := m.modal.Editor.Buffer
 	m.modal = modal{}
-	cmd, err := m.addSession(project, title, branch, worktree)
-	if err != nil {
-		slog.Error("creating session",
-			"project", project, "title", title, "branch", branch, "err", err)
-		m.lastErr = err.Error()
-		return nil
-	}
-	return cmd
-}
-
-// addSession registers the session, starts its terminal, and rebuilds the
-// sidebar so it is visible and focused immediately (issue #32). A session
-// whose terminal will not start is not added: it would be a row you cannot
-// focus.
-func (m *Model) addSession(project, title, branch string, worktree bool) (tea.Cmd, error) {
-	sess, err := m.create(project, title, branch, worktree)
-	if err != nil {
-		return nil, err
-	}
-	return m.foldInSession(sess)
+	// Registering the session, then starting its terminal, then rebuilding
+	// the sidebar so it is visible and focused (issue #32) - each off the
+	// Update goroutine since #653, answered by onSessionCreated and
+	// onSessionStarted.
+	return m.createCmd(project, title, branch, worktree)
 }
 
 // foldInSession brings a session omatty has just learned about into the running
@@ -102,12 +72,7 @@ func (m *Model) addSession(project, title, branch string, worktree bool) (tea.Cm
 // other. Every step here is load-bearing, and a second copy that dropped one
 // would fail quietly: no terminal is a row you cannot focus, no tailer is a
 // session that never shows status (#33).
-func (m *Model) foldInSession(sess sessions.Session) (tea.Cmd, error) {
-	w, h := m.ptySize()
-	term, err := m.start(sess, w, h)
-	if err != nil {
-		return nil, fmt.Errorf("starting session %s: %w", sess.ID, err)
-	}
+func (m *Model) foldInSession(sess sessions.Session, term termwrap.Terminal) tea.Cmd {
 	m.terms[sess.ID] = term
 	m.markActive(sess.ID) // a fresh process is not idle (#319)
 	m.state.Sessions = append(m.state.Sessions, sess)
@@ -123,7 +88,7 @@ func (m *Model) foldInSession(sess sessions.Session) (tea.Cmd, error) {
 	// along. Without it the column kept showing the previous session's diff,
 	// title and comments beside the new session's terminal, and r/S/c acted on
 	// the wrong session (#21, #95).
-	return tea.Batch(term.Init(), m.waitForClipboard(sess.ID), m.followSession()), nil
+	return tea.Batch(term.Init(), m.waitForClipboard(sess.ID), m.followSession())
 }
 
 // selectSession moves the cursor onto id, so a freshly created session is the

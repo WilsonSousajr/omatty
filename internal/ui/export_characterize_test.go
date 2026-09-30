@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,6 +39,10 @@ func UnexportedRouted(sessionID string) map[string]tea.Msg {
 		"generatedMsg":       generatedMsg{id: sessionID, gen: map[string]bool{}},
 		"previewRestMsg":     previewRestMsg{},
 		"sessionRelaunchMsg": sessionRelaunchMsg{Session: sessions.Session{ID: sessionID}},
+		// A failed create and a failed restart: deterministic, and neither
+		// starts a process under the table (#653).
+		"sessionCreatedMsg": sessionCreatedMsg{err: errors.New("fixture: create refused")},
+		"sessionStartedMsg": sessionStartedMsg{sess: sessions.Session{ID: sessionID}, err: errors.New("fixture: pty refused"), restart: true},
 	}
 }
 

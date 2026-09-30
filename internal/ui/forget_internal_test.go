@@ -114,6 +114,7 @@ func filledModel() *Model {
 	m.reattached[forgottenID] = true
 	m.terms[forgottenID] = nil
 	m.activeAt[forgottenID] = time.Unix(0, 0)
+	m.starting = map[string]bool{forgottenID: true}
 	return m
 }
 

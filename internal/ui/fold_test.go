@@ -154,7 +154,7 @@ func TestModel_creatingInAFoldedProjectUnfoldsIt_issue505(t *testing.T) {
 
 	leader(m, key('n'))
 	press(m, key('z'))
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if c.Project != "omatty" || m.Selected() != "created" {
 		t.Fatalf("created in %q, cursor on %q; want created in omatty", c.Project, m.Selected())

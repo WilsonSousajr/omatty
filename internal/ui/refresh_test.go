@@ -62,7 +62,9 @@ func newSession(m *ui.Model, title string) {
 	for _, r := range title {
 		m.Update(key(r))
 	}
-	m.Update(special(tea.KeyEnter))
+	// Creating and starting run off the Update goroutine since #653, so the
+	// enter's work is settled as the runtime would run it.
+	pressAndSettle(m, special(tea.KeyEnter))
 }
 
 // Regression, issue #32: the sidebar was built once in NewModel and never

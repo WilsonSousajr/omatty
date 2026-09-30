@@ -37,6 +37,10 @@ type Model struct {
 	leader  string // the key the router intercepts; DefaultLeader unless configured (#44)
 	create  CreateFunc
 	start   StartFunc
+	// starting is every session whose process is being started off the
+	// Update goroutine, so a second enter while one is on its way does not
+	// start another (migration step 5.6a, #653). Nil until the first start.
+	starting map[string]bool
 	// status is the live per-session state from the watcher; events feeds it.
 	status    map[string]status.SessionState
 	events    <-chan pubsub.Event[status.Event]
