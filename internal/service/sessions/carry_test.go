@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,7 +49,7 @@ func TestCreator_carriesTheProjectsFilesIntoANewWorktree_issue309(t *testing.T) 
 		Projects: []sessions.Project{{Name: "omatty", Root: root, Carry: []string{".env", "certs"}}},
 	}
 
-	sess, err := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: wtRoot, Carry: store.CarryInto}, stubID).
+	sess, err := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: wtRoot, Carry: store.CarryInto}, stubID).
 		CreateWorktree(st, "omatty", "poke", "topic")
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +76,7 @@ func TestCreator_rollsBackTheWorktreeWhenACarryFails_issue309(t *testing.T) {
 		Projects: []sessions.Project{{Name: "omatty", Root: carryRepo(t), Carry: []string{"../escape"}}},
 	}
 
-	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: t.TempDir(), Carry: store.CarryInto}, stubID).
+	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: t.TempDir(), Carry: store.CarryInto}, stubID).
 		CreateWorktree(st, "omatty", "poke", "topic")
 
 	if err == nil {
@@ -157,7 +158,7 @@ func TestCreator_refusesACarryWithNoCopierWired_issue653(t *testing.T) {
 		Projects: []sessions.Project{{Name: "omatty", Root: carryRepo(t), Carry: []string{".env"}}},
 	}
 
-	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: t.TempDir()}, stubID).
+	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: t.TempDir()}, stubID).
 		CreateWorktree(st, "omatty", "poke", "topic")
 
 	if err == nil || !strings.Contains(err.Error(), "omatty") {

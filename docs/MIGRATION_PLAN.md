@@ -64,7 +64,8 @@ count after the step.
 | 5.3c (fsread) | #653 | #669 | merged | 15 |
 | 5.3d (pubsub) | #653 | #670 | merged | 15 |
 | 5.4a (store) | #653 | #671 | merged | 15 |
-| 5.4b (move) | #653 | #672 | open | 15 |
+| 5.4b (move) | #653 | #672 | merged | 15 |
+| 5.4c (ports) | #653 | #673 | open | 13 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,

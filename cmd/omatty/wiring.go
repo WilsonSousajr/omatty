@@ -383,7 +383,7 @@ func sessionNamer(home string, profile agent.Profile) ui.NameFunc {
 // options, so the TUI and `omatty new` cannot disagree about where a
 // worktree goes or what it forks from (#44).
 func creatorOpts(cfg config.Config) sessions.CreatorOpts {
-	return sessions.CreatorOpts{WorktreeRoot: cfg.WorktreeRoot, BaseBranch: cfg.BaseBranch, Carry: statestore.CarryInto}
+	return sessions.CreatorOpts{WorktreeRoot: cfg.WorktreeRoot, WorktreeDir: paths.WorktreeDir, BaseBranch: cfg.BaseBranch, Carry: statestore.CarryInto}
 }
 
 // sessionCreator adapts sessions.AddSession to ui.CreateFunc. The project

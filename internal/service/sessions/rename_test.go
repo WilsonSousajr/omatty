@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"strings"
 	"testing"
 
@@ -17,7 +18,7 @@ func seedSession(t *testing.T) (*statestore.Store, string) {
 	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
-	sess, err := sessions.AddSession(store, sessions.NewCreator(git, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID), "omatty", "parser", "")
+	sess, err := sessions.AddSession(store, sessions.NewCreator(git, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID), "omatty", "parser", "")
 	if err != nil {
 		t.Fatal(err)
 	}

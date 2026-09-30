@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"regexp"
 	"strings"
 	"testing"
@@ -48,7 +49,7 @@ func TestPlaceholderBranch_isRecomputableFromTheSessionAlone_issue151(t *testing
 // (#127 step 2). Until #151 it was only trimmed.
 func TestCreate_slugsATypedBranch_issue151(t *testing.T) {
 	g := &FakeGit{}
-	c := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
+	c := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
 
 	sess, err := c.Create(baseState(), "omatty", "", "../../etc/passwd")
 	if err != nil {
@@ -67,7 +68,7 @@ func TestCreate_slugsATypedBranch_issue151(t *testing.T) {
 // names it, and the first prompt renames it later.
 func TestCreate_aWorktreeWithNoTypedBranchTakesThePlaceholder_issue151(t *testing.T) {
 	const id = "11111111-2222-4333-8444-555555555555"
-	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"},
+	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"},
 		func() string { return id })
 
 	sess, err := c.CreateWorktree(baseState(), "omatty", "", "")
@@ -126,7 +127,7 @@ func TestAddWorktreeSession_namesTheBranchAndPersistsIt_issue151(t *testing.T) {
 		t.Fatal(err)
 	}
 	const id = "11111111-2222-4333-8444-555555555555"
-	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"},
+	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"},
 		func() string { return id })
 
 	sess, err := sessions.AddWorktreeSession(store, c, "omatty", "", "")
@@ -149,7 +150,7 @@ func TestAddWorktreeSession_namesTheBranchAndPersistsIt_issue151(t *testing.T) {
 // A project that is not registered is refused before anything is created.
 func TestAddWorktreeSession_refusesAnUnknownProject_issue151(t *testing.T) {
 	store, _ := newStoreAt(t)
-	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: "/wt"}, stubID)
+	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/wt"}, stubID)
 
 	if _, err := sessions.AddWorktreeSession(store, c, "nope", "", ""); err == nil {
 		t.Error("AddWorktreeSession() into an unregistered project returned nil, want an error")

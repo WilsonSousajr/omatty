@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-
-	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 
 // CreatorOpts is where a Creator puts worktrees and what it forks them from.
@@ -16,6 +13,11 @@ import (
 // swapped at a call site and would fail only at `git worktree add` time (#44).
 type CreatorOpts struct {
 	WorktreeRoot string
+	// WorktreeDir is where a project's worktree for a branch goes under
+	// WorktreeRoot. Injected, because where omatty keeps files is infra's
+	// knowledge (ADR 0001: paths is infra; migration step 5.4, #653): cmd
+	// passes internal/infra/paths' WorktreeDir.
+	WorktreeDir func(root, project, branch string) string
 	// BaseBranch forks every worktree from this branch. Empty keeps the
 	// existing derivation: whatever branch the project's main checkout is on.
 	BaseBranch string
@@ -32,22 +34,22 @@ type CreatorOpts struct {
 // Creator turns a request for a session into a registered Session, creating
 // a git worktree when the caller asked for one.
 //
-//	c := sessions.NewCreator(vcs.NewCLI(), sessions.CreatorOpts{WorktreeRoot: root}, uuid.NewString)
+//	c := sessions.NewCreator(vcs.NewCLI(), sessions.CreatorOpts{WorktreeRoot: root, WorktreeDir: paths.WorktreeDir}, uuid.NewString)
 //	sess, err := c.Create(&state, "omatty", "parser fix", "parser-fix")
 type Creator struct {
-	git   vcs.Git
+	git   Worktrees
 	opts  CreatorOpts
 	newID func() string
 }
 
 // NewCreator returns a Creator. newID is injected so tests get stable ids.
-func NewCreator(git vcs.Git, opts CreatorOpts, newID func() string) *Creator {
+func NewCreator(git Worktrees, opts CreatorOpts, newID func() string) *Creator {
 	return &Creator{git: git, opts: opts, newID: newID}
 }
 
 // Create registers a session on st and returns it. An empty branch runs the
 // session in the project's main checkout; otherwise omatty creates a worktree
-// at paths.WorktreeDir. On any failure st is left untouched.
+// at CreatorOpts.WorktreeDir. On any failure st is left untouched.
 func (c *Creator) Create(st *State, project, title, branch string) (Session, error) {
 	return c.create(st, project, title, branch, branch != "")
 }
@@ -88,7 +90,10 @@ func (c *Creator) addWorktree(sess *Session, p Project) error {
 	if err != nil {
 		return fmt.Errorf("registry: reading the base branch of %q: %w", p.Root, err)
 	}
-	dir := paths.WorktreeDir(c.opts.WorktreeRoot, p.Name, sess.Branch)
+	if c.opts.WorktreeDir == nil {
+		return fmt.Errorf("registry: project %q wants a worktree but no worktree path is wired", p.Name)
+	}
+	dir := c.opts.WorktreeDir(c.opts.WorktreeRoot, p.Name, sess.Branch)
 	if err := c.git.AddWorktree(p.Root, dir, sess.Branch, base); err != nil {
 		return fmt.Errorf("registry: creating worktree %q on branch %q from %q: %w",
 			dir, sess.Branch, base, err)
