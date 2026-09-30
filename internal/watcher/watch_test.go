@@ -138,7 +138,8 @@ func TestStart_ListensOnTheHookSocket_issue77(t *testing.T) {
 	_ = c.Close()
 
 	select {
-	case ev := <-w.Events():
+	case e := <-w.Subscribe(t.Context()):
+		ev := e.Payload
 		if ev.SessionID != "s1" || ev.Kind != PermissionRequested {
 			t.Errorf("got %+v, want s1 PermissionRequested", ev)
 		}
@@ -167,7 +168,8 @@ func TestStart_DegradesToTailerOnlyWhenTheSocketCannotBind_issue49(t *testing.T)
 	w.tailers["s1"].Poll()
 
 	select {
-	case ev := <-w.Events():
+	case e := <-w.Subscribe(t.Context()):
+		ev := e.Payload
 		if ev.SessionID != "s1" || ev.Kind != PromptSubmitted {
 			t.Errorf("got %+v, want s1 PromptSubmitted from the tailer", ev)
 		}

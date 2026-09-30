@@ -9,6 +9,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 	"github.com/WilsonSousajr/omatty/internal/keys"
+	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
@@ -37,7 +38,7 @@ type Model struct {
 	start   StartFunc
 	// status is the live per-session state from the watcher; events feeds it.
 	status    map[string]watcher.SessionState
-	events    <-chan watcher.Event
+	events    <-chan pubsub.Event[watcher.Event]
 	clock     func() time.Time
 	tailStart func(registry.Session)
 	notifier  notify.Notifier

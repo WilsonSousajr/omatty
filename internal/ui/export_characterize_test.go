@@ -50,3 +50,7 @@ func UnexportedRouted(sessionID string) map[string]tea.Msg {
 func TickPeriods() []time.Duration {
 	return []time.Duration{tickEvery, statEvery, prEvery, issueEvery, previewRest, sweepCap}
 }
+
+// WaitForEvent is the re-armed Cmd that drains the status subscription, so a
+// test can check an event published there arrives as a StatusMsg (#653).
+func (m *Model) WaitForEvent() tea.Cmd { return m.waitForEvent() }
