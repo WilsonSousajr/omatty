@@ -2,7 +2,6 @@ package vcs
 
 import (
 	"bytes"
-	"os/exec"
 	"strings"
 )
 
@@ -72,14 +71,14 @@ func (c *CLI) captureStdin(dir, in string, args ...string) (string, error) {
 	if err := checkDir(dir); err != nil {
 		return "", err
 	}
-	cmd := exec.Command(c.bin, args...)
-	cmd.Dir = dir
+	cmd, ctx, cancel := c.commandFor(dir, args)
+	defer cancel()
 	cmd.Stdin = strings.NewReader(in)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return "", &CommandError{Args: args, Dir: dir, Stderr: strings.TrimSpace(stderr.String()), Err: err}
+		return "", c.failure(ctx, dir, args, &stderr, err)
 	}
 	return string(out), nil
 }
