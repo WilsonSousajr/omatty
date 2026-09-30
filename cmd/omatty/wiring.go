@@ -30,7 +30,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
-	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"io"
@@ -127,7 +126,7 @@ func tuiDeps(env tuiEnv, store sessions.StateStore, state sessions.State) ui.Run
 		Home: home, State: state, Width: w, Height: h, OpenTranscript: openTranscript, ListenHooks: listenHooks,
 		RunGate: gateexec.Run, Profiles: fsread.CoverageProfiles{}, Stop: holder.Stop,
 		Notice:    holder.Notice(),
-		Launch:    supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
+		Launch:    sessions.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
 		Agent:     env.Agent,
 		Factory:   termwrap.Start,
 		Create:    sessionCreator(env.Cfg, store),

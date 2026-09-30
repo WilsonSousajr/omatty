@@ -1,4 +1,4 @@
-package supervisor_test
+package sessions_test
 
 import (
 	"os"
@@ -11,7 +11,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/supervisor"
 )
 
 // Regression, issue #316: after /clear the next start ran
@@ -28,7 +27,7 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := &fakeHolder{Wrapped: []string{"dtach", "-A", "/s.sock"}}
-	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", home, h)
+	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", home, h)
 
 	if _, err := l.Launch(sessions.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"}); err != nil {
 		t.Fatal(err)
@@ -46,7 +45,7 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 // names its pane (#316). It carries the row's ID, which never changes, so it
 // stays right across any number of clears.
 func TestLauncher_ExportsTheOwningSession_issue316(t *testing.T) {
-	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
+	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 
 	cmd, err := l.Launch(sessions.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"})
 	if err != nil {
@@ -65,7 +64,7 @@ func TestLauncher_ExportsTheOwningSession_issue316(t *testing.T) {
 // in, the inner session's /clear would re-bind the outer pane (#316).
 func TestLauncher_ReplacesAnInheritedOwningSession_issue316(t *testing.T) {
 	t.Setenv(hooks.SessionEnv, "outer-pane")
-	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
+	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 
 	cmd, err := l.Launch(sessions.Session{ID: "row-1", Dir: "/w"})
 	if err != nil {

@@ -21,7 +21,7 @@ import (
 // claudeProfile is the profile for Anthropic's claude binary, the only agent
 // omatty runs today (#46).
 //
-//	l := supervisor.NewLauncher(claudeProfile(), cfg.ClaudeBin, hooksFile, home, holder)
+//	l := sessions.NewLauncher(claudeProfile(), cfg.ClaudeBin, hooksFile, home, holder)
 func claudeProfile() agent.Profile {
 	return agent.Profile{
 		Name:           "claude",

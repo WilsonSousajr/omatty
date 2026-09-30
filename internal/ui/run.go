@@ -14,7 +14,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/service/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
-	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"io"
 )
@@ -31,7 +30,7 @@ import (
 // start used to abort the whole boot, so a single bad session kept every
 // other one from opening; it is logged and skipped instead (#317).
 func StartTerminals(
-	st sessions.State, want map[string]bool, l *supervisor.Launcher, f termwrap.Factory, w, h int, leader string,
+	st sessions.State, want map[string]bool, l *sessions.Launcher, f termwrap.Factory, w, h int, leader string,
 ) map[string]termwrap.Terminal {
 	// The review column is closed at birth, so the terminal gets the full
 	// width beside the sidebar (#21).
@@ -41,7 +40,7 @@ func StartTerminals(
 		if !want[sess.ID] {
 			continue
 		}
-		term, err := l.Start(f, sess, pw, ph)
+		term, err := startSession(l, f, sess, pw, ph)
 		if err != nil {
 			slog.Warn("starting a session's terminal at boot; its pane shows it stopped",
 				"session", sess.ID, "dir", sess.Dir, "err", err)
@@ -78,7 +77,7 @@ func sessionsToStart(d RunDeps, held map[string]bool) map[string]bool {
 // and reads as fresh: the pane then behaves as it did before this existed.
 //
 //	held := ui.HeldSessions(launcher, state)
-func HeldSessions(l *supervisor.Launcher, st sessions.State) map[string]bool {
+func HeldSessions(l *sessions.Launcher, st sessions.State) map[string]bool {
 	held := map[string]bool{}
 	for _, sess := range st.Sessions {
 		ok, err := l.Reattaching(sess.ID)
@@ -111,7 +110,7 @@ type RunDeps struct {
 	// internal/infra/hookserver in (ADR 0001, step 5.2d, #653).
 	ListenHooks func(path string, sink chan<- dstatus.HookPayload) (io.Closer, error)
 	State       sessions.State
-	Launch      *supervisor.Launcher
+	Launch      *sessions.Launcher
 	Factory     termwrap.Factory
 	Width       int
 	Height      int
@@ -291,12 +290,31 @@ func runProgram(model *Model, sessions int) error {
 
 // guardedStarter starts a session's terminal wrapped in a panic guard
 // (invariant 6). The model passes the live pane size on every call.
-func guardedStarter(l *supervisor.Launcher, f termwrap.Factory, leader string) StartFunc {
+func guardedStarter(l *sessions.Launcher, f termwrap.Factory, leader string) StartFunc {
 	return func(sess sessions.Session, w, h int) (termwrap.Terminal, error) {
-		term, err := l.Start(f, sess, w, h)
+		term, err := startSession(l, f, sess, w, h)
 		if err != nil {
 			return nil, err
 		}
 		return termwrap.NewGuard(term, leader+" r"), nil
 	}
+}
+
+// startSession launches a session's process inside a w by h embedded
+// terminal: the session service says what runs, the terminal spawns it (ADR
+// 0001, "Starting a session"). It was supervisor's Launcher.Start until
+// migration step 5.5 (#653) moved the launcher into the service, which may not
+// name a terminal.
+func startSession(
+	l *sessions.Launcher, f termwrap.Factory, sess sessions.Session, w, h int,
+) (termwrap.Terminal, error) {
+	launch, err := l.Launch(sess)
+	if err != nil {
+		return nil, err
+	}
+	term, err := f(w, h, launch)
+	if err != nil {
+		return nil, fmt.Errorf("supervisor: starting session %s in %q: %w", sess.ID, sess.Dir, err)
+	}
+	return term, nil
 }

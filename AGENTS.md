@@ -67,7 +67,7 @@ internal/
 │   └── tally/      [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
 ├── service/        [ADR 0001] use cases, each declaring the ports it consumes; moving here one step at a time.
 │   ├── gate/       [M9] the Runner: gates many sessions, bounded, reports published through pubsub; infra/gateexec runs the steps.
-│   ├── sessions/   the commands that edit projects and sessions, over a StateStore; the record is domain/session.
+│   ├── sessions/   the commands that edit projects and sessions, over a StateStore, and a session's Launch.
 │   └── status/     [M2] transcript lines + hook payloads -> typed status events, published through pubsub.
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
@@ -90,7 +90,6 @@ internal/
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
 ├── pubsub/          [ADR 0001] Broker[T]: services publish (Publish waits, Offer drops), the TUI subscribes.
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
-├── supervisor/     builds a session's Launch: fresh start vs resume, wrapped by the holder.
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── discover/       proposes repositories to register, from claude's transcript store (#91).
 ├── review/         [M3] loads a diff and a turn, previews, reverts; the model is domain/review.

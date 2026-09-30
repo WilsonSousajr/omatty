@@ -5,8 +5,8 @@ import (
 )
 
 // Fake is a Terminal that records what it was told, for tests in other
-// packages. It lives in the production package because supervisor and ui
-// both need it.
+// packages. It lives in the production package because ui and cmd both
+// need it.
 //
 //	f := termwrap.NewFake("session one")
 //	model := ui.NewModel(state, map[string]termwrap.Terminal{"s1": f})
