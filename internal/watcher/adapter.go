@@ -10,6 +10,7 @@ import (
 	"time"
 
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"io"
 )
 
 // Adapter turns one agent's transcript lines and hook payloads into events.
@@ -44,6 +45,11 @@ type WatchDeps struct {
 	// reading files is infra's business (ADR 0001, step 5.2c, #653): cmd passes
 	// internal/infra/transcript's NewReader.
 	OpenTranscript func(path string) Transcript
+	// ListenHooks serves the hook socket at path, offering each payload to
+	// sink without waiting. It is injected, because running a socket server is
+	// infra's business (ADR 0001, step 5.2d, #653): cmd passes
+	// internal/infra/hookserver's Listen.
+	ListenHooks func(path string, sink chan<- dstatus.HookPayload) (io.Closer, error)
 }
 
 // claudeStatus reads claude's transcript through the functions this package

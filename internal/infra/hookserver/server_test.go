@@ -1,4 +1,4 @@
-package watcher_test
+package hookserver_test
 
 import (
 	"fmt"
@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
 )
 
 func shortDir(t *testing.T) string {
@@ -23,66 +23,10 @@ func shortDir(t *testing.T) string {
 	return dir
 }
 
-func TestKindOf_MapsEveryHookEvent(t *testing.T) {
-	tests := []struct {
-		event, notif string
-		want         watcher.Kind
-	}{
-		{"SessionStart", "", watcher.SessionStarted},
-		{"UserPromptSubmit", "", watcher.PromptSubmitted},
-		{"PreToolUse", "", watcher.ToolStarted},
-		{"PostToolUse", "", watcher.ToolFinished},
-		{"PermissionRequest", "", watcher.PermissionRequested},
-		{"Notification", "idle_prompt", watcher.Idle},
-		{"Notification", "permission_prompt", watcher.PermissionRequested},
-		{"Stop", "", watcher.TurnEnded},
-		{"SessionEnd", "", watcher.SessionEnded},
-	}
-	for _, tt := range tests {
-		p := hooks.Payload{HookEventName: tt.event, NotificationType: tt.notif}
-		got, ok := watcher.KindOf(p)
-		if !ok || got != tt.want {
-			t.Errorf("KindOf(%s/%s) = (%v, %v), want (%v, true)", tt.event, tt.notif, got, ok, tt.want)
-		}
-	}
-}
-
-func TestKindOf_UnknownEventIsDropped(t *testing.T) {
-	if _, ok := watcher.KindOf(hooks.Payload{HookEventName: "PreCompact"}); ok {
-		t.Error("KindOf mapped an event omatty does not track")
-	}
-}
-
-func TestListen_EmitsAnEventPerConnection_issue18(t *testing.T) {
-	path := filepath.Join(shortDir(t), "s")
-	fixed := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
-	sink := make(chan watcher.Event, 4)
-
-	l, err := watcher.Listen(path, sink, func() time.Time { return fixed }, watcher.ClaudeAdapter())
-	if err != nil {
-		t.Fatalf("Listen() error = %v", err)
-	}
-	defer func() { _ = l.Close() }()
-
-	dial(t, path, `{"session_id":"abc","hook_event_name":"PreToolUse","tool_name":"Bash"}`)
-
-	select {
-	case ev := <-sink:
-		if ev.SessionID != "abc" || ev.Kind != watcher.ToolStarted {
-			t.Errorf("event = %+v, want session abc, ToolStarted", ev)
-		}
-		if !ev.At.Equal(fixed) {
-			t.Errorf("event time = %v, want the injected clock %v", ev.At, fixed)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no event emitted for a connection")
-	}
-}
-
 func TestListen_RejectsOversizedPayloadButKeepsAccepting_issue18(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
-	sink := make(chan watcher.Event, 4)
-	l, err := watcher.Listen(path, sink, time.Now, watcher.ClaudeAdapter())
+	sink := make(chan dstatus.HookPayload, 4)
+	l, err := hookserver.Listen(path, sink)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +56,7 @@ func TestListen_ReplacesAStaleSocketFile_issue18(t *testing.T) {
 	if err := os.WriteFile(path, []byte("stale"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	l, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now, watcher.ClaudeAdapter())
+	l, err := hookserver.Listen(path, make(chan dstatus.HookPayload, 1))
 	if err != nil {
 		t.Fatalf("Listen() did not replace a stale socket file: %v", err)
 	}
@@ -121,7 +65,7 @@ func TestListen_ReplacesAStaleSocketFile_issue18(t *testing.T) {
 
 func TestListen_SocketIsUserOnly_issue18(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
-	l, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now, watcher.ClaudeAdapter())
+	l, err := hookserver.Listen(path, make(chan dstatus.HookPayload, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +126,7 @@ func dial(t *testing.T, path, payload string) {
 func TestListen_UnbindablePathReturnsAnError_issue49(t *testing.T) {
 	// A path well over the macOS sun_path cap (~104 bytes).
 	long := filepath.Join(shortDir(t), string(make([]byte, 120)))
-	_, err := watcher.Listen(long, make(chan watcher.Event, 1), time.Now, watcher.ClaudeAdapter())
+	_, err := hookserver.Listen(long, make(chan dstatus.HookPayload, 1))
 	if err == nil {
 		t.Fatal("Listen on an oversized path returned nil error, want a failure the caller can handle")
 	}
@@ -193,8 +137,8 @@ func TestListen_UnbindablePathReturnsAnError_issue49(t *testing.T) {
 // loop and every later hook on the machine was never read.
 func TestListen_ASilentPeerDoesNotStarveLaterHooks_issue67(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
-	sink := make(chan watcher.Event, 4)
-	l, err := watcher.Listen(path, sink, time.Now, watcher.ClaudeAdapter())
+	sink := make(chan dstatus.HookPayload, 4)
+	l, err := hookserver.Listen(path, sink)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +163,7 @@ func TestListen_ASilentPeerDoesNotStarveLaterHooks_issue67(t *testing.T) {
 
 func TestListen_CloseReturnsWithASilentPeerConnected_issue67(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
-	l, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now, watcher.ClaudeAdapter())
+	l, err := hookserver.Listen(path, make(chan dstatus.HookPayload, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,12 +183,12 @@ func TestListen_CloseReturnsWithASilentPeerConnected_issue67(t *testing.T) {
 	}
 }
 
-// A full sink means the UI is behind; the tailer restores the truth within a
-// second, so a hook event is dropped and counted rather than blocking the
+// A full sink means omatty is behind; the tailer restores the truth within a
+// second, so a hook payload is dropped and counted rather than blocking the
 // listener, which would stall every hook on the machine.
 func TestListen_DropsInsteadOfBlockingOnAFullSink_issue67(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
-	l, err := watcher.Listen(path, make(chan watcher.Event), time.Now, watcher.ClaudeAdapter()) // unbuffered, never read
+	l, err := hookserver.Listen(path, make(chan dstatus.HookPayload)) // unbuffered, never read
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +198,7 @@ func TestListen_DropsInsteadOfBlockingOnAFullSink_issue67(t *testing.T) {
 	_ = l.Close()
 
 	if got := l.Dropped(); got != 2 {
-		t.Errorf("Dropped() = %d, want 2: both events had nowhere to go", got)
+		t.Errorf("Dropped() = %d, want 2: both payloads had nowhere to go", got)
 	}
 }
 
@@ -263,14 +207,14 @@ func TestListen_DropsInsteadOfBlockingOnAFullSink_issue67(t *testing.T) {
 // another hook, with no log line.
 func TestListen_RefusesWhenAnotherInstanceIsLive_issue68(t *testing.T) {
 	path := filepath.Join(shortDir(t), "s")
-	sink := make(chan watcher.Event, 4)
-	first, err := watcher.Listen(path, sink, time.Now, watcher.ClaudeAdapter())
+	sink := make(chan dstatus.HookPayload, 4)
+	first, err := hookserver.Listen(path, sink)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = first.Close() }()
 
-	second, err := watcher.Listen(path, make(chan watcher.Event, 1), time.Now, watcher.ClaudeAdapter())
+	second, err := hookserver.Listen(path, make(chan dstatus.HookPayload, 1))
 
 	if err == nil {
 		_ = second.Close()
@@ -287,73 +231,15 @@ func TestListen_RefusesWhenAnotherInstanceIsLive_issue68(t *testing.T) {
 	}
 }
 
-// Regression, issue #316: /clear starts a new conversation and SessionStart's
-// source is the only thing that says so. compact is included on the issue's
-// word; if it keeps the id, the re-bind is a no-op.
-func TestKindOf_ClearedSessionStartIsRebound_issue316(t *testing.T) {
-	for _, source := range []string{"clear", "compact"} {
-		p := hooks.Payload{HookEventName: "SessionStart", Source: source}
-		if got, ok := watcher.KindOf(p); !ok || got != watcher.SessionRebound {
-			t.Errorf("KindOf(SessionStart/%s) = (%v, %v), want (SessionRebound, true)", source, got, ok)
+// drain empties sink without waiting, for asserting nothing was offered.
+func drain(sink chan dstatus.HookPayload) []dstatus.HookPayload {
+	var out []dstatus.HookPayload
+	for {
+		select {
+		case p := <-sink:
+			out = append(out, p)
+		default:
+			return out
 		}
-	}
-}
-
-// The trap #316 names: a desktop Claude Code forked from a pane inherits the
-// pane's settings and reports its own new id. It starts with source resume
-// (or startup), and must never take the pane over.
-func TestKindOf_ForkedSessionStartIsNotRebound_issue316(t *testing.T) {
-	for _, source := range []string{"resume", "startup", ""} {
-		p := hooks.Payload{HookEventName: "SessionStart", Source: source}
-		if got, ok := watcher.KindOf(p); !ok || got != watcher.SessionStarted {
-			t.Errorf("KindOf(SessionStart/%q) = (%v, %v), want (SessionStarted, true)", source, got, ok)
-		}
-	}
-}
-
-// The owning registry id rides on the event, so the UI can find the pane a
-// new conversation belongs to without guessing from its directory (#316).
-func TestListen_CarriesTheOwningSession_issue316(t *testing.T) {
-	path := filepath.Join(shortDir(t), "s")
-	sink := make(chan watcher.Event, 4)
-	l, err := watcher.Listen(path, sink, time.Now, watcher.ClaudeAdapter())
-	if err != nil {
-		t.Fatalf("Listen() error = %v", err)
-	}
-	defer func() { _ = l.Close() }()
-
-	dial(t, path, `{"session_id":"new","hook_event_name":"SessionStart","source":"clear","omatty_session":"row-1"}`)
-
-	select {
-	case ev := <-sink:
-		if ev.SessionID != "new" || ev.Owner != "row-1" || ev.Kind != watcher.SessionRebound {
-			t.Errorf("event = %+v, want conversation new, owner row-1, SessionRebound", ev)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no event emitted for a cleared session")
-	}
-}
-
-// Only a hook knows a prompt was just submitted; the tailer reports
-// PromptSubmitted for tool results too. The UI snapshots a turn baseline on
-// the first and must never on the second (#311).
-func TestListen_marksItsEventsAsFromAHook_issue311(t *testing.T) {
-	path := filepath.Join(shortDir(t), "s")
-	sink := make(chan watcher.Event, 1)
-	l, err := watcher.Listen(path, sink, time.Now, watcher.ClaudeAdapter())
-	if err != nil {
-		t.Fatalf("Listen() error = %v", err)
-	}
-	defer func() { _ = l.Close() }()
-
-	dial(t, path, `{"session_id":"abc","hook_event_name":"UserPromptSubmit"}`)
-
-	select {
-	case ev := <-sink:
-		if !ev.Hook || ev.Kind != watcher.PromptSubmitted {
-			t.Errorf("event = %+v, want a PromptSubmitted marked Hook", ev)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no event emitted")
 	}
 }

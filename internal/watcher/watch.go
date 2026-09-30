@@ -2,11 +2,13 @@ package watcher
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 )
@@ -40,7 +42,7 @@ type Watch struct {
 	pumpOnce sync.Once
 	stopPump context.CancelFunc
 	pumpCtx  context.Context
-	listener *Listener // nil when the socket could not bind (issue #49)
+	listener io.Closer // the hook server; nil when the socket could not bind (issue #49)
 	mu       sync.Mutex
 	// tailers is keyed by session id so archiving one session can stop its
 	// tailer and only its tailer (#40). As a slice there was no way back from
@@ -66,11 +68,7 @@ func Start(d WatchDeps, sessions []session.Session) *Watch {
 		stopPump: stopPump,
 		tailers:  map[string]*Tailer{},
 	}
-	l, err := Listen(paths.HookSocket(d.Home), w.events, d.Clock, d.Adapter)
-	if err != nil {
-		slog.Warn("hook socket unavailable; status comes from the transcript only", "err", err)
-	}
-	w.listener = l
+	w.serveHooks()
 	for _, sess := range sessions {
 		w.Add(sess)
 	}
@@ -151,5 +149,49 @@ func (w *Watch) Close() {
 	defer w.mu.Unlock()
 	for _, tl := range w.tailers {
 		tl.Close()
+	}
+}
+
+// serveHooks opens the hook socket through the injected server and follows
+// what it hands over. A socket that cannot bind leaves listener nil: status
+// then comes from the transcript alone (issue #49).
+func (w *Watch) serveHooks() {
+	payloads := make(chan dstatus.HookPayload, eventBuffer)
+	l, err := w.deps.ListenHooks(paths.HookSocket(w.deps.Home), payloads)
+	if err != nil {
+		slog.Warn("hook socket unavailable; status comes from the transcript only", "err", err)
+		return
+	}
+	w.listener = l
+	go w.followHooks(payloads)
+}
+
+// followHooks turns what the hook server hands over into events: the agent's
+// adapter says which payloads are tracked and what they mean (#46), and each
+// is stamped now so it compares like-for-like with the tailer's. It offers,
+// never waits: the server already dropped rather than block a hook, and a
+// full channel here means the same thing - the tailer restores the truth
+// within a second (invariant 11, step 5.2d, #653).
+func (w *Watch) followHooks(payloads <-chan dstatus.HookPayload) {
+	for {
+		select {
+		case p := <-payloads:
+			w.offerHook(p)
+		case <-w.pumpCtx.Done():
+			return
+		}
+	}
+}
+
+func (w *Watch) offerHook(p dstatus.HookPayload) {
+	kind, ok := w.deps.Adapter.KindOf(p)
+	if !ok {
+		return
+	}
+	ev := Event{SessionID: p.SessionID, Kind: kind, At: w.deps.Clock(), Owner: p.OmattySession, Hook: true}
+	select {
+	case w.events <- ev:
+	default:
+		slog.Debug("hook event dropped, events full", "session", ev.SessionID)
 	}
 }

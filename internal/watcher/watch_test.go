@@ -10,8 +10,11 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
+	"io"
 )
 
 // shortHome is a HOME short enough for a unix socket path; macOS caps
@@ -33,7 +36,17 @@ func shortHome(t *testing.T) string {
 // the seam (#46) read as they did.
 func claudeDeps(home string) WatchDeps {
 	return WatchDeps{Home: home, Clock: time.Now, Adapter: ClaudeAdapter(), TranscriptPath: paths.Transcript,
-		OpenTranscript: func(p string) Transcript { return transcript.NewReader(p) }}
+		OpenTranscript: func(p string) Transcript { return transcript.NewReader(p) },
+		ListenHooks:    listenHooks}
+}
+
+// listenHooks is the real hook server, as cmd wires it (step 5.2d, #653).
+func listenHooks(path string, sink chan<- dstatus.HookPayload) (io.Closer, error) {
+	l, err := hookserver.Listen(path, sink)
+	if err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 
 func twoSessions() []session.Session {

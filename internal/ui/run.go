@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/agent"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
@@ -15,6 +16,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"io"
 )
 
 // StartTerminals launches an embedded terminal for each session in want,
@@ -105,11 +107,14 @@ type RunDeps struct {
 	// OpenTranscript reads a session's transcript for the watcher. cmd wires
 	// internal/infra/transcript's reader in (ADR 0001, step 5.2c, #653).
 	OpenTranscript func(path string) watcher.Transcript
-	State          registry.State
-	Launch         *supervisor.Launcher
-	Factory        termwrap.Factory
-	Width          int
-	Height         int
+	// ListenHooks serves the hook socket for the watcher. cmd wires
+	// internal/infra/hookserver in (ADR 0001, step 5.2d, #653).
+	ListenHooks func(path string, sink chan<- dstatus.HookPayload) (io.Closer, error)
+	State       registry.State
+	Launch      *supervisor.Launcher
+	Factory     termwrap.Factory
+	Width       int
+	Height      int
 	// Create is called when the operator finishes a new-session prompt; the
 	// model starts that session's terminal itself through the same launcher.
 	Create CreateFunc
@@ -237,7 +242,7 @@ func watchDeps(d RunDeps) watcher.WatchDeps {
 	if profile.Status == nil {
 		profile = agent.Claude()
 	}
-	return watcher.WatchDeps{Home: d.Home, Clock: time.Now, OpenTranscript: d.OpenTranscript,
+	return watcher.WatchDeps{Home: d.Home, Clock: time.Now, OpenTranscript: d.OpenTranscript, ListenHooks: d.ListenHooks,
 		Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}
 }
 
