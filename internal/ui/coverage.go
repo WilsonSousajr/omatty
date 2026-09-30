@@ -12,6 +12,7 @@
 package ui
 
 import (
+	"context"
 	"log/slog"
 	"path/filepath"
 
@@ -41,12 +42,12 @@ func (m *Model) loadCoverage(id string) tea.Cmd {
 		return nil
 	}
 	declared := declaredProfile(m.gateFor(id))
-	if declared == "" {
+	if declared == "" || m.profiles == nil {
 		return nil
 	}
-	dir, path := sess.Dir, filepath.Join(sess.Dir, declared)
+	dir, path, profiles := sess.Dir, filepath.Join(sess.Dir, declared), m.profiles
 	return func() tea.Msg {
-		p, err := coverage.Load(path, dir, coverage.ModulePath(dir))
+		p, err := profiles.Load(context.Background(), path, dir)
 		return coverageMsg{id: id, profile: p, err: err}
 	}
 }

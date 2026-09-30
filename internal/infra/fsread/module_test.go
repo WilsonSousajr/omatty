@@ -1,11 +1,11 @@
-package coverage_test
+package fsread_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
+	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
 )
 
 // A Go profile is keyed by import path, so reading one needs the module path
@@ -56,7 +56,7 @@ func TestModulePath(t *testing.T) {
 				t.Fatalf("setup: %v", err)
 			}
 
-			if got := coverage.ModulePath(root); got != c.want {
+			if got := fsread.ModulePath(root); got != c.want {
 				t.Errorf("ModulePath() = %q, want %q", got, c.want)
 			}
 		})
@@ -67,7 +67,7 @@ func TestModulePath(t *testing.T) {
 // a caller reading a profile out of a Node or Cargo checkout asks for this and
 // should get silence rather than a failure it has nothing to do with.
 func TestModulePath_noGoMod_isEmptyRatherThanAnError(t *testing.T) {
-	if got := coverage.ModulePath(t.TempDir()); got != "" {
+	if got := fsread.ModulePath(t.TempDir()); got != "" {
 		t.Errorf("ModulePath() = %q, want the empty value", got)
 	}
 }
