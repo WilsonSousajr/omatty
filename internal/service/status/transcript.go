@@ -6,20 +6,6 @@ import (
 	"time"
 )
 
-// Entry is the slice of a transcript line that status needs. Every other line
-// type - attachments, queue operations, titles, snapshots - is dropped at
-// parse, so callers only ever hold user and assistant turns.
-type Entry struct {
-	Type         string // "user" or "assistant"
-	MessageID    string // assistant: one API response spans several lines under one id
-	At           time.Time
-	StopReason   string // assistant
-	UserIsPrompt bool   // user: a typed prompt (a string, or text/image blocks)
-	ToolUse      bool   // assistant: a tool_use block is present
-	ToolResult   bool   // user: a tool_result block is present
-	Usage        Tokens // assistant
-}
-
 // rawEntry is the on-disk shape. content is deferred so it can be a string
 // (a prompt) or a list of blocks (tool results / assistant blocks).
 type rawEntry struct {

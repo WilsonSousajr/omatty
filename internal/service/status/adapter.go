@@ -13,23 +13,9 @@ import (
 	"io"
 )
 
-// Adapter turns one agent's transcript lines and hook payloads into events.
-//
-//	tl := status.Tail(id, path, events, time.Now, time.Second, status.ClaudeAdapter())
-type Adapter interface {
-	// ParseEntry parses one transcript line. ok is false for a line status
-	// does not need, including malformed JSON.
-	ParseEntry(line []byte) (Entry, bool)
-	// DeriveKind is the event implied by the most recent relevant entry in a
-	// tail.
-	DeriveKind(entries []Entry) (Kind, time.Time, bool)
-	// KindOf maps a hook payload to the event it represents.
-	KindOf(p dstatus.HookPayload) (Kind, bool)
-}
-
 // TranscriptPathFunc is where an agent writes a session's transcript. A
 // function type rather than the Profile itself, for the reason Adapter is
-// declared here.
+// declared in internal/domain/status rather than in internal/agent.
 type TranscriptPathFunc func(home, dir, sessionID string) string
 
 // WatchDeps is what Start needs beyond the session list.

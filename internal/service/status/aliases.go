@@ -22,6 +22,12 @@ type Tokens = dstatus.Tokens
 // Event is dstatus.Event.
 type Event = dstatus.Event
 
+// Entry is dstatus.Entry (Amendment 7, #653).
+type Entry = dstatus.Entry
+
+// Adapter is dstatus.Adapter (Amendment 7, #653).
+type Adapter = dstatus.Adapter
+
 // SessionState is dstatus.SessionState.
 type SessionState = dstatus.SessionState
 

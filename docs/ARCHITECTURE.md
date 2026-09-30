@@ -41,7 +41,7 @@ events - Claude runs `omatty hook` on each lifecycle event, which forwards the
 payload over a unix socket to the watcher's listener. Hooks are fast and are
 the only source that can tell "waiting for you" from "tool running"; the
 transcript is the truth on attach, self-healing, and the only source of age
-and tokens. Both go through the agent's `watcher.Adapter`, which turns one
+and tokens. Both go through the agent's `status.Adapter`, which turns one
 agent's lines and payloads into omatty's neutral `Event` vocabulary. Events
 arrive in the model as `ui.StatusMsg` and become the sidebar glyph - a
 spinner while the session thinks or runs a tool (#410) - the token meter
@@ -135,7 +135,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/registry` | Projects, sessions, `state.json`, and the commands that edit them (add, remove, rename, adopt, create, gate, carry). Creating a worktree also carries the project's gitignored paths into it, before the session is registered (#309). |
 | `internal/domain/review` | The review model: a diff as files, hunks and lines; comments anchored on content, not line numbers (invariant 7); where they land after the diff moves; the file tree; the prompt `Compose` writes. Pure; `internal/review` aliases it until migration step 8.1. |
 | `internal/domain/session` | `Project`, `Session`, `State` - what `state.json` holds, whose JSON tags are invariant 9 - and the placeholder title and branch a new session starts with. Pure; `internal/registry` aliases it until migration step 8.1. |
-| `internal/domain/status` | A session's status vocabulary - `Kind`, `Status`, `Event`, `Tokens`, `SessionState`, `HookPayload` - and `Apply`, which folds an event into a state. Pure; `internal/service/status` and `internal/infra/hooks` alias it until migration step 8.1. |
+| `internal/domain/status` | A session's status vocabulary - `Kind`, `Status`, `Event`, `Tokens`, `SessionState`, `HookPayload`, the transcript `Entry` and the agent's `Adapter` port - and `Apply`, which folds an event into a state. Pure; `internal/service/status` and `internal/infra/hooks` alias it until migration step 8.1. |
 | `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |
 | `internal/supervisor` | The `claude` process behind each session: fresh start vs resume, the PTY, the holder. |
 | `internal/termwrap` | omatty's only route to the terminal emulator (bubbleterm). |
@@ -318,17 +318,20 @@ pairs instability with abstractness and calls a stable, concrete package the
 "Zone of Pain". By that reading eight of these packages score the maximum
 distance — and they are the ones this architecture is proudest of. The reason is
 that Go declares interfaces at the *consumer*, and usually unexported:
-`watcher.Adapter` lives in `watcher` precisely so `agent` can satisfy it, which
+`status.Adapter` lives in `domain/status` precisely so `agent` can satisfy it, which
 is the paragraph below. `internal/infra/paths` is Ca=6, Ce=0, pure, and has no
 exported interface because nothing needs one. Gating on distance would demand
 exactly the speculative interfaces AGENTS.md bans. Do not "fix" these numbers.
 
-**The adapter interface lives in the consumer.** `watcher.Adapter` is declared
-in `watcher`, not in `agent`, and `agent` imports `watcher` to satisfy it -
-never the reverse. `watcher` stays the neutral vocabulary (`Kind`, `Event`,
-`SessionState`); `agent` knows what claude's JSONL looks like. The dependency
-runs one way, which is what keeps a second agent from needing a change to the
-package that reads every agent's status.
+**The adapter interface lives beside the vocabulary.** `status.Adapter` is
+declared in `internal/domain/status`, not in `agent`, and `agent` imports it to
+satisfy it - never the reverse. `domain/status` is the neutral vocabulary
+(`Kind`, `Event`, `SessionState`, `Entry`); `agent` knows what claude's JSONL
+looks like. The dependency runs one way, which is what keeps a second agent
+from needing a change to the package that reads every agent's status. It was
+declared in the watcher, its consumer, until migration Amendment 7 (#653)
+moved it down: `domain/agent` profiles carry an `Adapter`, and domain may not
+import the service that reads status.
 
 ## Read next
 
