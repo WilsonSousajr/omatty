@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
-func sevenProjectState() registry.State {
-	var st registry.State
+func sevenProjectState() sessions.State {
+	var st sessions.State
 	for p := range 7 {
 		name := fmt.Sprintf("p%d", p)
-		st.Projects = append(st.Projects, registry.Project{Name: name})
+		st.Projects = append(st.Projects, sessions.Project{Name: name})
 		for i := range 2 {
-			st.Sessions = append(st.Sessions, registry.Session{
+			st.Sessions = append(st.Sessions, sessions.Session{
 				ID: fmt.Sprintf("%s-s%d", name, i), Project: name, Title: "t"})
 		}
 	}

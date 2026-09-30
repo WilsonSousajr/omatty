@@ -6,7 +6,7 @@ package ui
 
 import (
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // prFor is the pull request a session's branch has: the newest one, since a
@@ -15,7 +15,7 @@ import (
 // HEAD is its head commit: otherwise it was an earlier use of the same slug,
 // and a main checkout sitting on develop is not the promotion PR that merged
 // develop into main.
-func (m *Model) prFor(sess registry.Session) (forge.PR, bool) {
+func (m *Model) prFor(sess sessions.Session) (forge.PR, bool) {
 	st := m.repoStat[sess.ID]
 	if st.Branch == "" {
 		return forge.PR{}, false
@@ -35,7 +35,7 @@ func (m *Model) prFor(sess registry.Session) (forge.PR, bool) {
 
 // isThisWork rules out what only looks like the session's pull request: a
 // fork's branch of the same name, and a finished one on another commit.
-func isThisWork(pr forge.PR, sess registry.Session, head string) bool {
+func isThisWork(pr forge.PR, sess sessions.Session, head string) bool {
 	if pr.Fork {
 		return false
 	}

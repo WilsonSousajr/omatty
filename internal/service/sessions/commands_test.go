@@ -1,4 +1,4 @@
-package registry_test
+package sessions_test
 
 import (
 	"path/filepath"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 func newStoreAt(t *testing.T) (*statestore.Store, string) {
@@ -19,7 +19,7 @@ func TestAddProject_NamesTheProjectAfterTheRepoDirectory(t *testing.T) {
 	store, _ := newStoreAt(t)
 
 	// FakeGit.RepoRoot echoes the dir, so the name comes from its base.
-	got, err := registry.AddProject(store, &FakeGit{}, "/p/omatty")
+	got, err := sessions.AddProject(store, &FakeGit{}, "/p/omatty")
 
 	if err != nil {
 		t.Fatalf("AddProject() error = %v, want nil", err)
@@ -38,11 +38,11 @@ func TestAddProject_NamesTheProjectAfterTheRepoDirectory(t *testing.T) {
 
 func TestAddProject_DuplicateNamesTheProjectAndDoesNotAppend(t *testing.T) {
 	store, _ := newStoreAt(t)
-	if _, err := registry.AddProject(store, &FakeGit{}, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(store, &FakeGit{}, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := registry.AddProject(store, &FakeGit{}, "/p/omatty")
+	_, err := sessions.AddProject(store, &FakeGit{}, "/p/omatty")
 
 	if err == nil {
 		t.Fatal("AddProject() on a duplicate returned nil, want an error")
@@ -59,12 +59,12 @@ func TestAddProject_DuplicateNamesTheProjectAndDoesNotAppend(t *testing.T) {
 func TestAddSession_PersistsTheNewSession(t *testing.T) {
 	store, _ := newStoreAt(t)
 	git := &FakeGit{}
-	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
-	creator := registry.NewCreator(git, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
+	creator := sessions.NewCreator(git, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
 
-	got, err := registry.AddSession(store, creator, "omatty", "parser", "parser-fix")
+	got, err := sessions.AddSession(store, creator, "omatty", "parser", "parser-fix")
 
 	if err != nil {
 		t.Fatalf("AddSession() error = %v, want nil", err)
@@ -83,9 +83,9 @@ func TestAddSession_PersistsTheNewSession(t *testing.T) {
 
 func TestAddSession_FailureLeavesStateUnchanged(t *testing.T) {
 	store, _ := newStoreAt(t)
-	creator := registry.NewCreator(&FakeGit{}, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
+	creator := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
 
-	if _, err := registry.AddSession(store, creator, "ghost", "t", ""); err == nil {
+	if _, err := sessions.AddSession(store, creator, "ghost", "t", ""); err == nil {
 		t.Fatal("AddSession() for an unknown project returned nil, want an error")
 	}
 	st, err := store.Load()
@@ -101,11 +101,11 @@ func TestAddSession_FailureLeavesStateUnchanged(t *testing.T) {
 // name is the key everything else looks up.
 func TestAddProject_SameBaseNameInDifferentParentsIsRejected(t *testing.T) {
 	store, _ := newStoreAt(t)
-	if _, err := registry.AddProject(store, &FakeGit{}, "/work/api"); err != nil {
+	if _, err := sessions.AddProject(store, &FakeGit{}, "/work/api"); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := registry.AddProject(store, &FakeGit{}, "/personal/api")
+	_, err := sessions.AddProject(store, &FakeGit{}, "/personal/api")
 
 	if err == nil {
 		t.Fatal("AddProject() for a colliding base name returned nil, want an error")

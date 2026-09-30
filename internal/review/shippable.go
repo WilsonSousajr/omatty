@@ -3,7 +3,7 @@ package review
 import (
 	"fmt"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // Shippable is what a session must be for #331 to push it: everything the gate
@@ -29,7 +29,7 @@ type Shippable struct {
 // commit and so include committed work. "Clean" is a different question from
 // "what has this session changed", and conflating them is how a pull request
 // would come to differ from the tree the gate verified.
-func (s *Source) Shippable(sess registry.Session, projectRoot string) (Shippable, error) {
+func (s *Source) Shippable(sess sessions.Session, projectRoot string) (Shippable, error) {
 	stat, err := s.git.Shortstat(sess.Dir, "HEAD")
 	if err != nil {
 		return Shippable{}, fmt.Errorf("review: uncommitted changes of session %s in %q: %w",
@@ -52,7 +52,7 @@ func (s *Source) Shippable(sess registry.Session, projectRoot string) (Shippable
 // A main-checkout session has no branch of its own to count, and no base it
 // diverged from; it reports none, which refuses the ship rather than opening a
 // pull request from a branch onto itself.
-func (s *Source) commitsAhead(sess registry.Session, projectRoot string) (int, error) {
+func (s *Source) commitsAhead(sess sessions.Session, projectRoot string) (int, error) {
 	if sess.Branch == "" || sess.Base == "" {
 		return 0, nil
 	}

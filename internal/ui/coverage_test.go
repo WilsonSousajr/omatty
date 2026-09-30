@@ -8,7 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -45,9 +45,9 @@ func modelWithProfile(t *testing.T, dir, declared string) *ui.Model {
 		{Name: "test", Run: "go test ./..."},
 		{Name: "cov", Run: "./cov.sh", Kind: gate.KindCoverage, Profile: declared},
 	}
-	st := registry.State{
-		Projects: []registry.Project{{Name: "omatty", Root: dir, Gate: steps}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: dir, Branch: "main"}},
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "omatty", Root: dir, Gate: steps}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: dir, Branch: "main"}},
 	}
 	m := ui.NewModel(baseDeps(st, fakeTermsFor(st)))
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})

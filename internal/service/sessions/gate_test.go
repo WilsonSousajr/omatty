@@ -1,4 +1,4 @@
-package registry_test
+package sessions_test
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 func gateSteps() []gate.Step {
@@ -23,7 +23,7 @@ func gateSteps() []gate.Step {
 func TestSetGate_roundTripsThroughTheStateFile(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
 
-	if err := registry.SetGate(store, "omatty", gateSteps()); err != nil {
+	if err := sessions.SetGate(store, "omatty", gateSteps()); err != nil {
 		t.Fatalf("SetGate() error = %v", err)
 	}
 
@@ -68,7 +68,7 @@ func TestLoad_aGateWrittenBeforeProfiles_loadsWithNoProfile(t *testing.T) {
 // overlay existed and one set after it are the same bytes on disk.
 func TestSetGate_omitsTheProfileKeyWhenThereIsNone(t *testing.T) {
 	store, path := storeWithProject(t, "omatty")
-	if err := registry.SetGate(store, "omatty", gateSteps()); err != nil {
+	if err := sessions.SetGate(store, "omatty", gateSteps()); err != nil {
 		t.Fatalf("SetGate() error = %v", err)
 	}
 
@@ -84,7 +84,7 @@ func TestSetGate_persistsTheProfileAStepDeclares(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
 	steps := append(gateSteps(), gate.Step{Name: "cov2", Run: "make cov", Kind: "coverage", Profile: "coverage/lcov.info"})
 
-	if err := registry.SetGate(store, "omatty", steps); err != nil {
+	if err := sessions.SetGate(store, "omatty", steps); err != nil {
 		t.Fatalf("SetGate() error = %v", err)
 	}
 
@@ -116,8 +116,8 @@ func TestLoad_aFileWrittenBeforeGatesExisted_loadsWithNoGate(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if st.Version != registry.Version {
-		t.Errorf("Version = %d, want %d unchanged", st.Version, registry.Version)
+	if st.Version != sessions.Version {
+		t.Errorf("Version = %d, want %d unchanged", st.Version, sessions.Version)
 	}
 	if st.Projects[0].Gate != nil {
 		t.Errorf("Gate = %v, want nil for a file written before gates", st.Projects[0].Gate)
@@ -148,11 +148,11 @@ func TestSave_aProjectWithNoGate_omitsTheKey(t *testing.T) {
 
 func TestClearGate_removesIt(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
-	if err := registry.SetGate(store, "omatty", gateSteps()); err != nil {
+	if err := sessions.SetGate(store, "omatty", gateSteps()); err != nil {
 		t.Fatalf("SetGate() error = %v", err)
 	}
 
-	if err := registry.ClearGate(store, "omatty"); err != nil {
+	if err := sessions.ClearGate(store, "omatty"); err != nil {
 		t.Fatalf("ClearGate() error = %v", err)
 	}
 
@@ -165,7 +165,7 @@ func TestClearGate_removesIt(t *testing.T) {
 func TestSetGate_unknownProject_isAnErrorNamingIt(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
 
-	err := registry.SetGate(store, "not-a-project", gateSteps())
+	err := sessions.SetGate(store, "not-a-project", gateSteps())
 
 	if err == nil {
 		t.Fatal("SetGate() error = nil, want an error")
@@ -178,7 +178,7 @@ func TestSetGate_unknownProject_isAnErrorNamingIt(t *testing.T) {
 func TestClearGate_unknownProject_isAnErrorNamingIt(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
 
-	err := registry.ClearGate(store, "not-a-project")
+	err := sessions.ClearGate(store, "not-a-project")
 
 	if err == nil || !strings.Contains(err.Error(), "not-a-project") {
 		t.Errorf("ClearGate() error = %v, want one naming the unknown project", err)
@@ -189,7 +189,7 @@ func TestClearGate_unknownProject_isAnErrorNamingIt(t *testing.T) {
 // re-parses it on the way out.
 func TestSetGate_persistsTheDeclaredShape(t *testing.T) {
 	store, path := storeWithProject(t, "omatty")
-	if err := registry.SetGate(store, "omatty", gateSteps()); err != nil {
+	if err := sessions.SetGate(store, "omatty", gateSteps()); err != nil {
 		t.Fatalf("SetGate() error = %v", err)
 	}
 
@@ -215,9 +215,9 @@ func storeWithProject(t *testing.T, name string) (*statestore.Store, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "state.json")
 	store := statestore.NewStore(path)
-	st := registry.State{
-		Version:  registry.Version,
-		Projects: []registry.Project{{Name: name, Root: filepath.Join("/tmp", name)}},
+	st := sessions.State{
+		Version:  sessions.Version,
+		Projects: []sessions.Project{{Name: name, Root: filepath.Join("/tmp", name)}},
 	}
 	if err := store.Save(st); err != nil {
 		t.Fatalf("setup: %v", err)
@@ -233,7 +233,7 @@ func TestSetGate_unreadableState_isAnError(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	err := registry.SetGate(statestore.NewStore(path), "omatty", gateSteps())
+	err := sessions.SetGate(statestore.NewStore(path), "omatty", gateSteps())
 
 	if err == nil {
 		t.Fatal("SetGate() error = nil, want the load failure surfaced")

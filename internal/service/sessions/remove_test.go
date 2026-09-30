@@ -1,11 +1,11 @@
-package registry_test
+package sessions_test
 
 import (
 	"strings"
 	"testing"
 
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // seedTwoSessions registers one project with two sessions, the second on a
@@ -14,14 +14,14 @@ func seedTwoSessions(t *testing.T) (*statestore.Store, string, string) {
 	t.Helper()
 	store, _ := newStoreAt(t)
 	git := &FakeGit{}
-	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
 	ids := make([]string, 0, 2)
 	for i, branch := range []string{"", "parser-fix"} {
 		n := i
-		c := registry.NewCreator(git, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, func() string { return string(rune('a' + n)) })
-		sess, err := registry.AddSession(store, c, "omatty", "session-"+string(rune('a'+n)), branch)
+		c := sessions.NewCreator(git, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, func() string { return string(rune('a' + n)) })
+		sess, err := sessions.AddSession(store, c, "omatty", "session-"+string(rune('a'+n)), branch)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -33,7 +33,7 @@ func seedTwoSessions(t *testing.T) (*statestore.Store, string, string) {
 func TestRemoveSession_DropsTheRowAndLeavesTheOthers(t *testing.T) {
 	store, first, second := seedTwoSessions(t)
 
-	got, err := registry.RemoveSession(store, first)
+	got, err := sessions.RemoveSession(store, first)
 
 	if err != nil {
 		t.Fatalf("RemoveSession() error = %v, want nil", err)
@@ -55,7 +55,7 @@ func TestRemoveSession_DropsTheRowAndLeavesTheOthers(t *testing.T) {
 func TestRemoveSession_ReturnsTheRemovedSessionsWorktreeFields(t *testing.T) {
 	store, _, second := seedTwoSessions(t)
 
-	got, err := registry.RemoveSession(store, second)
+	got, err := sessions.RemoveSession(store, second)
 
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestRemoveSession_ReturnsTheRemovedSessionsWorktreeFields(t *testing.T) {
 func TestRemoveSession_UnknownIDNamesItAndChangesNothing(t *testing.T) {
 	store, _, _ := seedTwoSessions(t)
 
-	_, err := registry.RemoveSession(store, "ghost-uuid")
+	_, err := sessions.RemoveSession(store, "ghost-uuid")
 
 	if err == nil {
 		t.Fatal("RemoveSession() for an unknown id returned nil, want an error")
@@ -88,7 +88,7 @@ func TestRemoveSession_RemovingEveryoneLeavesAnEmptyRegistry(t *testing.T) {
 	store, first, second := seedTwoSessions(t)
 
 	for _, id := range []string{first, second} {
-		if _, err := registry.RemoveSession(store, id); err != nil {
+		if _, err := sessions.RemoveSession(store, id); err != nil {
 			t.Fatalf("RemoveSession(%s) error = %v, want nil", id, err)
 		}
 	}

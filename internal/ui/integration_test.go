@@ -7,7 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -23,9 +23,9 @@ func TestModel_RendersRealProcessOutputThroughTheModel_issue33(t *testing.T) {
 	}
 	defer func() { _ = term.Close() }()
 
-	st := registry.State{
-		Projects: []registry.Project{{Name: "p", Root: "/p"}},
-		Sessions: []registry.Session{{ID: "s1", Project: "p", Title: "one"}},
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "p", Root: "/p"}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "p", Title: "one"}},
 	}
 	m := ui.NewModel(ui.Deps{State: st, Terms: map[string]termwrap.Terminal{"s1": term}, Create: noCreate, Start: noStart})
 

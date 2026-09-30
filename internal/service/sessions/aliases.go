@@ -1,4 +1,4 @@
-package registry
+package sessions
 
 import "github.com/WilsonSousajr/omatty/internal/domain/session"
 
@@ -24,15 +24,15 @@ type State = session.State
 
 // PlaceholderTitle is session.PlaceholderTitle.
 //
-//	title := registry.PlaceholderTitle(id)
+//	title := sessions.PlaceholderTitle(id)
 func PlaceholderTitle(id string) string { return session.PlaceholderTitle(id) }
 
 // PlaceholderBranch is session.PlaceholderBranch.
 //
-//	branch := registry.PlaceholderBranch(id)
+//	branch := sessions.PlaceholderBranch(id)
 func PlaceholderBranch(id string) string { return session.PlaceholderBranch(id) }
 
 // Slug is session.Slug.
 //
-//	name := registry.Slug(title)
+//	name := sessions.Slug(title)
 func Slug(s string) string { return session.Slug(s) }

@@ -1,4 +1,4 @@
-package registry_test
+package sessions_test
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // #332 needs a start time to measure lead time from, and Session had none. It
@@ -14,8 +14,8 @@ import (
 // Conversation, Gate and Carry all already make: Version stays 1 (invariant 9).
 func TestCreate_RecordsWhenTheSessionStarted_issue332(t *testing.T) {
 	at := time.Date(2026, 9, 26, 10, 0, 0, 0, time.UTC)
-	st := registry.State{Projects: []registry.Project{{Name: "omatty", Root: t.TempDir()}}}
-	c := registry.NewCreator(&FakeGit{}, registry.CreatorOpts{
+	st := sessions.State{Projects: []sessions.Project{{Name: "omatty", Root: t.TempDir()}}}
+	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{
 		WorktreeRoot: t.TempDir(),
 		Clock:        func() time.Time { return at },
 	}, func() string { return "s1" })
@@ -32,8 +32,8 @@ func TestCreate_RecordsWhenTheSessionStarted_issue332(t *testing.T) {
 
 // No clock is the wall clock, so nothing has to pass one.
 func TestCreate_WithoutAClockUsesTheWallClock_issue332(t *testing.T) {
-	st := registry.State{Projects: []registry.Project{{Name: "omatty", Root: t.TempDir()}}}
-	c := registry.NewCreator(&FakeGit{}, registry.CreatorOpts{WorktreeRoot: t.TempDir()},
+	st := sessions.State{Projects: []sessions.Project{{Name: "omatty", Root: t.TempDir()}}}
+	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: t.TempDir()},
 		func() string { return "s1" })
 
 	sess, err := c.Create(&st, "omatty", "one", "")
@@ -50,10 +50,10 @@ func TestCreate_WithoutAClockUsesTheWallClock_issue332(t *testing.T) {
 // that passed. Two ints on Project, omitempty, so a file written before this
 // needs no migration.
 func TestTallyGateRun_CountsRunsAndTheOnesThatPassed_issue332(t *testing.T) {
-	store := storeHolding(t, registry.Project{Name: "omatty", Root: "/p/omatty"})
+	store := storeHolding(t, sessions.Project{Name: "omatty", Root: "/p/omatty"})
 
 	for _, passed := range []bool{true, false, true} {
-		if err := registry.TallyGateRun(store, "omatty", passed); err != nil {
+		if err := sessions.TallyGateRun(store, "omatty", passed); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -75,7 +75,7 @@ func TestTallyGateRun_CountsRunsAndTheOnesThatPassed_issue332(t *testing.T) {
 func TestTallyGateRun_ReportsAnUnknownProject_issue332(t *testing.T) {
 	store := storeHolding(t)
 
-	if err := registry.TallyGateRun(store, "ghost", true); err == nil {
+	if err := sessions.TallyGateRun(store, "ghost", true); err == nil {
 		t.Error("tallying against a project that does not exist should fail")
 	}
 }
@@ -83,9 +83,9 @@ func TestTallyGateRun_ReportsAnUnknownProject_issue332(t *testing.T) {
 // Version stays 1: the new fields are absent from a file that never had them,
 // and absent means "nothing measured yet", which is derivable.
 func TestTallyGateRun_KeepsTheSchemaAtVersionOne_issue332(t *testing.T) {
-	store := storeHolding(t, registry.Project{Name: "omatty", Root: "/p/omatty"})
+	store := storeHolding(t, sessions.Project{Name: "omatty", Root: "/p/omatty"})
 
-	if err := registry.TallyGateRun(store, "omatty", true); err != nil {
+	if err := sessions.TallyGateRun(store, "omatty", true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -99,10 +99,10 @@ func TestTallyGateRun_KeepsTheSchemaAtVersionOne_issue332(t *testing.T) {
 }
 
 // storeHolding is a store already saved with these projects.
-func storeHolding(t *testing.T, projects ...registry.Project) *statestore.Store {
+func storeHolding(t *testing.T, projects ...sessions.Project) *statestore.Store {
 	t.Helper()
 	store, _ := newStoreAt(t)
-	if err := store.Save(registry.State{Version: registry.Version, Projects: projects}); err != nil {
+	if err := store.Save(sessions.State{Version: sessions.Version, Projects: projects}); err != nil {
 		t.Fatal(err)
 	}
 	return store

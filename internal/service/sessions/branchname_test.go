@@ -1,4 +1,4 @@
-package registry_test
+package sessions_test
 
 import (
 	"regexp"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // #151 stops ctrl+o N demanding a branch name. A session created without one
@@ -15,13 +15,13 @@ import (
 // the filesystem.
 func TestPlaceholderBranch_isSlugSafeAndDerivedFromTheID_issue151(t *testing.T) {
 	const id = "A1B2C3D4-5678-4abc-9def-000000000000"
-	got := registry.PlaceholderBranch(id)
+	got := sessions.PlaceholderBranch(id)
 
 	if want := "omatty-a1b2c3d4"; got != want {
 		t.Errorf("PlaceholderBranch(%q) = %q, want %q", id, got, want)
 	}
-	if registry.Slug(got) != got {
-		t.Errorf("PlaceholderBranch is not slug-safe: Slug(%q) = %q", got, registry.Slug(got))
+	if sessions.Slug(got) != got {
+		t.Errorf("PlaceholderBranch is not slug-safe: Slug(%q) = %q", got, sessions.Slug(got))
 	}
 	if !regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,39}$`).MatchString(got) {
 		t.Errorf("PlaceholderBranch(%q) = %q, which is not a legal branch name", id, got)
@@ -34,11 +34,11 @@ func TestPlaceholderBranch_isSlugSafeAndDerivedFromTheID_issue151(t *testing.T) 
 func TestPlaceholderBranch_isRecomputableFromTheSessionAlone_issue151(t *testing.T) {
 	const id = "abc12345-6789-4abc-9def-000000000000"
 
-	first, again := registry.PlaceholderBranch(id), registry.PlaceholderBranch(id)
+	first, again := sessions.PlaceholderBranch(id), sessions.PlaceholderBranch(id)
 	if first != again {
 		t.Errorf("PlaceholderBranch is not stable for one id: %q then %q", first, again)
 	}
-	if first == registry.PlaceholderBranch("def67890-6789-4abc-9def-000000000000") {
+	if first == sessions.PlaceholderBranch("def67890-6789-4abc-9def-000000000000") {
 		t.Error("two sessions share a placeholder branch, so two worktrees would collide")
 	}
 }
@@ -48,7 +48,7 @@ func TestPlaceholderBranch_isRecomputableFromTheSessionAlone_issue151(t *testing
 // (#127 step 2). Until #151 it was only trimmed.
 func TestCreate_slugsATypedBranch_issue151(t *testing.T) {
 	g := &FakeGit{}
-	c := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
+	c := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
 
 	sess, err := c.Create(baseState(), "omatty", "", "../../etc/passwd")
 	if err != nil {
@@ -67,7 +67,7 @@ func TestCreate_slugsATypedBranch_issue151(t *testing.T) {
 // names it, and the first prompt renames it later.
 func TestCreate_aWorktreeWithNoTypedBranchTakesThePlaceholder_issue151(t *testing.T) {
 	const id = "11111111-2222-4333-8444-555555555555"
-	c := registry.NewCreator(&FakeGit{}, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"},
+	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"},
 		func() string { return id })
 
 	sess, err := c.CreateWorktree(baseState(), "omatty", "", "")
@@ -75,7 +75,7 @@ func TestCreate_aWorktreeWithNoTypedBranchTakesThePlaceholder_issue151(t *testin
 		t.Fatalf("CreateWorktree() error = %v, want nil", err)
 	}
 
-	if want := registry.PlaceholderBranch(id); sess.Branch != want {
+	if want := sessions.PlaceholderBranch(id); sess.Branch != want {
 		t.Errorf("branch = %q, want the placeholder %q", sess.Branch, want)
 	}
 	if !sess.Worktree {
@@ -87,10 +87,10 @@ func TestCreate_aWorktreeWithNoTypedBranchTakesThePlaceholder_issue151(t *testin
 // running in that directory and the transcript path is derived from it (#60).
 func TestRenameBranch_writesTheBranchAndLeavesTheDirectory_issue151(t *testing.T) {
 	store, _ := newStoreAt(t)
-	st := registry.State{
-		Version:  registry.Version,
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []registry.Session{{
+	st := sessions.State{
+		Version:  sessions.Version,
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []sessions.Session{{
 			ID: "s1", Project: "omatty", Title: "one",
 			Dir: "/home/u/.omatty/wt/omatty/omatty-s1", Branch: "omatty-s1", Worktree: true,
 		}},
@@ -99,7 +99,7 @@ func TestRenameBranch_writesTheBranchAndLeavesTheDirectory_issue151(t *testing.T
 		t.Fatal(err)
 	}
 
-	if err := registry.RenameBranch(store, "s1", "fix-the-wheel-pan"); err != nil {
+	if err := sessions.RenameBranch(store, "s1", "fix-the-wheel-pan"); err != nil {
 		t.Fatalf("RenameBranch() error = %v, want nil", err)
 	}
 
@@ -119,22 +119,22 @@ func TestRenameBranch_writesTheBranchAndLeavesTheDirectory_issue151(t *testing.T
 // names the branch when nobody else did, and persists both.
 func TestAddWorktreeSession_namesTheBranchAndPersistsIt_issue151(t *testing.T) {
 	store, _ := newStoreAt(t)
-	if err := store.Save(registry.State{
-		Version:  registry.Version,
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
+	if err := store.Save(sessions.State{
+		Version:  sessions.Version,
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
 	}); err != nil {
 		t.Fatal(err)
 	}
 	const id = "11111111-2222-4333-8444-555555555555"
-	c := registry.NewCreator(&FakeGit{}, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"},
+	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"},
 		func() string { return id })
 
-	sess, err := registry.AddWorktreeSession(store, c, "omatty", "", "")
+	sess, err := sessions.AddWorktreeSession(store, c, "omatty", "", "")
 	if err != nil {
 		t.Fatalf("AddWorktreeSession() error = %v, want nil", err)
 	}
 
-	if want := registry.PlaceholderBranch(id); sess.Branch != want {
+	if want := sessions.PlaceholderBranch(id); sess.Branch != want {
 		t.Errorf("branch = %q, want the placeholder %q", sess.Branch, want)
 	}
 	got, err := store.Load()
@@ -149,9 +149,9 @@ func TestAddWorktreeSession_namesTheBranchAndPersistsIt_issue151(t *testing.T) {
 // A project that is not registered is refused before anything is created.
 func TestAddWorktreeSession_refusesAnUnknownProject_issue151(t *testing.T) {
 	store, _ := newStoreAt(t)
-	c := registry.NewCreator(&FakeGit{}, registry.CreatorOpts{WorktreeRoot: "/wt"}, stubID)
+	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: "/wt"}, stubID)
 
-	if _, err := registry.AddWorktreeSession(store, c, "nope", "", ""); err == nil {
+	if _, err := sessions.AddWorktreeSession(store, c, "nope", "", ""); err == nil {
 		t.Error("AddWorktreeSession() into an unregistered project returned nil, want an error")
 	}
 }
@@ -174,17 +174,17 @@ func (f *fakeBranchGit) RenameBranch(_, old, name string) error {
 	return f.Err
 }
 
-func worktreeSessionStore(t *testing.T) (*statestore.Store, registry.Session) {
+func worktreeSessionStore(t *testing.T) (*statestore.Store, sessions.Session) {
 	t.Helper()
 	store, _ := newStoreAt(t)
-	sess := registry.Session{
+	sess := sessions.Session{
 		ID: "s1", Project: "omatty", Title: "one",
 		Dir: "/wt/omatty/omatty-s1", Branch: "omatty-s1", Base: "main", Worktree: true,
 	}
-	if err := store.Save(registry.State{
-		Version:  registry.Version,
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []registry.Session{sess},
+	if err := store.Save(sessions.State{
+		Version:  sessions.Version,
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []sessions.Session{sess},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestRenameSessionBranch_renamesAnUnstartedBranch_issue151(t *testing.T) {
 	store, sess := worktreeSessionStore(t)
 	g := &fakeBranchGit{Root: "/p/omatty"}
 
-	renamed, err := registry.RenameSessionBranch(store, g, sess, "fix-the-wheel-pan", true)
+	renamed, err := sessions.RenameSessionBranch(store, g, sess, "fix-the-wheel-pan", true)
 
 	if err != nil || !renamed {
 		t.Fatalf("RenameSessionBranch() = %v, %v, want true, nil", renamed, err)
@@ -217,7 +217,7 @@ func TestRenameSessionBranch_declinesAStartedBranch_issue151(t *testing.T) {
 	store, sess := worktreeSessionStore(t)
 	g := &fakeBranchGit{Root: "/p/omatty", Commits: 1}
 
-	renamed, err := registry.RenameSessionBranch(store, g, sess, "fix-the-wheel-pan", true)
+	renamed, err := sessions.RenameSessionBranch(store, g, sess, "fix-the-wheel-pan", true)
 
 	if err != nil || renamed {
 		t.Fatalf("RenameSessionBranch() = %v, %v, want false, nil", renamed, err)
@@ -232,7 +232,7 @@ func TestRenameSessionBranch_theOperatorMayRenameAStartedBranch_issue151(t *test
 	store, sess := worktreeSessionStore(t)
 	g := &fakeBranchGit{Root: "/p/omatty", Commits: 3}
 
-	renamed, err := registry.RenameSessionBranch(store, g, sess, "mine", false)
+	renamed, err := sessions.RenameSessionBranch(store, g, sess, "mine", false)
 
 	if err != nil || !renamed {
 		t.Fatalf("RenameSessionBranch() = %v, %v, want true, nil", renamed, err)
@@ -250,7 +250,7 @@ func TestRenameSessionBranch_aSessionWithNoBaseIsLeftAlone_issue151(t *testing.T
 	sess.Base = ""
 	g := &fakeBranchGit{Root: "/p/omatty"}
 
-	renamed, err := registry.RenameSessionBranch(store, g, sess, "fix", true)
+	renamed, err := sessions.RenameSessionBranch(store, g, sess, "fix", true)
 
 	if err != nil || renamed {
 		t.Fatalf("RenameSessionBranch() = %v, %v, want false, nil", renamed, err)

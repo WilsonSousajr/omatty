@@ -13,9 +13,9 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
 	sgate "github.com/WilsonSousajr/omatty/internal/service/gate"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
@@ -25,12 +25,12 @@ import (
 // worktree says whether omatty creates one, which since #151 is no longer the
 // same question as whether branch is empty: a worktree session may arrive with
 // no branch named at all, and the registry names it.
-type CreateFunc func(project, title, branch string, worktree bool) (registry.Session, error)
+type CreateFunc func(project, title, branch string, worktree bool) (sessions.Session, error)
 
 // StartFunc launches the embedded terminal for a session at w by h. Injected
 // so the model can start a session created at runtime without knowing how;
 // the size is a parameter so it is never frozen at startup (issue #73).
-type StartFunc func(sess registry.Session, w, h int) (termwrap.Terminal, error)
+type StartFunc func(sess sessions.Session, w, h int) (termwrap.Terminal, error)
 
 // TickFunc schedules fn after d, as tea.Tick does (#412).
 //
@@ -41,22 +41,22 @@ type TickFunc func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd
 // (#180). Injected so ui never touches git (invariant 4). Nil is the switch,
 // as ModelName's is: with nothing wired the card's second line is blank,
 // which is what every test's Deps gets.
-type RepoStatFunc func(sess registry.Session, projectRoot string) (review.Stat, error)
+type RepoStatFunc func(sess sessions.Session, projectRoot string) (review.Stat, error)
 
 // TurnFuncs are the three calls #311 makes on a session's turn baseline,
 // injected because ui may not touch git (invariant 4). Snap records the
 // baseline as a prompt is submitted, Diff loads what changed since it, and
 // Drop deletes it when the session is archived.
 type TurnFuncs struct {
-	Snap func(sess registry.Session) error
+	Snap func(sess sessions.Session) error
 	Diff DiffFunc
-	Drop func(sess registry.Session, projectRoot string) error
+	Drop func(sess sessions.Session, projectRoot string) error
 	// Revert puts the worktree back to the baseline and says how many files it
 	// changed; Count is the same number read without writing anything, for the
 	// confirmation to name (#334). Unwired, both say there is no turn, which is
 	// the refusal the column already renders.
-	Revert func(sess registry.Session) (int, error)
-	Count  func(sess registry.Session) (int, error)
+	Revert func(sess sessions.Session) (int, error)
+	Count  func(sess sessions.Session) (int, error)
 }
 
 // Deps is everything a Model needs. Constructor injection, so no field is
@@ -67,7 +67,7 @@ type TurnFuncs struct {
 //	m := ui.NewModel(ui.Deps{State: st, Terms: terms, Create: create, Start: start,
 //	        Events: w.Subscribe(ctx), Clock: time.Now, Notifier: notify.New(), TailStart: w.Add})
 type Deps struct {
-	State  registry.State
+	State  sessions.State
 	Terms  map[string]termwrap.Terminal
 	Create CreateFunc
 	Start  StartFunc
@@ -96,7 +96,7 @@ type Deps struct {
 	// command they are handed and a real tick is a real 100 ms wait.
 	SpinTick  TickFunc
 	Notifier  notify.Notifier
-	TailStart func(registry.Session)
+	TailStart func(sessions.Session)
 	// Diff loads a session's changes for the review column (#21).
 	Diff DiffFunc
 	// Files lists a session's worktree and Preview reads one of its files,
@@ -247,10 +247,10 @@ func (d Deps) withPRDefaults() Deps {
 // Drop do nothing and Diff says there is no turn, which is what a test sees.
 func (d Deps) withTurnDefaults() Deps {
 	if d.Turn.Snap == nil {
-		d.Turn.Snap = func(registry.Session) error { return nil }
+		d.Turn.Snap = func(sessions.Session) error { return nil }
 	}
 	if d.Turn.Diff == nil {
-		d.Turn.Diff = func(registry.Session, string) (review.Diff, error) { return review.Diff{}, review.ErrNoTurn }
+		d.Turn.Diff = func(sessions.Session, string) (review.Diff, error) { return review.Diff{}, review.ErrNoTurn }
 	}
 	if d.Turn.Revert == nil {
 		d.Turn.Revert = noRevert
@@ -259,7 +259,7 @@ func (d Deps) withTurnDefaults() Deps {
 		d.Turn.Count = noRevert
 	}
 	if d.Turn.Drop == nil {
-		d.Turn.Drop = func(registry.Session, string) error { return nil }
+		d.Turn.Drop = func(sessions.Session, string) error { return nil }
 	}
 	return d
 }
@@ -353,11 +353,11 @@ type GateRunFunc func(sessionID, dir string, steps []gate.Step)
 // stays in the tree and every coverage marker stands. Wrong in the safe
 // direction - a file shown is a file the operator can judge, where a file
 // folded away by a broken detection is one they never see.
-func noGenerated(registry.Session, []string) (map[string]bool, error) { return nil, nil }
+func noGenerated(sessions.Session, []string) (map[string]bool, error) { return nil, nil }
 
 // noRevert is the unwired Revert and Count: there is no baseline, which is the
 // refusal #311's own notice already has words for.
-func noRevert(registry.Session) (int, error) { return 0, review.ErrNoTurn }
+func noRevert(sessions.Session) (int, error) { return 0, review.ErrNoTurn }
 
 // noTally is the unwired Tally: nothing is measured. A measurement is not worth
 // a nil check at the call site, and a run nobody counted is the state every
@@ -372,7 +372,7 @@ func noTally(string, bool) error { return nil }
 // Unwired, each refuses. A ship key that silently did nothing would be worse
 // than one that says there is no forge configured.
 type ShipFuncs struct {
-	Shippable       func(sess registry.Session, projectRoot string) (review.Shippable, error)
+	Shippable       func(sess sessions.Session, projectRoot string) (review.Shippable, error)
 	Push            func(dir, branch string) error
 	CreatePR        func(repoRoot, head, base, title string) (int, error)
 	MergePR         func(repoRoot string, number int, head string) (bool, error)
@@ -382,7 +382,7 @@ type ShipFuncs struct {
 // withShipDefaults makes every unwired ship function refuse by name.
 func withShipDefaults(s ShipFuncs) ShipFuncs {
 	if s.Shippable == nil {
-		s.Shippable = func(registry.Session, string) (review.Shippable, error) {
+		s.Shippable = func(sessions.Session, string) (review.Shippable, error) {
 			return review.Shippable{}, errNoShip
 		}
 	}

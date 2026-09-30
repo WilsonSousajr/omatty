@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -155,9 +155,9 @@ func TestModel_gateFooterOffersSubmit_issue232(t *testing.T) {
 // that may have changed since, and a verdict the pane itself refuses to show.
 // A report that was never sent went out stale on the first S, with no warning.
 func TestModel_SDuringAGateRunSendsNothing_issue345(t *testing.T) {
-	st := registry.State{
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty", Gate: []gate.Step{{Name: "test", Run: "go test ./..."}}}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty", Branch: "main"}},
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty", Gate: []gate.Step{{Name: "test", Run: "go test ./..."}}}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty", Branch: "main"}},
 	}
 	terms := fakeTermsFor(st)
 	deps := baseDeps(st, terms)

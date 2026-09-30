@@ -1,4 +1,4 @@
-package registry_test
+package sessions_test
 
 import (
 	"os"
@@ -7,13 +7,13 @@ import (
 	"testing"
 
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 func TestSetCollapsed_roundTripsThroughTheStateFile(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
 
-	if err := registry.SetCollapsed(store, "omatty", true); err != nil {
+	if err := sessions.SetCollapsed(store, "omatty", true); err != nil {
 		t.Fatalf("SetCollapsed(true) error = %v", err)
 	}
 	st, err := store.Load()
@@ -24,7 +24,7 @@ func TestSetCollapsed_roundTripsThroughTheStateFile(t *testing.T) {
 		t.Fatalf("Collapsed = false after SetCollapsed(true)")
 	}
 
-	if err := registry.SetCollapsed(store, "omatty", false); err != nil {
+	if err := sessions.SetCollapsed(store, "omatty", false); err != nil {
 		t.Fatalf("SetCollapsed(false) error = %v", err)
 	}
 	st, _ = store.Load()
@@ -37,7 +37,7 @@ func TestSetCollapsed_roundTripsThroughTheStateFile(t *testing.T) {
 // build that never folded anything reads exactly as it did (invariant 9).
 func TestSetCollapsed_unfolded_omitsTheKey(t *testing.T) {
 	store, path := storeWithProject(t, "omatty")
-	if err := registry.SetCollapsed(store, "omatty", false); err != nil {
+	if err := sessions.SetCollapsed(store, "omatty", false); err != nil {
 		t.Fatalf("SetCollapsed(false) error = %v", err)
 	}
 	raw, err := os.ReadFile(path)
@@ -51,7 +51,7 @@ func TestSetCollapsed_unfolded_omitsTheKey(t *testing.T) {
 
 func TestSetCollapsed_unknownProject_namesIt(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
-	err := registry.SetCollapsed(store, "nope", true)
+	err := sessions.SetCollapsed(store, "nope", true)
 	if err == nil || !strings.Contains(err.Error(), `"nope"`) {
 		t.Fatalf("SetCollapsed(nope) error = %v, want one naming the project", err)
 	}
@@ -62,7 +62,7 @@ func TestSetCollapsed_unreadableState_isAnError(t *testing.T) {
 	if err := os.WriteFile(path, []byte("not json at all"), 0o600); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
-	if err := registry.SetCollapsed(statestore.NewStore(path), "omatty", true); err == nil {
+	if err := sessions.SetCollapsed(statestore.NewStore(path), "omatty", true); err == nil {
 		t.Fatal("SetCollapsed on a corrupt state file = nil error, want one")
 	}
 }

@@ -1,4 +1,4 @@
-package registry
+package sessions
 
 import (
 	"fmt"
@@ -48,7 +48,7 @@ type Adoption struct {
 // AdoptAll adopts each pick, carrying on past a failure so one collision does
 // not abandon the rest of a bulk pick.
 //
-//	for _, a := range registry.AdoptAll(store, git, "omatty", picks) { ... }
+//	for _, a := range sessions.AdoptAll(store, git, "omatty", picks) { ... }
 //
 // It exists rather than a loop in cmd and another in ui's adapter, which is
 // RegisterAll's argument restated: both loops existed, and both would have had
@@ -65,7 +65,7 @@ func AdoptAll(s StateStore, git SessionBrancher, project string, picks []Session
 // AddProject registers the git repository containing dir, naming it after
 // the repository's own directory. It is the whole of `omatty add`.
 //
-//	p, err := registry.AddProject(store, vcs.NewCLI(), cwd)
+//	p, err := sessions.AddProject(store, vcs.NewCLI(), cwd)
 func AddProject(s StateStore, git RepoRooter, dir string) (Project, error) {
 	root, err := git.RepoRoot(dir)
 	if err != nil {
@@ -106,7 +106,7 @@ type Registration struct {
 // forbids and which `dupl` cannot see across packages, so a change to the
 // collision policy would have had to be made twice or the two would disagree.
 //
-//	for _, r := range registry.RegisterAll(store, git, roots) { ... }
+//	for _, r := range sessions.RegisterAll(store, git, roots) { ... }
 func RegisterAll(s StateStore, git RepoRooter, roots []string) []Registration {
 	out := make([]Registration, 0, len(roots))
 	for _, root := range roots {
@@ -120,7 +120,7 @@ func RegisterAll(s StateStore, git RepoRooter, roots []string) []Registration {
 // this touches nothing that relaunching a session depends on (invariant 9):
 // it is a state.json edit and a sidebar rebuild (#41).
 //
-//	err := registry.RenameSession(store, sess.ID, "parser-fix")
+//	err := sessions.RenameSession(store, sess.ID, "parser-fix")
 func RenameSession(s StateStore, id, title string) error {
 	// A blank title would leave a sidebar row with nothing to aim at. The check
 	// is on the trimmed title, not on title == "": a name of nothing but spaces
@@ -147,7 +147,7 @@ func RenameSession(s StateStore, id, title string) error {
 // (#60, #151). state.json has always stored the two separately, so they were
 // never required to agree.
 //
-//	err := registry.RenameBranch(store, sess.ID, "fix-the-wheel-pan")
+//	err := sessions.RenameBranch(store, sess.ID, "fix-the-wheel-pan")
 func RenameBranch(s StateStore, id, branch string) error {
 	if Slug(branch) != branch || branch == "" {
 		return fmt.Errorf(
@@ -183,7 +183,7 @@ func RenameBranch(s StateStore, id, branch string) error {
 // would break every later diff; a branch git renamed and state.json missed is
 // recoverable and says so.
 //
-//	renamed, err := registry.RenameSessionBranch(store, git, sess, "fix-the-pan", true)
+//	renamed, err := sessions.RenameSessionBranch(store, git, sess, "fix-the-pan", true)
 func RenameSessionBranch(s StateStore, git BranchRenamer, sess Session, branch string, unstartedOnly bool) (bool, error) {
 	root, err := git.MainCheckout(sess.Dir)
 	if err != nil {
@@ -216,7 +216,7 @@ func branchStarted(git BranchRenamer, root string, sess Session) (bool, error) {
 // (#40). The transcript on disk is untouched: this forgets a session, it does
 // not destroy its history.
 //
-//	sess, err := registry.RemoveSession(store, id)
+//	sess, err := sessions.RemoveSession(store, id)
 //	if err == nil && sess.Worktree { /* git worktree remove sess.Dir */ }
 func RemoveSession(s StateStore, id string) (Session, error) {
 	st, err := s.Load()
@@ -239,7 +239,7 @@ func RemoveSession(s StateStore, id string) (Session, error) {
 // first with a key that already exists, and this command stays free of a
 // destructive path (#159).
 //
-//	p, err := registry.RemoveProject(store, "wstech")
+//	p, err := sessions.RemoveProject(store, "wstech")
 func RemoveProject(s StateStore, name string) (Project, error) {
 	st, err := s.Load()
 	if err != nil {
@@ -320,7 +320,7 @@ func sessionIDs(st *State) []string {
 
 // NamedProject is the project registered under name.
 //
-//	p, err := registry.NamedProject(store, "omatty")
+//	p, err := sessions.NamedProject(store, "omatty")
 //
 // Exported because `omatty adopt` acts on one named project and cmd/ carried
 // its own copy of this loop, against invariant 10 - so a change to what a name
@@ -357,7 +357,7 @@ func KnownSessionIDs(s StateStore) ([]string, error) {
 // AdoptSession registers a claude session that already exists, so omatty can
 // show and resume one it did not create (#122).
 //
-//	sess, err := registry.AdoptSession(store, git, cand.ID, "omatty", cand.Title, cand.Dir)
+//	sess, err := sessions.AdoptSession(store, git, cand.ID, "omatty", cand.Title, cand.Dir)
 //
 // Worktree is false and that is load-bearing rather than incidental: omatty did
 // not create dir, so archive must never offer to delete it. That is the rule
@@ -453,7 +453,7 @@ func AddSession(s StateStore, c *Creator, project, title, branch string) (Sessio
 // state. An empty branch is named by the creator, which is what lets ctrl+o N
 // start without asking for one (#151).
 //
-//	sess, err := registry.AddWorktreeSession(store, c, "omatty", "", "")
+//	sess, err := sessions.AddWorktreeSession(store, c, "omatty", "", "")
 func AddWorktreeSession(s StateStore, c *Creator, project, title, branch string) (Session, error) {
 	st, err := s.Load()
 	if err != nil {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -18,10 +18,10 @@ import (
 // auto-run set either way.
 func autoModel(t *testing.T, rec *recordGateRun, auto bool) (*ui.Model, *notify.Fake) {
 	t.Helper()
-	st := registry.State{
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty",
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty",
 			Gate: []gate.Step{{Name: "test", Run: "go test ./..."}}}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
 	deps := baseDeps(st, fakeTermsFor(st))
 	fake := &notify.Fake{}
@@ -85,9 +85,9 @@ func TestModel_autoRun_doesNotRestartOnARepeatedStatus_issue233(t *testing.T) {
 // A project with no gate has nothing to run, however idle its sessions go.
 func TestModel_autoRun_withNoGateConfigured_runsNothing_issue233(t *testing.T) {
 	rec := &recordGateRun{}
-	st := registry.State{
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
 	deps := baseDeps(st, fakeTermsFor(st))
 	deps.GateRun, deps.GateAuto = rec.Run, true

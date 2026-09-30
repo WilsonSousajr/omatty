@@ -1,4 +1,4 @@
-package registry
+package sessions
 
 import (
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
@@ -8,7 +8,7 @@ import (
 // whatever it had. It is what the confirm picker and `omatty gate --set` both
 // call, so the two cannot disagree about what "setting a gate" means.
 //
-//	err := registry.SetGate(store, "omatty", gate.Detect(root))
+//	err := sessions.SetGate(store, "omatty", gate.Detect(root))
 //
 // Setting a gate is deliberately a separate act from proposing one: detection
 // only ever proposes, and nothing runs a gate the operator has not confirmed.
@@ -43,7 +43,7 @@ func editGate(s StateStore, project string, steps []gate.Step) error {
 // TallyGateRun records one gate run that followed a turn: every call counts a
 // run, and a passing one counts towards the first-pass rate too (#332).
 //
-//	err := registry.TallyGateRun(store, "omatty", passed)
+//	err := sessions.TallyGateRun(store, "omatty", passed)
 //
 // "Passed without a send-back" is simplified to "passed", deliberately: a
 // send-back only ever happens on a report that failed, so a run that passed is

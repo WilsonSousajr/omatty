@@ -15,8 +15,8 @@ import (
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // ArchiveFunc drops a session from the registry. Injected so ui never reaches
@@ -26,10 +26,10 @@ import (
 // Worktree field decides whether a directory may be deleted. RemoveSession
 // re-reads state.json, so its copy outranks the model's (#40).
 //
-//	deps.Archive = func(id string) (registry.Session, error) {
-//	        return registry.RemoveSession(store, id)
+//	deps.Archive = func(id string) (sessions.Session, error) {
+//	        return sessions.RemoveSession(store, id)
 //	}
-type ArchiveFunc func(sessionID string) (registry.Session, error)
+type ArchiveFunc func(sessionID string) (sessions.Session, error)
 
 // RemoveWorktreeFunc deletes a linked worktree. Injected because ui may never
 // shell out to git (invariant 4); the arguments mirror vcs.Git.RemoveWorktree.
@@ -38,8 +38,8 @@ type RemoveWorktreeFunc func(repoRoot, dir string) error
 // noArchive is the Deps.Archive default. It names the missing wiring rather
 // than appearing to succeed, which would drop a row from the sidebar that
 // state.json still holds - the same reasoning as noDiff and noRename.
-func noArchive(sessionID string) (registry.Session, error) {
-	return registry.Session{}, fmt.Errorf("ui: no archive source configured for session %s", sessionID)
+func noArchive(sessionID string) (sessions.Session, error) {
+	return sessions.Session{}, fmt.Errorf("ui: no archive source configured for session %s", sessionID)
 }
 
 // noRemoveWorktree is the Deps.RemoveWorktree default, for the same reason. A
@@ -67,7 +67,7 @@ func noStop(string) error { return nil }
 // not name missing wiring, and that is deliberate.
 func noTailStop(string) {}
 
-func noTailStart(registry.Session) {}
+func noTailStart(sessions.Session) {}
 
 // confirmChoice is one answer in a confirmation. Key is the keystroke that
 // picks it; esc is always cancel and is not listed here.
@@ -215,7 +215,7 @@ func (m *Model) archiveSession(removeWorktree bool) tea.Cmd {
 // its per-session state and its sidebar row. Missing any one of these leaks;
 // the tailer most visibly, since it would go on polling a transcript path
 // whose directory is about to be deleted (#40).
-func (m *Model) dropSession(sess registry.Session, removeWorktree bool) tea.Cmd {
+func (m *Model) dropSession(sess sessions.Session, removeWorktree bool) tea.Cmd {
 	if term := m.terms[sess.ID]; term != nil {
 		if err := term.Close(); err != nil {
 			// The registry row is gone by now, so this is the last place the
@@ -259,7 +259,7 @@ func (m *Model) forgetSession(id string) {
 		// session's row pointing at its successor, and SetRows then reads that
 		// stale element to place the cursor. Where the cursor landed depended
 		// on the victim's position in the slice (#40).
-		kept := make([]registry.Session, 0, len(m.state.Sessions)-1)
+		kept := make([]sessions.Session, 0, len(m.state.Sessions)-1)
 		kept = append(kept, m.state.Sessions[:i]...)
 		kept = append(kept, m.state.Sessions[i+1:]...)
 		m.state.Sessions = kept
@@ -331,7 +331,7 @@ type WorktreeRemovedMsg struct {
 // is the one goroutine that repaints every pane and reads every key. Archiving
 // a claude that did not exit promptly - mid-turn, or wedged - froze the whole
 // TUI until it did (#43).
-func (m *Model) stopSessionCmd(sess registry.Session, done tea.Msg) tea.Cmd {
+func (m *Model) stopSessionCmd(sess sessions.Session, done tea.Msg) tea.Cmd {
 	stop := m.stop
 	return func() tea.Msg {
 		if err := stop(sess.ID); err != nil {
@@ -344,7 +344,7 @@ func (m *Model) stopSessionCmd(sess registry.Session, done tea.Msg) tea.Cmd {
 
 // removeWorktreeCmd deletes the worktree off the Update goroutine: git on a
 // large tree takes long enough to stall the frame.
-func (m *Model) removeWorktreeCmd(sess registry.Session) tea.Cmd {
+func (m *Model) removeWorktreeCmd(sess sessions.Session) tea.Cmd {
 	root, remove := m.projectRoot(sess.Project), m.removeWorktree
 	return func() tea.Msg {
 		msg := WorktreeRemovedMsg{SessionID: sess.ID, Dir: sess.Dir}

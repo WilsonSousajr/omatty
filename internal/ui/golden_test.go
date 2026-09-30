@@ -10,7 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -50,7 +50,7 @@ func writeGolden(t *testing.T, path string, got []byte) {
 // sceneDeps is baseDeps with the clock pinned. baseDeps leaves the wall clock
 // in, and a card's age or a spinner frame read from it would make every
 // golden fail a minute after it was written.
-func sceneDeps(st registry.State, terms map[string]termwrap.Terminal) ui.Deps {
+func sceneDeps(st sessions.State, terms map[string]termwrap.Terminal) ui.Deps {
 	d := baseDeps(st, terms)
 	d.Clock = func() time.Time { return fixedNow }
 	return d

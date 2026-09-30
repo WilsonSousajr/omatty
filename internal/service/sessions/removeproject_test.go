@@ -1,4 +1,4 @@
-package registry_test
+package sessions_test
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // seedThreeProjects registers a, b and c in that order, with one session in b.
@@ -16,12 +16,12 @@ func seedThreeProjects(t *testing.T) *statestore.Store {
 	store, _ := newStoreAt(t)
 	git := &FakeGit{}
 	for _, dir := range []string{"/p/a", "/p/b", "/p/c"} {
-		if _, err := registry.AddProject(store, git, dir); err != nil {
+		if _, err := sessions.AddProject(store, git, dir); err != nil {
 			t.Fatal(err)
 		}
 	}
-	c := registry.NewCreator(git, registry.CreatorOpts{WorktreeRoot: "/wt"}, func() string { return "b-1" })
-	if _, err := registry.AddSession(store, c, "b", "t", ""); err != nil {
+	c := sessions.NewCreator(git, sessions.CreatorOpts{WorktreeRoot: "/wt"}, func() string { return "b-1" })
+	if _, err := sessions.AddSession(store, c, "b", "t", ""); err != nil {
 		t.Fatal(err)
 	}
 	return store
@@ -43,7 +43,7 @@ func registeredNames(t *testing.T, store *statestore.Store) string {
 func TestRemoveProject_DropsAnEmptyProjectAndKeepsTheOrder_issue159(t *testing.T) {
 	store := seedThreeProjects(t)
 
-	got, err := registry.RemoveProject(store, "a")
+	got, err := sessions.RemoveProject(store, "a")
 
 	if err != nil {
 		t.Fatalf("RemoveProject(a) error = %v, want nil", err)
@@ -59,7 +59,7 @@ func TestRemoveProject_DropsAnEmptyProjectAndKeepsTheOrder_issue159(t *testing.T
 func TestRemoveProject_RefusesWhileSessionsExistAndChangesNothing_issue159(t *testing.T) {
 	store := seedThreeProjects(t)
 
-	_, err := registry.RemoveProject(store, "b")
+	_, err := sessions.RemoveProject(store, "b")
 
 	if err == nil {
 		t.Fatal("RemoveProject(b) succeeded with a session in it, want an error")
@@ -75,7 +75,7 @@ func TestRemoveProject_RefusesWhileSessionsExistAndChangesNothing_issue159(t *te
 func TestRemoveProject_UnknownNameIsAnError_issue159(t *testing.T) {
 	store := seedThreeProjects(t)
 
-	_, err := registry.RemoveProject(store, "ghost")
+	_, err := sessions.RemoveProject(store, "ghost")
 
 	if err == nil || !strings.Contains(err.Error(), "ghost") {
 		t.Errorf("RemoveProject(ghost) error = %v, want one naming ghost", err)
@@ -91,11 +91,11 @@ func TestRemoveProject_LeavesTheRepositoryUntouched_issue159(t *testing.T) {
 	if err := os.WriteFile(marker, []byte("keep me"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := registry.AddProject(store, &FakeGit{}, dir); err != nil {
+	if _, err := sessions.AddProject(store, &FakeGit{}, dir); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := registry.RemoveProject(store, filepath.Base(dir)); err != nil {
+	if _, err := sessions.RemoveProject(store, filepath.Base(dir)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -106,11 +106,11 @@ func TestRemoveProject_LeavesTheRepositoryUntouched_issue159(t *testing.T) {
 
 func TestRemoveProject_ARemovedProjectCanBeRegisteredAgain_issue159(t *testing.T) {
 	store := seedThreeProjects(t)
-	if _, err := registry.RemoveProject(store, "c"); err != nil {
+	if _, err := sessions.RemoveProject(store, "c"); err != nil {
 		t.Fatal(err)
 	}
 
-	p, err := registry.AddProject(store, &FakeGit{}, "/p/c")
+	p, err := sessions.AddProject(store, &FakeGit{}, "/p/c")
 
 	if err != nil || p.Name != "c" {
 		t.Errorf("re-registering c after removal = %+v, %v; want c registered again", p, err)

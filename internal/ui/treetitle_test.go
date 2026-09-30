@@ -7,8 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -16,9 +16,9 @@ import (
 // long enough that the column has to do something about it.
 func modelWithNamedTree(t *testing.T, title string) *ui.Model {
 	t.Helper()
-	st := registry.State{
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: title, Dir: "/p/omatty", Branch: "work"}},
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: title, Dir: "/p/omatty", Branch: "work"}},
 	}
 	deps := baseDeps(st, fakeTermsFor(st))
 	deps.Files = (&fileLister{Paths: []string{"go.mod", "internal/gate/run.go", "internal/ui/render.go"}}).fn

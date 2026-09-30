@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -25,9 +25,9 @@ func (r *tallyRecorder) fn(project string, passed bool) error {
 
 func modelWithTally(t *testing.T, rec *tallyRecorder, auto bool) *ui.Model {
 	t.Helper()
-	st := registry.State{
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty", Gate: []gate.Step{{Name: "test", Run: "go test ./..."}}}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty", Gate: []gate.Step{{Name: "test", Run: "go test ./..."}}}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
 	d := baseDeps(st, fakeTermsFor(st))
 	d.Tally, d.GateAuto = rec.fn, auto

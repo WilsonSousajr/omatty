@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // Source fetches a session's diff through vcs (invariant 4) and parses it.
@@ -23,7 +23,7 @@ func NewSource(git vcs.Git) *Source { return &Source{git: git} }
 // as additions (#21). A main-checkout session has no base branch and diffs
 // against HEAD. projectRoot is the fallback base for worktrees created before
 // the base was recorded.
-func (s *Source) Load(sess registry.Session, projectRoot string) (Diff, error) {
+func (s *Source) Load(sess sessions.Session, projectRoot string) (Diff, error) {
 	ref, err := s.baseCommit(sess, projectRoot)
 	if err != nil {
 		return Diff{}, err
@@ -45,7 +45,7 @@ func (s *Source) Load(sess registry.Session, projectRoot string) (Diff, error) {
 // baseCommit is HEAD for a main-checkout session, else the merge-base with the
 // recorded base branch, or with the project root's current branch when none
 // was recorded.
-func (s *Source) baseCommit(sess registry.Session, projectRoot string) (string, error) {
+func (s *Source) baseCommit(sess sessions.Session, projectRoot string) (string, error) {
 	if sess.Branch == "" {
 		return "HEAD", nil
 	}
@@ -82,7 +82,7 @@ type Stat struct {
 // resolution lives once (#180).
 //
 //	st, err := src.Stat(sess, projectRoot)
-func (s *Source) Stat(sess registry.Session, projectRoot string) (Stat, error) {
+func (s *Source) Stat(sess sessions.Session, projectRoot string) (Stat, error) {
 	branch, err := s.git.CurrentBranch(sess.Dir)
 	if err != nil {
 		return Stat{}, fmt.Errorf("review: branch of session %s in %q: %w", sess.ID, sess.Dir, err)

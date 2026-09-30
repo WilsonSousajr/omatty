@@ -14,7 +14,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // Proposal is one repository discovery offers, with when it was last worked
@@ -35,7 +35,7 @@ type DiscoverFunc func() ([]Proposal, error)
 // each. It takes the whole batch rather than one root at a time so the
 // register-report-carry-on loop lives in registry, where `omatty discover`
 // shares it (#91).
-type AddProjectFunc func(roots []string) []registry.Registration
+type AddProjectFunc func(roots []string) []sessions.Registration
 
 // noDiscover is the Deps.Discover default: it names the missing wiring rather
 // than proposing an empty list, which would read as "you have never used
@@ -45,10 +45,10 @@ func noDiscover() ([]Proposal, error) {
 }
 
 // noAddProject is the Deps.AddProject default, for the same reason.
-func noAddProject(roots []string) []registry.Registration {
-	out := make([]registry.Registration, 0, len(roots))
+func noAddProject(roots []string) []sessions.Registration {
+	out := make([]sessions.Registration, 0, len(roots))
 	for _, root := range roots {
-		out = append(out, registry.Registration{
+		out = append(out, sessions.Registration{
 			Root: root,
 			Err:  fmt.Errorf("ui: no project registrar configured for %q", root),
 		})

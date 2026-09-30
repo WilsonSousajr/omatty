@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
@@ -44,7 +44,7 @@ type diffRecorder struct {
 	Roots []string
 }
 
-func (r *diffRecorder) fn(sess registry.Session, root string) (review.Diff, error) {
+func (r *diffRecorder) fn(sess sessions.Session, root string) (review.Diff, error) {
 	r.Asked = append(r.Asked, sess.ID)
 	r.Roots = append(r.Roots, root)
 	return r.Diff, r.Err

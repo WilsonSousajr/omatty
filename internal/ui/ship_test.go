@@ -9,8 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -34,7 +34,7 @@ type shipper struct {
 	Asked   []string // the branches whose protection was read
 }
 
-func (s *shipper) shippable(_ registry.Session, _ string) (review.Shippable, error) {
+func (s *shipper) shippable(_ sessions.Session, _ string) (review.Shippable, error) {
 	return s.State, s.StateErr
 }
 
@@ -66,11 +66,11 @@ func (s *shipper) funcs() ui.ShipFuncs {
 }
 
 // shipState is one worktree session on a branch forked from develop.
-func shipState() registry.State {
-	return registry.State{
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty",
+func shipState() sessions.State {
+	return sessions.State{
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty",
 			Gate: []gate.Step{{Name: "test", Run: "go test ./..."}}}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "parser-fix",
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "parser-fix",
 			Dir: "/wt/parser-fix", Branch: "feat/parser", Base: "develop", Worktree: true}},
 	}
 }

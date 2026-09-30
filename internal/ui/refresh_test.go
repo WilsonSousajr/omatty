@@ -6,27 +6,27 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
-// liveCreate is a named fake standing in for registry.AddSession: it returns
+// liveCreate is a named fake standing in for sessions.AddSession: it returns
 // the session it would have persisted.
 type liveCreate struct {
-	Next    registry.Session
+	Next    sessions.Session
 	Err     error
 	Calls   int
 	Project string
 }
 
-func (l *liveCreate) fn(project, title, branch string, worktree bool) (registry.Session, error) {
+func (l *liveCreate) fn(project, title, branch string, worktree bool) (sessions.Session, error) {
 	l.Calls++
 	l.Project = project
 	if l.Err != nil {
-		return registry.Session{}, l.Err
+		return sessions.Session{}, l.Err
 	}
-	l.Next = registry.Session{
+	l.Next = sessions.Session{
 		ID: "new-id", Project: project, Title: title,
 		Branch: branch, Worktree: worktree,
 	}
@@ -42,7 +42,7 @@ type startRecorder struct {
 	Term    *termwrap.Fake
 }
 
-func (s *startRecorder) fn(sess registry.Session, w, h int) (termwrap.Terminal, error) {
+func (s *startRecorder) fn(sess sessions.Session, w, h int) (termwrap.Terminal, error) {
 	if s.Err != nil {
 		return nil, s.Err
 	}
@@ -52,8 +52,8 @@ func (s *startRecorder) fn(sess registry.Session, w, h int) (termwrap.Terminal, 
 	return s.Term, nil
 }
 
-func oneProject() registry.State {
-	return registry.State{Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}}}
+func oneProject() sessions.State {
+	return sessions.State{Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}}}
 }
 
 func newSession(m *ui.Model, title string) {

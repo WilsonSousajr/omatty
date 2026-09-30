@@ -9,7 +9,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/tally"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // gateStats prints the project's lead time and first-pass gate rate.
@@ -22,7 +22,7 @@ import (
 // The pull requests come from the operator's own `gh`, read-only, and a machine
 // without gh simply gets no lead time - the same quiet degradation the cards
 // have (#310).
-func gateStats(project registry.Project, sessions []registry.Session, prs prLister) error {
+func gateStats(project sessions.Project, sessions []sessions.Session, prs prLister) error {
 	merged, err := mergedPRs(project, prs)
 	if err != nil {
 		return err
@@ -44,7 +44,7 @@ type prLister func(repoRoot string) ([]forge.PR, error)
 // gh missing is not a failure of this command: half the measurement still works,
 // and saying so is better than refusing to print the gate rate because the
 // forge could not be reached.
-func mergedPRs(project registry.Project, prs prLister) ([]forge.PR, error) {
+func mergedPRs(project sessions.Project, prs prLister) ([]forge.PR, error) {
 	if prs == nil {
 		return nil, nil
 	}
@@ -99,7 +99,7 @@ func roundLead(d time.Duration) string {
 // prs is the forge reader, the TUI's own Router's ListPRs, so a project named
 // in [forge.hosts] gets its lead time here too (#452). A machine without the
 // forge's tool gets no lead time and the gate rate still prints.
-func reportStats(store registry.StateStore, project registry.Project, prs prLister) error {
+func reportStats(store sessions.StateStore, project sessions.Project, prs prLister) error {
 	st, err := store.Load()
 	if err != nil {
 		return err

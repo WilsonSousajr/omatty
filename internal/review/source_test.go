@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // Stat reads through the same base commit as Load and never lists untracked
@@ -34,7 +34,7 @@ func TestSource_StatCountsTrackedChangesAgainstTheSameBaseAsLoad_issue180(t *tes
 func TestSource_StatFailureNamesTheSessionAndRef_issue180(t *testing.T) {
 	g := &FakeGit{Branch: "main", Errs: map[string]error{"Shortstat": errors.New("boom")}}
 
-	_, err := review.NewSource(g).Stat(registry.Session{ID: "s9", Dir: "/p"}, "/p")
+	_, err := review.NewSource(g).Stat(sessions.Session{ID: "s9", Dir: "/p"}, "/p")
 
 	if err == nil || !strings.Contains(err.Error(), "s9") || !strings.Contains(err.Error(), "HEAD") {
 		t.Errorf("error = %v, want one naming session s9 and ref HEAD", err)
@@ -44,14 +44,14 @@ func TestSource_StatFailureNamesTheSessionAndRef_issue180(t *testing.T) {
 func TestSource_StatBranchFailureNamesTheDirectory_issue180(t *testing.T) {
 	g := &FakeGit{Errs: map[string]error{"CurrentBranch": errors.New("not a repository")}}
 
-	_, err := review.NewSource(g).Stat(registry.Session{ID: "s9", Dir: "/gone"}, "/p")
+	_, err := review.NewSource(g).Stat(sessions.Session{ID: "s9", Dir: "/gone"}, "/p")
 
 	if err == nil || !strings.Contains(err.Error(), "/gone") {
 		t.Errorf("error = %v, want one naming /gone", err)
 	}
 }
 
-var worktreeSession = registry.Session{
+var worktreeSession = sessions.Session{
 	ID: "s2", Dir: "/wt/parser-fix", Branch: "parser-fix", Base: "develop", Worktree: true,
 }
 
@@ -76,7 +76,7 @@ func TestSource_WorktreeDiffsAgainstTheMergeBaseWithItsBase_issue21(t *testing.T
 
 func TestSource_MainCheckoutDiffsAgainstHead_issue21(t *testing.T) {
 	g := &FakeGit{}
-	sess := registry.Session{ID: "s1", Dir: "/p/omatty"}
+	sess := sessions.Session{ID: "s1", Dir: "/p/omatty"}
 
 	if _, err := review.NewSource(g).Load(sess, "/p/omatty"); err != nil {
 		t.Fatal(err)
@@ -107,7 +107,7 @@ func TestSource_UntrackedFilesAreAppendedAsAdditions_issue21(t *testing.T) {
 	newFile := twoFileDiff[strings.Index(twoFileDiff, "diff --git a/new.txt"):]
 	g := &FakeGit{UntrackedOut: []string{"new.txt"}, FileDiffs: map[string]string{"new.txt": newFile}}
 
-	d, err := review.NewSource(g).Load(registry.Session{ID: "s1", Dir: "/p"}, "/p")
+	d, err := review.NewSource(g).Load(sessions.Session{ID: "s1", Dir: "/p"}, "/p")
 
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +120,7 @@ func TestSource_UntrackedFilesAreAppendedAsAdditions_issue21(t *testing.T) {
 func TestSource_GitFailureNamesTheSessionAndRef(t *testing.T) {
 	g := &FakeGit{Err: errors.New("boom")}
 
-	_, err := review.NewSource(g).Load(registry.Session{ID: "s9", Dir: "/p"}, "/p")
+	_, err := review.NewSource(g).Load(sessions.Session{ID: "s9", Dir: "/p"}, "/p")
 
 	if err == nil || !strings.Contains(err.Error(), "s9") || !strings.Contains(err.Error(), "HEAD") {
 		t.Errorf("error = %v, want one naming session s9 and ref HEAD", err)
@@ -157,7 +157,7 @@ func TestSource_UntrackedDiffFailureNamesTheFile(t *testing.T) {
 		Errs:         map[string]error{"UntrackedDiff": errors.New("boom")},
 	}
 
-	_, err := review.NewSource(g).Load(registry.Session{ID: "s1", Dir: "/p"}, "/p")
+	_, err := review.NewSource(g).Load(sessions.Session{ID: "s1", Dir: "/p"}, "/p")
 
 	if err == nil {
 		t.Fatal("Load() returned nil after an untracked-diff failure, want an error")
@@ -172,7 +172,7 @@ func TestSource_UntrackedDiffFailureNamesTheFile(t *testing.T) {
 func TestSource_UntrackedListingFailureNamesTheDirectory(t *testing.T) {
 	g := &FakeGit{Errs: map[string]error{"Untracked": errors.New("boom")}}
 
-	_, err := review.NewSource(g).Load(registry.Session{ID: "s1", Dir: "/p/omatty"}, "/p/omatty")
+	_, err := review.NewSource(g).Load(sessions.Session{ID: "s1", Dir: "/p/omatty"}, "/p/omatty")
 
 	if err == nil {
 		t.Fatal("Load() returned nil after a listing failure, want an error")

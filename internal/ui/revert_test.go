@@ -7,8 +7,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -22,12 +22,12 @@ type turnReverter struct {
 	Reverted []string
 }
 
-func (r *turnReverter) revert(sess registry.Session) (int, error) {
+func (r *turnReverter) revert(sess sessions.Session) (int, error) {
 	r.Reverted = append(r.Reverted, sess.ID)
 	return r.Files, r.Err
 }
 
-func (r *turnReverter) count(_ registry.Session) (int, error) { return r.Files, r.CountErr }
+func (r *turnReverter) count(_ sessions.Session) (int, error) { return r.Files, r.CountErr }
 
 func modelWithRevert(t *testing.T, rev *turnReverter) *ui.Model {
 	t.Helper()

@@ -1,10 +1,10 @@
-package registry
+package sessions
 
 // SetCollapsed records whether a project is folded in the sidebar (#505). It
 // is the whole of what `ctrl+o tab` persists: the fold is a view preference,
 // but one the operator expects to survive a restart.
 //
-//	err := registry.SetCollapsed(store, "omatty", true)
+//	err := sessions.SetCollapsed(store, "omatty", true)
 func SetCollapsed(s StateStore, project string, collapsed bool) error {
 	st, err := s.Load()
 	if err != nil {

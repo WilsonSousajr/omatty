@@ -3,18 +3,18 @@ package ui_test
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
-func twoProjectState() registry.State {
-	return registry.State{
-		Projects: []registry.Project{
+func twoProjectState() sessions.State {
+	return sessions.State{
+		Projects: []sessions.Project{
 			{Name: "omatty", Root: "/p/omatty"},
 			{Name: "api-svc", Root: "/p/api-svc"},
 		},
-		Sessions: []registry.Session{
+		Sessions: []sessions.Session{
 			{ID: "s1", Project: "omatty", Title: "main"},
 			{ID: "s2", Project: "omatty", Title: "parser-fix"},
 			{ID: "s3", Project: "api-svc", Title: "main"},
@@ -70,7 +70,7 @@ func TestSidebarRows_EachRowPointsAtItsOwnSession(t *testing.T) {
 }
 
 func TestSidebarRows_ProjectWithNoSessionsStillShows(t *testing.T) {
-	st := registry.State{Projects: []registry.Project{{Name: "empty", Root: "/p/empty"}}}
+	st := sessions.State{Projects: []sessions.Project{{Name: "empty", Root: "/p/empty"}}}
 
 	rows := ui.SidebarRows(st, nil)
 
@@ -124,9 +124,9 @@ func TestSidebar_EmptyStateSelectsNothing(t *testing.T) {
 // A project with no sessions must not strand the cursor before the sessions
 // that follow it.
 func TestSidebar_HeaderOnlyProjectFirstStillSelectsALaterSession(t *testing.T) {
-	st := registry.State{
-		Projects: []registry.Project{{Name: "empty"}, {Name: "omatty"}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "main"}},
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "empty"}, {Name: "omatty"}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "main"}},
 	}
 
 	s := ui.NewSidebar(ui.SidebarRows(st, nil))
@@ -137,7 +137,7 @@ func TestSidebar_HeaderOnlyProjectFirstStillSelectsALaterSession(t *testing.T) {
 	}
 }
 
-func emptyState() registry.State { return registry.State{} }
+func emptyState() sessions.State { return sessions.State{} }
 
 func TestSidebar_MoveDownFromTheLastSessionWrapsToTheFirst_issue126(t *testing.T) {
 	s := ui.NewSidebar(ui.SidebarRows(twoProjectState(), nil))
@@ -161,9 +161,9 @@ func TestSidebar_MoveUpFromTheFirstSessionWrapsToTheLast_issue126(t *testing.T) 
 }
 
 func TestSidebar_OneSessionStaysPutInBothDirections_issue126(t *testing.T) {
-	st := registry.State{
-		Projects: []registry.Project{{Name: "omatty"}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "main"}},
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "omatty"}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "main"}},
 	}
 	s := ui.NewSidebar(ui.SidebarRows(st, nil))
 	s.MoveDown()
@@ -177,7 +177,7 @@ func TestSidebar_OneSessionStaysPutInBothDirections_issue126(t *testing.T) {
 // the first header (#158), but Selected() is still ok=false there; and the
 // lap bound is still what stops a modulo walk spinning here forever.
 func TestSidebar_HeadersOnlyReturnsWithoutSelecting_issue126(t *testing.T) {
-	st := registry.State{Projects: []registry.Project{{Name: "empty"}, {Name: "also"}}}
+	st := sessions.State{Projects: []sessions.Project{{Name: "empty"}, {Name: "also"}}}
 	s := ui.NewSidebar(ui.SidebarRows(st, nil))
 
 	s.MoveDown()

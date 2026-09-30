@@ -7,16 +7,16 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
-func noCreate(_, title, branch string, worktree bool) (registry.Session, error) {
-	return registry.Session{ID: "created", Title: title, Branch: branch, Worktree: worktree}, nil
+func noCreate(_, title, branch string, worktree bool) (sessions.Session, error) {
+	return sessions.Session{ID: "created", Title: title, Branch: branch, Worktree: worktree}, nil
 }
 
-func noStart(registry.Session, int, int) (termwrap.Terminal, error) { return termwrap.NewFake(""), nil }
+func noStart(sessions.Session, int, int) (termwrap.Terminal, error) { return termwrap.NewFake(""), nil }
 
 func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap.Fake) {
 	t.Helper()
@@ -34,7 +34,7 @@ func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap
 
 // baseDeps is the required half of ui.Deps with inert fakes; tests add the
 // optional fields they exercise.
-func baseDeps(st registry.State, terms map[string]termwrap.Terminal) ui.Deps {
+func baseDeps(st sessions.State, terms map[string]termwrap.Terminal) ui.Deps {
 	return ui.Deps{State: st, Terms: terms, Create: noCreate, Start: noStart, SpinTick: instantTick,
 		Profiles: fsread.CoverageProfiles{}}
 }

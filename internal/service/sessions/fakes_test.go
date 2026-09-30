@@ -1,4 +1,4 @@
-package registry_test
+package sessions_test
 
 import (
 	"fmt"

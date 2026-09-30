@@ -1,4 +1,4 @@
-package registry
+package sessions
 
 import "fmt"
 
@@ -6,7 +6,7 @@ import "fmt"
 // it does after /clear. The row keeps its ID: that is the dtach socket's
 // name and the UI's key, and only the conversation changed (#316).
 //
-//	err := registry.RebindSession(store, sess.ID, payload.SessionID)
+//	err := sessions.RebindSession(store, sess.ID, payload.SessionID)
 //
 // Rebinding to the row's own id stores the empty value, so a conversation
 // has one spelling in state.json. A conversation another row already holds

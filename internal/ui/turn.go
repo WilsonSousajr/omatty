@@ -9,8 +9,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
@@ -22,7 +22,7 @@ type TurnSnappedMsg struct {
 	// Session and Root are the session and its project root as the snapshot
 	// began. A snapshot that lands after its session was archived has only
 	// these to drop the ref it just made (#350).
-	Session registry.Session
+	Session sessions.Session
 	Root    string
 }
 
@@ -76,7 +76,7 @@ func (m *Model) reloadTurn(id string) tea.Cmd {
 // dropTurnCmd deletes an archived session's baseline off the Update
 // goroutine. A failure is logged and nothing more: the archive has happened,
 // and a stray ref costs a few objects, not correctness.
-func (m *Model) dropTurnCmd(sess registry.Session) tea.Cmd {
+func (m *Model) dropTurnCmd(sess sessions.Session) tea.Cmd {
 	return m.dropTurn(sess, m.projectRoot(sess.Project))
 }
 
@@ -94,7 +94,7 @@ func (m *Model) dropLateTurn(msg TurnSnappedMsg) tea.Cmd {
 }
 
 // dropTurn deletes sess's baseline in root off the Update goroutine.
-func (m *Model) dropTurn(sess registry.Session, root string) tea.Cmd {
+func (m *Model) dropTurn(sess sessions.Session, root string) tea.Cmd {
 	drop := m.turn.Drop
 	return func() tea.Msg {
 		if err := drop(sess, root); err != nil {

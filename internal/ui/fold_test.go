@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -27,7 +27,7 @@ func (r *recordFold) fold(project string, collapsed bool) error {
 }
 
 // modelWithFold opens over st with the fold and create fakes wired in.
-func modelWithFold(t *testing.T, st registry.State, f *recordFold, c *recordCreate) *ui.Model {
+func modelWithFold(t *testing.T, st sessions.State, f *recordFold, c *recordCreate) *ui.Model {
 	t.Helper()
 	d := baseDeps(st, fakeTermsFor(st))
 	d.Fold = f.fold

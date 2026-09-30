@@ -1,7 +1,7 @@
 // Package session is omatty's record of its projects and sessions - Project,
 // Session, State - and the placeholder names a new one starts with. It is
 // what state.json holds, so its JSON tags are invariant 9: renaming one loses
-// every saved session. Persisting it is internal/registry's business.
+// every saved session. Persisting it is internal/service/sessions' business, through infra/store.
 //
 //	st := session.State{Version: session.Version}
 //	id := st.Sessions[0].ConversationID()

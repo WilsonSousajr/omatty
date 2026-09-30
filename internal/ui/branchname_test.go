@@ -7,7 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -15,7 +15,7 @@ import (
 // recordBranchRename is a named BranchRenameFunc fake: it records the rename
 // and answers what the test set for "did the branch have commits of its own".
 type recordBranchRename struct {
-	Session  registry.Session
+	Session  sessions.Session
 	Branch   string
 	Calls    int
 	Declined bool
@@ -23,7 +23,7 @@ type recordBranchRename struct {
 	Err      error
 }
 
-func (r *recordBranchRename) fn(sess registry.Session, branch string, unstartedOnly bool) (bool, error) {
+func (r *recordBranchRename) fn(sess sessions.Session, branch string, unstartedOnly bool) (bool, error) {
 	r.Calls++
 	r.Session, r.Branch, r.Forced = sess, branch, !unstartedOnly
 	if r.Err != nil {
@@ -128,7 +128,7 @@ func TestModel_aFailedBranchRenameKeepsThePlaceholderAndSaysSo_issue151(t *testi
 	if got := m.View().Content; !strings.Contains(got, "boom") {
 		t.Errorf("nothing in the footer says the branch rename failed:\n%s", got)
 	}
-	if m.SessionBranch("s1") != registry.PlaceholderBranch("s1") {
+	if m.SessionBranch("s1") != sessions.PlaceholderBranch("s1") {
 		t.Errorf("branch = %q, want the placeholder kept", m.SessionBranch("s1"))
 	}
 }
@@ -141,7 +141,7 @@ func TestModel_aBranchWithCommitsKeepsItsPlaceholder_issue151(t *testing.T) {
 
 	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
-	if m.SessionBranch("s1") != registry.PlaceholderBranch("s1") {
+	if m.SessionBranch("s1") != sessions.PlaceholderBranch("s1") {
 		t.Errorf("branch = %q, want the placeholder kept when declined", m.SessionBranch("s1"))
 	}
 	if got := m.View().Content; strings.Contains(got, "error") {
@@ -157,7 +157,7 @@ func TestModel_leaderBRenamesTheBranch_issue151(t *testing.T) {
 
 	leader(m, tea.KeyPressMsg{Code: 'B', Mod: tea.ModShift, Text: "B"})
 	// Pre-filled with the branch it is on, as ctrl+o R is with the title.
-	for range len(registry.PlaceholderBranch("s1")) {
+	for range len(sessions.PlaceholderBranch("s1")) {
 		press(m, special(tea.KeyBackspace))
 	}
 	for _, c := range "my branch" {
@@ -179,7 +179,7 @@ func modelForBranchRename(t *testing.T, r *recordBranchRename, prompt, branch st
 	t.Helper()
 	terms, _ := fakeTerms(t)
 	st := twoProjectState()
-	st.Sessions[0].Title = registry.PlaceholderTitle("s1")
+	st.Sessions[0].Title = sessions.PlaceholderTitle("s1")
 	st.Sessions[0].Worktree, st.Sessions[0].Branch = worktree, branch
 	d := baseDeps(st, terms)
 	d.Name = (&FakeNamer{Titles: map[string]string{"s1": prompt}}).Name
@@ -194,7 +194,7 @@ func modelForBranchRename(t *testing.T, r *recordBranchRename, prompt, branch st
 // itself, waiting for its first prompt to say what the work is.
 func placeholderWorktree(t *testing.T, r *recordBranchRename, prompt string) *ui.Model {
 	t.Helper()
-	return modelForBranchRename(t, r, prompt, registry.PlaceholderBranch("s1"), true)
+	return modelForBranchRename(t, r, prompt, sessions.PlaceholderBranch("s1"), true)
 }
 
 // The branch box keeps the guard the worktree prompt gave up: a blank buffer
@@ -205,7 +205,7 @@ func TestModel_theBranchBoxStillRefusesABlankName_issue151(t *testing.T) {
 	m := placeholderWorktree(t, r, "")
 
 	leader(m, tea.KeyPressMsg{Code: 'B', Mod: tea.ModShift, Text: "B"})
-	for range len(registry.PlaceholderBranch("s1")) {
+	for range len(sessions.PlaceholderBranch("s1")) {
 		press(m, special(tea.KeyBackspace))
 	}
 	pressAndSettle(m, special(tea.KeyEnter))

@@ -9,7 +9,7 @@ import (
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
@@ -17,7 +17,7 @@ import (
 // whose replacement process should now start. It exists because the stop half
 // runs off the Update goroutine and the start half must not begin until it has
 // finished (#15, #43).
-type sessionRelaunchMsg struct{ Session registry.Session }
+type sessionRelaunchMsg struct{ Session sessions.Session }
 
 // restartSelected relaunches the focused session's process in place (issue
 // #15). It covers a crashed pane and a claude that exited.
@@ -39,7 +39,7 @@ func (m *Model) restartSelected() tea.Cmd {
 // relaunch starts the replacement process. The old terminal is closed only
 // after the new one starts, so a failed restart never leaves the pane empty;
 // the launcher resumes the transcript (#36) so nothing is lost.
-func (m *Model) relaunch(sess registry.Session) tea.Cmd {
+func (m *Model) relaunch(sess sessions.Session) tea.Cmd {
 	w, h := m.ptySize()
 	term, err := m.start(sess, w, h)
 	if err != nil {
@@ -102,7 +102,7 @@ func (m *Model) addSession(project, title, branch string, worktree bool) (tea.Cm
 // other. Every step here is load-bearing, and a second copy that dropped one
 // would fail quietly: no terminal is a row you cannot focus, no tailer is a
 // session that never shows status (#33).
-func (m *Model) foldInSession(sess registry.Session) (tea.Cmd, error) {
+func (m *Model) foldInSession(sess sessions.Session) (tea.Cmd, error) {
 	w, h := m.ptySize()
 	term, err := m.start(sess, w, h)
 	if err != nil {
@@ -153,7 +153,7 @@ func (m *Model) stopSelected() tea.Cmd {
 // No confirmation, as for ctrl+o r: nothing typed is lost and enter resumes
 // it with --resume. The notice names that undo, and the turn a busy session
 // loses, which is the one real cost.
-func (m *Model) stopSession(sess registry.Session) tea.Cmd {
+func (m *Model) stopSession(sess sessions.Session) tea.Cmd {
 	if term := m.terms[sess.ID]; term != nil {
 		_ = term.Close()
 	}

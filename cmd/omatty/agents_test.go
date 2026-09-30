@@ -9,7 +9,7 @@ import (
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 )
@@ -122,7 +122,7 @@ func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
 	}
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", home, &detach.Plain{})
 
-	cmd, err := l.Command(registry.Session{ID: "abc-123", Dir: dir})
+	cmd, err := l.Command(sessions.Session{ID: "abc-123", Dir: dir})
 	if err != nil {
 		t.Fatalf("Command error = %v, want nil", err)
 	}

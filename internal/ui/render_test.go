@@ -8,14 +8,14 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
 // fakeTermsFor builds a fake terminal per session in st, for fixtures larger
 // than the three fakeTerms knows.
-func fakeTermsFor(st registry.State) map[string]termwrap.Terminal {
+func fakeTermsFor(st sessions.State) map[string]termwrap.Terminal {
 	terms := make(map[string]termwrap.Terminal, len(st.Sessions))
 	for _, sess := range st.Sessions {
 		terms[sess.ID] = termwrap.NewFake(sess.ID)
