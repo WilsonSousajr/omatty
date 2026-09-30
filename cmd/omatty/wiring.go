@@ -18,12 +18,14 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 func runTUI(home string, cfg config.Config, store *registry.Store) error {
@@ -114,7 +116,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 	git, holder := vcs.NewCLI(), env.Holder
 	src, fg := review.NewSource(git), newRouter(env.Cfg, git)
 	deps := ui.RunDeps{
-		Home: home, State: state, Width: w, Height: h,
+		Home: home, State: state, Width: w, Height: h, OpenTranscript: openTranscript,
 		Stop:      holder.Stop,
 		Notice:    holder.Notice(),
 		Launch:    supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
@@ -396,3 +398,8 @@ func sessionCreator(cfg config.Config, store *registry.Store) ui.CreateFunc {
 		return registry.AddSession(store, c, project, title, branch)
 	}
 }
+
+// openTranscript is the watcher's reader: status comes from the transcript
+// (invariant 2), and reading the file is infra's business, not the
+// watcher's (ADR 0001, step 5.2c, #653).
+func openTranscript(path string) watcher.Transcript { return transcript.NewReader(path) }

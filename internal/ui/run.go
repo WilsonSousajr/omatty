@@ -101,12 +101,15 @@ func HeldSessions(l *supervisor.Launcher, st registry.State) map[string]bool {
 //	ui.Run(ui.RunDeps{Home: home, State: st, Launch: l, Factory: termwrap.Start,
 //	        Width: w, Height: h, Create: create, Diff: diff, Files: files, Rename: rename})
 type RunDeps struct {
-	Home    string
-	State   registry.State
-	Launch  *supervisor.Launcher
-	Factory termwrap.Factory
-	Width   int
-	Height  int
+	Home string
+	// OpenTranscript reads a session's transcript for the watcher. cmd wires
+	// internal/infra/transcript's reader in (ADR 0001, step 5.2c, #653).
+	OpenTranscript func(path string) watcher.Transcript
+	State          registry.State
+	Launch         *supervisor.Launcher
+	Factory        termwrap.Factory
+	Width          int
+	Height         int
 	// Create is called when the operator finishes a new-session prompt; the
 	// model starts that session's terminal itself through the same launcher.
 	Create CreateFunc
@@ -234,7 +237,7 @@ func watchDeps(d RunDeps) watcher.WatchDeps {
 	if profile.Status == nil {
 		profile = agent.Claude()
 	}
-	return watcher.WatchDeps{Home: d.Home, Clock: time.Now,
+	return watcher.WatchDeps{Home: d.Home, Clock: time.Now, OpenTranscript: d.OpenTranscript,
 		Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}
 }
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
+	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
 )
 
 // shortHome is a HOME short enough for a unix socket path; macOS caps
@@ -31,7 +32,8 @@ func shortHome(t *testing.T) string {
 // claudeDeps is Start's dependencies for claude, so the tests written before
 // the seam (#46) read as they did.
 func claudeDeps(home string) WatchDeps {
-	return WatchDeps{Home: home, Clock: time.Now, Adapter: ClaudeAdapter(), TranscriptPath: paths.Transcript}
+	return WatchDeps{Home: home, Clock: time.Now, Adapter: ClaudeAdapter(), TranscriptPath: paths.Transcript,
+		OpenTranscript: func(p string) Transcript { return transcript.NewReader(p) }}
 }
 
 func twoSessions() []session.Session {
@@ -183,15 +185,18 @@ func TestStart_DegradesToTailerOnlyWhenTheSocketCannotBind_issue49(t *testing.T)
 // path, still keyed by its ID so the next Add replaces it.
 func TestWatch_AddTailsTheReboundConversation_issue316(t *testing.T) {
 	home := shortHome(t)
-	w := Start(claudeDeps(home), twoSessions())
+	deps := claudeDeps(home)
+	var opened string
+	deps.OpenTranscript = func(p string) Transcript { opened = p; return transcript.NewReader(p) }
+	w := Start(deps, twoSessions())
 	defer w.Close()
 	first := w.tailers["s1"]
 
 	w.Add(session.Session{ID: "s1", Project: "p", Title: "one", Dir: "/p", Conversation: "c1"})
 
 	tl := w.tailers["s1"]
-	if want := paths.Transcript(home, "/p", "c1"); tl.path != want || tl.sessionID != "c1" {
-		t.Errorf("tailer = (%q, %q), want (%q, c1)", tl.sessionID, tl.path, want)
+	if want := paths.Transcript(home, "/p", "c1"); opened != want || tl.sessionID != "c1" {
+		t.Errorf("tailer = (%q, %q), want (%q, c1)", tl.sessionID, opened, want)
 	}
 	select {
 	case <-first.Done():

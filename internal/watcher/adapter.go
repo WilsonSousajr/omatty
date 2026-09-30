@@ -40,6 +40,10 @@ type WatchDeps struct {
 	Clock          func() time.Time
 	Adapter        Adapter
 	TranscriptPath TranscriptPathFunc
+	// OpenTranscript reads a transcript at a path. It is injected, because
+	// reading files is infra's business (ADR 0001, step 5.2c, #653): cmd passes
+	// internal/infra/transcript's NewReader.
+	OpenTranscript func(path string) Transcript
 }
 
 // claudeStatus reads claude's transcript through the functions this package

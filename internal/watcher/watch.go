@@ -115,7 +115,7 @@ func (w *Watch) pump() {
 // is how the tailer follows it (#316). The map stays keyed by sess.ID.
 func (w *Watch) Add(sess session.Session) {
 	conv := sess.ConversationID()
-	tl := Tail(conv, w.deps.TranscriptPath(w.deps.Home, sess.Dir, conv), w.events, w.deps.Clock, pollEvery, w.deps.Adapter)
+	tl := Tail(conv, w.deps.OpenTranscript(w.deps.TranscriptPath(w.deps.Home, sess.Dir, conv)), w.events, w.deps.Clock, pollEvery, w.deps.Adapter)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if old := w.tailers[sess.ID]; old != nil {

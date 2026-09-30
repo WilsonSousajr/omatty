@@ -76,6 +76,7 @@ internal/
 │   ├── hooks/      the --settings hooks file, and the `omatty hook` command (invariant 11).
 │   ├── notify/     desktop notifications for a session needing attention.
 │   ├── paths/      every filesystem location omatty reads or writes. Pure.
+│   ├── transcript/ [ADR 0001] reads an agent's JSONL as it grows: new complete lines, truncation.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
 ├── pubsub/          [ADR 0001] Broker[T]: services publish (Publish waits, Offer drops), the TUI subscribes.
 ├── registry/       persists projects and sessions to state.json; the record itself is domain/session.

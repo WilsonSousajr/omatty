@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -21,7 +22,7 @@ func TestTail_ParsesThroughTheAdapter_issue46(t *testing.T) {
 	a := &fakeAdapter{Kind: watcher.ToolStarted, At: at, Entry: watcher.Entry{Type: "user", At: at}}
 	sink := make(chan watcher.Event, 4)
 
-	tl := watcher.Tail("s1", path, sink, time.Now, time.Hour, a)
+	tl := watcher.Tail("s1", transcript.NewReader(path), sink, time.Now, time.Hour, a)
 	defer tl.Close()
 	tl.Poll()
 
@@ -69,6 +70,7 @@ func TestStart_TailsThePathTheProfileNames_issue46(t *testing.T) {
 	w := watcher.Start(watcher.WatchDeps{
 		Home: home, Clock: time.Now, Adapter: a,
 		TranscriptPath: func(_, _, _ string) string { return path },
+		OpenTranscript: func(p string) watcher.Transcript { return transcript.NewReader(p) },
 	}, []session.Session{{ID: "s1", Dir: "/w"}})
 	defer w.Close()
 
