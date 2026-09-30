@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/domain/status"
 )
 
@@ -21,12 +22,10 @@ const maxPayload = 4 << 20
 // this is not one claude wrote.
 const maxField = 1024
 
-// SessionEnv names the environment variable the launcher sets on every
-// session's process to that session's registry id. The hook inherits it from
-// claude, which is how a SessionStart for a new conversation - a /clear -
-// names the pane it belongs to: the payload's cwd cannot, since two panes may
-// share a directory (#316).
-const SessionEnv = "OMATTY_SESSION"
+// SessionEnv is session.SessionEnv, the variable the launcher sets and the
+// hook reads (#316). It moved to internal/domain/session in migration step 5.5
+// (#653); this alias keeps callers compiling until step 8.1 deletes it.
+const SessionEnv = session.SessionEnv
 
 // Payload is status.HookPayload, the slice of a hook's stdin that status
 // needs. It moved to internal/domain/status (migration step 3.2); this alias

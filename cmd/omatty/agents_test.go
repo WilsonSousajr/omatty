@@ -11,7 +11,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
-	"github.com/WilsonSousajr/omatty/internal/supervisor"
 )
 
 // Invariant 9: every session row written before #46 has no agent, and it
@@ -120,7 +119,7 @@ func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
 	if err := os.WriteFile(transcript, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", home, &detach.Plain{})
+	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", home, &detach.Plain{})
 
 	cmd, err := l.Launch(sessions.Session{ID: "abc-123", Dir: dir})
 	if err != nil {

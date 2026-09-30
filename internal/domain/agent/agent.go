@@ -13,8 +13,9 @@
 // path function, and those live in layers this package may not import.
 //
 // Nothing here starts a process. Command returns an argument list, not an
-// *exec.Cmd, so the rule that only internal/supervisor runs a binary and only
-// internal/infra/detach holds it survives the seam (invariant 4). Nothing here can
+// *exec.Cmd, so the rule that only internal/termwrap spawns an agent - from the
+// session.Launch the session service builds - and only internal/infra/detach
+// holds it survives the seam (invariant 4). Nothing here can
 // read a screen either: Status takes transcript bytes and hook payloads, and
 // a Profile has no field a terminal could be handed through (invariant 2).
 package agent
@@ -43,7 +44,7 @@ type Profile struct {
 	RenderSettings func(binPath string, eventNames []string) ([]byte, error)
 	// Status reads this agent's transcript lines and hook payloads into
 	// omatty's neutral vocabulary. It is the half of a Profile the watcher
-	// holds; the command template is the half only the supervisor needs.
+	// holds; the command template is the half only the launcher needs.
 	Status status.Adapter
 }
 

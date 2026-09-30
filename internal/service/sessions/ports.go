@@ -23,3 +23,16 @@ type Worktrees interface {
 	AddWorktree(ctx context.Context, repoRoot, dir, branch, base string) error
 	RemoveWorktree(ctx context.Context, repoRoot, dir string) error
 }
+
+// Holder keeps a session's process alive while omatty is not attached to it
+// (ADR 0001's port, re-expressed over a command line in migration step 5.5,
+// #653, so this service stays free of os/exec). internal/infra/detach
+// implements it: a dtach client, or the Plain fallback where dtach is absent.
+//
+//	argv, err := holder.Wrap(sess.ID, []string{"claude", "--resume", sess.ID})
+type Holder interface {
+	Wrap(sessionID string, argv []string) ([]string, error)
+	Stop(sessionID string) error
+	Persists() bool
+	Held(sessionID string) (bool, error)
+}

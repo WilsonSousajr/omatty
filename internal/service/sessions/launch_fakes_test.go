@@ -1,4 +1,4 @@
-package supervisor_test
+package sessions_test
 
 import (
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"

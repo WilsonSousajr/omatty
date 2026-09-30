@@ -1,24 +1,21 @@
-// Package supervisor owns the lifecycle of the claude process behind each
-// session.
-package supervisor
+// Starting a session: what runs, wrapped by the holder that keeps it alive
+// across quit, as a session.Launch the terminal spawns (ADR 0001, "Starting a
+// session"). This was internal/supervisor until migration step 5.5 (#653).
+
+package sessions
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
-	"github.com/WilsonSousajr/omatty/internal/infra/detach"
-	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
 
 // Launcher builds and starts the claude process for a session.
 //
-//	l := supervisor.NewLauncher(profile, cfg.ClaudeBin, paths.HooksFile(home), home, detach.New(home))
-//	term, err := l.Start(termwrap.Start, sess, 80, 24)
+//	l := sessions.NewLauncher(profile, cfg.ClaudeBin, paths.HooksFile(home), home, detach.New(home))
+//	launch, err := l.Launch(sess)
 //
 // One profile per Launcher because M7 has one agent. When a second arrives,
 // Start resolves sess.Agent and Command takes the profile as a parameter;
@@ -28,18 +25,18 @@ type Launcher struct {
 	bin       string
 	hooksFile string
 	home      string
-	// holder keeps the process alive across omatty's own exit. It is an
-	// interface, not the dtach type, because invariant 4 keeps the binary
-	// inside internal/infra/detach and because a machine without dtach gets the
+	// holder keeps the process alive across omatty's own exit. It is a port,
+	// not the dtach type, because invariant 4 keeps the binary inside
+	// internal/infra/detach and because a machine without dtach gets the
 	// Plain holder instead (#43).
-	holder detach.Holder
+	holder Holder
 }
 
 // NewLauncher returns a Launcher running profile's agent as bin with
 // hooksFile as its settings. home is where the agent keeps transcripts; it
 // decides between a fresh start and a resume. holder decides whether the
 // process survives quitting omatty.
-func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder detach.Holder) *Launcher {
+func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder Holder) *Launcher {
 	return &Launcher{profile: profile, bin: bin, hooksFile: hooksFile, home: home, holder: holder}
 }
 
@@ -60,7 +57,7 @@ func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder deta
 // The conversation is what claude resumes, and the row's ID is what the holder
 // names and what the hook reads back from the environment: after /clear the
 // two differ, and only the first moves (#316).
-func (l *Launcher) Launch(sess sessions.Session) (session.Launch, error) {
+func (l *Launcher) Launch(sess Session) (session.Launch, error) {
 	conv := sess.ConversationID()
 	resume := HasTranscript(l.profile, l.home, sess.Dir, conv)
 	argv, err := l.holder.Wrap(sess.ID, l.profile.Command(l.bin, conv, sess.Dir, resume, l.hooksFile))
@@ -70,11 +67,11 @@ func (l *Launcher) Launch(sess sessions.Session) (session.Launch, error) {
 	return session.Launch{Argv: argv, Env: ownedEnv(os.Environ(), sess.ID), Dir: sess.Dir}, nil
 }
 
-// ownedEnv is env with hooks.SessionEnv set to id. A value inherited from an
+// ownedEnv is env with session.SessionEnv set to id. A value inherited from an
 // outer omatty pane is dropped rather than shadowed, so an omatty running
 // inside omatty cannot re-bind the pane it runs in (#316).
 func ownedEnv(env []string, id string) []string {
-	prefix := hooks.SessionEnv + "="
+	prefix := session.SessionEnv + "="
 	out := make([]string, 0, len(env)+1)
 	for _, kv := range env {
 		if !strings.HasPrefix(kv, prefix) {
@@ -90,21 +87,6 @@ func ownedEnv(env []string, id string) []string {
 func HasTranscript(profile agent.Profile, home, dir, sessionID string) bool {
 	info, err := os.Stat(profile.TranscriptPath(home, dir, sessionID))
 	return err == nil && !info.IsDir()
-}
-
-// Start launches the session's process inside a w by h embedded terminal.
-func (l *Launcher) Start(
-	f termwrap.Factory, sess sessions.Session, w, h int,
-) (termwrap.Terminal, error) {
-	launch, err := l.Launch(sess)
-	if err != nil {
-		return nil, err
-	}
-	term, err := f(w, h, launch)
-	if err != nil {
-		return nil, fmt.Errorf("supervisor: starting session %s in %q: %w", sess.ID, sess.Dir, err)
-	}
-	return term, nil
 }
 
 // Reattaching reports whether the session's process is already running from
