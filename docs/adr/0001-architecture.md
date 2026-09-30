@@ -149,7 +149,7 @@ These rules hold for every port:
 | `service/gate` | `ProfileReader` | `Load(ctx, path, dir string) (coverage.Profile, error)` | `infra/fsread` |
 | `service/status` | `Transcripts` | `Tail(ctx, path string) (<-chan []byte, error)`; `Read(ctx, path string) ([]byte, error)` | `infra/transcript` |
 | `service/status` | `HookEvents` | `Listen(ctx) (<-chan status.HookPayload, error)` | `infra/hookserver` |
-| `service/status` | `Adapter` | today's `watcher.Adapter`, with `hooks.Payload` becoming `status.HookPayload` | `domain/agent` profiles |
+| `domain/status` | `Adapter` | today's `watcher.Adapter`, with `hooks.Payload` becoming `status.HookPayload`. *Moved from `service/status` by migration Amendment 7 (#653): `domain/agent` profiles carry an `Adapter`, and domain may not import the service layer. It names domain types only.* | `service/status`'s Claude parser, carried by `domain/agent` profiles |
 | `service/status` | `Notifier` | today's `notify.Notifier` | `infra/notify` |
 | `service/tracker` | `Lister`; `ItemReader`; `Browser` | `PRs`/`Issues(ctx, root)` and the cache-only `Label(root)`; `Item(ctx, root, ref)`; `Open(ctx, url)`, as today's `ForgeBrowseFuncs` | `infra/forge` Router |
 | `service/discovery` | `TranscriptStore`; `Git` | `Sessions(ctx)`; today's `discover.Git` | `infra/transcript`, `infra/vcs` |
@@ -351,7 +351,7 @@ All twelve stand. These are the ones the move touches, and how each is kept:
   AGENTS.md's "Repository layout" and "Dependencies" sections are updated in
   the PR that changes what they describe.
 - **M17 lands on the new shape.** The agent seam becomes `domain/agent`
-  profiles plus the `service/status` Adapter port, so nine agents are nine
+  profiles plus the `domain/status` Adapter port, so nine agents are nine
   profiles, not nine edits to `ui`. Work under way on M17 has to be sequenced
   against the migration, which is Phase 3's job.
 - **The cost is time and review attention.** Phase 3 sequences the moves;
