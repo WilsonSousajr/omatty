@@ -73,6 +73,7 @@ internal/
 │   ├── gitdiff/    [ADR 0001] the only go-gitdiff importer: git's unified diff -> domain/review.Diff.
 │   ├── golist/     [M11] OUR interface over `go list` (invariant 4 in spirit).
 │   ├── highlight/  [M5] OUR interface over chroma (invariant 4 in spirit).
+│   ├── hookserver/ [ADR 0001] the hook socket: bounded, user-only, offers each payload and never waits.
 │   ├── hooks/      the --settings hooks file, and the `omatty hook` command (invariant 11).
 │   ├── notify/     desktop notifications for a session needing attention.
 │   ├── paths/      every filesystem location omatty reads or writes. Pure.

@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
@@ -52,7 +54,11 @@ func TestOmattyHook_DeliversToARealListener(t *testing.T) {
 	}
 
 	select {
-	case ev := <-events:
+	case p := <-events:
+		// The hook server hands over the payload; the watcher's adapter says
+		// what it means (step 5.2d, #653). Both halves are real here.
+		kind, _ := watcher.KindOf(p)
+		ev := watcher.Event{SessionID: p.SessionID, Kind: kind}
 		if ev.SessionID != "abc" || ev.Kind != watcher.PermissionRequested {
 			t.Errorf("received %+v, want session abc PermissionRequested", ev)
 		}
@@ -132,7 +138,7 @@ func withoutHome(env []string) []string {
 
 // listenUnderHome creates a short-pathed socket at $HOME/.omatty/sock and a
 // listener on it, returning the HOME to point the hook binary at.
-func listenUnderHome(t *testing.T) (string, <-chan watcher.Event, func()) {
+func listenUnderHome(t *testing.T) (string, <-chan dstatus.HookPayload, func()) {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "om") // macOS caps a unix path near 104 bytes
 	if err != nil {
@@ -142,8 +148,8 @@ func listenUnderHome(t *testing.T) (string, <-chan watcher.Event, func()) {
 		t.Fatal(err)
 	}
 	sock := filepath.Join(dir, ".omatty", "sock")
-	events := make(chan watcher.Event, 4)
-	l, err := watcher.Listen(sock, events, time.Now, watcher.ClaudeAdapter())
+	events := make(chan dstatus.HookPayload, 4)
+	l, err := hookserver.Listen(sock, events)
 	if err != nil {
 		t.Fatal(err)
 	}

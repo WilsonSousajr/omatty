@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/agent"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/ui"
+	"net"
 )
 
 // A wiring test of the kind main_test.go concedes is missing: the configured
@@ -355,5 +357,40 @@ func TestTuiDeps_OpensTranscriptsThroughTheReader_issue653(t *testing.T) {
 	lines, _, ok := deps.OpenTranscript(path).Poll()
 	if !ok || len(lines) != 1 || string(lines[0]) != "line" {
 		t.Errorf("the wired opener read %q, %v; want [line], true", lines, ok)
+	}
+}
+
+// Step 5.2d (#653): the hook socket is served by an injected server, because
+// running one is infra's business. Left unset the watcher would call a nil
+// function at start, so the real wiring is pinned: a payload sent to the
+// socket the wired server listens on arrives on its sink.
+func TestTuiDeps_ServesTheHookSocket_issue653(t *testing.T) {
+	dir, err := os.MkdirTemp("", "om") // a unix socket path is capped near 104 bytes
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	env := tuiEnv{Home: "/h", Agent: agent.Claude(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env.Cfg = config.Defaults("/h")
+	deps := tuiDeps(env, nil, registry.State{})
+	if deps.ListenHooks == nil {
+		t.Fatal("ListenHooks is not wired: the watcher would call a nil server")
+	}
+	sink := make(chan dstatus.HookPayload, 1)
+	sock := filepath.Join(dir, "s")
+	l, err := deps.ListenHooks(sock, sink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = l.Close() }()
+
+	c, err := net.Dial("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = c.Write([]byte(`{"session_id":"s1","hook_event_name":"Stop"}` + "\n"))
+	_ = c.Close()
+	if p := <-sink; p.SessionID != "s1" || p.HookEventName != "Stop" {
+		t.Errorf("the wired server handed over %+v, want s1 Stop", p)
 	}
 }

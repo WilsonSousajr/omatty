@@ -14,9 +14,11 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/discover"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
@@ -26,6 +28,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"io"
 )
 
 func runTUI(home string, cfg config.Config, store *registry.Store) error {
@@ -116,7 +119,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 	git, holder := vcs.NewCLI(), env.Holder
 	src, fg := review.NewSource(git), newRouter(env.Cfg, git)
 	deps := ui.RunDeps{
-		Home: home, State: state, Width: w, Height: h, OpenTranscript: openTranscript,
+		Home: home, State: state, Width: w, Height: h, OpenTranscript: openTranscript, ListenHooks: listenHooks,
 		Stop:      holder.Stop,
 		Notice:    holder.Notice(),
 		Launch:    supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
@@ -403,3 +406,15 @@ func sessionCreator(cfg config.Config, store *registry.Store) ui.CreateFunc {
 // (invariant 2), and reading the file is infra's business, not the
 // watcher's (ADR 0001, step 5.2c, #653).
 func openTranscript(path string) watcher.Transcript { return transcript.NewReader(path) }
+
+// listenHooks is the watcher's hook server. Running a socket server is
+// infra's business (ADR 0001, step 5.2d, #653), and a nil *Listener must not
+// reach the watcher wrapped in a non-nil io.Closer, so the error path returns
+// a plain nil.
+func listenHooks(path string, sink chan<- dstatus.HookPayload) (io.Closer, error) {
+	l, err := hookserver.Listen(path, sink)
+	if err != nil {
+		return nil, err
+	}
+	return l, nil
+}

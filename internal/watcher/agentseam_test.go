@@ -6,9 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"errors"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"io"
 )
 
 // The tailer parses every line through the adapter it was given and emits
@@ -36,29 +39,6 @@ func TestTail_ParsesThroughTheAdapter_issue46(t *testing.T) {
 	}
 }
 
-// The listener maps a payload through the adapter (#46).
-func TestListen_MapsHookPayloadsThroughTheAdapter_issue46(t *testing.T) {
-	path := filepath.Join(shortDir(t), "s")
-	a := &fakeAdapter{Kind: watcher.PermissionRequested}
-	sink := make(chan watcher.Event, 1)
-	l, err := watcher.Listen(path, sink, time.Now, a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = l.Close() }()
-
-	dialAndWait(t, path, `{"session_id":"s1","hook_event_name":"Whatever"}`)
-
-	select {
-	case ev := <-sink:
-		if ev.Kind != watcher.PermissionRequested || a.Payload.HookEventName != "Whatever" {
-			t.Errorf("event %+v, adapter saw %+v; want the adapter's kind for the payload it was given", ev, a.Payload)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no event through the adapter")
-	}
-}
-
 // Start tails the path the profile names, not ~/.claude (#46).
 func TestStart_TailsThePathTheProfileNames_issue46(t *testing.T) {
 	home := t.TempDir()
@@ -71,6 +51,9 @@ func TestStart_TailsThePathTheProfileNames_issue46(t *testing.T) {
 		Home: home, Clock: time.Now, Adapter: a,
 		TranscriptPath: func(_, _, _ string) string { return path },
 		OpenTranscript: func(p string) watcher.Transcript { return transcript.NewReader(p) },
+		ListenHooks: func(string, chan<- dstatus.HookPayload) (io.Closer, error) {
+			return nil, errors.New("no hook socket in this test")
+		},
 	}, []session.Session{{ID: "s1", Dir: "/w"}})
 	defer w.Close()
 
