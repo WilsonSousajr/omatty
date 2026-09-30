@@ -117,7 +117,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
 | `internal/domain/fuzzy` | Subsequence ranking for the session switcher, the pickers and the tree filter. Pure, so it is table-tested. |
 | `internal/domain/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. |
-| `internal/tally` | A project's gate counters and its pull requests → lead time and first-pass rate. Pure; no I/O (#332). |
+| `internal/domain/tally` | A project's gate counters and its pull requests → lead time and first-pass rate. Pure; no I/O (#332). |
 | `internal/infra/forge` | omatty's only route to any forge, and its only HTTP client: a `Router` that names each project's forge from its remote and reads it through the forge's own CLI (`gh`, `glab`, `tea`, `az`) or its REST API - a project's pull requests, its open issues, one item in full, browse - on a timer, and the three writes the ship key makes, only on a keypress (#310, #394, #397, #331, #452-#465). A token is borrowed per call, sent only to the instance it is for, and stored nowhere (#453). |
 | `internal/gate` | A project's own verification commands, run in a session's directory. Verdicts come from exit status only (invariant 12). |
 | `internal/domain/forge` | A forge's work, independent of the forge: `PR` and its state, CI and review, `Issue`, `Detail` with its `Comment`s and `Check`s, and `Label`, how a forge names things. `internal/infra/forge` returns these and aliases them until migration step 8.1. |
@@ -271,7 +271,7 @@ Paths are relative to `internal/`; the figures are `./scripts/check-deps.sh`'s.
 
 | Package | Ca | Ce | I |
 |---|---|---|---|
-| `tally`, `ui` | 0 | 2, 14 | 1.00 |
+| `domain/tally`, `ui` | 0 | 2, 14 | 1.00 |
 | `infra/config`, `domain/crap`, `domain/depgraph`, `discover` | 0 | 1–2 | 1.00 |
 | `supervisor` | 1 | 6 | 0.86 |
 | `review` | 1 | 3 | 0.75 |
@@ -289,8 +289,9 @@ the Stable Dependencies Principle holds with **0 violations over 41 edges**, the
 tightest being `agent → watcher` at **+0.100**. (The 41st is M16's
 `config → forge`, for `[forge.hosts]`: a leaf at I=1.00 onto one at 0.00.)
 
-`internal/tally` (#332) is a leaf nothing depends on, importing `registry` and
-`forge` to turn a project's counters and its pull requests into two numbers. It
+`internal/domain/tally` (#332) is a leaf nothing depends on, importing
+`domain/session` and `domain/forge` (`registry` and `forge` until migration
+steps 3.1 and 3.5) to turn a project's counters and its pull requests into two numbers. It
 is its own package for a reason worth recording: in `registry` it would have
 added `registry → forge` and taken registry's own instability up, tightening
 every edge into it; in `gate` it would have given a deliberate stable leaf its

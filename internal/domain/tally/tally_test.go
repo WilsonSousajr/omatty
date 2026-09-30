@@ -6,7 +6,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
-	"github.com/WilsonSousajr/omatty/internal/tally"
+	"github.com/WilsonSousajr/omatty/internal/domain/tally"
 )
 
 var start = time.Date(2026, 9, 26, 9, 0, 0, 0, time.UTC)

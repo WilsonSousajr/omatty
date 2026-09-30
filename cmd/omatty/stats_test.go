@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/tally"
 	"github.com/WilsonSousajr/omatty/internal/registry"
-	"github.com/WilsonSousajr/omatty/internal/tally"
 )
 
 // #332's two numbers, rendered. A CLI line rather than a card: the sidebar's
