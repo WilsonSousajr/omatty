@@ -1,8 +1,10 @@
 // Naming a session by asking the agent's own binary, headless (#127 step 2).
 //
-// It lives in supervisor because supervisor is the package that runs the
-// claude binary - invariant 4's argument, applied to a second way of running
-// it. Three things it deliberately does not do. It does not go through the
+// It lives in infra/agentcli because running the agent's binary for a one-shot
+// answer is an adapter's business (ADR 0001, migration step 5.5, #653). It
+// lived in supervisor until then, because supervisor was the package that ran
+// the claude binary - invariant 4's argument, applied to a second way of
+// running it. Three things it deliberately does not do. It does not go through the
 // detach holder: a naming call is a one-shot that must die with its timeout,
 // and a held one would outlive omatty with nothing attached to it. It does
 // not pass --settings: the hooks file is what makes claude report status
@@ -10,7 +12,7 @@
 // not pass --session-id: omatty assigns uuids to sessions it will resume, and
 // this is not one.
 
-package supervisor
+package agentcli
 
 import (
 	"bytes"
@@ -23,7 +25,7 @@ import (
 
 	"github.com/mattn/go-runewidth"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 )
 
 // Runner executes the naming call. Injected so a test can assert the exact
@@ -53,7 +55,7 @@ const namingModel = "haiku"
 
 // Namer asks the agent's binary for a short name for a task.
 //
-//	n := supervisor.NewNamer(supervisor.NamerOpts{Bin: cfg.ClaudeBin})
+//	n := agentcli.NewNamer(agentcli.NamerOpts{Bin: cfg.ClaudeBin})
 //	defer n.Close()
 //	name, err := n.Name(ctx, "the mouse doesnt scroll sideway in the diff")
 type Namer struct {
@@ -117,7 +119,7 @@ func parseName(out []byte) (string, error) {
 	if r.IsError {
 		return "", fmt.Errorf("naming call: claude reported an error: %q", clipBytes([]byte(r.Result)))
 	}
-	return sessions.Slug(r.Result), nil
+	return session.Slug(r.Result), nil
 }
 
 // clipBytes bounds what an error message quotes.

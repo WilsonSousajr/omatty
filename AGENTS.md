@@ -71,6 +71,7 @@ internal/
 │   └── status/     [M2] transcript lines + hook payloads -> typed status events, published through pubsub.
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
+│   ├── agentcli/   [ADR 0001] the agent's binary run headless for a one-shot answer: a session's name (#127).
 │   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).
 │   ├── forge/      OUR interface over every forge's CLI - gh, glab, az, tea - behind
 │   │            one Router: pull requests, CI and issues, read on a timer;
@@ -81,7 +82,7 @@ internal/
 │   ├── golist/     [M11] OUR interface over `go list` (invariant 4 in spirit).
 │   ├── highlight/  [M5] OUR interface over chroma (invariant 4 in spirit).
 │   ├── hookserver/ [ADR 0001] the hook socket: bounded, user-only, offers each payload and never waits.
-│   ├── hooks/      the --settings hooks file, and the `omatty hook` command (invariant 11).
+│   ├── hooks/      the --settings hooks file, installed at start, and the `omatty hook` command (invariant 11).
 │   ├── notify/     desktop notifications for a session needing attention.
 │   ├── paths/      every filesystem location omatty reads or writes. Pure.
 │   ├── store/      [ADR 0001] state.json, written atomically (invariant 9), and carry's file copy (#309).
@@ -89,7 +90,7 @@ internal/
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
 ├── pubsub/          [ADR 0001] Broker[T]: services publish (Publish waits, Offer drops), the TUI subscribes.
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
-├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
+├── supervisor/     builds a session's Launch: fresh start vs resume, wrapped by the holder.
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── discover/       proposes repositories to register, from claude's transcript store (#91).
 ├── review/         [M3] loads a diff and a turn, previews, reverts; the model is domain/review.
@@ -217,7 +218,7 @@ not in the gate.
   Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
-  from `infra/detach`, `infra/forge`, `infra/gateexec`, `infra/golist`, `infra/notify`, `supervisor`,
+  from `infra/agentcli`, `infra/detach`, `infra/forge`, `infra/gateexec`, `infra/golist`, `infra/notify`,
   `termwrap` and `infra/vcs`, and nowhere else in production code. `termwrap` is on that list because it spawns
   the session's process: the session service hands it a `session.Launch`
   command line, and the PTY it runs in is bubbleterm's (ADR 0001, "Starting a

@@ -128,7 +128,8 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/infra/gitdiff` | The only package that imports go-gitdiff: parses git's unified output into `domain/review.Diff`, numbering every line on both sides. |
 | `internal/infra/transcript` | Reads an agent's JSONL transcript as it grows: the complete lines appended since the last poll, a truncation flag, the line cap. What the lines mean is `internal/service/status`'s. |
 | `internal/infra/hookserver` | omatty's end of the hook socket: user-only, bounded connections and payloads, a read deadline; each payload is offered on and dropped rather than waited on (invariant 11). What a payload means is `internal/service/status`'s. |
-| `internal/infra/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
+| `internal/infra/hooks` | Renders and installs `~/.omatty/hooks.json`, written atomically and never through a link, and implements the `omatty hook` reporter. |
+| `internal/infra/agentcli` | The agent's binary run headless for a one-shot answer - a session's name from its first prompt (#127) - under a timeout, never through the holder. |
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/infra/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
 | `internal/domain/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
@@ -140,7 +141,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/domain/session` | `Project`, `Session`, `State` - what `state.json` holds, whose JSON tags are invariant 9 - and the placeholder title and branch a new session starts with. Pure; `internal/service/sessions` aliases it until migration step 8.1. |
 | `internal/domain/status` | A session's status vocabulary - `Kind`, `Status`, `Event`, `Tokens`, `SessionState`, `HookPayload`, the transcript `Entry` and the agent's `Adapter` port - and `Apply`, which folds an event into a state. Pure; `internal/service/status` and `internal/infra/hooks` alias it until migration step 8.1. |
 | `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |
-| `internal/supervisor` | The `claude` process behind each session: fresh start vs resume, the PTY, the holder. |
+| `internal/supervisor` | What starts a session: the agent's command line - fresh start vs resume - wrapped by the holder, as a `session.Launch` the terminal spawns. |
 | `internal/termwrap` | omatty's only route to the terminal emulator (bubbleterm). |
 | `internal/ui` | The bubbletea model: sidebar, panes, modals, review column, rendering. |
 | `internal/infra/vcs` | omatty's only route to git, via the CLI. |

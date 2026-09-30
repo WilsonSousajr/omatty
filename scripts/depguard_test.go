@@ -19,7 +19,7 @@ import (
 // only thing that would say so. internal/termwrap earns its place by spawning
 // the session's process from a session.Launch, since bubbleterm owns the PTY
 // it runs in (ADR 0001, migration step 5.5, #653).
-var execAllowed = []string{"infra/detach", "infra/forge", "infra/gateexec", "infra/golist", "infra/notify", "supervisor", "termwrap", "infra/vcs"}
+var execAllowed = []string{"infra/agentcli", "infra/detach", "infra/forge", "infra/gateexec", "infra/golist", "infra/notify", "termwrap", "infra/vcs"}
 
 // Regression, issue #260: invariant 4 fences bubbleterm inside internal/termwrap,
 // and AGENTS.md:68 said internal/ui was the only package importing bubbletea.
