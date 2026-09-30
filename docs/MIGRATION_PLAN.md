@@ -62,7 +62,7 @@ count after the step.
 | 5.3a (exec) | #653 | #667 | merged | 16 |
 | 5.3b (move) | #653 | #668 | merged | 16 |
 | 5.3c (fsread) | #653 | #669 | merged | 15 |
-| 5.3d (pubsub) | #653 | this PR | open | 15 |
+| 5.3d (pubsub) | #653 | #670 | open | 15 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
