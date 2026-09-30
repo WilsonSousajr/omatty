@@ -2,7 +2,7 @@ package ui_test
 
 import (
 	"charm.land/lipgloss/v2"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"strings"
 	"testing"
 	"time"
@@ -66,8 +66,8 @@ func TestRenderRow_EveryRowIsExactlySidebarWidth_issue128(t *testing.T) {
 	st.Sessions[2].Title = "t\u202eitle"
 	m := ui.NewModel(baseDeps(st, fakeTermsFor(st)))
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	status(m, "s1", watcher.PromptSubmitted, time.Now())
-	status(m, "s3", watcher.PermissionRequested, time.Now())
+	sendStatus(m, "s1", status.PromptSubmitted, time.Now())
+	sendStatus(m, "s3", status.PermissionRequested, time.Now())
 
 	for i, line := range strings.Split(m.View().Content, "\n") {
 		if w := lipgloss.Width(line); w != 100 {

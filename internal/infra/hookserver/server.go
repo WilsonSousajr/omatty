@@ -1,7 +1,7 @@
 // Package hookserver is omatty's end of the hook socket: it accepts the
 // connections `omatty hook` makes, reads one bounded payload from each, and
 // offers it on - never waiting, so a hook never waits on omatty (invariant
-// 11). What a payload means is internal/watcher's business (ADR 0001,
+// 11). What a payload means is internal/service/status's business (ADR 0001,
 // migration step 5.2d, #653).
 //
 //	payloads := make(chan status.HookPayload, 64)

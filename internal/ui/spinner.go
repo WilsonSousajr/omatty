@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // The working spinner (#410): a session that is thinking or running a tool
@@ -41,7 +41,7 @@ func spinIndex(now time.Time) int64 {
 // built once for the reason statusCells is (M13).
 var renderedSpin = sync.OnceValue(func() [len(spinFrames)]string {
 	var out [len(spinFrames)]string
-	style := glyphStyle(watcher.StatusThinking)
+	style := glyphStyle(status.StatusThinking)
 	for i, f := range spinFrames {
 		out[i] = style.Render(f)
 	}
@@ -51,21 +51,21 @@ var renderedSpin = sync.OnceValue(func() [len(spinFrames)]string {
 // working is whether a status means claude is busy with a turn. Thinking and
 // tool are one spinner: both say "leave it", and telling them apart would
 // flicker several times a turn for nothing the operator acts on.
-func working(s watcher.Status) bool {
-	return s == watcher.StatusThinking || s == watcher.StatusTool
+func working(s status.Status) bool {
+	return s == status.StatusThinking || s == status.StatusTool
 }
 
 // spins is whether a session's glyph turns: it is working and has a process.
 // A card keeps its status after ctrl+o s (#318), so a session stopped
 // mid-turn still reads "thinking"; spinning it would claim work nothing is
 // doing, so it keeps the still ◐ or ◆.
-func (m *Model) spins(id string, s watcher.Status) bool {
+func (m *Model) spins(id string, s status.Status) bool {
 	return working(s) && m.terms[id] != nil
 }
 
 // glyphCell is a session's coloured status glyph at now: a spinner frame
 // while it spins, its still glyph otherwise.
-func (m *Model) glyphCell(id string, s watcher.Status, now time.Time) string {
+func (m *Model) glyphCell(id string, s status.Status, now time.Time) string {
 	if m.spins(id, s) {
 		return renderedSpin()[spinIndex(now)]
 	}

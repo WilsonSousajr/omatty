@@ -24,10 +24,10 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 	"io"
 )
 
@@ -405,7 +405,7 @@ func sessionCreator(cfg config.Config, store *registry.Store) ui.CreateFunc {
 // openTranscript is the watcher's reader: status comes from the transcript
 // (invariant 2), and reading the file is infra's business, not the
 // watcher's (ADR 0001, step 5.2c, #653).
-func openTranscript(path string) watcher.Transcript { return transcript.NewReader(path) }
+func openTranscript(path string) status.Transcript { return transcript.NewReader(path) }
 
 // listenHooks is the watcher's hook server. Running a socket server is
 // infra's business (ADR 0001, step 5.2d, #653), and a nil *Listener must not

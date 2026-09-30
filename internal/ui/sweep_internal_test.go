@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // sweepT0 is when the model under test booted.
@@ -44,8 +44,8 @@ func newSweepRig(t *testing.T, idle time.Duration) sweepRig {
 
 // settled records a transcript turn for id at the given time, as the tailer
 // would on its first read.
-func (r sweepRig) settled(id string, status watcher.Status, at time.Time) {
-	r.m.status[id] = watcher.SessionState{Status: status, At: at}
+func (r sweepRig) settled(id string, st status.Status, at time.Time) {
+	r.m.status[id] = status.SessionState{Status: st, At: at}
 }
 
 // sweep runs one sweep and the stops it scheduled, returning who was stopped.
@@ -64,7 +64,7 @@ func (r sweepRig) running(id string) bool { return r.m.terms[id] != nil }
 // process ended, row kept (#319).
 func TestSweep_StopsAQuietSession_issue319(t *testing.T) {
 	r := newSweepRig(t, time.Hour)
-	r.settled("s2", watcher.StatusDone, sweepT0.Add(-3*time.Hour))
+	r.settled("s2", status.StatusDone, sweepT0.Add(-3*time.Hour))
 	*r.now = sweepT0.Add(2 * time.Hour)
 
 	stopped := r.sweep()
@@ -80,7 +80,7 @@ func TestSweep_StopsAQuietSession_issue319(t *testing.T) {
 // The pane the operator is looking at never goes blank under their hands.
 func TestSweep_SparesTheSelectedSession_issue319(t *testing.T) {
 	r := newSweepRig(t, time.Hour)
-	r.settled("s1", watcher.StatusDone, sweepT0.Add(-3*time.Hour))
+	r.settled("s1", status.StatusDone, sweepT0.Add(-3*time.Hour))
 	*r.now = sweepT0.Add(2 * time.Hour)
 
 	if stopped := r.sweep(); slicesContain(stopped, "s1") || !r.running("s1") {
@@ -91,13 +91,13 @@ func TestSweep_SparesTheSelectedSession_issue319(t *testing.T) {
 // A turn in flight, or a session waiting on the operator's answer, is never
 // quiet, however old its last settled turn (#319).
 func TestSweep_SparesABusyOrWaitingSession_issue319(t *testing.T) {
-	for _, status := range []watcher.Status{watcher.StatusThinking, watcher.StatusTool, watcher.StatusWaiting} {
+	for _, busy := range []status.Status{status.StatusThinking, status.StatusTool, status.StatusWaiting} {
 		r := newSweepRig(t, time.Hour)
-		r.settled("s2", status, sweepT0.Add(-3*time.Hour))
+		r.settled("s2", busy, sweepT0.Add(-3*time.Hour))
 		*r.now = sweepT0.Add(2 * time.Hour)
 
 		if stopped := r.sweep(); slicesContain(stopped, "s2") {
-			t.Errorf("the sweep stopped s2 while it was %q", status)
+			t.Errorf("the sweep stopped s2 while it was %q", busy)
 		}
 	}
 }
@@ -116,7 +116,7 @@ func TestSweep_SparesAJustStartedSession_issue319(t *testing.T) {
 // A session resumed with enter is fresh again, whatever its transcript says.
 func TestSweep_SparesASessionJustResumed_issue319(t *testing.T) {
 	r := newSweepRig(t, time.Hour)
-	r.settled("s2", watcher.StatusDone, sweepT0.Add(-3*time.Hour))
+	r.settled("s2", status.StatusDone, sweepT0.Add(-3*time.Hour))
 	*r.now = sweepT0.Add(2 * time.Hour)
 	r.sweep()
 	r.m.sidebar.SelectByID("s2")
@@ -134,7 +134,7 @@ func TestSweep_SparesASessionJustResumed_issue319(t *testing.T) {
 // transcript while its work went on, and this is the floor that covered it.
 func TestSweep_SparesASessionBeingTypedInto_issue316(t *testing.T) {
 	r := newSweepRig(t, time.Hour)
-	r.settled("s2", watcher.StatusDone, sweepT0.Add(-72*time.Hour))
+	r.settled("s2", status.StatusDone, sweepT0.Add(-72*time.Hour))
 	*r.now = sweepT0.Add(2 * time.Hour)
 	r.m.sidebar.SelectByID("s2")
 	r.m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
@@ -149,7 +149,7 @@ func TestSweep_SparesASessionBeingTypedInto_issue316(t *testing.T) {
 // A session with no process has nothing to stop; a second sweep leaves it.
 func TestSweep_LeavesAStoppedSessionAlone_issue319(t *testing.T) {
 	r := newSweepRig(t, time.Hour)
-	r.settled("s2", watcher.StatusDone, sweepT0.Add(-3*time.Hour))
+	r.settled("s2", status.StatusDone, sweepT0.Add(-3*time.Hour))
 	*r.now = sweepT0.Add(2 * time.Hour)
 	r.sweep()
 

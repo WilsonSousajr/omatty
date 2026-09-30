@@ -179,7 +179,7 @@ func realImporters(t *testing.T, pkg string) map[string]bool {
 }
 
 // shortName turns an import path into the package name a depguard glob uses:
-// the first segment under internal/, so internal/watcher/e2e answers "watcher".
+// the first segment under internal/, so internal/ui/sub answers "ui".
 // Under one of ADR 0001's layer directories it is the first two, so
 // internal/infra/vcs answers "infra/vcs" (#624).
 func shortName(importPath string) string {
@@ -341,7 +341,7 @@ func TestInPackage_isTheDirectoryNotANamePrefix_issue359(t *testing.T) {
 func TestShortName_layerDirectoriesKeepTheirSecondSegment_issue624(t *testing.T) {
 	cases := map[string]string{
 		"github.com/WilsonSousajr/omatty/internal/vcs":          "vcs",
-		"github.com/WilsonSousajr/omatty/internal/watcher/e2e":  "watcher",
+		"github.com/WilsonSousajr/omatty/internal/ui/sub":       "ui",
 		"github.com/WilsonSousajr/omatty/internal/infra/vcs":    "infra/vcs",
 		"github.com/WilsonSousajr/omatty/internal/infra/vcs/x":  "infra/vcs",
 		"github.com/WilsonSousajr/omatty/internal/domain/state": "domain/state",

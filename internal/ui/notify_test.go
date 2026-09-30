@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // modelWithNotifier returns a model whose clock the test can move, with no
@@ -38,7 +38,7 @@ func runCmd(cmd tea.Cmd) {
 	}
 }
 
-func status(m *ui.Model, id string, kind watcher.Kind, at time.Time) {
+func sendStatus(m *ui.Model, id string, kind status.Kind, at time.Time) {
 	_, cmd := m.Update(ui.StatusMsg{SessionID: id, Kind: kind, At: at})
 	runCmd(cmd)
 }
@@ -47,7 +47,7 @@ func TestModel_NotifiesWhenAWaitingSessionArrivesWhileBlurred_issue38(t *testing
 	m, n, _ := modelWithNotifier(t)
 	m.Update(tea.BlurMsg{})
 
-	status(m, "s1", watcher.PermissionRequested, fixedNow)
+	sendStatus(m, "s1", status.PermissionRequested, fixedNow)
 
 	if len(n.Sent) != 1 {
 		t.Fatalf("sent %d notifications, want 1 for a waiting session while blurred", len(n.Sent))
@@ -61,7 +61,7 @@ func TestModel_DoesNotNotifyWhileFocused_issue38(t *testing.T) {
 	m, n, _ := modelWithNotifier(t)
 	m.Update(tea.FocusMsg{})
 
-	status(m, "s1", watcher.PermissionRequested, fixedNow)
+	sendStatus(m, "s1", status.PermissionRequested, fixedNow)
 
 	if len(n.Sent) != 0 {
 		t.Errorf("sent %d notifications while focused, want 0", len(n.Sent))
@@ -72,8 +72,8 @@ func TestModel_DoesNotNotifyTwiceForTheSameState_issue38(t *testing.T) {
 	m, n, _ := modelWithNotifier(t)
 	m.Update(tea.BlurMsg{})
 
-	status(m, "s1", watcher.PermissionRequested, fixedNow)
-	status(m, "s1", watcher.PermissionRequested, fixedNow.Add(time.Second))
+	sendStatus(m, "s1", status.PermissionRequested, fixedNow)
+	sendStatus(m, "s1", status.PermissionRequested, fixedNow.Add(time.Second))
 
 	if len(n.Sent) != 1 {
 		t.Errorf("sent %d notifications, want 1: a repeated waiting state must not re-notify", len(n.Sent))
@@ -84,8 +84,8 @@ func TestModel_DoesNotNotifyForThinkingOrTool_issue38(t *testing.T) {
 	m, n, _ := modelWithNotifier(t)
 	m.Update(tea.BlurMsg{})
 
-	status(m, "s1", watcher.PromptSubmitted, fixedNow)
-	status(m, "s1", watcher.ToolStarted, fixedNow.Add(time.Second))
+	sendStatus(m, "s1", status.PromptSubmitted, fixedNow)
+	sendStatus(m, "s1", status.ToolStarted, fixedNow.Add(time.Second))
 
 	if len(n.Sent) != 0 {
 		t.Errorf("sent %d notifications for thinking/tool, want 0 (those do not need you)", len(n.Sent))
@@ -96,7 +96,7 @@ func TestModel_NotifiesWhenADoneSessionArrivesWhileBlurred_issue38(t *testing.T)
 	m, n, _ := modelWithNotifier(t)
 	m.Update(tea.BlurMsg{})
 
-	status(m, "s1", watcher.TurnEnded, fixedNow)
+	sendStatus(m, "s1", status.TurnEnded, fixedNow)
 
 	if len(n.Sent) != 1 {
 		t.Errorf("sent %d notifications for a finished turn while blurred, want 1", len(n.Sent))
@@ -109,7 +109,7 @@ func TestModel_NotificationIsACommandNotAnInlineCall_issue69(t *testing.T) {
 	m, n, _ := modelWithNotifier(t)
 	m.Update(tea.BlurMsg{})
 
-	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PermissionRequested, At: fixedNow})
+	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PermissionRequested, At: fixedNow})
 
 	if len(n.Sent) != 0 {
 		t.Fatal("Notify was called inside Update; it must run as a command off the event loop")
@@ -126,7 +126,7 @@ func TestModel_IgnoresAStatusEventForAnUnknownSession_issue69(t *testing.T) {
 	m, n, _ := modelWithNotifier(t)
 	m.Update(tea.BlurMsg{})
 
-	status(m, "not-registered", watcher.PermissionRequested, fixedNow)
+	sendStatus(m, "not-registered", status.PermissionRequested, fixedNow)
 
 	if len(n.Sent) != 0 {
 		t.Errorf("an unregistered session id produced %+v, want nothing", n.Sent)
@@ -138,14 +138,14 @@ func TestModel_RateLimitsNotificationsPerSession_issue69(t *testing.T) {
 	m, n, now := modelWithNotifier(t)
 	m.Update(tea.BlurMsg{})
 
-	status(m, "s1", watcher.PermissionRequested, fixedNow)
-	status(m, "s1", watcher.TurnEnded, fixedNow.Add(time.Second))
+	sendStatus(m, "s1", status.PermissionRequested, fixedNow)
+	sendStatus(m, "s1", status.TurnEnded, fixedNow.Add(time.Second))
 	if len(n.Sent) != 1 {
 		t.Fatalf("sent %d within the cooldown, want 1", len(n.Sent))
 	}
 
 	*now = fixedNow.Add(10 * time.Second)
-	status(m, "s1", watcher.PermissionRequested, *now)
+	sendStatus(m, "s1", status.PermissionRequested, *now)
 	if len(n.Sent) != 2 {
 		t.Errorf("sent %d after the cooldown elapsed, want 2", len(n.Sent))
 	}
@@ -158,12 +158,12 @@ func TestModel_DoesNotNotifyForATurnThatEndedBeforeStart_issue70(t *testing.T) {
 	m, n, _ := modelWithNotifier(t)
 	m.Update(tea.BlurMsg{})
 
-	status(m, "s1", watcher.TurnEnded, fixedNow.Add(-168*time.Hour))
+	sendStatus(m, "s1", status.TurnEnded, fixedNow.Add(-168*time.Hour))
 	if len(n.Sent) != 0 {
 		t.Fatalf("notified about a turn that ended a week before this run: %+v", n.Sent)
 	}
 
-	status(m, "s1", watcher.PermissionRequested, fixedNow.Add(time.Second))
+	sendStatus(m, "s1", status.PermissionRequested, fixedNow.Add(time.Second))
 	if len(n.Sent) != 1 {
 		t.Errorf("a transition after start sent %d notifications, want 1", len(n.Sent))
 	}

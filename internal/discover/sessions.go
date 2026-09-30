@@ -28,7 +28,7 @@ import (
 
 	"github.com/mattn/go-runewidth"
 
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // maxTitleCells bounds a proposed title in display columns. A row is one line
@@ -192,7 +192,7 @@ func titleOf(path, id string) string {
 
 // promptRecord is the slice of a transcript line adoption reads.
 //
-// watcher.Entry cannot be reused, for the reason readCwd's own struct exists:
+// status.Entry cannot be reused, for the reason readCwd's own struct exists:
 // it keeps whether an entry was a prompt but discards the text, which is
 // precisely what a title needs. Parsing untyped input into a struct at the
 // edge, once, is the rule - this is that struct.
@@ -201,7 +201,7 @@ type promptRecord struct {
 	IsMeta  bool   `json:"isMeta"`
 	Message struct {
 		// A prompt is a bare string, or a list of blocks when it carries an
-		// attachment. Which of those is a typed prompt is watcher.PromptText's
+		// attachment. Which of those is a typed prompt is status.PromptText's
 		// question, not this struct's.
 		Content json.RawMessage `json:"content"`
 	} `json:"message"`
@@ -290,7 +290,7 @@ func typedPrompt(line []byte) (string, bool) {
 	// only the string form here skipped every prompt that carried an
 	// attachment - the list-of-blocks shape #62 exists for - so those sessions
 	// fell back to the unreadable uuid titleOf is written to avoid (#61, #122).
-	return watcher.PromptText(rec.Message.Content)
+	return status.PromptText(rec.Message.Content)
 }
 
 // flatten makes an untrusted prompt safe and short enough for one row:

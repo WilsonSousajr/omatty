@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // caretModel focuses s1 and gives it a caret at (x, y) in the emulator's own
@@ -147,7 +147,7 @@ func TestView_DrawsTheCursorOnThePanesLastCell_issue106(t *testing.T) {
 // nobody is reading.
 func TestView_DrawsNoCursorForAnExitedSession_issue106(t *testing.T) {
 	m := caretModel(t, termwrap.Caret{X: 7, Y: 3, Visible: true})
-	m.Update(ui.StatusMsg{SessionID: m.Selected(), Kind: watcher.SessionEnded})
+	m.Update(ui.StatusMsg{SessionID: m.Selected(), Kind: status.SessionEnded})
 
 	if got := m.View().Cursor; got != nil {
 		t.Errorf("View().Cursor = %+v for an exited session, want nil", got)

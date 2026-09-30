@@ -76,7 +76,7 @@ linters:
         # Shelling out is a capability, not a convenience. These six are the
         # packages that do it today; scripts/depguard_test.go asserts the list
         # still matches the code, which is the half depguard cannot check.
-        # Tests are exempt: internal/ui, internal/watcher/e2e and scripts all
+        # Tests are exempt: internal/ui, internal/service/status/e2e and scripts all
         # drive subprocesses to build fixtures.
         subprocess:
           files:

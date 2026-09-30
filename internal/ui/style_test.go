@@ -7,8 +7,8 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // One hue, one meaning (#175): amber is bound to waiting and to nothing
@@ -16,7 +16,7 @@ import (
 func TestStatusColors_AmberMeansWaitingAloneAndAccentMeansFocusAlone_issue175(t *testing.T) {
 	for _, s := range ui.AllStatuses() {
 		isAmber := sameRGB(ui.StatusColor(s), ui.AmberColor())
-		if isAmber != (s == watcher.StatusWaiting) {
+		if isAmber != (s == status.StatusWaiting) {
 			t.Errorf("status %s amber=%v; amber must mean waiting and only waiting", s, isAmber)
 		}
 		if sameRGB(ui.StatusColor(s), ui.AccentColor()) {
@@ -27,7 +27,7 @@ func TestStatusColors_AmberMeansWaitingAloneAndAccentMeansFocusAlone_issue175(t 
 
 // Working states earn no colour: the spinner already says busy (#410).
 func TestStatusColors_WorkingStatesAreTextColoured_issue175(t *testing.T) {
-	for _, s := range []watcher.Status{watcher.StatusThinking, watcher.StatusTool} {
+	for _, s := range []status.Status{status.StatusThinking, status.StatusTool} {
 		if !sameRGB(ui.StatusColor(s), ui.TextColor()) {
 			t.Errorf("status %s = %v, want the text colour", s, ui.StatusColor(s))
 		}

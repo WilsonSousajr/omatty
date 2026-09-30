@@ -11,7 +11,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // TurnSnappedMsg carries a baseline snapshot's outcome into Update. Exported
@@ -30,8 +30,8 @@ type TurnSnappedMsg struct {
 // the hook counts: the tailer reports PromptSubmitted for every tool result,
 // and a snapshot taken mid-turn would drop the turn's earlier edits from its
 // own diff. A snapshot already in flight absorbs the prompt.
-func (m *Model) maybeSnapTurn(e watcher.Event) tea.Cmd {
-	if e.Kind != watcher.PromptSubmitted || !e.Hook || m.turnPending[e.SessionID] {
+func (m *Model) maybeSnapTurn(e status.Event) tea.Cmd {
+	if e.Kind != status.PromptSubmitted || !e.Hook || m.turnPending[e.SessionID] {
 		return nil
 	}
 	sess, ok := m.session(e.SessionID)

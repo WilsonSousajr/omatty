@@ -1,4 +1,4 @@
-package watcher_test
+package status_test
 
 import (
 	"os"
@@ -10,7 +10,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"io"
 )
 
@@ -22,16 +22,16 @@ func TestTail_ParsesThroughTheAdapter_issue46(t *testing.T) {
 		t.Fatal(err)
 	}
 	at := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
-	a := &fakeAdapter{Kind: watcher.ToolStarted, At: at, Entry: watcher.Entry{Type: "user", At: at}}
-	sink := make(chan watcher.Event, 4)
+	a := &fakeAdapter{Kind: status.ToolStarted, At: at, Entry: status.Entry{Type: "user", At: at}}
+	sink := make(chan status.Event, 4)
 
-	tl := watcher.Tail("s1", transcript.NewReader(path), sink, time.Now, time.Hour, a)
+	tl := status.Tail("s1", transcript.NewReader(path), sink, time.Now, time.Hour, a)
 	defer tl.Close()
 	tl.Poll()
 
 	select {
 	case ev := <-sink:
-		if ev.Kind != watcher.ToolStarted || a.Parsed != 1 {
+		if ev.Kind != status.ToolStarted || a.Parsed != 1 {
 			t.Errorf("event %+v after %d parses; want the adapter's ToolStarted from one parse", ev, a.Parsed)
 		}
 	case <-time.After(2 * time.Second):
@@ -46,11 +46,11 @@ func TestStart_TailsThePathTheProfileNames_issue46(t *testing.T) {
 	if err := os.WriteFile(path, []byte("x\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	a := &fakeAdapter{Kind: watcher.TurnEnded, At: time.Now()}
-	w := watcher.Start(watcher.WatchDeps{
+	a := &fakeAdapter{Kind: status.TurnEnded, At: time.Now()}
+	w := status.Start(status.WatchDeps{
 		Home: home, Clock: time.Now, Adapter: a,
 		TranscriptPath: func(_, _, _ string) string { return path },
-		OpenTranscript: func(p string) watcher.Transcript { return transcript.NewReader(p) },
+		OpenTranscript: func(p string) status.Transcript { return transcript.NewReader(p) },
 		ListenHooks: func(string, chan<- dstatus.HookPayload) (io.Closer, error) {
 			return nil, errors.New("no hook socket in this test")
 		},
@@ -60,7 +60,7 @@ func TestStart_TailsThePathTheProfileNames_issue46(t *testing.T) {
 	select {
 	case e := <-w.Subscribe(t.Context()):
 		ev := e.Payload
-		if ev.SessionID != "s1" || ev.Kind != watcher.TurnEnded {
+		if ev.SessionID != "s1" || ev.Kind != status.TurnEnded {
 			t.Errorf("event %+v, want s1 TurnEnded from the profile's path", ev)
 		}
 	case <-time.After(3 * time.Second):

@@ -9,8 +9,8 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // turnRecorder is a named fake for ui.TurnFuncs (#311).
@@ -44,7 +44,7 @@ func (r *turnRecorder) funcs() ui.TurnFuncs {
 }
 
 func hookPrompt(id string) ui.StatusMsg {
-	return ui.StatusMsg{SessionID: id, Kind: watcher.PromptSubmitted, At: time.Now(), Hook: true}
+	return ui.StatusMsg{SessionID: id, Kind: status.PromptSubmitted, At: time.Now(), Hook: true}
 }
 
 func modelWithTurn(t *testing.T, tr *turnRecorder) *ui.Model {

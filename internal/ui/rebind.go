@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // RebindFunc persists the conversation a session's claude now runs. Injected
@@ -32,7 +32,7 @@ func noRebind(sessionID, conversation string) error {
 // it carries: persist, then memory, then the tailer, so a failed save leaves
 // memory and disk agreeing on what to resume. The pane comes from e.Owner,
 // never from the directory - two panes can share one.
-func (m *Model) followClear(e watcher.Event) {
+func (m *Model) followClear(e status.Event) {
 	i, ok := m.sessionIndex(e.Owner)
 	if !ok || m.state.Sessions[i].ConversationID() == e.SessionID {
 		return

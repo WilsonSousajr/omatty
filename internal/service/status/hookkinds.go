@@ -1,4 +1,4 @@
-package watcher
+package status
 
 import (
 	"sort"
@@ -23,7 +23,7 @@ var kindByEvent = map[string]Kind{
 // this list, so the settings file and the listener can never drift (issue
 // #78). Sorted, so the rendered file is stable.
 //
-//	content, _ := hooks.Render(bin, watcher.HookEventNames())
+//	content, _ := hooks.Render(bin, status.HookEventNames())
 func HookEventNames() []string {
 	names := make([]string, 0, len(kindByEvent)+1)
 	for name := range kindByEvent {

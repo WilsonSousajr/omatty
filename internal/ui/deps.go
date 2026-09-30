@@ -15,8 +15,8 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // CreateFunc registers a new session in project and returns it.
@@ -72,7 +72,7 @@ type Deps struct {
 	Start  StartFunc
 	// Events is a subscription to the watcher's broker (ADR 0001, step 5.2a,
 	// #653): status reaches the model as one subscriber among any.
-	Events <-chan pubsub.Event[watcher.Event]
+	Events <-chan pubsub.Event[status.Event]
 	// GateReports and GateRun wire internal/gate's Runner in. Both optional:
 	// without them the gate pane still opens and explains itself, which is
 	// what a model built by a test sees.

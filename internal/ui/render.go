@@ -7,7 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // footer is the keymap, rendered on every frame. It stays visible while a
@@ -368,7 +368,7 @@ func (m *Model) footerFacts() string {
 func (m *Model) waitingCount() int {
 	n := 0
 	for id, st := range m.status {
-		if st.Status == watcher.StatusWaiting && m.knownSession(id) {
+		if st.Status == status.StatusWaiting && m.knownSession(id) {
 			n++
 		}
 	}

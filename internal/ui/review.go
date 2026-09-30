@@ -8,7 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // DiffFunc loads a session's diff. Injected so ui never touches git
@@ -468,11 +468,11 @@ func (m *Model) projectRoot(name string) string {
 // stops for a question: that is the moment the operator looks at what changed,
 // and a diff from before the turn would be stale on arrival (#21). The
 // listing goes with it, so a file claude created appears without r (#195).
-func (m *Model) refreshReview(id string, before, after watcher.Status) tea.Cmd {
+func (m *Model) refreshReview(id string, before, after status.Status) tea.Cmd {
 	if id != m.review.SessionID || before == after {
 		return nil
 	}
-	if after != watcher.StatusDone && after != watcher.StatusWaiting {
+	if after != status.StatusDone && after != status.StatusWaiting {
 		return nil
 	}
 	// A closed column keeps its content for the reopen (#124); forking git

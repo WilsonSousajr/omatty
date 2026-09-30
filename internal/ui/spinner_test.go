@@ -11,9 +11,9 @@ import (
 	"github.com/mattn/go-runewidth"
 
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // modelAt is a model whose clock reads *now, so a test can step time between
@@ -73,7 +73,7 @@ func TestCard_AWorkingSessionSpins_issue410(t *testing.T) {
 	now := fixedNow
 	terms, _ := fakeTerms(t)
 	m := modelAt(t, &now, terms)
-	status(m, "s2", watcher.PromptSubmitted, fixedNow)
+	sendStatus(m, "s2", status.PromptSubmitted, fixedNow)
 
 	first := glyphOf(t, m, "s2")
 	now = now.Add(ui.SpinEvery())
@@ -89,8 +89,8 @@ func TestCard_ThinkingAndToolSpinAlike_issue410(t *testing.T) {
 	now := fixedNow
 	terms, _ := fakeTerms(t)
 	m := modelAt(t, &now, terms)
-	status(m, "s1", watcher.PromptSubmitted, fixedNow)
-	status(m, "s2", watcher.ToolStarted, fixedNow)
+	sendStatus(m, "s1", status.PromptSubmitted, fixedNow)
+	sendStatus(m, "s2", status.ToolStarted, fixedNow)
 
 	if a, b := glyphOf(t, m, "s1"), glyphOf(t, m, "s2"); a != b || !slices.Contains(ui.SpinFrames(), a) {
 		t.Errorf("thinking draws %q and tool %q, want the same spinner frame", a, b)
@@ -101,8 +101,8 @@ func TestCard_ASessionAtRestKeepsItsGlyph_issue410(t *testing.T) {
 	now := fixedNow
 	terms, _ := fakeTerms(t)
 	m := modelAt(t, &now, terms)
-	status(m, "s1", watcher.PermissionRequested, fixedNow)
-	status(m, "s2", watcher.TurnEnded, fixedNow)
+	sendStatus(m, "s1", status.PermissionRequested, fixedNow)
+	sendStatus(m, "s2", status.TurnEnded, fixedNow)
 
 	if got := glyphOf(t, m, "s1"); got != "●" {
 		t.Errorf("waiting draws %q, want ●", got)
@@ -120,7 +120,7 @@ func TestCard_ASessionWithNoProcessDoesNotSpin_issue410(t *testing.T) {
 	terms, _ := fakeTerms(t)
 	delete(terms, "s2")
 	m := modelAt(t, &now, terms)
-	status(m, "s2", watcher.PromptSubmitted, fixedNow)
+	sendStatus(m, "s2", status.PromptSubmitted, fixedNow)
 
 	if got := glyphOf(t, m, "s2"); got != "◐" {
 		t.Errorf("a working session with no process draws %q, want the still ◐", got)
@@ -131,7 +131,7 @@ func TestHeader_TheStateSpinsWhileWorking_issue410(t *testing.T) {
 	now := fixedNow
 	terms, _ := fakeTerms(t)
 	m := modelAt(t, &now, terms)
-	status(m, "s1", watcher.PromptSubmitted, fixedNow)
+	sendStatus(m, "s1", status.PromptSubmitted, fixedNow)
 
 	got := stripSGR(m.View().Content)
 	if !strings.Contains(got, ui.SpinFrameAt(now)+" thinking") {
@@ -152,12 +152,12 @@ func TestTick_RunsAtSpinnerSpeedOnlyWhileASessionSpins_issue410(t *testing.T) {
 	if m.SpinArmed() {
 		t.Fatal("idle, a spin tick is armed; omatty would redraw ten times a second for nothing")
 	}
-	status(m, "s1", watcher.PromptSubmitted, fixedNow)
+	sendStatus(m, "s1", status.PromptSubmitted, fixedNow)
 	m.Update(ui.SpinTickMsg(fixedNow))
 	if !m.SpinArmed() {
 		t.Error("a spin step while a session works did not re-arm the spin tick")
 	}
-	status(m, "s1", watcher.TurnEnded, fixedNow.Add(time.Second))
+	sendStatus(m, "s1", status.TurnEnded, fixedNow.Add(time.Second))
 	m.Update(ui.SpinTickMsg(fixedNow))
 	if m.SpinArmed() {
 		t.Error("the spin tick re-armed after the turn ended")
@@ -171,7 +171,7 @@ func TestTick_AStoppedWorkingSessionDoesNotHoldTheFastTick_issue410(t *testing.T
 	terms, _ := fakeTerms(t)
 	delete(terms, "s2")
 	m := modelAt(t, &now, terms)
-	status(m, "s2", watcher.PromptSubmitted, fixedNow)
+	sendStatus(m, "s2", status.PromptSubmitted, fixedNow)
 
 	if m.SpinArmed() {
 		t.Error("a stopped working session armed the spin tick")
@@ -199,7 +199,7 @@ func TestSpin_TheStatusThatStartsWorkStartsTheSpin_issue412(t *testing.T) {
 	terms, _ := fakeTerms(t)
 	m := modelAt(t, &now, terms)
 
-	status(m, "s1", watcher.PromptSubmitted, fixedNow)
+	sendStatus(m, "s1", status.PromptSubmitted, fixedNow)
 
 	if !m.SpinArmed() {
 		t.Error("a session started working and no spin tick was armed; it waits for the heartbeat")
@@ -212,7 +212,7 @@ func TestSpin_TheStatusThatStartsWorkStartsTheSpin_issue412(t *testing.T) {
 // on the next heartbeat (#412).
 func TestSpin_ResumingASessionMidTurnStartsTheSpin_issue412(t *testing.T) {
 	r := newStopRig(t)
-	status(r.m, "s1", watcher.PromptSubmitted, fixedNow)
+	sendStatus(r.m, "s1", status.PromptSubmitted, fixedNow)
 	r.stop()
 	r.m.Update(ui.SpinTickMsg(fixedNow))
 	if r.m.SpinArmed() {

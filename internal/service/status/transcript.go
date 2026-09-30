@@ -1,4 +1,4 @@
-package watcher
+package status
 
 import (
 	"encoding/json"
@@ -117,7 +117,7 @@ func isInjected(s string) bool {
 // PromptText returns what the operator typed in a user entry's content, and
 // whether it was a typed prompt at all.
 //
-//	if text, ok := watcher.PromptText(rec.Message.Content); ok { /* a real prompt */ }
+//	if text, ok := status.PromptText(rec.Message.Content); ok { /* a real prompt */ }
 //
 // Exported because adoption titles a session with its first typed prompt and
 // would otherwise label every one of them "<command-name>/clear" (#122).

@@ -2,7 +2,7 @@
 // each event a transcript or a hook reports, the Status a card shows, the
 // token usage, the hook payload, and Apply, which folds an event into a
 // session's state. It is pure; reading transcripts and hooks is
-// internal/watcher's business (invariant 2: status comes from JSONL and hooks,
+// internal/service/status's business (invariant 2: status comes from JSONL and hooks,
 // never from the screen).
 //
 //	st = status.Apply(st, status.Event{SessionID: id, Kind: status.TurnEnded, At: now})

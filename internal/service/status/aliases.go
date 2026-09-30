@@ -1,4 +1,4 @@
-package watcher
+package status
 
 import dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 
@@ -52,5 +52,5 @@ const (
 
 // Apply is dstatus.Apply.
 //
-//	st = watcher.Apply(st, ev)
+//	st = status.Apply(st, ev)
 func Apply(cur SessionState, ev Event) SessionState { return dstatus.Apply(cur, ev) }

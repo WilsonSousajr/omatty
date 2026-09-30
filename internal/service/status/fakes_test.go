@@ -1,10 +1,10 @@
-package watcher_test
+package status_test
 
 import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // fakeAdapter is a named Adapter that counts what it was asked and answers
@@ -12,22 +12,22 @@ import (
 // through it rather than through claude's functions (#46).
 type fakeAdapter struct {
 	Parsed  int
-	Entry   watcher.Entry
-	Kind    watcher.Kind
+	Entry   status.Entry
+	Kind    status.Kind
 	At      time.Time
 	Payload hooks.Payload
 }
 
-func (f *fakeAdapter) ParseEntry([]byte) (watcher.Entry, bool) {
+func (f *fakeAdapter) ParseEntry([]byte) (status.Entry, bool) {
 	f.Parsed++
 	return f.Entry, true
 }
 
-func (f *fakeAdapter) DeriveKind([]watcher.Entry) (watcher.Kind, time.Time, bool) {
+func (f *fakeAdapter) DeriveKind([]status.Entry) (status.Kind, time.Time, bool) {
 	return f.Kind, f.At, true
 }
 
-func (f *fakeAdapter) KindOf(p hooks.Payload) (watcher.Kind, bool) {
+func (f *fakeAdapter) KindOf(p hooks.Payload) (status.Kind, bool) {
 	f.Payload = p
 	return f.Kind, true
 }

@@ -16,9 +16,9 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // routedMsg is one representative value per case in msgroute.go, named the
@@ -45,7 +45,7 @@ func routedMsgs() []routedMsg {
 		{"NamedMsg", ui.NamedMsg{SessionID: "s1", From: "main", Title: "named"}},
 		{"ModelNamedMsg", ui.ModelNamedMsg{SessionID: "s1", From: "main", Title: "model named"}},
 		{"BranchNamedMsg", ui.BranchNamedMsg{SessionID: "s1", Branch: "feat/x", Renamed: true}},
-		{"StatusMsg", ui.StatusMsg(watcher.Event{SessionID: "s1", Kind: watcher.TurnEnded, At: now})},
+		{"StatusMsg", ui.StatusMsg(status.Event{SessionID: "s1", Kind: status.TurnEnded, At: now})},
 		{"GateMsg", ui.GateMsg(gate.Report{ID: "s1"})},
 		{"RevertedMsg", ui.RevertedMsg{SessionID: "s1", Files: 1}},
 		{"ShippedMsg", ui.ShippedMsg{SessionID: "s1", Number: 7}},

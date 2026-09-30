@@ -6,11 +6,11 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // StatusMsg carries one watcher event into the model's Update loop.
-type StatusMsg watcher.Event
+type StatusMsg status.Event
 
 // TickMsg is the once-a-second heartbeat that re-renders the frame, so a
 // quiet session's age keeps counting (issue #71). The spinner has its own
@@ -34,7 +34,7 @@ func (m *Model) waitForEvent() tea.Cmd {
 }
 
 // onStatus folds a watcher event into the session's state and re-arms the
-// wait. Newer-wins lives in watcher.Apply; the model just stores the result.
+// wait. Newer-wins lives in status.Apply; the model just stores the result.
 // A hook can name any session id; only registered ones may grow the status
 // map or reach the operator's notifications (issue #69).
 //
@@ -42,8 +42,8 @@ func (m *Model) waitForEvent() tea.Cmd {
 // once, so everything downstream stays keyed as it was before /clear could
 // move a conversation out from under its row (#316).
 func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
-	e := watcher.Event(ev)
-	if e.Kind == watcher.SessionRebound {
+	e := status.Event(ev)
+	if e.Kind == status.SessionRebound {
 		m.followClear(e)
 	}
 	id, ok := m.sessionOfConversation(e.SessionID)
@@ -52,7 +52,7 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 	}
 	e.SessionID = id
 	before := m.status[e.SessionID]
-	after := watcher.Apply(before, e)
+	after := status.Apply(before, e)
 	m.status[e.SessionID] = after
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
 	return m.afterStatus(e, before.Status, after.Status)
@@ -61,7 +61,7 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 // afterStatus is everything a status event sets in motion off the Update
 // goroutine: the next wait, a notification, a diff refresh, and a name for a
 // session still carrying its placeholder (#127).
-func (m *Model) afterStatus(e watcher.Event, before, after watcher.Status) tea.Cmd {
+func (m *Model) afterStatus(e status.Event, before, after status.Status) tea.Cmd {
 	// Not a tea.Cmd: the run happens on the Runner's own goroutines, and its
 	// answer arrives as a GateMsg like any other (#233).
 	m.autoGate(e.SessionID, before, after)
@@ -86,7 +86,7 @@ const notifyCooldown = 5 * time.Second
 // takes tens of milliseconds (issue #69). Suppressed: a repeated state, a
 // transition older than this run (issue #70), and a second notification for
 // the same session within notifyCooldown.
-func (m *Model) maybeNotify(e watcher.Event, before, after watcher.Status) tea.Cmd {
+func (m *Model) maybeNotify(e status.Event, before, after status.Status) tea.Cmd {
 	if m.hasFocus || before == after || e.At.Before(m.startedAt) {
 		return nil
 	}
@@ -124,11 +124,11 @@ func (m *Model) sessionTitle(id string) string {
 }
 
 // needsYou returns the notification body for a status that wants attention.
-func needsYou(title string, status watcher.Status) (string, bool) {
-	switch status {
-	case watcher.StatusWaiting:
+func needsYou(title string, now status.Status) (string, bool) {
+	switch now {
+	case status.StatusWaiting:
 		return title + " needs you", true
-	case watcher.StatusDone:
+	case status.StatusDone:
 		return title + " finished", true
 	default:
 		return "", false
@@ -137,8 +137,8 @@ func needsYou(title string, status watcher.Status) (string, bool) {
 
 // statusMap projects the per-session state down to the status the sidebar
 // needs.
-func (m *Model) statusMap() map[string]watcher.Status {
-	out := make(map[string]watcher.Status, len(m.status))
+func (m *Model) statusMap() map[string]status.Status {
+	out := make(map[string]status.Status, len(m.status))
 	for id, st := range m.status {
 		out[id] = st.Status
 	}

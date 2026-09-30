@@ -8,7 +8,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/review"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // Test-only accessors, so the external ui_test package can assert against the
@@ -162,7 +162,7 @@ const PanStep = panStep
 
 // RenderMeter is the rule's meter for t, "" with no input; MeterGlyphs its two
 // cells and MeterCells its width (#153).
-func RenderMeter(t watcher.Tokens) string {
+func RenderMeter(t status.Tokens) string {
 	share, ok := cacheShare(t)
 	if !ok {
 		return ""
@@ -176,7 +176,7 @@ func MeterCells() int       { return meterCells }
 // entry (#154).
 func Blend(a, b color.Color, t float64) color.Color { return blend(a, b, t) }
 func MeterCellColor(i int) color.Color              { return meterCellColor(i) }
-func StatusColor(s watcher.Status) color.Color      { return statusColors[s] }
+func StatusColor(s status.Status) color.Color       { return statusColors[s] }
 
 // AccentColor, AmberColor and TextColor are the palette entries the colour
 // rule binds (#175); AllStatuses is every status the tables must cover.
@@ -184,14 +184,14 @@ func MeterRamp() (warm, cool color.Color) { return rampWarm, rampCool }
 func AccentColor() color.Color            { return colorAccent }
 func AmberColor() color.Color             { return colorAmber }
 func TextColor() color.Color              { return colorText }
-func AllStatuses() []watcher.Status {
-	return []watcher.Status{watcher.StatusIdle, watcher.StatusThinking, watcher.StatusTool,
-		watcher.StatusWaiting, watcher.StatusDone, watcher.StatusError, watcher.StatusExited}
+func AllStatuses() []status.Status {
+	return []status.Status{status.StatusIdle, status.StatusThinking, status.StatusTool,
+		status.StatusWaiting, status.StatusDone, status.StatusError, status.StatusExited}
 }
 
 // TokensPart is the rule's whole usage segment - meter, share and counts - so
 // a test can assert what "in" counts without rebuilding the rule (#170).
-func TokensPart(t watcher.Tokens) string { return tokensPart(t) }
+func TokensPart(t status.Tokens) string { return tokensPart(t) }
 
 // HeaderParts and Collapse are the pane segment's pieces and the collapse
 // order, for the width table (#177). ModalNames is every surface's name.

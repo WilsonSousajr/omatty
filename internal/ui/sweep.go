@@ -12,7 +12,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // SweepTickMsg is the idle sweep's heartbeat. Exported so tests can send one.
@@ -92,9 +92,9 @@ func (m *Model) sweepable(id string) bool {
 }
 
 // settled reports whether a status is one a session may be stopped in.
-func settled(s watcher.Status) bool {
+func settled(s status.Status) bool {
 	switch s {
-	case watcher.StatusThinking, watcher.StatusTool, watcher.StatusWaiting:
+	case status.StatusThinking, status.StatusTool, status.StatusWaiting:
 		return false
 	}
 	return true

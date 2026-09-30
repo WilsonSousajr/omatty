@@ -7,17 +7,17 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 var fixedNow = time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
 
-func modelWithEvents(t *testing.T) (*ui.Model, chan pubsub.Event[watcher.Event], map[string]*termwrap.Fake) {
+func modelWithEvents(t *testing.T) (*ui.Model, chan pubsub.Event[status.Event], map[string]*termwrap.Fake) {
 	t.Helper()
 	terms, fakes := fakeTerms(t)
-	events := make(chan pubsub.Event[watcher.Event], 8)
+	events := make(chan pubsub.Event[status.Event], 8)
 	d := baseDeps(twoProjectState(), terms)
 	d.Events = events
 	d.Clock = func() time.Time { return fixedNow }
@@ -41,7 +41,7 @@ func rowOf(t *testing.T, m *ui.Model, title string) string {
 func TestModel_StatusMsgUpdatesTheGlyph_issue20(t *testing.T) {
 	m, _, _ := modelWithEvents(t)
 
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PermissionRequested, At: fixedNow})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PermissionRequested, At: fixedNow})
 
 	// s1 is titled "main"; the waiting glyph ● must sit on its row (#128, #175).
 	if got := rowOf(t, m, "main"); !strings.Contains(got, "●") {
@@ -52,7 +52,7 @@ func TestModel_StatusMsgUpdatesTheGlyph_issue20(t *testing.T) {
 func TestModel_StatusMsgReArmsTheWait_issue20(t *testing.T) {
 	m, _, _ := modelWithEvents(t)
 
-	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.ToolStarted, At: fixedNow})
+	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.ToolStarted, At: fixedNow})
 
 	if cmd == nil {
 		t.Error("onStatus did not re-arm the wait; only one event would ever be read")
@@ -61,10 +61,10 @@ func TestModel_StatusMsgReArmsTheWait_issue20(t *testing.T) {
 
 func TestModel_OlderStatusMsgIsIgnored_issue20(t *testing.T) {
 	m, _, _ := modelWithEvents(t)
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PermissionRequested, At: fixedNow})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PermissionRequested, At: fixedNow})
 
 	// A stale "thinking" from before must not overwrite the fresh "waiting".
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PromptSubmitted, At: fixedNow.Add(-time.Minute)})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PromptSubmitted, At: fixedNow.Add(-time.Minute)})
 
 	if got := rowOf(t, m, "main"); !strings.Contains(got, "●") || strings.Contains(got, "◐") {
 		t.Errorf("an older event overwrote the newer waiting status: %q", got)
@@ -74,7 +74,7 @@ func TestModel_OlderStatusMsgIsIgnored_issue20(t *testing.T) {
 func TestSidebarRows_ShowsAgeFromStatus_issue37(t *testing.T) {
 	m, _, _ := modelWithEvents(t)
 
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PromptSubmitted, At: fixedNow.Add(-4 * time.Minute)})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PromptSubmitted, At: fixedNow.Add(-4 * time.Minute)})
 
 	if !strings.Contains(m.View().Content, "4m") {
 		t.Errorf("the sidebar does not show the 4m age:\n%s", m.View().Content)
@@ -84,8 +84,8 @@ func TestSidebarRows_ShowsAgeFromStatus_issue37(t *testing.T) {
 func TestModel_HeaderShowsTokens_issue39(t *testing.T) {
 	m, _, _ := modelWithEvents(t)
 
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.UsageUpdated, At: fixedNow,
-		Tokens: watcher.Tokens{In: 12345, Out: 3100}})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.UsageUpdated, At: fixedNow,
+		Tokens: status.Tokens{In: 12345, Out: 3100}})
 
 	got := m.View().Content
 	if !strings.Contains(got, "12.3k in") || !strings.Contains(got, "3.1k out") {
@@ -120,7 +120,7 @@ func TestNewModel_DefaultsTheOptionalDeps_issue76(t *testing.T) {
 	m := ui.NewModel(baseDeps(twoProjectState(), terms))
 	m.Update(tea.BlurMsg{})
 
-	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PermissionRequested, At: time.Now().Add(time.Second)})
+	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PermissionRequested, At: time.Now().Add(time.Second)})
 
 	runCmd(cmd) // the silent notifier must not panic
 	if got := rowOf(t, m, "main"); !strings.Contains(got, "●") {
@@ -132,12 +132,12 @@ func TestNewModel_DefaultsTheOptionalDeps_issue76(t *testing.T) {
 // and the payload - not the envelope - is what the model folds in.
 func TestModel_aStatusEventFromTheSubscriptionArrivesAsItsPayload_issue653(t *testing.T) {
 	m, events, _ := modelWithEvents(t)
-	ev := watcher.Event{SessionID: "s1", Kind: watcher.TurnEnded, At: fixedNow}
-	events <- pubsub.Event[watcher.Event]{Kind: pubsub.Updated, Payload: ev}
+	ev := status.Event{SessionID: "s1", Kind: status.TurnEnded, At: fixedNow}
+	events <- pubsub.Event[status.Event]{Kind: pubsub.Updated, Payload: ev}
 
 	msg := m.WaitForEvent()()
 
-	if got, ok := msg.(ui.StatusMsg); !ok || watcher.Event(got) != ev {
+	if got, ok := msg.(ui.StatusMsg); !ok || status.Event(got) != ev {
 		t.Errorf("WaitForEvent() = %#v, want StatusMsg of %+v", msg, ev)
 	}
 }

@@ -4,7 +4,7 @@
 // claude's JSONL looks like, watcher knows what a Kind is, and only the first
 // imports the second (#46).
 
-package watcher
+package status
 
 import (
 	"time"
@@ -15,7 +15,7 @@ import (
 
 // Adapter turns one agent's transcript lines and hook payloads into events.
 //
-//	tl := watcher.Tail(id, path, events, time.Now, time.Second, watcher.ClaudeAdapter())
+//	tl := status.Tail(id, path, events, time.Now, time.Second, status.ClaudeAdapter())
 type Adapter interface {
 	// ParseEntry parses one transcript line. ok is false for a line status
 	// does not need, including malformed JSON.
@@ -34,7 +34,7 @@ type TranscriptPathFunc func(home, dir, sessionID string) string
 
 // WatchDeps is what Start needs beyond the session list.
 //
-//	w := watcher.Start(watcher.WatchDeps{Home: home, Clock: time.Now,
+//	w := status.Start(status.WatchDeps{Home: home, Clock: time.Now,
 //	        Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}, st.Sessions)
 type WatchDeps struct {
 	Home           string

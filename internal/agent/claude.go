@@ -5,7 +5,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // Claude is the profile for Anthropic's claude binary, the only agent omatty
@@ -18,9 +18,9 @@ func Claude() Profile {
 		DefaultBin:     "claude",
 		Command:        claudeCommand,
 		TranscriptPath: claudeTranscript,
-		HookEvents:     watcher.HookEventNames,
+		HookEvents:     status.HookEventNames,
 		RenderSettings: hooks.Render,
-		Status:         watcher.ClaudeAdapter(),
+		Status:         status.ClaudeAdapter(),
 	}
 }
 

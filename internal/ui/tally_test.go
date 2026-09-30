@@ -7,8 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // tallyRecorder is a named TallyFunc fake recording each run it was told about.
@@ -42,7 +42,7 @@ func TestModel_aTurnFollowedByAGreenGateCountsAsFirstPass_issue332(t *testing.T)
 	rec := &tallyRecorder{}
 	m := modelWithTally(t, rec, true)
 
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 
 	if len(rec.Runs) != 1 || rec.Runs[0] != "omatty" {
@@ -59,7 +59,7 @@ func TestModel_aFailingGateStillCountsAsARun_issue332(t *testing.T) {
 	rec := &tallyRecorder{}
 	m := modelWithTally(t, rec, true)
 
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 	deliver(m, second(m.Update(ui.GateMsg(failingReport()))))
 
 	if len(rec.Passed) != 1 {
@@ -91,7 +91,7 @@ func TestModel_aTallyThatWillNotSaveDoesNotDisturbTheReport_issue332(t *testing.
 	rec := &tallyRecorder{Err: errListing}
 	m := modelWithTally(t, rec, true)
 
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 
 	if got := m.View().Content; got == "" {

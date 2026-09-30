@@ -10,8 +10,8 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // autoModel is a session whose project has a gate, with the run recorded, and
@@ -36,7 +36,7 @@ func TestModel_autoRun_gatesASessionThatGoesIdle_issue233(t *testing.T) {
 	rec := &recordGateRun{}
 	m, _ := autoModel(t, rec, true)
 
-	status(m, "s1", watcher.TurnEnded, time.Now())
+	sendStatus(m, "s1", status.TurnEnded, time.Now())
 
 	if len(rec.IDs) != 1 || rec.IDs[0] != "s1" {
 		t.Fatalf("auto-run gated %v, want [s1] when the turn ended", rec.IDs)
@@ -49,7 +49,7 @@ func TestModel_autoRunIsOffUnlessAskedFor_issue233(t *testing.T) {
 	rec := &recordGateRun{}
 	m, _ := autoModel(t, rec, false)
 
-	status(m, "s1", watcher.TurnEnded, time.Now())
+	sendStatus(m, "s1", status.TurnEnded, time.Now())
 
 	if len(rec.IDs) != 0 {
 		t.Errorf("auto-run started %d gates while off, want none", len(rec.IDs))
@@ -61,7 +61,7 @@ func TestModel_autoRun_ignoresATurnStillRunning_issue233(t *testing.T) {
 	rec := &recordGateRun{}
 	m, _ := autoModel(t, rec, true)
 
-	status(m, "s1", watcher.ToolStarted, time.Now())
+	sendStatus(m, "s1", status.ToolStarted, time.Now())
 
 	if len(rec.IDs) != 0 {
 		t.Errorf("auto-run gated a working session %v, want none", rec.IDs)
@@ -74,8 +74,8 @@ func TestModel_autoRun_doesNotRestartOnARepeatedStatus_issue233(t *testing.T) {
 	rec := &recordGateRun{}
 	m, _ := autoModel(t, rec, true)
 
-	status(m, "s1", watcher.TurnEnded, time.Now())
-	status(m, "s1", watcher.TurnEnded, time.Now().Add(time.Second))
+	sendStatus(m, "s1", status.TurnEnded, time.Now())
+	sendStatus(m, "s1", status.TurnEnded, time.Now().Add(time.Second))
 
 	if len(rec.IDs) != 1 {
 		t.Errorf("auto-run started %d gates for one transition, want 1", len(rec.IDs))
@@ -94,7 +94,7 @@ func TestModel_autoRun_withNoGateConfigured_runsNothing_issue233(t *testing.T) {
 	m := ui.NewModel(deps)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
-	status(m, "s1", watcher.TurnEnded, time.Now())
+	sendStatus(m, "s1", status.TurnEnded, time.Now())
 
 	if len(rec.IDs) != 0 {
 		t.Errorf("auto-run started %d gates for a project with none", len(rec.IDs))

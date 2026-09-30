@@ -8,7 +8,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // The argv assertions #36 and invariant 3 made against the launcher, now
@@ -50,13 +50,13 @@ func TestClaude_StatusDerivesAPromptFromATypedLine_issue46(t *testing.T) {
 	if !ok || !e.UserIsPrompt {
 		t.Fatalf("ParseEntry = %+v ok=%v, want a typed prompt", e, ok)
 	}
-	if k, _, ok := s.DeriveKind([]watcher.Entry{e}); !ok || k != watcher.PromptSubmitted {
+	if k, _, ok := s.DeriveKind([]status.Entry{e}); !ok || k != status.PromptSubmitted {
 		t.Errorf("DeriveKind = %v ok=%v, want PromptSubmitted", k, ok)
 	}
-	if k, ok := s.KindOf(hooksPayload("Stop")); !ok || k != watcher.TurnEnded {
+	if k, ok := s.KindOf(hooksPayload("Stop")); !ok || k != status.TurnEnded {
 		t.Errorf("KindOf(Stop) = %v ok=%v, want TurnEnded", k, ok)
 	}
-	if len(agent.Claude().HookEvents()) != len(watcher.HookEventNames()) {
+	if len(agent.Claude().HookEvents()) != len(status.HookEventNames()) {
 		t.Error("HookEvents is not the listener's own list (#78)")
 	}
 }

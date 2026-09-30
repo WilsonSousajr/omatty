@@ -1,10 +1,10 @@
-package watcher_test
+package status_test
 
 import (
 	"encoding/json"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // PromptText is the one copy of what "the operator typed this" means, and both
@@ -63,7 +63,7 @@ func TestPromptText(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got, ok := watcher.PromptText(json.RawMessage(c.content))
+			got, ok := status.PromptText(json.RawMessage(c.content))
 
 			if ok != c.wantOK || got != c.want {
 				t.Errorf("PromptText(%s) = (%q, %v), want (%q, %v)", c.content, got, ok, c.want, c.wantOK)
@@ -98,7 +98,7 @@ func TestPromptText_injectedEntriesAreNotPrompts(t *testing.T) {
 			}
 
 			for shape, content := range map[string]json.RawMessage{"string": bare, "blocks": blocks} {
-				if got, ok := watcher.PromptText(content); ok {
+				if got, ok := status.PromptText(content); ok {
 					t.Errorf("PromptText(%s form) = (%q, true), want it refused as injected", shape, got)
 				}
 			}
@@ -112,7 +112,7 @@ func TestPromptText_injectedEntriesAreNotPrompts(t *testing.T) {
 func TestPromptText_aMarkerInsideTheTextIsStillAPrompt(t *testing.T) {
 	const typed = "why does <command-name> show up in the transcript?"
 
-	got, ok := watcher.PromptText(json.RawMessage(`"` + typed + `"`))
+	got, ok := status.PromptText(json.RawMessage(`"` + typed + `"`))
 
 	if !ok || got != typed {
 		t.Errorf("PromptText() = (%q, %v), want the typed prompt", got, ok)

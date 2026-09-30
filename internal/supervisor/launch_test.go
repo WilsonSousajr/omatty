@@ -13,9 +13,9 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // Invariant 3: --settings points at omatty's own file, so the user's
@@ -269,7 +269,7 @@ func fakeProfile(home string) agent.Profile {
 		TranscriptPath: func(_, _, id string) string { return filepath.Join(home, "other", id+".log") },
 		HookEvents:     func() []string { return []string{"Stop"} },
 		RenderSettings: hooks.Render,
-		Status:         watcher.ClaudeAdapter(),
+		Status:         status.ClaudeAdapter(),
 	}
 }
 
