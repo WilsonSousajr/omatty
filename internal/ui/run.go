@@ -184,6 +184,9 @@ type RunDeps struct {
 	// business (ADR 0001, migration step 5.3, #653): cmd passes
 	// internal/infra/gateexec's Run.
 	RunGate gate.RunFunc
+	// Profiles reads a gate's coverage profile; cmd passes
+	// internal/infra/fsread's (ADR 0001, migration step 5.3, #653).
+	Profiles gate.ProfileReader
 	// IdleStop stops a session quiet this long; zero is off (#319).
 	IdleStop time.Duration
 	// LazyStart boots only the sessions a holder already keeps alive; the
@@ -235,7 +238,7 @@ func modelFor(
 		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader, Reattached: held,
 		Events: events, HooksDown: !watch.HooksLive(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
-		GateReports: gates.Reports(), GateRun: gates.Start, GateAuto: d.GateAuto,
+		GateReports: gates.Reports(), GateRun: gates.Start, GateAuto: d.GateAuto, Profiles: d.Profiles,
 		IdleStop: d.IdleStop, NerdIcons: d.NerdIcons,
 	})
 }

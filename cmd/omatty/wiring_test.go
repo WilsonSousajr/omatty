@@ -412,3 +412,30 @@ func TestTuiDeps_RunsGatesThroughGateexec_issue653(t *testing.T) {
 		t.Errorf("the wired runner returned %+v, %v; want one Pass", results, err)
 	}
 }
+
+// Step 5.3 (#653): a coverage profile is read through an injected reader,
+// because reading a file is infra's business. Left unset the TUI would load
+// no overlay at all, silently, so the real wiring is pinned: the wired reader
+// reads a real profile.
+func TestTuiDeps_ReadsCoverageThroughFsread_issue653(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "go.mod"), "module example.com/m\n")
+	mustWriteFile(t, filepath.Join(dir, "cover.out"), "mode: set\nexample.com/m/a.go:3.10,5.4 2 1\n")
+	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env.Cfg = config.Defaults("/h")
+	deps := tuiDeps(env, nil, registry.State{})
+	if deps.Profiles == nil {
+		t.Fatal("Profiles is not wired: no coverage overlay would ever load")
+	}
+	p, err := deps.Profiles.Load(context.Background(), filepath.Join(dir, "cover.out"), dir)
+	if err != nil || !p.Files["a.go"].Lines[3] {
+		t.Errorf("the wired reader returned %+v, %v; want a.go:3 covered", p, err)
+	}
+}
+
+func mustWriteFile(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}

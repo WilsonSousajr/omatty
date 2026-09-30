@@ -1,15 +1,17 @@
-package coverage
+package fsread
 
 import (
 	"bufio"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 )
 
 // Load reads a coverage profile and picks the parser by looking at it.
 //
-//	p, err := coverage.Load(filepath.Join(sess.Dir, step.Profile), sess.Dir, mod)
+//	p, err := fsread.Load(filepath.Join(sess.Dir, step.Profile), sess.Dir, mod)
 //
 // Sniffed rather than chosen by file extension: .info, .lcov, .out and .txt
 // are all in use for both formats, and a project is free to name its profile
@@ -18,21 +20,21 @@ import (
 // A file that is neither format is an error, not an empty profile. An empty
 // profile would quietly mean "nothing here is uncovered", which is a lie the
 // operator has no way to notice.
-func Load(path, root, modulePath string) (Profile, error) {
+func Load(path, root, modulePath string) (coverage.Profile, error) {
 	f, err := os.Open(path) //nolint:gosec // the operator's own configured profile
 	if err != nil {
-		return Profile{}, fmt.Errorf("coverage: opening profile %q: %w", path, err)
+		return coverage.Profile{}, fmt.Errorf("coverage: opening profile %q: %w", path, err)
 	}
 	defer func() { _ = f.Close() }()
 
 	buf := bufio.NewReader(f)
 	switch format(buf) {
 	case formatGo:
-		return ParseGo(buf, modulePath)
+		return coverage.ParseGo(buf, modulePath)
 	case formatLCOV:
-		return ParseLCOV(buf, root)
+		return coverage.ParseLCOV(buf, root)
 	}
-	return Profile{}, fmt.Errorf("coverage: profile %q is not a Go or lcov profile", path)
+	return coverage.Profile{}, fmt.Errorf("coverage: profile %q is not a Go or lcov profile", path)
 }
 
 type profileFormat int

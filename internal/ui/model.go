@@ -12,6 +12,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	sgate "github.com/WilsonSousajr/omatty/internal/service/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
@@ -135,6 +136,7 @@ type Model struct {
 	// out of the model so a test substitutes a recorder for the Runner.
 	gateReports  <-chan gate.Report
 	gateRun      GateRunFunc
+	profiles     sgate.ProfileReader // reads a gate's coverage profile (#254, #653)
 	gateAuto     bool
 	gateStarted  map[string]time.Time // when the run in flight began, for its title (#428)
 	glyphs       glyphSet             // every state mark, plain or Nerd Font (#425)
@@ -279,6 +281,7 @@ func (m *Model) withWindow() *Model {
 // reports channel, or auto-run with no Runner, would each be a half-wiring.
 func (m *Model) withGate(d Deps) *Model {
 	m.gateReports, m.gateRun, m.gateAuto = d.GateReports, d.GateRun, d.GateAuto
+	m.profiles = d.Profiles
 	m.gateStarted = map[string]time.Time{}
 	return m
 }

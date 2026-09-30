@@ -18,6 +18,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
+	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
@@ -121,7 +122,7 @@ func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps
 	src, fg := review.NewSource(git), newRouter(env.Cfg, git)
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h, OpenTranscript: openTranscript, ListenHooks: listenHooks,
-		RunGate: gateexec.Run, Stop: holder.Stop,
+		RunGate: gateexec.Run, Profiles: fsread.CoverageProfiles{}, Stop: holder.Stop,
 		Notice:    holder.Notice(),
 		Launch:    supervisor.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
 		Agent:     env.Agent,

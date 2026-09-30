@@ -1,4 +1,4 @@
-package coverage
+package fsread
 
 import (
 	"os"
@@ -10,7 +10,7 @@ import (
 // ModulePath is the module path declared by the go.mod at root, or "" when
 // there is no module there.
 //
-//	p, err := coverage.Load(path, dir, coverage.ModulePath(dir))
+//	p, err := fsread.Load(path, dir, fsread.ModulePath(dir))
 //
 // ParseGo needs it because Go keys a profile by import path while a diff names
 // a file. It is read from go.mod rather than asked of `go list -m`: the answer

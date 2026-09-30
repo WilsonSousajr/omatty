@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
@@ -34,7 +35,8 @@ func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap
 // baseDeps is the required half of ui.Deps with inert fakes; tests add the
 // optional fields they exercise.
 func baseDeps(st registry.State, terms map[string]termwrap.Terminal) ui.Deps {
-	return ui.Deps{State: st, Terms: terms, Create: noCreate, Start: noStart, SpinTick: instantTick}
+	return ui.Deps{State: st, Terms: terms, Create: noCreate, Start: noStart, SpinTick: instantTick,
+		Profiles: fsread.CoverageProfiles{}}
 }
 
 // instantTick is a ui.TickFunc that answers at once, at fixedNow. The helpers

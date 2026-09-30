@@ -15,6 +15,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	sgate "github.com/WilsonSousajr/omatty/internal/service/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
@@ -78,6 +79,10 @@ type Deps struct {
 	// what a model built by a test sees.
 	GateReports <-chan gate.Report
 	GateRun     GateRunFunc
+	// Profiles reads the coverage profile a gate declares (#254). cmd passes
+	// internal/infra/fsread's, because reading a file is infra's business
+	// (ADR 0001, migration step 5.3, #653). Nil reads none: no overlay.
+	Profiles sgate.ProfileReader
 	// GateAuto runs a session's gate when its turn ends. Off by default: a
 	// test suite on every idle costs real time, so it is asked for (#233).
 	GateAuto bool
