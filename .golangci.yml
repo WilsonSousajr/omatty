@@ -82,17 +82,17 @@ linters:
           files:
             - "$all"
             - "!$test"
+            - "!**/internal/infra/agentcli/**"
             - "!**/internal/infra/detach/**"
             - "!**/internal/infra/forge/**"
             - "!**/internal/infra/gateexec/**"
             - "!**/internal/infra/golist/**"
             - "!**/internal/infra/notify/**"
-            - "!**/internal/supervisor/**"
             - "!**/internal/termwrap/**"
             - "!**/internal/infra/vcs/**"
           deny:
             - pkg: os/exec
-              desc: "shelling out belongs to infra/detach, infra/forge, infra/gateexec, infra/golist, infra/notify, supervisor, termwrap and infra/vcs"
+              desc: "shelling out belongs to infra/agentcli, infra/detach, infra/forge, infra/gateexec, infra/golist, infra/notify, termwrap and infra/vcs"
         # The network is a capability for the same reason (#453): internal/infra/forge's
         # REST fallback carries a token borrowed from the environment, and a
         # second HTTP client elsewhere is a second place it could go.

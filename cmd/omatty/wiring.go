@@ -15,11 +15,13 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/discover"
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"github.com/WilsonSousajr/omatty/internal/infra/agentcli"
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
@@ -44,7 +46,7 @@ func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
 	if err != nil {
 		return err
 	}
-	hooksFile, err := supervisor.InstallHooks(profile, home)
+	hooksFile, err := hooks.Install(profile, home)
 	if err != nil {
 		return err
 	}
@@ -357,7 +359,7 @@ func sessionArchiver(store sessions.StateStore) ui.ArchiveFunc {
 // model round trip, short enough that a stalled one is invisible.
 const namingTimeout = 10 * time.Second
 
-// modelNamer adapts supervisor.Namer to ui.ModelNameFunc, or returns nil when
+// modelNamer adapts agentcli.Namer to ui.ModelNameFunc, or returns nil when
 // the operator has not opted in (#44, #127). The closer removes the namer's
 // working directory; ui.Run cannot, because it receives a func, not the
 // Namer.
@@ -365,7 +367,7 @@ func modelNamer(cfg config.Config) (ui.ModelNameFunc, func()) {
 	if !cfg.Naming.Model {
 		return nil, func() {}
 	}
-	n := supervisor.NewNamer(supervisor.NamerOpts{Bin: cfg.ClaudeBin, Timeout: namingTimeout})
+	n := agentcli.NewNamer(agentcli.NamerOpts{Bin: cfg.ClaudeBin, Timeout: namingTimeout})
 	name := func(prompt string) (string, error) { return n.Name(context.Background(), prompt) }
 	return name, func() {
 		if err := n.Close(); err != nil {

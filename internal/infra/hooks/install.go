@@ -1,4 +1,4 @@
-package supervisor
+package hooks
 
 import (
 	"errors"
@@ -11,17 +11,17 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
-// InstallHooks regenerates ~/.omatty/hooks.json for the running binary and
+// Install regenerates ~/.omatty/hooks.json for the running binary and
 // returns its path. It runs before any session starts: claude refuses
 // --settings on a missing file (issue #31) and the binary path moves with
 // `go install`. It was four steps of logic in cmd (invariant 10, issue #79).
 //
-//	hooksFile, err := supervisor.InstallHooks(profile, home)
+//	hooksFile, err := hooks.Install(profile, home)
 //
 // The events and the settings schema are the profile's (#46). One file for
 // the whole app: a second agent whose schema differs will need a file per
 // profile, which is noted here rather than built.
-func InstallHooks(profile agent.Profile, home string) (string, error) {
+func Install(profile agent.Profile, home string) (string, error) {
 	bin, err := os.Executable()
 	if err != nil {
 		return "", fmt.Errorf("supervisor: locating the omatty binary: %w", err)
@@ -31,13 +31,13 @@ func InstallHooks(profile agent.Profile, home string) (string, error) {
 		return "", fmt.Errorf("supervisor: rendering hooks for %q: %w", bin, err)
 	}
 	path := paths.HooksFile(home)
-	if err := WriteHooksFile(path, content); err != nil {
+	if err := WriteSettings(path, content); err != nil {
 		return "", err
 	}
 	return path, nil
 }
 
-// WriteHooksFile writes omatty's settings file, overwriting any existing one.
+// WriteSettings writes omatty's settings file, overwriting any existing one.
 //
 // This reverses #31's "never overwrite": the file names the omatty binary by
 // absolute path, which changes with `go install`, so it must be regenerated on
@@ -45,8 +45,8 @@ func InstallHooks(profile agent.Profile, home string) (string, error) {
 // invariant 3 is about the user's ~/.claude/settings.json, which is untouched.
 //
 //	content, _ := hooks.Render(binPath)
-//	supervisor.WriteHooksFile(paths.HooksFile(home), content)
-func WriteHooksFile(path string, content []byte) error {
+//	hooks.WriteSettings(paths.HooksFile(home), content)
+func WriteSettings(path string, content []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("supervisor: creating hooks directory %q: %w", dir, err)

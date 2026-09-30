@@ -1,4 +1,4 @@
-package supervisor_test
+package hooks_test
 
 import (
 	"os"
@@ -6,17 +6,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/supervisor"
 )
 
 // The bootstrap used to live in cmd, outside the coverage gate, with no test
 // (issue #79). It must name the running binary, shell-quoted (#56), and
 // register the events it was given.
-func TestInstallHooks_WritesTheRunningBinaryPath_issue79(t *testing.T) {
+func TestInstall_WritesTheRunningBinaryPath_issue79(t *testing.T) {
 	home := t.TempDir()
 
-	path, err := supervisor.InstallHooks(fakeProfile(home), home)
+	path, err := hooks.Install(stopProfile(), home)
 	if err != nil {
 		t.Fatalf("InstallHooks() error = %v", err)
 	}
@@ -31,10 +32,10 @@ func TestInstallHooks_WritesTheRunningBinaryPath_issue79(t *testing.T) {
 	}
 }
 
-func TestWriteHooksFile_CreatesTheFileAndParentDir_issue17(t *testing.T) {
+func TestWriteSettings_CreatesTheFileAndParentDir_issue17(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "hooks.json")
 
-	if err := supervisor.WriteHooksFile(path, []byte(`{"hooks":{}}`)); err != nil {
+	if err := hooks.WriteSettings(path, []byte(`{"hooks":{}}`)); err != nil {
 		t.Fatalf("WriteHooksFile() error = %v, want nil", err)
 	}
 	got, err := os.ReadFile(path)
@@ -48,13 +49,13 @@ func TestWriteHooksFile_CreatesTheFileAndParentDir_issue17(t *testing.T) {
 // #31 stub. The file now names the omatty binary by absolute path, which moves
 // with `go install`, so a stale path must be replaced (invariant 11 depends on
 // the hook actually reaching a running omatty).
-func TestWriteHooksFile_OverwritesEveryTime_issue17(t *testing.T) {
+func TestWriteSettings_OverwritesEveryTime_issue17(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "hooks.json")
 	if err := os.WriteFile(path, []byte(`{"hooks":{"Stop":"OLD BINARY PATH"}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := supervisor.WriteHooksFile(path, []byte(`{"hooks":{}}`)); err != nil {
+	if err := hooks.WriteSettings(path, []byte(`{"hooks":{}}`)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -64,7 +65,7 @@ func TestWriteHooksFile_OverwritesEveryTime_issue17(t *testing.T) {
 	}
 }
 
-func TestWriteHooksFile_UnwritableDirectoryNamesThePath_issue17(t *testing.T) {
+func TestWriteSettings_UnwritableDirectoryNamesThePath_issue17(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores directory permissions")
 	}
@@ -74,7 +75,7 @@ func TestWriteHooksFile_UnwritableDirectoryNamesThePath_issue17(t *testing.T) {
 	}
 	path := filepath.Join(dir, "hooks.json")
 
-	err := supervisor.WriteHooksFile(path, []byte("{}"))
+	err := hooks.WriteSettings(path, []byte("{}"))
 
 	if err == nil {
 		t.Fatal("WriteHooksFile() into a read-only dir returned nil, want an error")
@@ -87,7 +88,7 @@ func TestWriteHooksFile_UnwritableDirectoryNamesThePath_issue17(t *testing.T) {
 // Regression, issue #58 (invariant 3): a symlink at the hooks path was
 // followed, so a link planted at ~/.omatty/hooks.json pointing at the user's
 // ~/.claude/settings.json made omatty overwrite that file on its next start.
-func TestWriteHooksFile_RefusesASymlinkAndLeavesTheTargetAlone_issue58(t *testing.T) {
+func TestWriteSettings_RefusesASymlinkAndLeavesTheTargetAlone_issue58(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "settings.json")
 	if err := os.WriteFile(target, []byte(`{"theirs":true}`), 0o600); err != nil {
@@ -98,7 +99,7 @@ func TestWriteHooksFile_RefusesASymlinkAndLeavesTheTargetAlone_issue58(t *testin
 		t.Fatal(err)
 	}
 
-	err := supervisor.WriteHooksFile(path, []byte(`{"hooks":{}}`))
+	err := hooks.WriteSettings(path, []byte(`{"hooks":{}}`))
 
 	if err == nil || !strings.Contains(err.Error(), path) {
 		t.Errorf("WriteHooksFile over a symlink = %v, want an error naming %s", err, path)
@@ -112,10 +113,10 @@ func TestWriteHooksFile_RefusesASymlinkAndLeavesTheTargetAlone_issue58(t *testin
 // The file is renamed into place, so a claude reading --settings at that
 // instant never sees a truncated file (the #31 failure) and no temp file is
 // left behind.
-func TestWriteHooksFile_LeavesNoTempFileBehind_issue58(t *testing.T) {
+func TestWriteSettings_LeavesNoTempFileBehind_issue58(t *testing.T) {
 	dir := t.TempDir()
 
-	if err := supervisor.WriteHooksFile(filepath.Join(dir, "hooks.json"), []byte("{}")); err != nil {
+	if err := hooks.WriteSettings(filepath.Join(dir, "hooks.json"), []byte("{}")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -127,4 +128,10 @@ func TestWriteHooksFile_LeavesNoTempFileBehind_issue58(t *testing.T) {
 		}
 		t.Errorf("dir holds %v, want only hooks.json", names)
 	}
+}
+
+// stopProfile is an agent whose settings subscribe to one event, rendered by
+// this package's own Render: all Install reads from a profile.
+func stopProfile() agent.Profile {
+	return agent.Profile{HookEvents: func() []string { return []string{"Stop"} }, RenderSettings: hooks.Render}
 }
