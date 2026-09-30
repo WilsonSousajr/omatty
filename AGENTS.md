@@ -62,7 +62,8 @@ internal/
 │   ├── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).
 │   ├── review/     the review model: files, hunks, lines, content anchors (invariant 7), the tree, Compose.
 │   ├── session/    Project, Session, State - what state.json holds (invariant 9) - and placeholder names.
-│   └── status/     a session's status vocabulary: Kind, Status, Event, Tokens, the hook payload, Apply.
+│   ├── status/     a session's status vocabulary: Kind, Status, Event, Tokens, the hook payload, Apply.
+│   └── tally/      [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
 │   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).
@@ -85,7 +86,6 @@ internal/
 ├── discover/       proposes repositories to register, from claude's transcript store (#91).
 ├── review/         [M3] loads a diff and a turn, previews, reverts; the model is domain/review.
 ├── gate/           [M9] runs a project's own verification commands; its vocabulary is domain/gate.
-├── tally/          [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.

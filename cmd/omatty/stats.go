@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/tally"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/registry"
-	"github.com/WilsonSousajr/omatty/internal/tally"
 )
 
 // gateStats prints the project's lead time and first-pass gate rate.
