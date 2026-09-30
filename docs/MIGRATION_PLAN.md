@@ -44,7 +44,8 @@ count after the step.
 | 3.5 | #635 | #642 | merged | 23 |
 | 3.6a | #635 | #643 | merged | 23 |
 | 3.6b | #635 | #645 | merged | 23 |
-| Amendment 3 | #635 | #646 | open | 23 |
+| Amendment 3 | #635 | #646 | merged | 23 |
+| Amendment 4 | #635 | this PR | open | 23 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
@@ -152,7 +153,7 @@ domain half one at a time.
 | 3.6a | `refactor: domain/review from review (model)` | anchor, change, comments, compose, digest, entries, pair, place, tree, treecompact, turnplace, shippable; aliases | M | invariants 7 and 8 | 3.1 | revert |
 | 3.6b | `refactor: go-gitdiff parsing to infra/gitdiff` | `review/parse.go`; the depguard `wrappers` rule retargeted | M | invariant 4 in spirit | 3.6a | revert |
 | 3.6c | *Folded into 5.8 by Amendment 3.* | `ui` defaults `Deps.Preview` to `review.ReadPreview`, and the header read serves `Source.Generated`, so moving the reads before `service/review`'s `FileReader` port would add a tui → infra finding. | — | — | — | — |
-| 3.7 | `refactor: domain/agent, cutting its edges to paths, hooks and watcher` | paths arrive as values from `cmd`; the Adapter types from `domain/status` | M | ADR Exceptions (paths); P2 | 3.2 | revert |
+| 3.7 | *Moved to 5.2b by Amendment 4.* | `agent.Claude()` composes the watcher's transcript parser, `hooks.Render` and `paths.Transcript`, and `Profile.Status` has the type `watcher.Adapter`, so a pure `domain/agent` needs the `Adapter` port first. | — | — | — | — |
 | 3.8 | `refactor: move tally to domain` | after its inputs are domain types | L | ADR tree | 3.1, 3.5 | revert |
 | 3.9 | `refactor: crap and depgraph take their own input types` | *Amendment 1.* Each declares the input struct it reads: import path, imports, file names and their source bytes and mtimes. `tools/crapcheck`, `depcheck` and `layercheck` convert `golist.Package` into it. crap's source and mtime reads (`score.go`, `stale.go`) move into `tools/crapcheck`. Removes 3 findings: crap → golist, crap → os, depgraph → golist. | M | ADR tree (domain is pure) | 2.2 | revert |
 
@@ -171,6 +172,7 @@ net: a logic PR that changes a row says which row and why (rule 4).
 |---|---|---|---|---|---|---|
 | 5.1 | `feat: internal/pubsub` | `Broker[T]` with `Publish` (waits) and `Offer` (drops and counts); `Event[T]`. It has no users yet. | L | ADR event model | 0 | revert |
 | 5.2 | `refactor: service/status, infra/transcript, infra/hookserver` | `watcher/watch.go`, `adapter.go`, `guard.go` and `transcript.go` become the service. The tailer goes to `infra/transcript` and publishes with `Publish`. The listener goes to `infra/hookserver` and publishes with `Offer` (invariant 11). The TUI subscribes where it read `Deps.Events`. | H, **smoke** | ADR event model, invariants 2 and 11 | 3.2, 5.1 | revert; blocks 5.8, 7.1 |
+| 5.2b | `refactor: domain/agent; the profile catalog is composed in cmd` | *Amendment 4, was 3.7.* `Profile` and the command template go to `domain/agent`, with `Status` typed by `service/status`'s `Adapter` port. The catalog (`Claude()`, `Lookup`, `Names`), which composes the parser, `hooks.Render` and `paths.Transcript`, is built in `cmd`. That is where M17's #521 `Catalog` lands. Removes agent → hooks, paths and watcher. | M | ADR Exceptions (paths); P2 | 5.2 | revert |
 | 5.3 | `refactor: service/gate and infra/gateexec` | the runner and bound become the service, which publishes `Event[gate.Report]`. `run.go`, `procgroup_*` and `detect.go` go to `infra/gateexec`. The exec allowlist changes as the ADR records. *Amendment 2:* `domain/coverage`'s `load.go` and `module.go` move to a new `infra/fsread`, behind `service/gate`'s `ProfileReader` port; `ui` stops calling `coverage.Load`. Removes the coverage → os finding. | M, **smoke** (`gateprobe`) | invariant 12, ADR Enforcement | 3.3, 5.1 | revert |
 | 5.4 | `refactor: service/sessions (state and commands)` | registry's commands and create become the service. `store.go` and carry's copy go to `infra/store` behind `StateStore`. The ports carry `ctx`. | M | ADR ports, P2 | 3.1, 4.1 | revert; blocks 5.5–5.7 |
 | 5.5 | `refactor: starting a session returns session.Launch` | `supervisor/launch.go` becomes `sessions.Start`, which returns argv/env/dir. The `Holder` port works over argv. `tui/terminal` (still `termwrap`) spawns. `namer.go` goes to `infra/agentcli`. | H, **smoke** + `dtachprobe` | ADR "Starting a session", invariant 9 | 5.4 | revert |
@@ -268,6 +270,16 @@ read serves `Source.Generated`, so moving either read before
 `service/review`'s `FileReader` port would add a tui → infra finding. The
 maintainer folded 3.6c into 5.8, where that port arrives. Stage 3 continues
 with 3.7 and 3.8.
+
+**Amendment 4** (2026-09-29, #635). Step 3.7 was not a move. `agent.Claude()`
+composes three implementations: the watcher's transcript parser,
+`hooks.Render`, and `paths.Transcript` with `EvalSymlinks`. `Profile.Status`
+is typed by `watcher.Adapter`, a service-layer type. A pure `domain/agent` needs
+that `Adapter` contract to exist in a layer it may import, and the catalog
+needs a composition root to live in. The maintainer moved the step to 5.2b,
+right after `service/status` declares the port, with the catalog composed in
+`cmd`. M17's injected `Catalog` (#521) will build on that. Stage 3 finishes
+with 3.8 and 3.9.
 
 ## When the plan is wrong
 
