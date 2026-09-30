@@ -1,5 +1,5 @@
 // The slice of an agent profile the tailer and the listener need. Declared
-// here rather than imported from internal/agent, so watcher stays the
+// here rather than imported from internal/domain/agent, so watcher stays the
 // neutral vocabulary and the dependency runs one way: agent knows what
 // claude's JSONL looks like, watcher knows what a Kind is, and only the first
 // imports the second (#46).
@@ -15,7 +15,7 @@ import (
 
 // TranscriptPathFunc is where an agent writes a session's transcript. A
 // function type rather than the Profile itself, for the reason Adapter is
-// declared in internal/domain/status rather than in internal/agent.
+// declared in internal/domain/status rather than in internal/domain/agent.
 type TranscriptPathFunc func(home, dir, sessionID string) string
 
 // WatchDeps is what Start needs beyond the session list.

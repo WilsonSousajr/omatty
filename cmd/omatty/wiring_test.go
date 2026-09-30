@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/agent"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
@@ -22,7 +21,7 @@ import (
 // The config's lazy_start reaches the boot, in both directions (#317).
 func TestTuiDeps_PassesLazyStart_issue317(t *testing.T) {
 	for _, lazy := range []bool{true, false} {
-		env := tuiEnv{Home: "/h", Agent: agent.Claude(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+		env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 		env.Cfg = config.Defaults("/h")
 		env.Cfg.Sessions.LazyStart = lazy
 
@@ -34,7 +33,7 @@ func TestTuiDeps_PassesLazyStart_issue317(t *testing.T) {
 
 // The config's idle_stop reaches the model's sweep (#319).
 func TestTuiDeps_PassesIdleStop_issue319(t *testing.T) {
-	env := tuiEnv{Home: "/h", Agent: agent.Claude(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	env.Cfg.Sessions.IdleStop = config.Duration(90 * time.Minute)
 
@@ -48,7 +47,7 @@ func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T)
 	// launcher derives a socket path from it and refuses one over 103 bytes,
 	// which t.TempDir() exceeds on macOS (#43).
 	home := "/h"
-	env := tuiEnv{Home: home, Agent: agent.Claude(), HooksFile: filepath.Join(home, "hooks.json"), Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: home, Agent: claudeProfile(), HooksFile: filepath.Join(home, "hooks.json"), Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults(home)
 	env.Cfg.ClaudeBin = "/opt/claude"
 	env.Cfg.Leader = "ctrl+a"
@@ -84,7 +83,7 @@ func TestCreatorOpts_ComeFromTheConfig_issue44(t *testing.T) {
 // Router's own - neutral for a project it has not resolved - and not ui's
 // unwired default, which is GitHub's.
 func TestTuiDeps_WiresEveryForgeCallThroughTheRouter_issue452(t *testing.T) {
-	env := tuiEnv{Home: "/h", Agent: agent.Claude(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 
 	deps := tuiDeps(env, nil, registry.State{})
@@ -317,7 +316,7 @@ func TestSessionNamer_ReadsATranscriptBehindASymlink_issue564(t *testing.T) {
 	}
 	adoptFixture(t, home, physical, "abc", "fix the parser")
 
-	title, err := sessionNamer(home, agent.Claude())(registry.Session{ID: "abc", Dir: filepath.Join(root, "link", "omatty")})
+	title, err := sessionNamer(home, claudeProfile())(registry.Session{ID: "abc", Dir: filepath.Join(root, "link", "omatty")})
 
 	if err != nil || !strings.Contains(title, "parser") {
 		t.Errorf("sessionNamer = (%q, %v), want a title from the transcript under the resolved directory", title, err)
@@ -332,7 +331,7 @@ func TestSessionNamer_ReadsTheReboundConversation_issue316(t *testing.T) {
 	adoptFixture(t, home, dir, "before-clear", "the old work")
 	adoptFixture(t, home, dir, "after-clear", "fix the parser")
 
-	title, err := sessionNamer(home, agent.Claude())(registry.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
+	title, err := sessionNamer(home, claudeProfile())(registry.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
 
 	if err != nil || !strings.Contains(title, "parser") {
 		t.Errorf("sessionNamer = (%q, %v), want a title from the post-clear prompt", title, err)
@@ -348,7 +347,7 @@ func TestTuiDeps_OpensTranscriptsThroughTheReader_issue653(t *testing.T) {
 	if err := os.WriteFile(path, []byte("line\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	env := tuiEnv{Home: "/h", Agent: agent.Claude(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	deps := tuiDeps(env, nil, registry.State{})
 	if deps.OpenTranscript == nil {
@@ -370,7 +369,7 @@ func TestTuiDeps_ServesTheHookSocket_issue653(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	env := tuiEnv{Home: "/h", Agent: agent.Claude(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	deps := tuiDeps(env, nil, registry.State{})
 	if deps.ListenHooks == nil {

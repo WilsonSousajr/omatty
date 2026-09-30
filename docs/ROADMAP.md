@@ -607,7 +607,7 @@ what M7 left.
   agree. A typed branch now passes `registry.Slug` too, which it never did.
 - **#152 - a second agent profile, Codex first.** #46 built the seam with
   claude as its only entry; the roadmap's original promise was Codex and
-  opencode. Each is one file in `internal/agent`: a command template, a
+  opencode. Each is a profile in `cmd/omatty/agents.go` over `internal/domain/agent`: a command template, a
   transcript location, hook events (or none, degrading to transcript-only
   status), and a `watcher.Adapter` for its transcript shape. Two known costs,
   written down in #46's PR: `paths.HooksFile` is one file for the whole app,

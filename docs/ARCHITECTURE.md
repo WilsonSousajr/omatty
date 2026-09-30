@@ -111,7 +111,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | Package | Owns |
 |---|---|
 | `cmd/omatty` | The binary. Flags, dependency construction, `omatty hook`. Thin by rule. |
-| `internal/agent` | What a coding agent is: a command template plus a status adapter. Claude is the only profile (#46). |
+| `internal/domain/agent` | What a coding agent is: a command template plus a status adapter. Claude is the only profile (#46), composed in `cmd/omatty/agents.go` with the implementations it carries. |
 | `internal/infra/config` | `~/.omatty/config.toml`. Every key optional; a missing file is every default. The only package that names a TOML library. |
 | `internal/infra/detach` | omatty's only route to `dtach`. Returns a no-op holder when the binary is absent. |
 | `internal/discover` | Proposes repositories and sessions to register, read from Claude's own transcript store. Proposes only; never writes. |
@@ -340,4 +340,4 @@ import the service that reads status.
 - `docs/superpowers/specs/2026-09-01-omatty-design.md` - the design this
   repository implements, and the two concerns it flagged before building.
 - The package docs - every exported identifier carries its intent and an
-  example; `internal/agent` and `internal/infra/paths` are the two to read first.
+  example; `internal/domain/agent` and `internal/infra/paths` are the two to read first.

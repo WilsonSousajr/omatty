@@ -53,6 +53,7 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
 ├── domain/         [ADR 0001] entities and pure logic, stdlib only; moving here one step at a time.
+│   ├── agent/      the agent seam (#46): Profile, a command template plus a status Adapter. The catalog is cmd's.
 │   ├── coverage/   [M10] a coverage profile -> per-line verdicts and raw blocks.
 │   ├── crap/       [M11] per-function complexity x coverage -> a C.R.A.P. score.
 │   ├── depgraph/   [M11] the internal import graph -> Ca, Ce, instability, SDP.
@@ -62,7 +63,7 @@ internal/
 │   ├── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).
 │   ├── review/     the review model: files, hunks, lines, content anchors (invariant 7), the tree, Compose.
 │   ├── session/    Project, Session, State - what state.json holds (invariant 9) - and placeholder names.
-│   ├── status/     a session's status vocabulary: Kind, Status, Event, Tokens, the hook payload, Apply.
+│   ├── status/     a session's status vocabulary: Kind, Status, Event, Tokens, the hook payload, Apply, the Adapter port.
 │   └── tally/      [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
 ├── service/        [ADR 0001] use cases, each declaring the ports it consumes; moving here one step at a time.
 │   └── status/     [M2] transcript lines + hook payloads -> typed status events, published through pubsub.
@@ -83,7 +84,6 @@ internal/
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
 ├── pubsub/          [ADR 0001] Broker[T]: services publish (Publish waits, Offer drops), the TUI subscribes.
 ├── registry/       persists projects and sessions to state.json; the record itself is domain/session.
-├── agent/          the agent seam (#46): a command template plus a status adapter.
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
 ├── keys/           modal key router. Pure state machine (invariant 1).
@@ -512,9 +512,10 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
   and the architecture decisions it led to. `0001-architecture.md` (#618) is
   the target layout: `domain/`, `service/`, `infra/`, `pubsub`, `tui/`, `cli`.
   Until the migration lands, the layout above describes the code.
-- `internal/agent` package doc — the agent seam (#46): an agent is a command
-  template plus a status adapter, and why the adapter interface lives in
-  `watcher`.
+- `internal/domain/agent` package doc — the agent seam (#46): an agent is a
+  command template plus a status adapter; the catalog of profiles is composed
+  in `cmd/omatty/agents.go`, and the adapter interface lives in
+  `internal/domain/status`.
 - `CHANGELOG.md` — what each release changed, with the issues behind it.
   Written as part of the promoting PR; see "Branches and releases".
 - `docs/comparison.md` — how omatty compares to every other tool in this

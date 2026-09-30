@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/agent"
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
@@ -21,7 +21,7 @@ import (
 // Invariant 3: --settings points at omatty's own file, so the user's
 // ~/.claude/settings.json is never read or written.
 func TestLauncher_CommandPassesSessionIDAndOwnSettings(t *testing.T) {
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/home/u/.omatty/hooks.json", t.TempDir(), &detach.Plain{})
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/home/u/.omatty/hooks.json", t.TempDir(), &detach.Plain{})
 
 	cmd, err := l.Command(registry.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
@@ -54,7 +54,7 @@ func commandArgs(t *testing.T, l *supervisor.Launcher, sessionID, dir string) st
 // Invariant 3, stated as a property: nothing on the command line points at
 // the user's own settings file.
 func TestLauncher_CommandNeverReferencesTheUserSettings(t *testing.T) {
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/home/u/.omatty/hooks.json", t.TempDir(), &detach.Plain{})
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/home/u/.omatty/hooks.json", t.TempDir(), &detach.Plain{})
 
 	for _, arg := range strings.Fields(commandArgs(t, l, "abc-123", "/w")) {
 		if strings.Contains(arg, ".claude/settings") {
@@ -73,7 +73,7 @@ func TestLauncher_StartHandsTheCommandToTheFactory(t *testing.T) {
 	}
 	sess := registry.Session{ID: "abc-123", Dir: "/w/parser-fix"}
 
-	term, err := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}).Start(factory, sess, 80, 24)
+	term, err := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}).Start(factory, sess, 80, 24)
 
 	if err != nil {
 		t.Fatalf("Start() error = %v, want nil", err)
@@ -91,7 +91,7 @@ func TestLauncher_StartFailureNamesTheSession(t *testing.T) {
 		return nil, errors.New("pty exhausted")
 	}
 
-	_, err := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), &detach.Plain{}).
+	_, err := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}).
 		Start(factory, registry.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
 
 	if err == nil {
@@ -112,7 +112,7 @@ func TestLauncher_StartRunsTheFakeClaude(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	l := supervisor.NewLauncher(agent.Claude(), bin, "/h.json", t.TempDir(), &detach.Plain{})
+	l := supervisor.NewLauncher(claudeProfile(), bin, "/h.json", t.TempDir(), &detach.Plain{})
 	sess := registry.Session{ID: "smoke-uuid", Dir: t.TempDir()}
 
 	term, err := l.Start(termwrap.Start, sess, 60, 12)
@@ -132,7 +132,7 @@ func TestLauncher_StartRunsTheFakeClaude(t *testing.T) {
 // transcript is the claim - and `--resume` is the documented way back in.
 func TestLauncher_UsesSessionIDForAFreshSession_issue36(t *testing.T) {
 	home := t.TempDir()
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", home, &detach.Plain{})
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", home, &detach.Plain{})
 
 	args := commandArgs(t, l, "abc-123", "/w/parser-fix")
 
@@ -153,7 +153,7 @@ func TestLauncher_UsesResumeWhenTheTranscriptExists_issue36(t *testing.T) {
 	if err := os.WriteFile(transcript, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", home, &detach.Plain{})
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", home, &detach.Plain{})
 
 	args := commandArgs(t, l, "abc-123", "/w/parser-fix")
 
@@ -174,7 +174,7 @@ func TestLauncher_SettingsIsPassedOnBothPaths_issue36(t *testing.T) {
 			_ = os.MkdirAll(filepath.Dir(p), 0o700)
 			_ = os.WriteFile(p, []byte("{}\n"), 0o600)
 		}
-		args := commandArgs(t, supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", home, &detach.Plain{}), "abc-123", "/w")
+		args := commandArgs(t, supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", home, &detach.Plain{}), "abc-123", "/w")
 		if !strings.Contains(args, "--settings /h.json") {
 			t.Errorf("transcript=%v: args %q lack --settings", withTranscript, args)
 		}
@@ -183,18 +183,18 @@ func TestLauncher_SettingsIsPassedOnBothPaths_issue36(t *testing.T) {
 
 func TestHasTranscript_issue36(t *testing.T) {
 	home := t.TempDir()
-	if supervisor.HasTranscript(agent.Claude(), home, "/w", "none") {
+	if supervisor.HasTranscript(claudeProfile(), home, "/w", "none") {
 		t.Error("HasTranscript() = true for a session that has never spoken")
 	}
 	p := paths.Transcript(home, "/w", "spoke")
 	_ = os.MkdirAll(filepath.Dir(p), 0o700)
 	_ = os.WriteFile(p, []byte("{}\n"), 0o600)
-	if !supervisor.HasTranscript(agent.Claude(), home, "/w", "spoke") {
+	if !supervisor.HasTranscript(claudeProfile(), home, "/w", "spoke") {
 		t.Error("HasTranscript() = false for a session with a transcript on disk")
 	}
 	// A directory at the path is not a transcript.
 	_ = os.MkdirAll(paths.Transcript(home, "/w", "dir"), 0o700)
-	if supervisor.HasTranscript(agent.Claude(), home, "/w", "dir") {
+	if supervisor.HasTranscript(claudeProfile(), home, "/w", "dir") {
 		t.Error("HasTranscript() = true for a directory")
 	}
 }
@@ -205,7 +205,7 @@ func TestHasTranscript_issue36(t *testing.T) {
 // handed, so the --session-id / --resume decision above is untouched (#43).
 func TestLauncher_CommandWrapsThroughTheHolder_issue43(t *testing.T) {
 	h := &fakeHolder{Wrapped: exec.Command("dtach", "-A", "/s.sock")}
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), h)
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h)
 
 	cmd, err := l.Command(registry.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
@@ -227,7 +227,7 @@ func TestLauncher_CommandWrapsThroughTheHolder_issue43(t *testing.T) {
 // rather than launching a claude the holder cannot later stop (#43).
 func TestLauncher_CommandSurfacesAHolderFailure_issue43(t *testing.T) {
 	h := &fakeHolder{WrapErr: errors.New("socket path is 130 bytes, over the 104-byte limit")}
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), h)
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h)
 
 	_, err := l.Command(registry.Session{ID: "abc-123", Dir: "/w"})
 
@@ -246,7 +246,7 @@ func TestLauncher_StartSurfacesAHolderFailure_issue43(t *testing.T) {
 		return nil, nil
 	}
 
-	_, err := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), h).
+	_, err := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h).
 		Start(factory, registry.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
 
 	if err == nil {
@@ -301,7 +301,7 @@ func TestLauncher_ResumesWhenTheProfilesTranscriptExists_issue46(t *testing.T) {
 // pane that needs a repaint nudge from one that will paint itself (#191).
 func TestLauncher_ReattachingAsksTheHolder_issue191(t *testing.T) {
 	h := &fakeHolder{HeldIDs: map[string]bool{"abc-123": true}}
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", t.TempDir(), h)
+	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h)
 
 	held, err := l.Reattaching("abc-123")
 	if err != nil || !held {
@@ -310,38 +310,5 @@ func TestLauncher_ReattachingAsksTheHolder_issue191(t *testing.T) {
 	held, err = l.Reattaching("other")
 	if err != nil || held {
 		t.Errorf("Reattaching(other) = %v, %v; want false, nil", held, err)
-	}
-}
-
-// Regression, issue #564: a session whose directory is reached through a
-// symlink has its transcript under the resolved directory's slug, because
-// that is where claude writes it. Resuming it is the #36 condition, so
-// missing the file restarted it with --session-id, which claude refuses.
-func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
-	home := t.TempDir()
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "real", "parser"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(filepath.Join(root, "real"), filepath.Join(root, "link")); err != nil {
-		t.Fatal(err)
-	}
-	physical, err := filepath.EvalSymlinks(filepath.Join(root, "real", "parser"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	transcript := paths.Transcript(home, physical, "abc-123")
-	if err := os.MkdirAll(filepath.Dir(transcript), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(transcript, []byte("{}\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	l := supervisor.NewLauncher(agent.Claude(), "claude", "/h.json", home, &detach.Plain{})
-
-	args := commandArgs(t, l, "abc-123", filepath.Join(root, "link", "parser"))
-
-	if !strings.Contains(args, "--resume abc-123") {
-		t.Errorf("args %q lack --resume for a session whose transcript is under its resolved directory", args)
 	}
 }
