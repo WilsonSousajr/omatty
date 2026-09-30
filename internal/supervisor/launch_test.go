@@ -3,12 +3,12 @@ package supervisor_test
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
@@ -23,12 +23,12 @@ import (
 func TestLauncher_CommandPassesSessionIDAndOwnSettings(t *testing.T) {
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/home/u/.omatty/hooks.json", t.TempDir(), &detach.Plain{})
 
-	cmd, err := l.Command(sessions.Session{ID: "abc-123", Dir: "/w/parser-fix"})
+	cmd, err := l.Launch(sessions.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
 	if err != nil {
-		t.Fatalf("Command() error = %v, want nil", err)
+		t.Fatalf("Launch() error = %v, want nil", err)
 	}
-	got := strings.Join(cmd.Args, " ")
+	got := strings.Join(cmd.Argv, " ")
 	want := "claude --session-id abc-123 --settings /home/u/.omatty/hooks.json"
 	if got != want {
 		t.Errorf("Args = %q, want %q", got, want)
@@ -44,11 +44,11 @@ func TestLauncher_CommandPassesSessionIDAndOwnSettings(t *testing.T) {
 // arguments, not about that.
 func commandArgs(t *testing.T, l *supervisor.Launcher, sessionID, dir string) string {
 	t.Helper()
-	cmd, err := l.Command(sessions.Session{ID: sessionID, Dir: dir})
+	cmd, err := l.Launch(sessions.Session{ID: sessionID, Dir: dir})
 	if err != nil {
-		t.Fatalf("Command(%q, %q) error = %v, want nil", sessionID, dir, err)
+		t.Fatalf("Launch(%q, %q) error = %v, want nil", sessionID, dir, err)
 	}
-	return strings.Join(cmd.Args, " ")
+	return strings.Join(cmd.Argv, " ")
 }
 
 // Invariant 3, stated as a property: nothing on the command line points at
@@ -67,7 +67,7 @@ func TestLauncher_StartHandsTheCommandToTheFactory(t *testing.T) {
 	var gotW, gotH int
 	var gotDir string
 	fake := termwrap.NewFake("")
-	factory := func(w, h int, cmd *exec.Cmd) (termwrap.Terminal, error) {
+	factory := func(w, h int, cmd session.Launch) (termwrap.Terminal, error) {
 		gotW, gotH, gotDir = w, h, cmd.Dir
 		return fake, nil
 	}
@@ -87,7 +87,7 @@ func TestLauncher_StartHandsTheCommandToTheFactory(t *testing.T) {
 }
 
 func TestLauncher_StartFailureNamesTheSession(t *testing.T) {
-	factory := func(int, int, *exec.Cmd) (termwrap.Terminal, error) {
+	factory := func(int, int, session.Launch) (termwrap.Terminal, error) {
 		return nil, errors.New("pty exhausted")
 	}
 
@@ -204,13 +204,13 @@ func TestHasTranscript_issue36(t *testing.T) {
 // omatty. The claude command itself is unchanged and is what the holder is
 // handed, so the --session-id / --resume decision above is untouched (#43).
 func TestLauncher_CommandWrapsThroughTheHolder_issue43(t *testing.T) {
-	h := &fakeHolder{Wrapped: exec.Command("dtach", "-A", "/s.sock")}
+	h := &fakeHolder{Wrapped: []string{"dtach", "-A", "/s.sock"}}
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h)
 
-	cmd, err := l.Command(sessions.Session{ID: "abc-123", Dir: "/w/parser-fix"})
+	cmd, err := l.Launch(sessions.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
 	if err != nil {
-		t.Fatalf("Command() error = %v, want nil", err)
+		t.Fatalf("Launch() error = %v, want nil", err)
 	}
 	if h.GotID != "abc-123" {
 		t.Errorf("holder was given id %q, want %q", h.GotID, "abc-123")
@@ -218,8 +218,8 @@ func TestLauncher_CommandWrapsThroughTheHolder_issue43(t *testing.T) {
 	if got := strings.Join(h.GotArgs, " "); !strings.Contains(got, "claude --session-id abc-123") {
 		t.Errorf("holder was handed %q, want the unwrapped claude command", got)
 	}
-	if cmd.Args[0] != "dtach" {
-		t.Errorf("Command() = %v, want the command the holder returned", cmd.Args)
+	if cmd.Argv[0] != "dtach" {
+		t.Errorf("Launch() = %v, want the command the holder returned", cmd.Argv)
 	}
 }
 
@@ -229,10 +229,10 @@ func TestLauncher_CommandSurfacesAHolderFailure_issue43(t *testing.T) {
 	h := &fakeHolder{WrapErr: errors.New("socket path is 130 bytes, over the 104-byte limit")}
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h)
 
-	_, err := l.Command(sessions.Session{ID: "abc-123", Dir: "/w"})
+	_, err := l.Launch(sessions.Session{ID: "abc-123", Dir: "/w"})
 
 	if err == nil {
-		t.Fatal("Command() returned nil after the holder failed, want an error")
+		t.Fatal("Launch() returned nil after the holder failed, want an error")
 	}
 	if !strings.Contains(err.Error(), "104") {
 		t.Errorf("error %q does not carry the holder's reason", err)
@@ -241,7 +241,7 @@ func TestLauncher_CommandSurfacesAHolderFailure_issue43(t *testing.T) {
 
 func TestLauncher_StartSurfacesAHolderFailure_issue43(t *testing.T) {
 	h := &fakeHolder{WrapErr: errors.New("socket path too long")}
-	factory := func(int, int, *exec.Cmd) (termwrap.Terminal, error) {
+	factory := func(int, int, session.Launch) (termwrap.Terminal, error) {
 		t.Error("the factory was called despite the holder failing")
 		return nil, nil
 	}

@@ -2,7 +2,6 @@ package supervisor_test
 
 import (
 	"context"
-	"os/exec"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
@@ -24,9 +23,9 @@ func claudeProfile() agent.Profile {
 // to wrap and answering with a command the test can recognise. A named type,
 // per AGENTS.md, so a failure message says what stood in for dtach.
 type fakeHolder struct {
-	// Wrapped is the command Wrap hands back, so a test can tell the launcher's
-	// own command from the holder's.
-	Wrapped *exec.Cmd
+	// Wrapped is the command line Wrap hands back, so a test can tell the
+	// launcher's own command from the holder's.
+	Wrapped []string
 	// WrapErr makes Wrap fail, standing in for an unusable socket path.
 	WrapErr error
 	// GotID and GotArgs are what Wrap was called with.
@@ -40,13 +39,13 @@ type fakeHolder struct {
 
 func (f *fakeHolder) Held(sessionID string) (bool, error) { return f.HeldIDs[sessionID], nil }
 
-func (f *fakeHolder) Wrap(sessionID string, cmd *exec.Cmd) (*exec.Cmd, error) {
-	f.GotID, f.GotArgs = sessionID, cmd.Args
+func (f *fakeHolder) Wrap(sessionID string, argv []string) ([]string, error) {
+	f.GotID, f.GotArgs = sessionID, argv
 	if f.WrapErr != nil {
 		return nil, f.WrapErr
 	}
 	if f.Wrapped == nil {
-		return cmd, nil
+		return argv, nil
 	}
 	return f.Wrapped, nil
 }

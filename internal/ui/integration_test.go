@@ -1,7 +1,7 @@
 package ui_test
 
 import (
-	"os/exec"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +17,7 @@ import (
 // real terminal *through the model* - which is exactly where the wiring was
 // broken. This drives the genuine bubbletea loop the way the program does.
 func TestModel_RendersRealProcessOutputThroughTheModel_issue33(t *testing.T) {
-	term, err := termwrap.Start(60, 12, exec.Command("printf", "omatty-pumped\\n"))
+	term, err := termwrap.Start(60, 12, session.Launch{Argv: []string{"printf", "omatty-pumped\\n"}})
 	if err != nil {
 		t.Fatalf("Start() error = %v, want nil", err)
 	}

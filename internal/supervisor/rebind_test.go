@@ -2,7 +2,6 @@ package supervisor_test
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -28,10 +27,10 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 	if err := os.WriteFile(transcript, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := &fakeHolder{Wrapped: exec.Command("dtach", "-A", "/s.sock")}
+	h := &fakeHolder{Wrapped: []string{"dtach", "-A", "/s.sock"}}
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", home, h)
 
-	if _, err := l.Command(sessions.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"}); err != nil {
+	if _, err := l.Launch(sessions.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -49,7 +48,7 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 func TestLauncher_ExportsTheOwningSession_issue316(t *testing.T) {
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 
-	cmd, err := l.Command(sessions.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"})
+	cmd, err := l.Launch(sessions.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +67,7 @@ func TestLauncher_ReplacesAnInheritedOwningSession_issue316(t *testing.T) {
 	t.Setenv(hooks.SessionEnv, "outer-pane")
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 
-	cmd, err := l.Command(sessions.Session{ID: "row-1", Dir: "/w"})
+	cmd, err := l.Launch(sessions.Session{ID: "row-1", Dir: "/w"})
 	if err != nil {
 		t.Fatal(err)
 	}

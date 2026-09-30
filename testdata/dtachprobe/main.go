@@ -43,10 +43,11 @@ func main() {
 	holder := detach.NewFor(home, "dtach")
 	fmt.Println("persists:", holder.Persists())
 
-	cmd, err := holder.Wrap("probe-session", exec.Command("sh", "-c", silent))
+	argv, err := holder.Wrap("probe-session", []string{"sh", "-c", silent})
 	if err != nil {
 		exit("wrap: " + err.Error())
 	}
+	cmd := exec.Command(argv[0], argv[1:]...)
 	fmt.Println("command:", strings.Join(cmd.Args, " "))
 
 	fmt.Println("\n--- first attach (creates the master) ---")

@@ -56,12 +56,12 @@ func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T)
 
 	deps := tuiDeps(env, nil, sessions.State{})
 
-	cmd, err := deps.Launch.Command(sessions.Session{ID: "id", Dir: home})
+	launch, err := deps.Launch.Launch(sessions.Session{ID: "id", Dir: home})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cmd.Args[0] != "/opt/claude" {
-		t.Errorf("launcher runs %q, want /opt/claude", cmd.Args[0])
+	if launch.Argv[0] != "/opt/claude" {
+		t.Errorf("launcher runs %q, want /opt/claude", launch.Argv[0])
 	}
 	if deps.Leader != "ctrl+a" {
 		t.Errorf("RunDeps.Leader = %q, want the configured ctrl+a", deps.Leader)

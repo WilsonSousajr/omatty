@@ -1,7 +1,7 @@
 package termwrap_test
 
 import (
-	"os/exec"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"regexp"
 	"strings"
 	"testing"
@@ -54,7 +54,7 @@ func TestFake_RecordsEveryResizeAndRepaint_issue191(t *testing.T) {
 // Repaint makes the size genuinely change - h-1, then h - so the child
 // hears two signals and repaints (#191). The stand-in prints W per signal.
 func TestTerminal_RepaintNudgesThePTYThroughADifferentSize_issue191(t *testing.T) {
-	term, err := termwrap.Start(40, 6, exec.Command("sh", "-c", "trap 'echo W' WINCH; echo F; while :; do sleep 1; done"))
+	term, err := termwrap.Start(40, 6, session.Launch{Argv: []string{"sh", "-c", "trap 'echo W' WINCH; echo F; while :; do sleep 1; done"}})
 	if err != nil {
 		t.Fatal(err)
 	}

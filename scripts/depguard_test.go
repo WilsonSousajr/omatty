@@ -16,9 +16,9 @@ import (
 // execAllowed are the packages permitted to shell out. Kept here as well as in
 // .golangci.yml so the two can be compared: a rule and the code it governs can
 // drift apart silently, and TestDepguard_ExecAllowlistMatchesReality is the
-// only thing that would say so. internal/termwrap earns its place by naming
-// *exec.Cmd in a signature without ever constructing one - a distinction
-// depguard cannot draw.
+// only thing that would say so. internal/termwrap earns its place by spawning
+// the session's process from a session.Launch, since bubbleterm owns the PTY
+// it runs in (ADR 0001, migration step 5.5, #653).
 var execAllowed = []string{"infra/detach", "infra/forge", "infra/gateexec", "infra/golist", "infra/notify", "supervisor", "termwrap", "infra/vcs"}
 
 // Regression, issue #260: invariant 4 fences bubbleterm inside internal/termwrap,

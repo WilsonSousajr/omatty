@@ -122,11 +122,11 @@ func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
 	}
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", home, &detach.Plain{})
 
-	cmd, err := l.Command(sessions.Session{ID: "abc-123", Dir: dir})
+	cmd, err := l.Launch(sessions.Session{ID: "abc-123", Dir: dir})
 	if err != nil {
 		t.Fatalf("Command error = %v, want nil", err)
 	}
-	if args := strings.Join(cmd.Args, " "); !strings.Contains(args, "--resume abc-123") {
+	if args := strings.Join(cmd.Argv, " "); !strings.Contains(args, "--resume abc-123") {
 		t.Errorf("args %q lack --resume for a session whose transcript is under its resolved directory", args)
 	}
 }

@@ -5,9 +5,8 @@
 package termwrap
 
 import (
-	"os/exec"
-
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 )
 
 // Terminal is one embedded terminal running one process.
@@ -71,6 +70,6 @@ type Caret struct {
 	Blink   bool
 }
 
-// Factory creates a Terminal running cmd. Injected so tests never spawn a
+// Factory creates a Terminal running l. Injected so tests never spawn a
 // real process.
-type Factory func(w, h int, cmd *exec.Cmd) (Terminal, error)
+type Factory func(w, h int, l session.Launch) (Terminal, error)
