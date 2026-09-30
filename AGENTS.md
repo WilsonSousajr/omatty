@@ -66,7 +66,7 @@ internal/
 │   ├── status/     a session's status vocabulary: Kind, Status, Event, Tokens, the hook payload, Apply, the Adapter port.
 │   └── tally/      [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
 ├── service/        [ADR 0001] use cases, each declaring the ports it consumes; moving here one step at a time.
-│   ├── gate/       [M9] the Runner: gates many sessions, bounded; infra/gateexec runs the steps.
+│   ├── gate/       [M9] the Runner: gates many sessions, bounded, reports published through pubsub; infra/gateexec runs the steps.
 │   └── status/     [M2] transcript lines + hook payloads -> typed status events, published through pubsub.
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.

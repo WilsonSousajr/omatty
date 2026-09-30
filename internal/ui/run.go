@@ -210,8 +210,8 @@ func Run(d RunDeps) error {
 	defer closeTerminals(terms)
 	watch := status.Start(watchDeps(d), d.State.Sessions)
 	defer watch.Close()
-	// The model's subscription lives as long as the program: cancelled on
-	// return, so the broker lets go of it (#653).
+	// The model's subscriptions live as long as the program: cancelled on
+	// return, so the brokers let go of them (#653).
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	// One Runner for the whole app, bounded: four concurrent `go test -race`
@@ -219,7 +219,7 @@ func Run(d RunDeps) error {
 	// would make the gate worse than running it by hand (#229).
 	gates := gate.NewRunner(d.GateParallel, d.RunGate)
 	defer gates.Close()
-	return runProgram(modelFor(d, terms, held, watch.Subscribe(ctx), watch, gates), len(terms))
+	return runProgram(modelFor(d, terms, held, watch.Subscribe(ctx), watch, gates.Subscribe(ctx), gates), len(terms))
 }
 
 // modelFor assembles the root model's dependencies. Split out of Run because
@@ -227,7 +227,8 @@ func Run(d RunDeps) error {
 // terminals, the watcher and the gate Runner, each with its own defer.
 func modelFor(
 	d RunDeps, terms map[string]termwrap.Terminal, held map[string]bool,
-	events <-chan pubsub.Event[status.Event], watch *status.Watch, gates *gate.Runner,
+	events <-chan pubsub.Event[status.Event], watch *status.Watch,
+	reports <-chan pubsub.Event[gate.Report], gates *gate.Runner,
 ) *Model {
 	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
@@ -238,7 +239,7 @@ func modelFor(
 		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader, Reattached: held,
 		Events: events, HooksDown: !watch.HooksLive(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
-		GateReports: gates.Reports(), GateRun: gates.Start, GateAuto: d.GateAuto, Profiles: d.Profiles,
+		GateReports: reports, GateRun: gates.Start, GateAuto: d.GateAuto, Profiles: d.Profiles,
 		IdleStop: d.IdleStop, NerdIcons: d.NerdIcons,
 	})
 }

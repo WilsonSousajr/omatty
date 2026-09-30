@@ -5,15 +5,16 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
+	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/service/gate"
 )
 
 // waitReport reads one report, failing rather than hanging the suite.
-func waitReport(t *testing.T, r *gate.Runner) gate.Report {
+func waitReport(t *testing.T, reports <-chan pubsub.Event[gate.Report]) gate.Report {
 	t.Helper()
 	select {
-	case rep := <-r.Reports():
-		return rep
+	case e := <-reports:
+		return e.Payload
 	case <-time.After(30 * time.Second):
 		t.Fatal("no report arrived")
 		return gate.Report{}
@@ -23,10 +24,11 @@ func waitReport(t *testing.T, r *gate.Runner) gate.Report {
 func TestRunner_reportsTheRunItWasGiven(t *testing.T) {
 	r := gate.NewRunner(2, gateexec.Run)
 	defer r.Close()
+	reports := r.Subscribe(t.Context())
 
 	r.Start("s1", t.TempDir(), []gate.Step{{Name: "ok", Run: "true"}})
 
-	rep := waitReport(t, r)
+	rep := waitReport(t, reports)
 	if rep.ID != "s1" {
 		t.Errorf("Report.ID = %q, want s1", rep.ID)
 	}
@@ -40,10 +42,11 @@ func TestRunner_reportsTheRunItWasGiven(t *testing.T) {
 func TestRunner_surfacesAnUnusableDirectory(t *testing.T) {
 	r := gate.NewRunner(1, gateexec.Run)
 	defer r.Close()
+	reports := r.Subscribe(t.Context())
 
 	r.Start("s1", "/no/such/directory/anywhere", []gate.Step{{Name: "ok", Run: "true"}})
 
-	if rep := waitReport(t, r); rep.Err == nil {
+	if rep := waitReport(t, reports); rep.Err == nil {
 		t.Error("Report.Err = nil, want the directory failure surfaced")
 	}
 }
@@ -54,17 +57,18 @@ func TestRunner_surfacesAnUnusableDirectory(t *testing.T) {
 func TestRunner_restartingASession_reportsOnlyTheNewRun(t *testing.T) {
 	r := gate.NewRunner(2, gateexec.Run)
 	defer r.Close()
+	reports := r.Subscribe(t.Context())
 	dir := t.TempDir()
 
 	r.Start("s1", dir, []gate.Step{{Name: "slow", Run: "sleep 30"}})
 	r.Start("s1", dir, []gate.Step{{Name: "quick", Run: "true"}})
 
-	rep := waitReport(t, r)
+	rep := waitReport(t, reports)
 	if rep.Results[0].Step.Name != "quick" {
 		t.Errorf("first report is from %q, want the superseding run", rep.Results[0].Step.Name)
 	}
 	select {
-	case extra := <-r.Reports():
+	case extra := <-reports:
 		t.Errorf("a superseded run reported anyway: %+v", extra)
 	case <-time.After(200 * time.Millisecond):
 	}
@@ -73,12 +77,13 @@ func TestRunner_restartingASession_reportsOnlyTheNewRun(t *testing.T) {
 func TestRunner_cancelStopsAnInFlightRun(t *testing.T) {
 	r := gate.NewRunner(1, gateexec.Run)
 	defer r.Close()
+	reports := r.Subscribe(t.Context())
 
 	r.Start("s1", t.TempDir(), []gate.Step{{Name: "slow", Run: "sleep 30"}})
 	r.Cancel("s1")
 
 	select {
-	case rep := <-r.Reports():
+	case rep := <-reports:
 		t.Errorf("a cancelled run reported anyway: %+v", rep)
 	case <-time.After(500 * time.Millisecond):
 	}
@@ -89,13 +94,16 @@ func TestRunner_cancelStopsAnInFlightRun(t *testing.T) {
 // under way.
 func TestRunner_closeIsSafeTwiceAndStopsWork(t *testing.T) {
 	r := gate.NewRunner(2, gateexec.Run)
+	reports := r.Subscribe(t.Context())
 	r.Start("s1", t.TempDir(), []gate.Step{{Name: "slow", Run: "sleep 30"}})
 
 	r.Close()
 	r.Close()
 
-	if _, open := <-r.Reports(); open {
-		t.Error("Reports() delivered after Close()")
+	select {
+	case e := <-reports:
+		t.Errorf("a report was delivered after Close(): %+v", e.Payload)
+	default:
 	}
 }
 

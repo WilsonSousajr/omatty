@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/WilsonSousajr/omatty/internal/pubsub"
 )
 
 // reportBuffer is generous because a report is expensive to produce and cheap
@@ -15,10 +17,10 @@ const reportBuffer = 64
 //
 //	r := gate.NewRunner(cfg.Gate.MaxParallel, gateexec.Run)
 //	r.Start(sess.ID, sess.Dir, proj.Gate)
-//	for rep := range r.Reports() { ... }
+//	reports := r.Subscribe(ctx)
 //
-// It mirrors watcher.Watch deliberately - Start, a Reports channel, Close - so
-// the UI consumes gate results the same way it already consumes status events.
+// It mirrors status.Watch deliberately - Start, Subscribe, Close - so the UI
+// consumes gate results the same way it already consumes status events.
 //
 // The bound is the point. A gate is the most expensive thing omatty runs, and
 // four concurrent `go test ./... -race` will make the machine unusable; a
@@ -32,6 +34,15 @@ type Runner struct {
 	slots   chan struct{}
 	reports chan Report
 	done    chan struct{}
+
+	// broker fans reports out to every subscriber (ADR 0001, step 5.3, #653).
+	// The pump that feeds it starts on the first Subscribe: a gate can finish
+	// before anyone listens, and published to nobody its report would be
+	// lost. Until someone subscribes, reports wait in reports.
+	broker   *pubsub.Broker[Report]
+	pumpOnce sync.Once
+	pumpCtx  context.Context
+	stopPump context.CancelFunc
 
 	mu      sync.Mutex
 	cancels map[string]context.CancelFunc
@@ -59,17 +70,39 @@ func NewRunner(limit int, run RunFunc) *Runner {
 	if limit < 1 {
 		limit = 1
 	}
+	pumpCtx, stopPump := context.WithCancel(context.Background())
 	return &Runner{
-		slots:   make(chan struct{}, limit),
-		reports: make(chan Report, reportBuffer),
-		done:    make(chan struct{}),
-		cancels: make(map[string]context.CancelFunc),
-		run:     run,
+		slots:    make(chan struct{}, limit),
+		reports:  make(chan Report, reportBuffer),
+		done:     make(chan struct{}),
+		broker:   pubsub.NewBroker[Report](reportBuffer),
+		pumpCtx:  pumpCtx,
+		stopPump: stopPump,
+		cancels:  make(map[string]context.CancelFunc),
+		run:      run,
 	}
 }
 
-// Reports delivers one report per completed run. It is closed by Close.
-func (r *Runner) Reports() <-chan Report { return r.reports }
+// Subscribe returns one report per completed run from now on, until ctx ends.
+// The first call starts the pump, so nothing finished before anyone listened
+// is lost.
+//
+//	reports := r.Subscribe(ctx)
+func (r *Runner) Subscribe(ctx context.Context) <-chan pubsub.Event[Report] {
+	ch := r.broker.Subscribe(ctx)
+	r.pumpOnce.Do(func() { go r.pump() })
+	return ch
+}
+
+// pump republishes each report until Close closes reports. Publish waits for
+// room rather than drop: a lost report is a card showing a verdict about
+// code that has since changed. Close's stopPump releases a Publish parked on
+// a reader that stopped reading.
+func (r *Runner) pump() {
+	for rep := range r.reports {
+		_ = r.broker.Publish(r.pumpCtx, pubsub.Event[Report]{Kind: pubsub.Updated, Payload: rep})
+	}
+}
 
 // Start gates session id in dir, superseding any run already in flight for it.
 // Re-gating while a run is going must leave exactly one answer, and it has to
@@ -90,7 +123,7 @@ func (r *Runner) Cancel(id string) {
 	r.stopLocked(id)
 }
 
-// Close cancels everything in flight and closes Reports. Safe to call twice:
+// Close cancels everything in flight and stops the pump. Safe to call twice:
 // quitting can race a shutdown already under way.
 //
 // The order matters. done is closed first so a sender parked on a full buffer
@@ -104,6 +137,7 @@ func (r *Runner) Close() {
 	close(r.done)
 	r.inflight.Wait()
 	close(r.reports)
+	r.stopPump()
 }
 
 // beginClose marks the Runner closed and cancels every run, reporting false if

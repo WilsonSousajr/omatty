@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
+	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -187,12 +188,12 @@ func TestModel_theGateWaitDeliversAReport_issue231(t *testing.T) {
 		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
 		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
-	reports := make(chan gate.Report, 1)
+	reports := make(chan pubsub.Event[gate.Report], 1)
 	deps := baseDeps(st, fakeTermsFor(st))
 	deps.GateReports = reports
 	m := ui.NewModel(deps)
 
-	reports <- gate.Report{ID: "s1", Results: []gate.StepResult{{Verdict: gate.Pass}}}
+	reports <- pubsub.Event[gate.Report]{Payload: gate.Report{ID: "s1", Results: []gate.StepResult{{Verdict: gate.Pass}}}}
 	msg := m.ArmGateWait()()
 
 	report, ok := msg.(ui.GateMsg)
