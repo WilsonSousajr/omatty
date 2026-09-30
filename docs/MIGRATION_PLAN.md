@@ -50,7 +50,8 @@ count after the step.
 | 3.9 | #635 | #649 | merged | 20 |
 | Amendment 5 | #650 | #651 | merged | 20 |
 | 4.1 | #650 | #652 | merged | 20 |
-| 5.1 | #653 | #654 | open | 20 |
+| 5.1 | #653 | #654 | merged | 20 |
+| Amendment 6 | #653 | #655 | open | 20 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
@@ -176,8 +177,10 @@ net: a logic PR that changes a row says which row and why (rule 4).
 | # | PR | Scope | Risk | Serves | Needs | Rollback |
 |---|---|---|---|---|---|---|
 | 5.1 | `feat: internal/pubsub` | `Broker[T]` with `Publish` (waits) and `Offer` (drops and counts); `Event[T]`. It has no users yet. | L | ADR event model | 0 | revert |
-| 5.2 | `refactor: service/status, infra/transcript, infra/hookserver` | `watcher/watch.go`, `adapter.go`, `guard.go` and `transcript.go` become the service. The tailer goes to `infra/transcript` and publishes with `Publish`. The listener goes to `infra/hookserver` and publishes with `Offer` (invariant 11). The TUI subscribes where it read `Deps.Events`. | H, **smoke** | ADR event model, invariants 2 and 11 | 3.2, 5.1 | revert; blocks 5.8, 7.1 |
-| 5.2b | `refactor: domain/agent; the profile catalog is composed in cmd` | *Amendment 4, was 3.7.* `Profile` and the command template go to `domain/agent`, with `Status` typed by `service/status`'s `Adapter` port. The catalog (`Claude()`, `Lookup`, `Names`), which composes the parser, `hooks.Render` and `paths.Transcript`, is built in `cmd`. That is where M17's #521 `Catalog` lands. Removes agent → hooks, paths and watcher. | M | ADR Exceptions (paths); P2 | 5.2 | revert |
+| 5.2a | `refactor: service/status publishes status events through pubsub` | *Amendment 6, first of three.* `watcher.Watch` publishes `Event[status.Event]` through a `pubsub.Broker`, and the TUI subscribes with a re-armed Cmd instead of reading a raw channel. The tailer and listener are unchanged inside it. The package keeps its path here: renaming its ~30 importers now would do it twice. | H, **smoke** | ADR event model, invariant 2 | 5.1 | revert; blocks 5.2c, 5.2d |
+| 5.2c | `refactor: the transcript tailer moves to infra/transcript` | *Amendment 6.* The tailer yields raw lines behind the `Transcripts` port. Deriving kinds and usage (the ring, emit-on-change) moves up into `service/status`. | H, **smoke** | ADR ports, invariant 2 | 5.2a | revert |
+| 5.2d | `refactor: the hook listener moves to infra/hookserver` | *Amendment 6.* The listener yields raw payloads behind the `HookEvents` port, published with `Offer` so a hook never waits (invariant 11). `KindOf` moves up into the service. With only the service left, `internal/watcher` moves to `internal/service/status` here. | H, **smoke** | ADR ports, invariant 11 | 5.2a | revert |
+| 5.2b | `refactor: domain/agent; the profile catalog is composed in cmd` | *Amendment 4, was 3.7; follows 5.2c/5.2d.* `Profile` and the command template go to `domain/agent`, with `Status` typed by `service/status`'s `Adapter` port. The catalog (`Claude()`, `Lookup`, `Names`), which composes the parser, `hooks.Render` and `paths.Transcript`, is built in `cmd`. That is where M17's #521 `Catalog` lands. Removes agent → hooks, paths and watcher. | M | ADR Exceptions (paths); P2 | 5.2 | revert |
 | 5.3 | `refactor: service/gate and infra/gateexec` | the runner and bound become the service, which publishes `Event[gate.Report]`. `run.go`, `procgroup_*` and `detect.go` go to `infra/gateexec`. The exec allowlist changes as the ADR records. *Amendment 2:* `domain/coverage`'s `load.go` and `module.go` move to a new `infra/fsread`, behind `service/gate`'s `ProfileReader` port; `ui` stops calling `coverage.Load`. Removes the coverage → os finding. | M, **smoke** (`gateprobe`) | invariant 12, ADR Enforcement | 3.3, 5.1 | revert |
 | 5.4 | `refactor: service/sessions (state and commands)` | registry's commands and create become the service. `store.go` and carry's copy go to `infra/store` behind `StateStore`. The ports carry `ctx`. | M | ADR ports, P2 | 3.1, 4.1 | revert; blocks 5.5–5.7 |
 | 5.5 | `refactor: starting a session returns session.Launch` | `supervisor/launch.go` becomes `sessions.Start`, which returns argv/env/dir. The `Holder` port works over argv. `tui/terminal` (still `termwrap`) spawns. `namer.go` goes to `infra/agentcli`. | H, **smoke** + `dtachprobe` | ADR "Starting a session", invariant 9 | 5.4 | revert |
@@ -295,6 +298,15 @@ exec sites, so the maintainer chose to put the deadline there now: the same
 user-visible fix, a small diff, and no plumbing done twice. The `ctx`
 parameters, and the deadlines with them, move to the service ports in 5.4 and
 5.8.
+
+**Amendment 6** (2026-09-30, #653). Step 5.2 was more than a move. The
+tailer and the hook listener both call the `Adapter` (`DeriveKind`,
+`KindOf`), which an infra package cannot import once the `Adapter` is a
+service port. So deriving kinds moves up into `service/status`, and the
+adapters yield raw lines and raw payloads, as ADR 0001's `Transcripts` and
+`HookEvents` ports already say. The maintainer split the step into three
+High-risk PRs, each smoke-tested: 5.2a (the service and the TUI's
+subscription), 5.2c (the tailer) and 5.2d (the listener).
 
 ## When the plan is wrong
 
