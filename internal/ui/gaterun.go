@@ -27,7 +27,7 @@ func (m *Model) waitForGate() tea.Cmd {
 	if m.gateReports == nil {
 		return nil
 	}
-	return func() tea.Msg { return GateMsg(<-m.gateReports) }
+	return func() tea.Msg { return GateMsg((<-m.gateReports).Payload) }
 }
 
 // onGate folds a finished run into the model and re-arms the wait.

@@ -134,7 +134,7 @@ type Model struct {
 	// gateReports and gateRun are the gate's two halves, shaped like the
 	// watcher's: a channel of results in, a request out. Concrete types stay
 	// out of the model so a test substitutes a recorder for the Runner.
-	gateReports  <-chan gate.Report
+	gateReports  <-chan pubsub.Event[gate.Report]
 	gateRun      GateRunFunc
 	profiles     sgate.ProfileReader // reads a gate's coverage profile (#254, #653)
 	gateAuto     bool

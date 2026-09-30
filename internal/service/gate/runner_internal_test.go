@@ -32,6 +32,7 @@ func TestRunner_neverExceedsItsParallelismBound(t *testing.T) {
 
 	r := NewRunner(limit, work)
 	defer r.Close()
+	reports := r.Subscribe(t.Context())
 	for i := range jobs {
 		r.Start(fmt.Sprintf("s%d", i), t.TempDir(), nil)
 	}
@@ -47,7 +48,7 @@ func TestRunner_neverExceedsItsParallelismBound(t *testing.T) {
 
 	close(release)
 	for range jobs {
-		<-r.Reports()
+		<-reports
 	}
 	if got := atomic.LoadInt32(&peak); got > limit {
 		t.Errorf("peak concurrency reached %d, want at most %d", got, limit)
@@ -76,12 +77,13 @@ func TestRunner_aPanickingRun_marksOnlyItsOwnSession(t *testing.T) {
 
 	r := NewRunner(2, work)
 	defer r.Close()
+	reports := r.Subscribe(t.Context())
 	r.Start("panics", "/tmp/boom", nil)
 	r.Start("fine", "/tmp/fine", nil)
 
 	got := map[string]Report{}
 	for range 2 {
-		rep := <-r.Reports()
+		rep := (<-reports).Payload
 		got[rep.ID] = rep
 	}
 

@@ -74,10 +74,11 @@ type Deps struct {
 	// Events is a subscription to the watcher's broker (ADR 0001, step 5.2a,
 	// #653): status reaches the model as one subscriber among any.
 	Events <-chan pubsub.Event[status.Event]
-	// GateReports and GateRun wire internal/gate's Runner in. Both optional:
+	// GateReports and GateRun wire internal/service/gate's Runner in: a
+	// subscription to its broker (ADR 0001, step 5.3, #653) and its Start. Both optional:
 	// without them the gate pane still opens and explains itself, which is
 	// what a model built by a test sees.
-	GateReports <-chan gate.Report
+	GateReports <-chan pubsub.Event[gate.Report]
 	GateRun     GateRunFunc
 	// Profiles reads the coverage profile a gate declares (#254). cmd passes
 	// internal/infra/fsread's, because reading a file is infra's business
