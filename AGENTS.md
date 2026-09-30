@@ -77,6 +77,7 @@ internal/
 │   ├── notify/     desktop notifications for a session needing attention.
 │   ├── paths/      every filesystem location omatty reads or writes. Pure.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
+├── pubsub/          [ADR 0001] Broker[T]: services publish (Publish waits, Offer drops), the TUI subscribes.
 ├── registry/       persists projects and sessions to state.json; the record itself is domain/session.
 ├── agent/          the agent seam (#46): a command template plus a status adapter.
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
