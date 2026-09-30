@@ -37,7 +37,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -99,7 +99,7 @@ func run() error {
 		return err
 	}
 	slog.Info("config", "leader", cfg.Leader, "claude_bin", cfg.ClaudeBin, "worktree_root", cfg.WorktreeRoot)
-	store := registry.NewStore(paths.StateFile(home))
+	store := statestore.NewStore(paths.StateFile(home))
 	if len(os.Args) < 2 {
 		// After the TUI has stopped, so the profile describes a settled
 		// heap rather than one mid-frame.

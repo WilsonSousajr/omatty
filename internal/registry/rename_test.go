@@ -4,12 +4,13 @@ import (
 	"strings"
 	"testing"
 
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // seedSession registers a project and one session on it, returning the store
 // and the session's id.
-func seedSession(t *testing.T) (*registry.Store, string) {
+func seedSession(t *testing.T) (*statestore.Store, string) {
 	t.Helper()
 	store, _ := newStoreAt(t)
 	git := &FakeGit{}

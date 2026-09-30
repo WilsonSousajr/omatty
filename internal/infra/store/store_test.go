@@ -1,4 +1,4 @@
-package registry_test
+package store_test
 
 import (
 	"encoding/json"
@@ -7,11 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	"github.com/WilsonSousajr/omatty/internal/infra/store"
 )
 
 func TestStore_LoadMissingFileReturnsEmptyState(t *testing.T) {
-	s := registry.NewStore(filepath.Join(t.TempDir(), "state.json"))
+	s := store.NewStore(filepath.Join(t.TempDir(), "state.json"))
 	got, err := s.Load()
 	if err != nil {
 		t.Fatalf("Load() on a missing file returned error %v, want nil", err)
@@ -23,11 +24,11 @@ func TestStore_LoadMissingFileReturnsEmptyState(t *testing.T) {
 
 func TestStore_SaveThenLoadRoundTrips(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "state.json")
-	s := registry.NewStore(path)
-	want := registry.State{
+	s := store.NewStore(path)
+	want := session.State{
 		Version:  1,
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []registry.Session{{
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []session.Session{{
 			ID: "abc-123", Project: "omatty", Title: "parser fix",
 			Dir: "/w/parser-fix", Branch: "parser-fix", Worktree: true,
 		}},
@@ -52,7 +53,7 @@ func TestStore_LoadMalformedJSONNamesTheFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := registry.NewStore(path).Load()
+	_, err := store.NewStore(path).Load()
 	if err == nil {
 		t.Fatal("Load() on malformed JSON returned nil error, want an error")
 	}
@@ -63,8 +64,8 @@ func TestStore_LoadMalformedJSONNamesTheFile(t *testing.T) {
 
 func TestStore_SaveLeavesNoTempFiles(t *testing.T) {
 	dir := t.TempDir()
-	s := registry.NewStore(filepath.Join(dir, "state.json"))
-	if err := s.Save(registry.State{Version: 1}); err != nil {
+	s := store.NewStore(filepath.Join(dir, "state.json"))
+	if err := s.Save(session.State{Version: 1}); err != nil {
 		t.Fatalf("Save() error = %v, want nil", err)
 	}
 	entries, err := os.ReadDir(dir)
@@ -80,9 +81,9 @@ func TestStore_SaveLeavesNoTempFiles(t *testing.T) {
 // stale "thinking" cannot survive a restart.
 func TestSession_HasNoPersistedStatusField(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
-	if err := registry.NewStore(path).Save(registry.State{
+	if err := store.NewStore(path).Save(session.State{
 		Version:  1,
-		Sessions: []registry.Session{{ID: "abc-123"}},
+		Sessions: []session.Session{{ID: "abc-123"}},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -98,15 +99,15 @@ func TestSession_HasNoPersistedStatusField(t *testing.T) {
 // Invariant 9: an empty Agent is claude and is not written, so every row
 // written before #46 reads back unchanged and Version stays 1.
 func TestSession_AgentIsOmittedWhenEmptyAndRoundTrips_issue46(t *testing.T) {
-	raw, err := json.Marshal(registry.Session{ID: "a"})
+	raw, err := json.Marshal(session.Session{ID: "a"})
 	if err != nil || strings.Contains(string(raw), "agent") {
 		t.Errorf("an empty Agent was written: %s (err %v)", raw, err)
 	}
-	var back registry.Session
+	var back session.Session
 	if err := json.Unmarshal([]byte(`{"id":"a","agent":"claude"}`), &back); err != nil || back.Agent != "claude" {
 		t.Errorf("Agent did not round-trip: %+v (err %v)", back, err)
 	}
-	if registry.Version != 1 {
-		t.Errorf("Version = %d, want 1: Agent is derivable and needs no migration", registry.Version)
+	if session.Version != 1 {
+		t.Errorf("Version = %d, want 1: Agent is derivable and needs no migration", session.Version)
 	}
 }

@@ -53,7 +53,7 @@ type Adoption struct {
 // It exists rather than a loop in cmd and another in ui's adapter, which is
 // RegisterAll's argument restated: both loops existed, and both would have had
 // to learn about the branch below (#91, #122).
-func AdoptAll(s *Store, git SessionBrancher, project string, picks []SessionPick) []Adoption {
+func AdoptAll(s StateStore, git SessionBrancher, project string, picks []SessionPick) []Adoption {
 	out := make([]Adoption, 0, len(picks))
 	for _, p := range picks {
 		sess, err := AdoptSession(s, git, p.ID, project, p.Title, p.Dir)
@@ -66,7 +66,7 @@ func AdoptAll(s *Store, git SessionBrancher, project string, picks []SessionPick
 // the repository's own directory. It is the whole of `omatty add`.
 //
 //	p, err := registry.AddProject(store, vcs.NewCLI(), cwd)
-func AddProject(s *Store, git RepoRooter, dir string) (Project, error) {
+func AddProject(s StateStore, git RepoRooter, dir string) (Project, error) {
 	root, err := git.RepoRoot(dir)
 	if err != nil {
 		// Deliberately does not assert the cause: the path may be missing, a
@@ -107,7 +107,7 @@ type Registration struct {
 // collision policy would have had to be made twice or the two would disagree.
 //
 //	for _, r := range registry.RegisterAll(store, git, roots) { ... }
-func RegisterAll(s *Store, git RepoRooter, roots []string) []Registration {
+func RegisterAll(s StateStore, git RepoRooter, roots []string) []Registration {
 	out := make([]Registration, 0, len(roots))
 	for _, root := range roots {
 		p, err := AddProject(s, git, root)
@@ -121,7 +121,7 @@ func RegisterAll(s *Store, git RepoRooter, roots []string) []Registration {
 // it is a state.json edit and a sidebar rebuild (#41).
 //
 //	err := registry.RenameSession(store, sess.ID, "parser-fix")
-func RenameSession(s *Store, id, title string) error {
+func RenameSession(s StateStore, id, title string) error {
 	// A blank title would leave a sidebar row with nothing to aim at. The check
 	// is on the trimmed title, not on title == "": a name of nothing but spaces
 	// renders exactly as empty a row, and passed the old guard (#41).
@@ -148,7 +148,7 @@ func RenameSession(s *Store, id, title string) error {
 // never required to agree.
 //
 //	err := registry.RenameBranch(store, sess.ID, "fix-the-wheel-pan")
-func RenameBranch(s *Store, id, branch string) error {
+func RenameBranch(s StateStore, id, branch string) error {
 	if Slug(branch) != branch || branch == "" {
 		return fmt.Errorf(
 			"registry: session %q: branch %q is not a name git and the filesystem both accept, want %q",
@@ -184,7 +184,7 @@ func RenameBranch(s *Store, id, branch string) error {
 // recoverable and says so.
 //
 //	renamed, err := registry.RenameSessionBranch(store, git, sess, "fix-the-pan", true)
-func RenameSessionBranch(s *Store, git BranchRenamer, sess Session, branch string, unstartedOnly bool) (bool, error) {
+func RenameSessionBranch(s StateStore, git BranchRenamer, sess Session, branch string, unstartedOnly bool) (bool, error) {
 	root, err := git.MainCheckout(sess.Dir)
 	if err != nil {
 		return false, err
@@ -218,7 +218,7 @@ func branchStarted(git BranchRenamer, root string, sess Session) (bool, error) {
 //
 //	sess, err := registry.RemoveSession(store, id)
 //	if err == nil && sess.Worktree { /* git worktree remove sess.Dir */ }
-func RemoveSession(s *Store, id string) (Session, error) {
+func RemoveSession(s StateStore, id string) (Session, error) {
 	st, err := s.Load()
 	if err != nil {
 		return Session{}, err
@@ -240,7 +240,7 @@ func RemoveSession(s *Store, id string) (Session, error) {
 // destructive path (#159).
 //
 //	p, err := registry.RemoveProject(store, "wstech")
-func RemoveProject(s *Store, name string) (Project, error) {
+func RemoveProject(s StateStore, name string) (Project, error) {
 	st, err := s.Load()
 	if err != nil {
 		return Project{}, err
@@ -326,7 +326,7 @@ func sessionIDs(st *State) []string {
 // its own copy of this loop, against invariant 10 - so a change to what a name
 // means would have had to be made twice, or the CLI and the registry would
 // disagree about which project an argument selects (#122).
-func NamedProject(s *Store, name string) (Project, error) {
+func NamedProject(s StateStore, name string) (Project, error) {
 	st, err := s.Load()
 	if err != nil {
 		return Project{}, err
@@ -338,7 +338,7 @@ func NamedProject(s *Store, name string) (Project, error) {
 // included, which is what adoption leaves out of what it offers (#91, #122,
 // #316). Exported for the same reason NamedProject is: cmd/ had a second copy
 // of it.
-func KnownSessionIDs(s *Store) ([]string, error) {
+func KnownSessionIDs(s StateStore) ([]string, error) {
 	st, err := s.Load()
 	if err != nil {
 		return nil, err
@@ -365,7 +365,7 @@ func KnownSessionIDs(s *Store) ([]string, error) {
 //
 // Nothing else is needed to relaunch it (invariant 9): the launcher stats the
 // transcript, finds one, and uses `--resume` (#36).
-func AdoptSession(s *Store, git SessionBrancher, id, project, title, dir string) (Session, error) {
+func AdoptSession(s StateStore, git SessionBrancher, id, project, title, dir string) (Session, error) {
 	if strings.TrimSpace(title) == "" {
 		return Session{}, fmt.Errorf(
 			"registry: session %q: title %q is blank, want a name with a non-space character", id, title)
@@ -437,7 +437,7 @@ func refuseKnownSession(st *State, id string) error {
 // AddSession creates and persists a session. It is the whole of `omatty new`.
 // State is saved only after the session is fully created, so a failed
 // worktree leaves nothing behind.
-func AddSession(s *Store, c *Creator, project, title, branch string) (Session, error) {
+func AddSession(s StateStore, c *Creator, project, title, branch string) (Session, error) {
 	st, err := s.Load()
 	if err != nil {
 		return Session{}, err
@@ -454,7 +454,7 @@ func AddSession(s *Store, c *Creator, project, title, branch string) (Session, e
 // start without asking for one (#151).
 //
 //	sess, err := registry.AddWorktreeSession(store, c, "omatty", "", "")
-func AddWorktreeSession(s *Store, c *Creator, project, title, branch string) (Session, error) {
+func AddWorktreeSession(s StateStore, c *Creator, project, title, branch string) (Session, error) {
 	st, err := s.Load()
 	if err != nil {
 		return Session{}, err

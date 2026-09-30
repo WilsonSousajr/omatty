@@ -1,4 +1,4 @@
-package registry
+package store
 
 import (
 	"encoding/json"
@@ -8,11 +8,13 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 )
 
 // Store loads and saves State at a fixed path.
 //
-//	s := registry.NewStore(paths.StateFile(home))
+//	s := store.NewStore(paths.StateFile(home))
 //	state, err := s.Load()
 type Store struct{ path string }
 
@@ -21,17 +23,17 @@ func NewStore(path string) *Store { return &Store{path: path} }
 
 // Load reads the state file. A missing file is not an error: it yields an
 // empty state, which is what a first run should see.
-func (s *Store) Load() (State, error) {
+func (s *Store) Load() (session.State, error) {
 	b, err := os.ReadFile(s.path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return State{Version: Version}, nil
+		return session.State{Version: session.Version}, nil
 	}
 	if err != nil {
-		return State{}, fmt.Errorf("registry: reading state file %q: %w", s.path, err)
+		return session.State{}, fmt.Errorf("registry: reading state file %q: %w", s.path, err)
 	}
-	var st State
+	var st session.State
 	if err := json.Unmarshal(b, &st); err != nil {
-		return State{}, fmt.Errorf(
+		return session.State{}, fmt.Errorf(
 			"registry: state file %q is not a JSON State object (want {version,projects,sessions}): %w",
 			s.path, err)
 	}
@@ -40,7 +42,7 @@ func (s *Store) Load() (State, error) {
 
 // Save writes the state atomically, so a crash mid-write cannot leave a
 // truncated registry that would strand running sessions (invariant 9).
-func (s *Store) Save(st State) error {
+func (s *Store) Save(st session.State) error {
 	dir := filepath.Dir(s.path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("registry: creating state directory %q: %w", dir, err)
@@ -50,7 +52,7 @@ func (s *Store) Save(st State) error {
 
 // atomicWrite replaces path in one rename, so a reader never sees a partial
 // registry.
-func atomicWrite(path string, st State) error {
+func atomicWrite(path string, st session.State) error {
 	f, err := os.CreateTemp(filepath.Dir(path), ".state-*.tmp")
 	if err != nil {
 		return fmt.Errorf("registry: creating a temp file beside %q: %w", path, err)
@@ -68,7 +70,7 @@ func atomicWrite(path string, st State) error {
 // encodeAndSync writes st and flushes it to disk before the caller renames
 // it into place. Without the Sync a crash can leave an empty file holding
 // the registry's name (invariant 9).
-func encodeAndSync(f *os.File, st State) error {
+func encodeAndSync(f *os.File, st session.State) error {
 	defer func() { _ = f.Close() }()
 	if err := encodeState(f, st); err != nil {
 		return err
@@ -81,7 +83,7 @@ func encodeAndSync(f *os.File, st State) error {
 
 // encodeState writes st as indented JSON. It takes an io.Writer rather than
 // the file so a failing write is reachable from a test.
-func encodeState(w io.Writer, st State) error {
+func encodeState(w io.Writer, st session.State) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(st); err != nil {

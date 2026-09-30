@@ -4,12 +4,13 @@ import (
 	"strings"
 	"testing"
 
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // seedTwoSessions registers one project with two sessions, the second on a
 // worktree, and returns the store and both ids in creation order.
-func seedTwoSessions(t *testing.T) (*registry.Store, string, string) {
+func seedTwoSessions(t *testing.T) (*statestore.Store, string, string) {
 	t.Helper()
 	store, _ := newStoreAt(t)
 	git := &FakeGit{}

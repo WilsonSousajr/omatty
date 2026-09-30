@@ -5,12 +5,13 @@ import (
 	"strings"
 	"testing"
 
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // seedReboundPair saves a project with two sessions, the second already
 // re-bound once, so a test can aim a conversation at the other row.
-func seedReboundPair(t *testing.T) *registry.Store {
+func seedReboundPair(t *testing.T) *statestore.Store {
 	t.Helper()
 	store, _ := newStoreAt(t)
 	st := registry.State{Version: registry.Version,

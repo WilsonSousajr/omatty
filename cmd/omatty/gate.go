@@ -27,7 +27,7 @@ import (
 // on yes. Detection proposes and confirming is a separate act, which is what
 // stops a cloned repository getting a command run because omatty looked at it
 // (#226).
-func gateCommand(store *registry.Store, args []string, in io.Reader, prs prLister) error {
+func gateCommand(store registry.StateStore, args []string, in io.Reader, prs prLister) error {
 	project, err := gateProject(store, args)
 	if err != nil {
 		return err
@@ -52,7 +52,7 @@ func gateCommand(store *registry.Store, args []string, in io.Reader, prs prListe
 }
 
 // proposeGate detects, prints, and writes if it is allowed to.
-func proposeGate(store *registry.Store, project registry.Project, args []string, in io.Reader) error {
+func proposeGate(store registry.StateStore, project registry.Project, args []string, in io.Reader) error {
 	steps := gateexec.Detect(project.Root)
 	if len(steps) == 0 {
 		report("nothing recognised in " + project.Root + "; set a gate by hand in ~/.omatty/state.json")
@@ -105,7 +105,7 @@ func reportGate(heading string, steps []gate.Step) {
 
 // gateProject resolves the project argument, naming this command in the error
 // the way namedProject names adopt.
-func gateProject(store *registry.Store, args []string) (registry.Project, error) {
+func gateProject(store registry.StateStore, args []string) (registry.Project, error) {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return registry.Project{}, fmt.Errorf("gate: want <project> [--detect|--set|--clear|--stats], got no project")
 	}

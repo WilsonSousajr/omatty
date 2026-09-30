@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
@@ -53,9 +54,9 @@ type errNotARepo struct{ dir string }
 func (e errNotARepo) Error() string { return "not a git repository: " + e.dir }
 
 // storeIn builds a registry over a temporary state.json.
-func storeIn(t *testing.T) *registry.Store {
+func storeIn(t *testing.T) registry.StateStore {
 	t.Helper()
-	return registry.NewStore(filepath.Join(t.TempDir(), "state.json"))
+	return statestore.NewStore(filepath.Join(t.TempDir(), "state.json"))
 }
 
 func TestReadLine_TakesTheAnswerAndTrimsIt(t *testing.T) {

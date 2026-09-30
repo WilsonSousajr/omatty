@@ -22,6 +22,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/registry"
@@ -33,7 +34,7 @@ import (
 	"io"
 )
 
-func runTUI(home string, cfg config.Config, store *registry.Store) error {
+func runTUI(home string, cfg config.Config, store registry.StateStore) error {
 	state, err := store.Load()
 	if err != nil {
 		return err
@@ -116,7 +117,7 @@ func newRouter(cfg config.Config, git *vcs.CLI) *forge.Router {
 // tuiDeps wires the TUI's dependencies: the launcher, the terminal factory,
 // and the typed functions that reach git and the registry on ui's behalf,
 // because ui may do neither itself (invariants 4 and 10).
-func tuiDeps(env tuiEnv, store *registry.Store, state registry.State) ui.RunDeps {
+func tuiDeps(env tuiEnv, store registry.StateStore, state registry.State) ui.RunDeps {
 	home, hooksFile, w, h := env.Home, env.HooksFile, env.Width, env.Height
 	git, holder := vcs.NewCLI(), env.Holder
 	src, fg := review.NewSource(git), newRouter(env.Cfg, git)
@@ -185,14 +186,14 @@ type wiringGit interface {
 // adoption arrived. The seam is where it is because these all share the store,
 // and the fields above share nothing but the window.
 func withStoreDeps(
-	deps ui.RunDeps, store *registry.Store, home string, git wiringGit,
+	deps ui.RunDeps, store registry.StateStore, home string, git wiringGit,
 ) ui.RunDeps {
 	return withPickerDeps(withLifecycleDeps(deps, store, git), store, home, git)
 }
 
 // withLifecycleDeps adds rename, rebind, archive, worktree removal, project
 // removal and the sidebar fold (#40, #41, #159, #316, #505).
-func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui.RunDeps {
+func withLifecycleDeps(deps ui.RunDeps, store registry.StateStore, git wiringGit) ui.RunDeps {
 	deps.Rename = sessionRenamer(store)
 	deps.Rebind = sessionRebinder(store)
 	deps.RenameBranch = branchRenamer(store, vcs.NewCLI())
@@ -205,21 +206,21 @@ func withLifecycleDeps(deps ui.RunDeps, store *registry.Store, git wiringGit) ui
 }
 
 // gateTallier adapts registry.TallyGateRun to ui.TallyFunc (#332).
-func gateTallier(store *registry.Store) ui.TallyFunc {
+func gateTallier(store registry.StateStore) ui.TallyFunc {
 	return func(project string, passed bool) error {
 		return registry.TallyGateRun(store, project, passed)
 	}
 }
 
 // projectRemover adapts registry.RemoveProject to ui.RemoveProjectFunc (#159).
-func projectRemover(store *registry.Store) ui.RemoveProjectFunc {
+func projectRemover(store registry.StateStore) ui.RemoveProjectFunc {
 	return func(name string) (registry.Project, error) {
 		return registry.RemoveProject(store, name)
 	}
 }
 
 // projectFolder adapts registry.SetCollapsed to ui.FoldFunc (#505).
-func projectFolder(store *registry.Store) ui.FoldFunc {
+func projectFolder(store registry.StateStore) ui.FoldFunc {
 	return func(project string, collapsed bool) error {
 		return registry.SetCollapsed(store, project, collapsed)
 	}
@@ -227,7 +228,7 @@ func projectFolder(store *registry.Store) ui.FoldFunc {
 
 // withPickerDeps adds the project picker (#91) and the adoption picker (#122).
 func withPickerDeps(
-	deps ui.RunDeps, store *registry.Store, home string, git wiringGit,
+	deps ui.RunDeps, store registry.StateStore, home string, git wiringGit,
 ) ui.RunDeps {
 	deps.Discover = projectProposer(store, home, git)
 	deps.AddProject = projectRegistrar(store, git)
@@ -241,7 +242,7 @@ func withPickerDeps(
 // LastUsed is carried across rather than flattened away: it is what orders the
 // list, so dropping it left the picker showing rows in an order it could not
 // explain (#91).
-func projectProposer(store *registry.Store, home string, git discover.Git) ui.DiscoverFunc {
+func projectProposer(store registry.StateStore, home string, git discover.Git) ui.DiscoverFunc {
 	return func() ([]ui.Proposal, error) {
 		roots, err := registeredRoots(store)
 		if err != nil {
@@ -264,7 +265,7 @@ func projectProposer(store *registry.Store, home string, git discover.Git) ui.Di
 // LastUsed and Dir are carried across rather than flattened away: one orders
 // the list and the other is where the adopted session must actually start, and
 // they differ for a session that ran in a linked worktree (#122).
-func sessionProposer(store *registry.Store, home string, git discover.Git) ui.AdoptFunc {
+func sessionProposer(store registry.StateStore, home string, git discover.Git) ui.AdoptFunc {
 	return func(projectRoot string) ([]ui.SessionProposal, error) {
 		ids, err := registry.KnownSessionIDs(store)
 		if err != nil {
@@ -287,7 +288,7 @@ func sessionProposer(store *registry.Store, home string, git discover.Git) ui.Ad
 // sessionAdopter adapts registry.AdoptAll to ui.AdoptCommitFunc, reporting one
 // result per pick in the order given so the picker can name the row that failed
 // rather than the batch - and can start the row the registry actually wrote.
-func sessionAdopter(store *registry.Store, git registry.SessionBrancher) ui.AdoptCommitFunc {
+func sessionAdopter(store registry.StateStore, git registry.SessionBrancher) ui.AdoptCommitFunc {
 	return func(project string, picks []ui.SessionProposal) []registry.Adoption {
 		out := make([]registry.SessionPick, 0, len(picks))
 		for _, p := range picks {
@@ -298,7 +299,7 @@ func sessionAdopter(store *registry.Store, git registry.SessionBrancher) ui.Adop
 }
 
 // projectRegistrar adapts registry.RegisterAll to ui.AddProjectFunc.
-func projectRegistrar(store *registry.Store, git registry.RepoRooter) ui.AddProjectFunc {
+func projectRegistrar(store registry.StateStore, git registry.RepoRooter) ui.AddProjectFunc {
 	return func(roots []string) []registry.Registration {
 		return registry.RegisterAll(store, git, roots)
 	}
@@ -306,7 +307,7 @@ func projectRegistrar(store *registry.Store, git registry.RepoRooter) ui.AddProj
 
 // sessionRenamer adapts registry.RenameSession to ui.RenameFunc, so the model
 // can retitle a session without holding the store (#41).
-func sessionRenamer(store *registry.Store) ui.RenameFunc {
+func sessionRenamer(store registry.StateStore) ui.RenameFunc {
 	return func(sessionID, title string) error {
 		return registry.RenameSession(store, sessionID, title)
 	}
@@ -315,7 +316,7 @@ func sessionRenamer(store *registry.Store) ui.RenameFunc {
 // sessionRebinder adapts registry.RebindSession to ui.RebindFunc, so the model
 // can follow a /clear onto its new conversation without holding the store
 // (#316).
-func sessionRebinder(store *registry.Store) ui.RebindFunc {
+func sessionRebinder(store registry.StateStore) ui.RebindFunc {
 	return func(sessionID, conversation string) error {
 		return registry.RebindSession(store, sessionID, conversation)
 	}
@@ -324,7 +325,7 @@ func sessionRebinder(store *registry.Store) ui.RebindFunc {
 // branchRenamer adapts registry.RenameSessionBranch to ui.BranchRenameFunc, so
 // the model can name a worktree's branch without holding the store or git
 // (#151) - the shape sessionRenamer already has.
-func branchRenamer(store *registry.Store, git vcs.Git) ui.BranchRenameFunc {
+func branchRenamer(store registry.StateStore, git vcs.Git) ui.BranchRenameFunc {
 	return func(sess registry.Session, branch string, unstartedOnly bool) (bool, error) {
 		return registry.RenameSessionBranch(store, git, sess, branch, unstartedOnly)
 	}
@@ -339,7 +340,7 @@ func branchRenamer(store *registry.Store, git vcs.Git) ui.BranchRenameFunc {
 // would run `git worktree remove --force` on a directory the registry no
 // longer marks as a worktree, which is the case this return value exists to
 // prevent (#40).
-func sessionArchiver(store *registry.Store) ui.ArchiveFunc {
+func sessionArchiver(store registry.StateStore) ui.ArchiveFunc {
 	return func(sessionID string) (registry.Session, error) {
 		return registry.RemoveSession(store, sessionID)
 	}
@@ -382,7 +383,7 @@ func sessionNamer(home string, profile agent.Profile) ui.NameFunc {
 // options, so the TUI and `omatty new` cannot disagree about where a
 // worktree goes or what it forks from (#44).
 func creatorOpts(cfg config.Config) registry.CreatorOpts {
-	return registry.CreatorOpts{WorktreeRoot: cfg.WorktreeRoot, BaseBranch: cfg.BaseBranch}
+	return registry.CreatorOpts{WorktreeRoot: cfg.WorktreeRoot, BaseBranch: cfg.BaseBranch, Carry: statestore.CarryInto}
 }
 
 // sessionCreator adapts registry.AddSession to ui.CreateFunc. The project
@@ -391,7 +392,7 @@ func creatorOpts(cfg config.Config) registry.CreatorOpts {
 //
 // The session is registered but not started: starting it needs a terminal
 // factory inside the running program, which M2 wires up along with status.
-func sessionCreator(cfg config.Config, store *registry.Store) ui.CreateFunc {
+func sessionCreator(cfg config.Config, store registry.StateStore) ui.CreateFunc {
 	c := registry.NewCreator(vcs.NewCLI(), creatorOpts(cfg), uuid.NewString)
 	return func(project, title, branch string, worktree bool) (registry.Session, error) {
 		if project == "" {

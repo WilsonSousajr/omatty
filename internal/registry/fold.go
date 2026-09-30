@@ -5,7 +5,7 @@ package registry
 // but one the operator expects to survive a restart.
 //
 //	err := registry.SetCollapsed(store, "omatty", true)
-func SetCollapsed(s *Store, project string, collapsed bool) error {
+func SetCollapsed(s StateStore, project string, collapsed bool) error {
 	st, err := s.Load()
 	if err != nil {
 		return err

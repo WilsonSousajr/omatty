@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
@@ -46,7 +47,7 @@ func everyFieldSet() registry.State {
 // every session - so a renamed tag is a lost session, not a refactor.
 func TestState_schemaIsPinned_issue620(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
-	if err := registry.NewStore(path).Save(everyFieldSet()); err != nil {
+	if err := statestore.NewStore(path).Save(everyFieldSet()); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(path)
@@ -67,7 +68,7 @@ func TestState_goldenLoadsBackToTheSameState_issue620(t *testing.T) {
 	if err := os.WriteFile(path, golden, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	got, err := registry.NewStore(path).Load()
+	got, err := statestore.NewStore(path).Load()
 	if err != nil {
 		t.Fatal(err)
 	}
