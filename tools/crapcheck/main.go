@@ -53,7 +53,7 @@ func run(out io.Writer, threshold float64, profilePath, pattern string) (int, er
 	if err != nil {
 		return 0, err
 	}
-	scores, err := crap.Scores(module, pkgs, blocks)
+	scores, err := crap.Scores(module, forCrap(pkgs), blocks, diskFiles())
 	if err != nil {
 		return 0, err
 	}
@@ -88,7 +88,7 @@ func refuseStale(path string, pkgs []golist.Package) error {
 	if err != nil {
 		return fmt.Errorf("crapcheck: %w\nrun ./scripts/check-coverage.sh first", err)
 	}
-	newer, stale, err := crap.NewerSource(pkgs, info.ModTime())
+	newer, stale, err := crap.NewerSource(forCrap(pkgs), info.ModTime(), diskFiles())
 	if err != nil {
 		return err
 	}

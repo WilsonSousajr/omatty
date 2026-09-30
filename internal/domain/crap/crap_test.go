@@ -7,7 +7,6 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 	"github.com/WilsonSousajr/omatty/internal/domain/crap"
-	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // The published formula, at the points that decide the gate's threshold.
@@ -100,7 +99,7 @@ func TestScores_attributesBlocksToTheFunctionThatContainsThem(t *testing.T) {
 // Worst first: a gate's output is read from the top, and a stable order keeps
 // two runs of an unchanged tree comparable.
 func TestScores_comeBackWorstFirst(t *testing.T) {
-	got, err := crap.Scores("m", samplePackage(), nil)
+	got, err := crap.Scores("m", samplePackage(), nil, osFiles)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +114,7 @@ func TestScores_comeBackWorstFirst(t *testing.T) {
 // which function did it - a gate that only prints a number sends a session
 // looking for the problem.
 func TestReport_namesWhatCrossedTheThreshold(t *testing.T) {
-	scores, err := crap.Scores("m", samplePackage(), nil)
+	scores, err := crap.Scores("m", samplePackage(), nil, osFiles)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +136,7 @@ func TestReport_namesWhatCrossedTheThreshold(t *testing.T) {
 // A clean run still prints the worst offenders: the number people act on is
 // the one just under the line, not the verdict.
 func TestReport_showsTheWorstEvenWhenEverythingPasses(t *testing.T) {
-	scores, err := crap.Scores("m", samplePackage(), nil)
+	scores, err := crap.Scores("m", samplePackage(), nil, osFiles)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,11 +153,11 @@ func TestReport_showsTheWorstEvenWhenEverythingPasses(t *testing.T) {
 // A package whose source will not parse is an error, not a silent zero: a
 // scorer that quietly skips what it cannot read reports a clean tree.
 func TestScores_unreadableSourceIsAnError(t *testing.T) {
-	pkgs := []golist.Package{{
+	pkgs := []crap.Package{{
 		ImportPath: "m/missing", Dir: "testdata/missing", GoFiles: []string{"nope.go"},
 	}}
 
-	_, err := crap.Scores("m", pkgs, nil)
+	_, err := crap.Scores("m", pkgs, nil, osFiles)
 
 	if err == nil {
 		t.Fatal("Scores() error = nil, want the unreadable package surfaced")
@@ -169,8 +168,8 @@ func TestScores_unreadableSourceIsAnError(t *testing.T) {
 }
 
 // samplePackage points at the fixture the way golist would describe it.
-func samplePackage() []golist.Package {
-	return []golist.Package{{
+func samplePackage() []crap.Package {
+	return []crap.Package{{
 		ImportPath: "m/sample", Dir: "testdata/sample", GoFiles: []string{"sample.go"},
 	}}
 }
@@ -178,7 +177,7 @@ func samplePackage() []golist.Package {
 // scoreSample scores the fixture and keys the result by function name.
 func scoreSample(t *testing.T, blocks []coverage.Block) map[string]crap.Score {
 	t.Helper()
-	scores, err := crap.Scores("m", samplePackage(), blocks)
+	scores, err := crap.Scores("m", samplePackage(), blocks, osFiles)
 	if err != nil {
 		t.Fatal(err)
 	}

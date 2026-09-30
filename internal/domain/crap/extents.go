@@ -26,9 +26,9 @@ type extent struct {
 //
 // Functions without a body - assembly stubs - are skipped, because cmd/cover
 // skips them too and a function with no Go source has no statements to cover.
-func extentsIn(path string) ([]extent, error) {
+func extentsIn(path string, src []byte) ([]extent, error) {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
+	file, err := parser.ParseFile(fset, path, src, 0)
 	if err != nil {
 		return nil, wrap("parsing "+path, err)
 	}

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/crap"
-	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // Reusing the coverage step's profile is what makes this gate nearly free, and
@@ -19,7 +18,7 @@ func TestNewerSource_findsASourceFileEditedAfterTheProfile(t *testing.T) {
 	write(t, filepath.Join(dir, "a.go"), "package a\n")
 	cutoff := time.Now().Add(-time.Hour)
 
-	name, found, err := crap.NewerSource(pkgIn(dir, "a.go"), cutoff)
+	name, found, err := crap.NewerSource(pkgIn(dir, "a.go"), cutoff, osFiles)
 
 	if err != nil {
 		t.Fatal(err)
@@ -38,7 +37,7 @@ func TestNewerSource_saysNothingWhenTheProfileIsCurrent(t *testing.T) {
 	write(t, filepath.Join(dir, "a.go"), "package a\n")
 	cutoff := time.Now().Add(time.Hour)
 
-	_, found, err := crap.NewerSource(pkgIn(dir, "a.go"), cutoff)
+	_, found, err := crap.NewerSource(pkgIn(dir, "a.go"), cutoff, osFiles)
 
 	if err != nil {
 		t.Fatal(err)
@@ -50,15 +49,15 @@ func TestNewerSource_saysNothingWhenTheProfileIsCurrent(t *testing.T) {
 
 // A file go list named but that is not there is an error, not a quiet pass.
 func TestNewerSource_missingFileIsAnError(t *testing.T) {
-	_, _, err := crap.NewerSource(pkgIn(t.TempDir(), "gone.go"), time.Now())
+	_, _, err := crap.NewerSource(pkgIn(t.TempDir(), "gone.go"), time.Now(), osFiles)
 
 	if err == nil {
 		t.Fatal("NewerSource() error = nil, want the missing file surfaced")
 	}
 }
 
-func pkgIn(dir string, files ...string) []golist.Package {
-	return []golist.Package{{ImportPath: "m/a", Dir: dir, GoFiles: files}}
+func pkgIn(dir string, files ...string) []crap.Package {
+	return []crap.Package{{ImportPath: "m/a", Dir: dir, GoFiles: files}}
 }
 
 func write(t *testing.T, path, content string) {

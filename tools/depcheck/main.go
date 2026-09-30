@@ -49,10 +49,10 @@ func run(out *os.File, pattern string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	graph := depgraph.Build(module, pkgs)
+	graph := depgraph.Build(module, forDepgraph(pkgs))
 	depgraph.Report(out, graph)
 
-	failures := reportCycles(out, depgraph.TestCycles(module, pkgs))
+	failures := reportCycles(out, depgraph.TestCycles(module, forDepgraph(pkgs)))
 	return failures + len(graph.Violations()), nil
 }
 

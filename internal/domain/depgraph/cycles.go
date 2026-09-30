@@ -3,8 +3,6 @@ package depgraph
 import (
 	"sort"
 	"strings"
-
-	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // TestCycles returns import cycles that run through a package's tests.
@@ -15,7 +13,7 @@ import (
 // `a_test` may import `b` while `b` imports `a`, which compiles, runs, and
 // couples two packages in a direction their production code does not admit to.
 // Nothing looks at it today.
-func TestCycles(modulePath string, pkgs []golist.Package) [][]string {
+func TestCycles(modulePath string, pkgs []Package) [][]string {
 	edges := map[string][]string{}
 	for _, pkg := range pkgs {
 		all := append(append([]string{}, pkg.Imports...), pkg.TestImports...)
