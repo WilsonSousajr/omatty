@@ -32,11 +32,13 @@ const binary = "dtach"
 // Holder keeps a session's claude alive while omatty is not attached to it.
 //
 //	h := detach.New(home)
-//	cmd, err := h.Wrap(sess.ID, exec.Command("claude", "--resume", sess.ID))
+//	argv, err := h.Wrap(sess.ID, []string{"claude", "--resume", sess.ID})
 type Holder interface {
-	// Wrap returns the command omatty should actually start for a session:
-	// under a Dtach that is a dtach client, under Plain it is cmd itself.
-	Wrap(sessionID string, cmd *exec.Cmd) (*exec.Cmd, error)
+	// Wrap returns the command line omatty should actually start for a
+	// session: under a Dtach that is a dtach client, under Plain it is argv
+	// itself. A command line rather than an *exec.Cmd since migration step 5.5
+	// (#653), so the session service that builds it stays free of os/exec.
+	Wrap(sessionID string, argv []string) ([]string, error)
 	// Stop ends the held process. Archiving a session is the one place omatty
 	// deliberately kills a claude (#40); quitting must not.
 	Stop(sessionID string) error
@@ -84,7 +86,7 @@ func NewFor(home, bin string) Holder {
 type Plain struct{}
 
 // Wrap returns cmd unchanged.
-func (p *Plain) Wrap(_ string, cmd *exec.Cmd) (*exec.Cmd, error) { return cmd, nil }
+func (p *Plain) Wrap(_ string, argv []string) ([]string, error) { return argv, nil }
 
 // Stop reports success because there is no held process: the claude died with
 // its PTY. An error here would make archiving look broken on every machine
@@ -165,21 +167,20 @@ func (d *Dtach) Notice() string { return "" }
 // Held is the socket's presence, the same liveness test Stop uses (#191).
 func (d *Dtach) Held(sessionID string) (bool, error) { return d.stillHeld(sessionID) }
 
-// Wrap rebuilds cmd as a dtach client for the session, keeping its directory
-// and environment.
+// Wrap rebuilds argv as a dtach client for the session.
 //
-//	cmd, err := d.Wrap(sess.ID, exec.Command("claude", "--resume", sess.ID))
+//	argv, err := d.Wrap(sess.ID, []string{"claude", "--resume", sess.ID})
 //
 // An over-long socket path is refused here rather than passed to dtach, whose
 // own failure names neither the session nor the limit (#43).
-func (d *Dtach) Wrap(sessionID string, cmd *exec.Cmd) (*exec.Cmd, error) {
-	if cmd.Err != nil {
-		// exec.Command records an unresolvable binary here rather than
-		// returning it, and Plain hands cmd straight to Start, which surfaces
-		// it. Rebuilding the command around dtach drops the field, so a
-		// missing claude became a session that started, flashed
-		// "sh: claude: not found" and died with nothing in the log (#43).
-		return nil, fmt.Errorf("detach: session %s: %w", sessionID, cmd.Err)
+func (d *Dtach) Wrap(sessionID string, argv []string) ([]string, error) {
+	if err := resolvable(argv); err != nil {
+		// Plain hands argv straight to the terminal, whose start surfaces an
+		// unresolvable binary. Under dtach the binary is run by the shell
+		// inside the master, so a missing claude became a session that
+		// started, flashed "sh: claude: not found" and died with nothing in
+		// the log (#43). It is resolved here, before dtach is.
+		return nil, fmt.Errorf("detach: session %s: %w", sessionID, err)
 	}
 	sock, err := d.socketPath(sessionID)
 	if err != nil {
@@ -188,11 +189,18 @@ func (d *Dtach) Wrap(sessionID string, cmd *exec.Cmd) (*exec.Cmd, error) {
 	if err := ensureSessionDir(d.home, sessionID); err != nil {
 		return nil, err
 	}
-	out := exec.Command(d.bin, dtachArgs(sock, PidPath(d.home, sessionID), cmd.Args)...)
-	out.Dir, out.Env = cmd.Dir, cmd.Env
-	out.Stdin, out.Stdout, out.Stderr = cmd.Stdin, cmd.Stdout, cmd.Stderr
-	out.SysProcAttr = cmd.SysProcAttr
-	return out, nil
+	return append([]string{d.bin}, dtachArgs(sock, PidPath(d.home, sessionID), argv)...), nil
+}
+
+// resolvable reports why argv's program cannot be run, or nil when it can:
+// what exec.Command used to record in cmd.Err before the holder took a
+// command line (#43, #653).
+func resolvable(argv []string) error {
+	if len(argv) == 0 {
+		return fmt.Errorf("an empty command line has no program to run")
+	}
+	_, err := exec.LookPath(argv[0])
+	return err
 }
 
 // ensureSessionDir creates the directory the socket and pidfile live in.

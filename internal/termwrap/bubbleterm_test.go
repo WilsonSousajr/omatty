@@ -1,8 +1,8 @@
 package termwrap_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/taigrr/bubbleterm/emulator"
-	"os/exec"
 	"regexp"
 	"strings"
 	"testing"
@@ -43,7 +43,7 @@ func pump(t *testing.T, term termwrap.Terminal, want string, deadline time.Durat
 // The core bet of the project: a real process's output really does render
 // into an embedded terminal we can read back.
 func TestStart_RendersRealProcessOutput(t *testing.T) {
-	term, err := termwrap.Start(40, 10, exec.Command("printf", "omatty-lives\\n"))
+	term, err := termwrap.Start(40, 10, session.Launch{Argv: []string{"printf", "omatty-lives\\n"}})
 	if err != nil {
 		t.Fatalf("Start() error = %v, want nil", err)
 	}
@@ -60,7 +60,7 @@ func TestStart_RendersRealProcessOutput(t *testing.T) {
 // tracks it, bubbleterm's view drops it, and omatty could not draw a caret
 // until this reached it (issue #106).
 func TestStart_CursorFollowsTheProcess_issue106(t *testing.T) {
-	term, err := termwrap.Start(40, 10, exec.Command("printf", "abc"))
+	term, err := termwrap.Start(40, 10, session.Launch{Argv: []string{"printf", "abc"}})
 	if err != nil {
 		t.Fatalf("Start() error = %v, want nil", err)
 	}
@@ -85,7 +85,7 @@ func TestStart_CursorFollowsTheProcess_issue106(t *testing.T) {
 }
 
 func TestStart_MissingBinaryNamesIt(t *testing.T) {
-	term, err := termwrap.Start(40, 10, exec.Command("omatty-no-such-binary-xyz"))
+	term, err := termwrap.Start(40, 10, session.Launch{Argv: []string{"omatty-no-such-binary-xyz"}})
 	if err == nil {
 		_ = term.Close()
 		t.Skip("bubbleterm defers exec failure to the read loop rather than to New")
@@ -96,7 +96,7 @@ func TestStart_MissingBinaryNamesIt(t *testing.T) {
 }
 
 func TestStart_FocusAndResizeReachTheEmulator(t *testing.T) {
-	term, err := termwrap.Start(40, 10, exec.Command("cat"))
+	term, err := termwrap.Start(40, 10, session.Launch{Argv: []string{"cat"}})
 	if err != nil {
 		t.Fatalf("Start() error = %v, want nil", err)
 	}
@@ -155,7 +155,7 @@ var sgr = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 // UTF-8, ends the OSC there, and prints the rest of the title onto the grid
 // (#192). The emulator must draw BODY and nothing of the title.
 func TestTerminal_anOSCTitleWithADingbatIsNotDrawn_issue192(t *testing.T) {
-	term, err := termwrap.Start(40, 5, exec.Command("printf", "\033]0;\342\234\263\357\270\217 Claude Code\007BODY"))
+	term, err := termwrap.Start(40, 5, session.Launch{Argv: []string{"printf", "\033]0;\342\234\263\357\270\217 Claude Code\007BODY"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestTerminal_anOSCTitleWithADingbatIsNotDrawn_issue192(t *testing.T) {
 }
 
 func TestTerminal_aRawSTByteInATitleIsNotDrawn_issue192(t *testing.T) {
-	term, err := termwrap.Start(40, 5, exec.Command("printf", "\033]0;a\234b title\007BODY"))
+	term, err := termwrap.Start(40, 5, session.Launch{Argv: []string{"printf", "\033]0;a\234b title\007BODY"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestTerminal_aDCSPayloadWithADingbatIsNotDrawn_issue192(t *testing.T) {
 	// (a plain payload with no 0x9C loses them too, checked against the raw
 	// emulator), which is not the bug here. The assertion is that the payload
 	// never reaches the grid and the text after it still does.
-	term, err := termwrap.Start(40, 5, exec.Command("printf", "\033P1$r\342\234\263 payload\033\\\nBODY"))
+	term, err := termwrap.Start(40, 5, session.Launch{Argv: []string{"printf", "\033P1$r\342\234\263 payload\033\\\nBODY"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,9 +205,9 @@ func TestTerminal_aDCSPayloadWithADingbatIsNotDrawn_issue192(t *testing.T) {
 // bubbleterm's StartCommand overwrote TERM; termwrap owning the PTY must too
 // (#192).
 func TestStart_SetsTermTo256Color_issue192(t *testing.T) {
-	cmd := exec.Command("sh", "-c", `printf "term=%s" "$TERM"`)
-	cmd.Env = []string{"TERM=xterm-ghostty", "PATH=/usr/bin:/bin"}
-	term, err := termwrap.Start(40, 5, cmd)
+	launch := session.Launch{Argv: []string{"sh", "-c", `printf "term=%s" "$TERM"`},
+		Env: []string{"TERM=xterm-ghostty", "PATH=/usr/bin:/bin"}}
+	term, err := termwrap.Start(40, 5, launch)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestStart_SetsTermTo256Color_issue192(t *testing.T) {
 // Close twice is nil twice: closeTerminals logs every error per session on
 // every quit, and a double-closed pty would say so every time (#192).
 func TestTerminal_CloseIsIdempotentAndReturnsNil_issue192(t *testing.T) {
-	term, err := termwrap.Start(40, 5, exec.Command("cat"))
+	term, err := termwrap.Start(40, 5, session.Launch{Argv: []string{"cat"}})
 	if err != nil {
 		t.Fatal(err)
 	}

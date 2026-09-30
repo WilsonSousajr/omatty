@@ -5,10 +5,10 @@ package supervisor
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
@@ -43,8 +43,10 @@ func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder deta
 	return &Launcher{profile: profile, bin: bin, hooksFile: hooksFile, home: home, holder: holder}
 }
 
-// Command returns the process omatty starts for a session, built from the
-// profile's template. The flag choice - a fresh start or a resume - is still
+// Launch returns what omatty starts for a session, built from the profile's
+// template: a command line, its environment and its directory, for the
+// terminal to spawn (ADR 0001, "Starting a session"; migration step 5.5, #653).
+// Built from the profile's template. The flag choice - a fresh start or a resume - is still
 // made here, because it is a fact about this session's transcript rather
 // than about the agent; which flags express it is the profile's business
 // (#36, #46). For claude that is --session-id versus --resume, and --settings
@@ -58,14 +60,14 @@ func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder deta
 // The conversation is what claude resumes, and the row's ID is what the holder
 // names and what the hook reads back from the environment: after /clear the
 // two differ, and only the first moves (#316).
-func (l *Launcher) Command(sess sessions.Session) (*exec.Cmd, error) {
+func (l *Launcher) Launch(sess sessions.Session) (session.Launch, error) {
 	conv := sess.ConversationID()
 	resume := HasTranscript(l.profile, l.home, sess.Dir, conv)
-	args := l.profile.Command(l.bin, conv, sess.Dir, resume, l.hooksFile)
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Dir = sess.Dir
-	cmd.Env = ownedEnv(os.Environ(), sess.ID)
-	return l.holder.Wrap(sess.ID, cmd)
+	argv, err := l.holder.Wrap(sess.ID, l.profile.Command(l.bin, conv, sess.Dir, resume, l.hooksFile))
+	if err != nil {
+		return session.Launch{}, err
+	}
+	return session.Launch{Argv: argv, Env: ownedEnv(os.Environ(), sess.ID), Dir: sess.Dir}, nil
 }
 
 // ownedEnv is env with hooks.SessionEnv set to id. A value inherited from an
@@ -94,11 +96,11 @@ func HasTranscript(profile agent.Profile, home, dir, sessionID string) bool {
 func (l *Launcher) Start(
 	f termwrap.Factory, sess sessions.Session, w, h int,
 ) (termwrap.Terminal, error) {
-	cmd, err := l.Command(sess)
+	launch, err := l.Launch(sess)
 	if err != nil {
 		return nil, err
 	}
-	term, err := f(w, h, cmd)
+	term, err := f(w, h, launch)
 	if err != nil {
 		return nil, fmt.Errorf("supervisor: starting session %s in %q: %w", sess.ID, sess.Dir, err)
 	}

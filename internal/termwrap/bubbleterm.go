@@ -13,6 +13,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/creack/pty"
 	"github.com/taigrr/bubbleterm"
 	"github.com/taigrr/bubbleterm/emulator"
@@ -49,10 +50,29 @@ type bubble struct {
 // delivered two, so the pause is well over that (#191).
 const repaintDelay = 800 * time.Millisecond
 
-// Start launches cmd inside a w by h embedded terminal.
+// Start launches l inside a w by h embedded terminal. The session service
+// decides what runs and hands it over as a session.Launch; spawning it is this
+// package's, because bubbleterm owns the PTY it runs in (ADR 0001, "Starting
+// a session"; migration step 5.5, #653).
 //
-//	term, err := termwrap.Start(80, 24, exec.Command("claude", "--session-id", id))
-func Start(w, h int, cmd *exec.Cmd) (Terminal, error) {
+//	term, err := termwrap.Start(80, 24, session.Launch{Argv: []string{"claude", "--session-id", id}, Dir: dir})
+func Start(w, h int, l session.Launch) (Terminal, error) {
+	return startCmd(w, h, command(l))
+}
+
+// command is l as the process it names. An empty Argv still yields a command
+// - one whose start fails naming nothing to run - rather than a panic.
+func command(l session.Launch) *exec.Cmd {
+	cmd := &exec.Cmd{Err: errors.New("the launch names no program to run")}
+	if len(l.Argv) > 0 {
+		cmd = exec.Command(l.Argv[0], l.Argv[1:]...)
+	}
+	cmd.Dir, cmd.Env = l.Dir, l.Env
+	return cmd
+}
+
+// startCmd launches cmd inside a w by h embedded terminal.
+func startCmd(w, h int, cmd *exec.Cmd) (Terminal, error) {
 	ptmx, tty, err := openPTY(w, h)
 	if err != nil {
 		return nil, fmt.Errorf("termwrap: opening a %dx%d pty for %q: %w", w, h, cmd.Path, err)

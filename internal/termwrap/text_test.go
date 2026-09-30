@@ -1,7 +1,7 @@
 package termwrap_test
 
 import (
-	"os/exec"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"testing"
 	"time"
 
@@ -13,7 +13,7 @@ import (
 // (#360). From (2,0) to (3,1) that is "CDEF" - the rest of the first row,
 // trailing blanks trimmed - then "GHIJ".
 func TestTerminal_TextTakesAStreamRunAndTrimsEachRow_issue360(t *testing.T) {
-	term, err := termwrap.Start(20, 4, exec.Command("sh", "-c", `printf 'ABCDEF\nGHIJKL\n'; while :; do sleep 1; done`))
+	term, err := termwrap.Start(20, 4, session.Launch{Argv: []string{"sh", "-c", `printf 'ABCDEF\nGHIJKL\n'; while :; do sleep 1; done`}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestTerminal_TextTakesAStreamRunAndTrimsEachRow_issue360(t *testing.T) {
 // A double-width grapheme occupies two cells, the second a placeholder with
 // Width 0. Copying it twice would duplicate the character (#360).
 func TestTerminal_TextDoesNotRepeatAWideGrapheme_issue360(t *testing.T) {
-	term, err := termwrap.Start(20, 4, exec.Command("sh", "-c", `printf '你好Z\n'; while :; do sleep 1; done`))
+	term, err := termwrap.Start(20, 4, session.Launch{Argv: []string{"sh", "-c", `printf '你好Z\n'; while :; do sleep 1; done`}})
 	if err != nil {
 		t.Fatal(err)
 	}

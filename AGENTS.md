@@ -218,9 +218,10 @@ not in the gate.
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
   from `infra/detach`, `infra/forge`, `infra/gateexec`, `infra/golist`, `infra/notify`, `supervisor`,
-  `termwrap` and `infra/vcs`, and nowhere else in production code. `termwrap` is on that list because it names
-  `*exec.Cmd` in a signature without ever constructing one - a distinction
-  depguard cannot draw. `forge` joined for #310 as omatty's one route to the
+  `termwrap` and `infra/vcs`, and nowhere else in production code. `termwrap` is on that list because it spawns
+  the session's process: the session service hands it a `session.Launch`
+  command line, and the PTY it runs in is bubbleterm's (ADR 0001, "Starting a
+  session"; it only named `*exec.Cmd` in a signature until migration step 5.5). `forge` joined for #310 as omatty's one route to the
   forge, through `gh` - reading on a timer, and since #331 writing on a
   keypress; since M16 it runs every forge's CLI (`gh`, `glab`, `tea`, `az`)
   behind one Router (#452). Adding a ninth package is a decision, so

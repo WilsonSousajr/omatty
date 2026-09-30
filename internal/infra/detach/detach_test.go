@@ -2,8 +2,8 @@ package detach_test
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -11,34 +11,34 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 )
 
-// claudeCommand is the command the supervisor hands the holder: exactly what
+// claudeArgv is the command line the supervisor hands the holder: exactly what
 // omatty runs today, before any detach layer touches it.
 //
-// Built by hand rather than with exec.Command, which resolves the binary on
-// PATH and records the failure in cmd.Err when it cannot find one. Wrap now
-// refuses such a command, which is the point of the fix - so exec.Command here
-// made every test below pass or fail on whether claude happened to be installed
-// on the machine. It is on the author's and not on CI, so this shipped green
-// locally and red on ubuntu. Path is what a successful lookup would have left
-// behind; Args is what Wrap actually reads (#43).
-func claudeCommand() *exec.Cmd {
-	return &exec.Cmd{
-		Path: "/usr/local/bin/claude",
-		Args: []string{"claude", "--resume", "abc-123", "--settings", "/home/u/.omatty/hooks.json"},
-		Dir:  "/w/parser-fix",
+// Its program is a stand-in named claude in a temp dir rather than a bare
+// "claude": Wrap resolves the program before dtach does, which is the point of
+// the #43 fix, so a bare name made every test below pass or fail on whether
+// claude happened to be installed on the machine. It is on the author's and
+// not on CI, so that shipped green locally and red on ubuntu (#43). A command
+// line rather than an *exec.Cmd since migration step 5.5 (#653).
+func claudeArgv(t *testing.T) []string {
+	t.Helper()
+	bin := filepath.Join(t.TempDir(), "claude")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
 	}
+	return []string{bin, "--resume", "abc-123", "--settings", "/home/u/.omatty/hooks.json"}
 }
 
 func TestPlain_WrapReturnsTheCommandUnchanged(t *testing.T) {
-	in := claudeCommand()
+	in := claudeArgv(t)
 
 	out, err := (&detach.Plain{}).Wrap("abc-123", in)
 
 	if err != nil {
 		t.Fatalf("Plain.Wrap() error = %v, want nil", err)
 	}
-	if out != in {
-		t.Errorf("Plain.Wrap() = %v, want the very command it was given", out.Args)
+	if !slices.Equal(out, in) {
+		t.Errorf("Plain.Wrap() = %v, want the very command line it was given", out)
 	}
 }
 
@@ -60,12 +60,12 @@ func TestDtach_WrapBuildsTheAttachOrCreateLine_issue43(t *testing.T) {
 	// command line rather than the limit.
 	sock := filepath.Join(paths.SessionDir(home), "abc-123.sock")
 
-	out, err := testDtach(home).Wrap("abc-123", claudeCommand())
+	out, err := testDtach(home).Wrap("abc-123", claudeArgv(t))
 
 	if err != nil {
 		t.Fatalf("Dtach.Wrap() error = %v, want nil", err)
 	}
-	line := strings.Join(out.Args, " ")
+	line := strings.Join(out, " ")
 	for _, want := range []string{
 		"dtach -A",
 		sock,
@@ -83,28 +83,15 @@ func TestDtach_WrapBuildsTheAttachOrCreateLine_issue43(t *testing.T) {
 // binds ctrl+\ to detach and ctrl+z to suspend, so without -E and -z it would
 // silently steal two keys from Claude - and nothing on screen would say so.
 func TestDtach_DisablesItsOwnDetachAndSuspendKeys_invariant1(t *testing.T) {
-	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeCommand())
+	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeArgv(t))
 
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, flag := range []string{"-E", "-z"} {
-		if !hasArg(out.Args, flag) {
-			t.Errorf("dtach args %v omit %s; invariant 1 requires every key reach Claude", out.Args, flag)
+		if !hasArg(out, flag) {
+			t.Errorf("dtach args %v omit %s; invariant 1 requires every key reach Claude", out, flag)
 		}
-	}
-}
-
-// The session still has to start in its own worktree, so the wrapped command
-// keeps the directory the supervisor set (#43).
-func TestDtach_WrapKeepsTheWorkingDirectory(t *testing.T) {
-	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeCommand())
-
-	if err != nil {
-		t.Fatal(err)
-	}
-	if out.Dir != "/w/parser-fix" {
-		t.Errorf("Dir = %q, want %q", out.Dir, "/w/parser-fix")
 	}
 }
 
@@ -112,12 +99,12 @@ func TestDtach_WrapKeepsTheWorkingDirectory(t *testing.T) {
 // neither its own pid nor its child's. exec replaces the shell, so the $$ it
 // wrote is claude's own pid rather than a shell that is already gone (#43).
 func TestDtach_WrapRecordsClaudesPidThroughAnExecWrapper_issue43(t *testing.T) {
-	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeCommand())
+	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeArgv(t))
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	line := strings.Join(out.Args, " ")
+	line := strings.Join(out, " ")
 	if !strings.Contains(line, "echo $$") || !strings.Contains(line, `exec "$@"`) {
 		t.Errorf("dtach line %q does not record the pid and exec claude in its place", line)
 	}
@@ -134,7 +121,7 @@ func TestDtach_Persists(t *testing.T) {
 func TestDtach_WrapSurfacesAnOverLongSocketPath_issue43(t *testing.T) {
 	deep := "/" + strings.Repeat("d", 200)
 
-	_, err := detach.NewDtach(deep, "dtach").Wrap("abc-123", claudeCommand())
+	_, err := detach.NewDtach(deep, "dtach").Wrap("abc-123", claudeArgv(t))
 
 	if err == nil {
 		t.Fatal("Dtach.Wrap() with a 200-character home returned nil, want an error")
@@ -181,7 +168,7 @@ func hasArg(args []string, want string) bool {
 func TestDtach_WrapCreatesTheSessionDirectory_issue43(t *testing.T) {
 	home := t.TempDir() // no .omatty/s inside it, as on a fresh machine
 
-	if _, err := testDtach(home).Wrap("abc-123", claudeCommand()); err != nil {
+	if _, err := testDtach(home).Wrap("abc-123", claudeArgv(t)); err != nil {
 		t.Fatalf("Wrap() error = %v, want nil", err)
 	}
 
@@ -199,7 +186,7 @@ func TestDtach_WrapCreatesTheSessionDirectory_issue43(t *testing.T) {
 func TestDtach_WrapCreatesThatDirectoryPrivate_issue43(t *testing.T) {
 	home := t.TempDir()
 
-	if _, err := testDtach(home).Wrap("abc-123", claudeCommand()); err != nil {
+	if _, err := testDtach(home).Wrap("abc-123", claudeArgv(t)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -231,13 +218,15 @@ func testDtach(home string) *detach.Dtach {
 // not resolve. Under Plain that field reaches Start and names the problem;
 // under Dtach the launch "succeeded", dtach started, and the pane flashed
 // "sh: claude: not found" before dying, with nothing in the log.
+// Since migration step 5.5 (#653) the holder takes a command line, so Wrap
+// resolves the program itself, before dtach is built around it.
 func TestDtach_WrapRefusesACommandThatCouldNotBeResolved_issue43(t *testing.T) {
-	missing := exec.Command("omatty-no-such-claude-binary")
+	missing := []string{"omatty-no-such-claude-binary"}
 
 	_, err := testDtach(t.TempDir()).Wrap("abc-123", missing)
 
 	if err == nil {
-		t.Fatal("Dtach.Wrap() with an unresolvable binary returned nil, want the error exec.Command recorded")
+		t.Fatal("Dtach.Wrap() with an unresolvable binary returned nil, want the failed lookup")
 	}
 	if !strings.Contains(err.Error(), "abc-123") {
 		t.Errorf("error %q does not name the session", err)
@@ -259,7 +248,7 @@ func TestDtach_WrapTightensASessionDirectoryThatIsAlreadyTooOpen_issue43(t *test
 		t.Fatal(err)
 	}
 
-	if _, err := testDtach(home).Wrap("abc-123", claudeCommand()); err != nil {
+	if _, err := testDtach(home).Wrap("abc-123", claudeArgv(t)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -277,12 +266,12 @@ func TestDtach_WrapTightensASessionDirectoryThatIsAlreadyTooOpen_issue43(t *test
 // end: no pidfile, so archiving was a silent no-op and the claude went on
 // running behind a socket with no row in state.json (#43).
 func TestDtach_WrapFailsTheLaunchWhenThePidCannotBeRecorded_issue43(t *testing.T) {
-	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeCommand())
+	out, err := testDtach(t.TempDir()).Wrap("abc-123", claudeArgv(t))
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	line := strings.Join(out.Args, " ")
+	line := strings.Join(out, " ")
 	if !strings.Contains(line, "|| exit 1") {
 		t.Errorf("dtach line %q execs claude even when the pid write fails, leaving a session Stop cannot end", line)
 	}

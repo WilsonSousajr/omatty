@@ -2,7 +2,7 @@ package ui_test
 
 import (
 	"errors"
-	"os/exec"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"sort"
 	"testing"
 
@@ -24,7 +24,7 @@ func claudeProfile() agent.Profile {
 
 func TestStartTerminals_OnePerSessionInItsOwnDirectory(t *testing.T) {
 	var dirs []string
-	factory := func(_, _ int, cmd *exec.Cmd) (termwrap.Terminal, error) {
+	factory := func(_, _ int, cmd session.Launch) (termwrap.Terminal, error) {
 		dirs = append(dirs, cmd.Dir)
 		return termwrap.NewFake(""), nil
 	}
@@ -51,7 +51,7 @@ func TestStartTerminals_OnePerSessionInItsOwnDirectory(t *testing.T) {
 // the rest start.
 func TestStartTerminals_AFailedStartLeavesOnlyThatSessionStopped_issue317(t *testing.T) {
 	calls := 0
-	factory := func(int, int, *exec.Cmd) (termwrap.Terminal, error) {
+	factory := func(int, int, session.Launch) (termwrap.Terminal, error) {
 		calls++
 		if calls == 1 {
 			return nil, errors.New("pty exhausted")
@@ -71,7 +71,7 @@ func TestStartTerminals_AFailedStartLeavesOnlyThatSessionStopped_issue317(t *tes
 // alive; the others are not started at all (#317).
 func TestStartTerminals_StartsOnlyTheWantedSessions_issue317(t *testing.T) {
 	calls := 0
-	factory := func(int, int, *exec.Cmd) (termwrap.Terminal, error) {
+	factory := func(int, int, session.Launch) (termwrap.Terminal, error) {
 		calls++
 		return termwrap.NewFake(""), nil
 	}
@@ -104,7 +104,7 @@ func keysOf(terms map[string]termwrap.Terminal) []string {
 
 func TestStartTerminals_EmptyRegistryStartsNothing(t *testing.T) {
 	called := 0
-	factory := func(int, int, *exec.Cmd) (termwrap.Terminal, error) {
+	factory := func(int, int, session.Launch) (termwrap.Terminal, error) {
 		called++
 		return termwrap.NewFake(""), nil
 	}
@@ -120,7 +120,7 @@ func TestStartTerminals_EmptyRegistryStartsNothing(t *testing.T) {
 // Invariant 6: every started terminal is guarded, so one emulator panic
 // cannot take down the app.
 func TestStartTerminals_WrapsEveryTerminalInAGuard(t *testing.T) {
-	factory := func(int, int, *exec.Cmd) (termwrap.Terminal, error) {
+	factory := func(int, int, session.Launch) (termwrap.Terminal, error) {
 		return termwrap.NewFake(""), nil
 	}
 
@@ -139,7 +139,7 @@ func TestStartTerminals_WrapsEveryTerminalInAGuard(t *testing.T) {
 // StartTerminals must start each terminal at PaneSize(window).
 func TestStartTerminals_BirthsThePTYAtThePaneSize_issue51(t *testing.T) {
 	var gotW, gotH int
-	factory := func(w, h int, _ *exec.Cmd) (termwrap.Terminal, error) {
+	factory := func(w, h int, _ session.Launch) (termwrap.Terminal, error) {
 		gotW, gotH = w, h
 		return termwrap.NewFake(""), nil
 	}
