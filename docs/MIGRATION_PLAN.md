@@ -47,7 +47,8 @@ count after the step.
 | Amendment 3 | #635 | #646 | merged | 23 |
 | Amendment 4 | #635 | #647 | merged | 23 |
 | 3.8 | #635 | #648 | merged | 23 |
-| 3.9 | #635 | #649 | open | 20 |
+| 3.9 | #635 | #649 | merged | 20 |
+| Amendment 5 | #650 | this PR | open | 20 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
@@ -163,7 +164,7 @@ domain half one at a time.
 
 | # | PR | Scope | Risk | Serves | Needs | Rollback |
 |---|---|---|---|---|---|---|
-| 4.1 | `feat: vcs takes a context; git has a deadline` | every `infra/vcs` method takes `ctx`; `exec.CommandContext`. The named deadlines are git 30 s and `worktree add` 60 s. Callers pass a timeout context. **User-visible only when git hangs:** omatty now reports an error instead of freezing. | M, **smoke** | P5, audit leak 6 | 1.2 | revert; blocks 5.4 |
+| 4.1 | `feat: every git call has a deadline` | *Amendment 5.* The two exec sites in `infra/vcs` (`capture`, `Attr`) use `exec.CommandContext` with a named deadline: git 30 s, `git worktree add` 60 s. A hung git is killed and reported as a `CommandError`, instead of freezing the TUI. **User-visible only when git hangs.** No signature changes: `ctx` parameters arrive with the ports in 5.4 and 5.8, which then own the deadlines. | M, **smoke** | P5, audit leak 6 | 1.2 | revert |
 
 ### Stage 5: pubsub and the services
 
@@ -282,6 +283,16 @@ needs a composition root to live in. The maintainer moved the step to 5.2b,
 right after `service/status` declares the port, with the catalog composed in
 `cmd`. M17's injected `Catalog` (#521) will build on that. Stage 3 finishes
 with 3.8 and 3.9.
+
+**Amendment 5** (2026-09-30, Stage 4). Step 4.1 as written gave all 25
+`vcs` methods a `ctx`, rippling through five interfaces (`vcs.Git`,
+`registry.RepoRooter`/`SessionBrancher`/`BranchRenamer`, `discover.Git`) and
+every caller in registry, review, discover, cmd and ui. Stage 5 retypes those
+same interfaces as ports with `ctx` anyway. Every git call funnels through two
+exec sites, so the maintainer chose to put the deadline there now: the same
+user-visible fix, a small diff, and no plumbing done twice. The `ctx`
+parameters, and the deadlines with them, move to the service ports in 5.4 and
+5.8.
 
 ## When the plan is wrong
 
