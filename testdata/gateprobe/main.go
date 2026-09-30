@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
+	"github.com/WilsonSousajr/omatty/internal/service/gate"
 )
 
 // scratch is a checkout whose gate fails in the middle, which is the case

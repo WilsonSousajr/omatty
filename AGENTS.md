@@ -66,6 +66,7 @@ internal/
 │   ├── status/     a session's status vocabulary: Kind, Status, Event, Tokens, the hook payload, Apply, the Adapter port.
 │   └── tally/      [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
 ├── service/        [ADR 0001] use cases, each declaring the ports it consumes; moving here one step at a time.
+│   ├── gate/       [M9] the Runner: gates many sessions, bounded; infra/gateexec runs the steps.
 │   └── status/     [M2] transcript lines + hook payloads -> typed status events, published through pubsub.
 ├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
@@ -90,7 +91,6 @@ internal/
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── discover/       proposes repositories to register, from claude's transcript store (#91).
 ├── review/         [M3] loads a diff and a turn, previews, reverts; the model is domain/review.
-├── gate/           [M9] the Runner: gates many sessions, bounded; infra/gateexec runs the steps.
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
@@ -152,7 +152,7 @@ go run ./testdata/gateprobe                                 # [M9] a real gate, 
 the command line dtach is given, which is why a missing `~/.omatty/s` shipped
 green and broke every session start (#43). The probe runs the line.
 
-`gateprobe` is that argument again for `internal/gate` (#229). Its unit tests
+`gateprobe` is that argument again for `internal/service/gate` and `internal/infra/gateexec` (#229). Its unit tests
 say what a step's verdict is; only the probe shows a real gate failing in the
 middle with the steps after it `pending` rather than `pass`, a tool that is
 absent reported `missing` against this machine's actual `PATH`, the Runner's

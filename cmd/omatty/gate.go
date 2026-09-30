@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )

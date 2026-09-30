@@ -8,11 +8,11 @@ import (
 )
 
 // The gate tools need the file set the compiler actually agrees to, which is
-// why they ask go list rather than walking the tree: internal/gate holds
+// why they ask go list rather than walking the tree: internal/infra/gateexec holds
 // procgroup_other.go behind //go:build !unix, and a walk would hand a scorer a
 // file neither CI runner ever compiles.
 func TestList_reportsOnlyTheFilesThisPlatformCompiles(t *testing.T) {
-	pkgs, err := golist.List("../..", "./gate")
+	pkgs, err := golist.List("../..", "./infra/gateexec")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,11 +21,12 @@ func TestList_reportsOnlyTheFilesThisPlatformCompiles(t *testing.T) {
 	}
 
 	files := strings.Join(pkgs[0].GoFiles, " ")
-	// runner.go, not gate.go: migration step 3.3 moved gate.go to
-	// internal/domain/gate (#635). The package stays the fixture for the
-	// build-constraint check below, which is what procgroup_*.go are for.
-	if !strings.Contains(files, "runner.go") {
-		t.Errorf("GoFiles = %v, want it to hold runner.go", pkgs[0].GoFiles)
+	// run.go, not gate.go: migration step 3.3 moved gate.go to
+	// internal/domain/gate (#635), and step 5.3 moved run.go and
+	// procgroup_*.go to internal/infra/gateexec (#653). The fixture follows
+	// procgroup_*.go, which are what the build-constraint check below is for.
+	if !strings.Contains(files, "run.go") {
+		t.Errorf("GoFiles = %v, want it to hold run.go", pkgs[0].GoFiles)
 	}
 	if strings.Contains(files, "_test.go") {
 		t.Errorf("GoFiles = %v, want no test files; go list keeps those apart", pkgs[0].GoFiles)
@@ -84,17 +85,17 @@ func TestModule_answersTheModulePath(t *testing.T) {
 	}
 }
 
-// internal/gate holds procgroup_other.go behind //go:build !unix. A report that
+// internal/infra/gateexec holds procgroup_other.go behind //go:build !unix. A report that
 // never mentions the files it skipped is how a metric silently stops covering
 // half a package.
 func TestList_reportsFilesABuildConstraintExcluded(t *testing.T) {
-	pkgs, err := golist.List("../..", "./gate")
+	pkgs, err := golist.List("../..", "./infra/gateexec")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if len(pkgs[0].IgnoredGoFiles) == 0 {
-		t.Skip("no build-constrained files in internal/gate on this platform")
+		t.Skip("no build-constrained files in internal/infra/gateexec on this platform")
 	}
 	if !strings.Contains(strings.Join(pkgs[0].IgnoredGoFiles, " "), "procgroup_other.go") {
 		t.Errorf("IgnoredGoFiles = %v, want procgroup_other.go", pkgs[0].IgnoredGoFiles)

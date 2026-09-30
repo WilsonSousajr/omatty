@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
+	"github.com/WilsonSousajr/omatty/internal/service/gate"
 )
 
 // waitReport reads one report, failing rather than hanging the suite.

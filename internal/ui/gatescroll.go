@@ -10,7 +10,7 @@
 
 package ui
 
-import "github.com/WilsonSousajr/omatty/internal/gate"
+import "github.com/WilsonSousajr/omatty/internal/domain/gate"
 
 // gateSpan is one step's lines in gateLines' coordinates: its row, and the last
 // line of its output when folded open - its row again when shut.
