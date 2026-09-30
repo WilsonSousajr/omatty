@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 )
 
 // scratch is a checkout whose gate fails in the middle, which is the case
@@ -42,10 +43,10 @@ func main() {
 	fmt.Println("working directory:", dir)
 
 	fmt.Println("\n--- a gate that fails in the middle ---")
-	report(gate.Run(context.Background(), dir, scratch))
+	report(gateexec.Run(context.Background(), dir, scratch))
 
 	fmt.Println("\n--- a tool that is not installed (invariant 12) ---")
-	report(gate.Run(context.Background(), dir, absent))
+	report(gateexec.Run(context.Background(), dir, absent))
 
 	fmt.Println("\n--- the Runner: two sessions, bound of 1 ---")
 	runner(dir)
@@ -63,7 +64,7 @@ func main() {
 // actually uses. It prints and does not run - running omatty's own gate takes
 // minutes, and the point here is the proposal.
 func proposed(root string) {
-	steps := gate.Detect(root)
+	steps := gateexec.Detect(root)
 	if len(steps) == 0 {
 		fmt.Println("  nothing recognised in", root)
 		return
@@ -101,7 +102,7 @@ func scratchDir() string {
 // to be FIFO - what matters is that the two do not overlap, which is what the
 // one-second gap in the output shows.
 func runner(dir string) {
-	r := gate.NewRunner(1)
+	r := gate.NewRunner(1, gateexec.Run)
 	defer r.Close()
 	started := time.Now()
 	r.Start("session-a", dir, []gate.Step{{Name: "slow", Run: "sleep 1; true"}})
@@ -115,7 +116,7 @@ func runner(dir string) {
 // supersede re-gates a session mid-run. Exactly one report must arrive, and it
 // must be the new one: a stale verdict would describe code that has changed.
 func supersede(dir string) {
-	r := gate.NewRunner(2)
+	r := gate.NewRunner(2, gateexec.Run)
 	defer r.Close()
 	r.Start("session-a", dir, []gate.Step{{Name: "slow", Run: "sleep 5"}})
 	r.Start("session-a", dir, []gate.Step{{Name: "quick", Run: "true"}})

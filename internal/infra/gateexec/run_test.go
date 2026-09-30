@@ -1,4 +1,4 @@
-package gate_test
+package gateexec_test
 
 import (
 	"context"
@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/domain/gate"
+	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 )
 
 // Nothing here substitutes a fake for exec. The thing under test *is* the
@@ -21,7 +22,7 @@ func TestRun_allStepsPass_reportsEachAsPass(t *testing.T) {
 		{Name: "test", Run: "echo ok"},
 	}
 
-	got, err := gate.Run(context.Background(), t.TempDir(), steps)
+	got, err := gateexec.Run(context.Background(), t.TempDir(), steps)
 	if err != nil {
 		t.Fatalf("Run() error = %v, want nil", err)
 	}
@@ -47,7 +48,7 @@ func TestRun_firstFailureStopsTheRun_laterStepsStayPending(t *testing.T) {
 		{Name: "cov", Run: "echo should-not-run"},
 	}
 
-	got, _ := gate.Run(context.Background(), t.TempDir(), steps)
+	got, _ := gateexec.Run(context.Background(), t.TempDir(), steps)
 
 	want := []gate.Verdict{gate.Pass, gate.Fail, gate.Pending}
 	for i, w := range want {
@@ -74,7 +75,7 @@ func TestRun_absentTool_isMissingAndDoesNotRun(t *testing.T) {
 		{Name: "lint", Run: "omatty-no-such-tool-xyz --check > ranfile"},
 	}
 
-	got, _ := gate.Run(context.Background(), dir, steps)
+	got, _ := gateexec.Run(context.Background(), dir, steps)
 
 	if got[0].Verdict != gate.Missing {
 		t.Fatalf("verdict = %v, want Missing", got[0].Verdict)
@@ -92,7 +93,7 @@ func TestRun_absentTool_isMissingAndDoesNotRun(t *testing.T) {
 func TestRun_outputSayingFail_doesNotDecideTheVerdict(t *testing.T) {
 	steps := []gate.Step{{Name: "test", Run: "echo 'FAIL github.com/x/y 0.1s'; exit 0"}}
 
-	got, _ := gate.Run(context.Background(), t.TempDir(), steps)
+	got, _ := gateexec.Run(context.Background(), t.TempDir(), steps)
 
 	if got[0].Verdict != gate.Pass {
 		t.Errorf("verdict = %v, want Pass: exit 0 is the fact, the text is a rendering", got[0].Verdict)
@@ -103,7 +104,7 @@ func TestRun_runsEachStepInTheGivenDirectory(t *testing.T) {
 	dir := t.TempDir()
 	steps := []gate.Step{{Name: "pwd", Run: "pwd > where"}}
 
-	if _, err := gate.Run(context.Background(), dir, steps); err != nil {
+	if _, err := gateexec.Run(context.Background(), dir, steps); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 
@@ -129,7 +130,7 @@ func TestRun_cancelledContext_stopsTheChildAndReportsCancelled(t *testing.T) {
 	}()
 
 	start := time.Now()
-	got, _ := gate.Run(ctx, t.TempDir(), steps)
+	got, _ := gateexec.Run(ctx, t.TempDir(), steps)
 
 	if elapsed := time.Since(start); elapsed > 10*time.Second {
 		t.Fatalf("Run took %v; the child outlived the cancel", elapsed)
@@ -142,7 +143,7 @@ func TestRun_cancelledContext_stopsTheChildAndReportsCancelled(t *testing.T) {
 func TestRun_directoryThatIsNotADirectory_isAnErrorNamingIt(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "nope")
 
-	_, err := gate.Run(context.Background(), missing, []gate.Step{{Name: "x", Run: "true"}})
+	_, err := gateexec.Run(context.Background(), missing, []gate.Step{{Name: "x", Run: "true"}})
 
 	if err == nil {
 		t.Fatal("Run() error = nil, want an error naming the directory")
@@ -153,7 +154,7 @@ func TestRun_directoryThatIsNotADirectory_isAnErrorNamingIt(t *testing.T) {
 }
 
 func TestRun_noSteps_isAnEmptyRunNotAnError(t *testing.T) {
-	got, err := gate.Run(context.Background(), t.TempDir(), nil)
+	got, err := gateexec.Run(context.Background(), t.TempDir(), nil)
 	if err != nil {
 		t.Fatalf("Run() error = %v, want nil", err)
 	}
@@ -163,7 +164,7 @@ func TestRun_noSteps_isAnEmptyRunNotAnError(t *testing.T) {
 }
 
 func TestRun_recordsHowLongAStepTook(t *testing.T) {
-	got, _ := gate.Run(context.Background(), t.TempDir(), []gate.Step{{Name: "x", Run: "true"}})
+	got, _ := gateexec.Run(context.Background(), t.TempDir(), []gate.Step{{Name: "x", Run: "true"}})
 
 	if got[0].Elapsed <= 0 {
 		t.Errorf("Elapsed = %v, want a positive duration", got[0].Elapsed)
@@ -178,7 +179,7 @@ func TestRun_directoryThatIsAFile_saysSo(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	_, err := gate.Run(context.Background(), file, []gate.Step{{Name: "x", Run: "true"}})
+	_, err := gateexec.Run(context.Background(), file, []gate.Step{{Name: "x", Run: "true"}})
 
 	if err == nil || !strings.Contains(err.Error(), "not a directory") {
 		t.Errorf("Run() error = %v, want it to say the path is not a directory", err)
@@ -195,7 +196,7 @@ func TestRun_linesThePreflightCannotRead_areStillRun(t *testing.T) {
 		{Name: "empty", Run: ""},
 	}
 
-	got, err := gate.Run(context.Background(), t.TempDir(), steps)
+	got, err := gateexec.Run(context.Background(), t.TempDir(), steps)
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -225,7 +226,7 @@ func TestRun_cancel_killsTheWholeProcessGroup_issue224(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		cancel()
 	}()
-	got, _ := gate.Run(ctx, dir, steps)
+	got, _ := gateexec.Run(ctx, dir, steps)
 
 	if got[0].Verdict != gate.Cancelled {
 		t.Fatalf("verdict = %v, want Cancelled", got[0].Verdict)
@@ -261,7 +262,7 @@ func TestRun_shellBuiltinWithNoBinary_isNotMissing_issue248(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.run, func(t *testing.T) {
-			got, err := gate.Run(context.Background(), t.TempDir(), []gate.Step{{Name: "b", Run: c.run}})
+			got, err := gateexec.Run(context.Background(), t.TempDir(), []gate.Step{{Name: "b", Run: c.run}})
 			if err != nil {
 				t.Fatalf("Run() error = %v", err)
 			}

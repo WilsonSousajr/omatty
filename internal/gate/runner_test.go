@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 )
 
 // waitReport reads one report, failing rather than hanging the suite.
@@ -20,7 +21,7 @@ func waitReport(t *testing.T, r *gate.Runner) gate.Report {
 }
 
 func TestRunner_reportsTheRunItWasGiven(t *testing.T) {
-	r := gate.NewRunner(2)
+	r := gate.NewRunner(2, gateexec.Run)
 	defer r.Close()
 
 	r.Start("s1", t.TempDir(), []gate.Step{{Name: "ok", Run: "true"}})
@@ -37,7 +38,7 @@ func TestRunner_reportsTheRunItWasGiven(t *testing.T) {
 // A working directory that is gone is the caller's error, and it has to reach
 // the caller rather than vanish into the goroutine.
 func TestRunner_surfacesAnUnusableDirectory(t *testing.T) {
-	r := gate.NewRunner(1)
+	r := gate.NewRunner(1, gateexec.Run)
 	defer r.Close()
 
 	r.Start("s1", "/no/such/directory/anywhere", []gate.Step{{Name: "ok", Run: "true"}})
@@ -51,7 +52,7 @@ func TestRunner_surfacesAnUnusableDirectory(t *testing.T) {
 // answer - the new one. A superseded run reporting late would overwrite the
 // card with a verdict about code that has since changed.
 func TestRunner_restartingASession_reportsOnlyTheNewRun(t *testing.T) {
-	r := gate.NewRunner(2)
+	r := gate.NewRunner(2, gateexec.Run)
 	defer r.Close()
 	dir := t.TempDir()
 
@@ -70,7 +71,7 @@ func TestRunner_restartingASession_reportsOnlyTheNewRun(t *testing.T) {
 }
 
 func TestRunner_cancelStopsAnInFlightRun(t *testing.T) {
-	r := gate.NewRunner(1)
+	r := gate.NewRunner(1, gateexec.Run)
 	defer r.Close()
 
 	r.Start("s1", t.TempDir(), []gate.Step{{Name: "slow", Run: "sleep 30"}})
@@ -87,7 +88,7 @@ func TestRunner_cancelStopsAnInFlightRun(t *testing.T) {
 // must not panic on a second call - quitting can race a shutdown already
 // under way.
 func TestRunner_closeIsSafeTwiceAndStopsWork(t *testing.T) {
-	r := gate.NewRunner(2)
+	r := gate.NewRunner(2, gateexec.Run)
 	r.Start("s1", t.TempDir(), []gate.Step{{Name: "slow", Run: "sleep 30"}})
 
 	r.Close()
@@ -101,7 +102,7 @@ func TestRunner_closeIsSafeTwiceAndStopsWork(t *testing.T) {
 // Starting after Close is a no-op rather than a panic: the UI can queue a gate
 // on the same tick a quit is processed.
 func TestRunner_startAfterCloseIsIgnored(t *testing.T) {
-	r := gate.NewRunner(1)
+	r := gate.NewRunner(1, gateexec.Run)
 	r.Close()
 
 	r.Start("s1", t.TempDir(), []gate.Step{{Name: "ok", Run: "true"}})

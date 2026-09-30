@@ -180,6 +180,10 @@ type RunDeps struct {
 	// GateParallel bounds how many gates run at once (#229). Zero is raised
 	// to one by the Runner, so an unset config is a working default.
 	GateParallel int
+	// RunGate runs one gate. It is injected, because running a step is infra's
+	// business (ADR 0001, migration step 5.3, #653): cmd passes
+	// internal/infra/gateexec's Run.
+	RunGate gate.RunFunc
 	// IdleStop stops a session quiet this long; zero is off (#319).
 	IdleStop time.Duration
 	// LazyStart boots only the sessions a holder already keeps alive; the
@@ -210,7 +214,7 @@ func Run(d RunDeps) error {
 	// One Runner for the whole app, bounded: four concurrent `go test -race`
 	// would make the machine unusable, and a laggy TUI is the one thing that
 	// would make the gate worse than running it by hand (#229).
-	gates := gate.NewRunner(d.GateParallel)
+	gates := gate.NewRunner(d.GateParallel, d.RunGate)
 	defer gates.Close()
 	return runProgram(modelFor(d, terms, held, watch.Subscribe(ctx), watch, gates), len(terms))
 }

@@ -1,6 +1,7 @@
-package gate
+package gateexec
 
 import (
+	dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"strings"
 	"testing"
 )
@@ -19,8 +20,8 @@ func TestBoundedOutput_HoldsAtMostItsWindow(t *testing.T) {
 			t.Fatalf("Write returned %d, %v; want %d, nil", n, err, len(chunk))
 		}
 		total += len(chunk)
-		if len(b.kept) > KeptBytes {
-			t.Fatalf("held %d bytes, want at most %d", len(b.kept), KeptBytes)
+		if len(b.kept) > dgate.KeptBytes {
+			t.Fatalf("held %d bytes, want at most %d", len(b.kept), dgate.KeptBytes)
 		}
 	}
 	if b.dropped != total-len(b.kept) {
@@ -32,7 +33,7 @@ func TestBoundedOutput_HoldsAtMostItsWindow(t *testing.T) {
 // broke - the same reason tail keeps the tail.
 func TestBoundedOutput_KeepsTheEnd(t *testing.T) {
 	var b boundedOutput
-	_, _ = b.Write([]byte(strings.Repeat("o", KeptBytes)))
+	_, _ = b.Write([]byte(strings.Repeat("o", dgate.KeptBytes)))
 	_, _ = b.Write([]byte("THE END"))
 
 	if got := b.String(); !strings.HasSuffix(got, "THE END") {

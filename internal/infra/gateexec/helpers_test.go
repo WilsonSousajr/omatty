@@ -1,4 +1,4 @@
-package gate_test
+package gateexec_test
 
 import (
 	"os"

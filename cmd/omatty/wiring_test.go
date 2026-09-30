@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
@@ -391,5 +393,22 @@ func TestTuiDeps_ServesTheHookSocket_issue653(t *testing.T) {
 	_ = c.Close()
 	if p := <-sink; p.SessionID != "s1" || p.HookEventName != "Stop" {
 		t.Errorf("the wired server handed over %+v, want s1 Stop", p)
+	}
+}
+
+// Step 5.3 (#653): a gate is run by an injected function, because running a
+// step is infra's business. Left unset the Runner would call a nil function
+// on the first gate, which no ui test with a recording runner could notice,
+// so the real wiring is pinned: the wired function runs a real step.
+func TestTuiDeps_RunsGatesThroughGateexec_issue653(t *testing.T) {
+	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env.Cfg = config.Defaults("/h")
+	deps := tuiDeps(env, nil, registry.State{})
+	if deps.RunGate == nil {
+		t.Fatal("RunGate is not wired: the first gate would call a nil runner")
+	}
+	results, err := deps.RunGate(context.Background(), t.TempDir(), []gate.Step{{Name: "ok", Run: "true"}})
+	if err != nil || len(results) != 1 || results[0].Verdict != gate.Pass {
+		t.Errorf("the wired runner returned %+v, %v; want one Pass", results, err)
 	}
 }

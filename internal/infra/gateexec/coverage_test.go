@@ -1,10 +1,11 @@
-package gate_test
+package gateexec_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/domain/gate"
+	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 )
 
 // Real output from the tools a gate is likely to name. Recorded rather than
@@ -29,7 +30,7 @@ func TestRun_coverageStep_readsThePercentage(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			steps := []gate.Step{{Name: "cov", Kind: gate.KindCoverage, Run: "printf '%s' " + shellQuote(c.out)}}
 
-			got, err := gate.Run(context.Background(), t.TempDir(), steps)
+			got, err := gateexec.Run(context.Background(), t.TempDir(), steps)
 			if err != nil {
 				t.Fatalf("Run() error = %v", err)
 			}
@@ -46,7 +47,7 @@ func TestRun_coverageStep_readsThePercentage(t *testing.T) {
 func TestRun_ordinaryStep_isNotSearchedForAPercentage(t *testing.T) {
 	steps := []gate.Step{{Name: "test", Run: "echo 'progress: 85% done'"}}
 
-	got, _ := gate.Run(context.Background(), t.TempDir(), steps)
+	got, _ := gateexec.Run(context.Background(), t.TempDir(), steps)
 
 	if got[0].Percent != 0 {
 		t.Errorf("Percent = %v, want 0: only a coverage step is parsed", got[0].Percent)
@@ -59,7 +60,7 @@ func TestRun_ordinaryStep_isNotSearchedForAPercentage(t *testing.T) {
 func TestRun_coverageStepWithNoParseablePercentage_stillPasses(t *testing.T) {
 	steps := []gate.Step{{Name: "cov", Kind: gate.KindCoverage, Run: "echo 'no numbers here'"}}
 
-	got, _ := gate.Run(context.Background(), t.TempDir(), steps)
+	got, _ := gateexec.Run(context.Background(), t.TempDir(), steps)
 
 	if got[0].Verdict != gate.Pass {
 		t.Errorf("verdict = %v, want Pass: a parse miss must not fail the run", got[0].Verdict)
@@ -73,7 +74,7 @@ func TestRun_coverageStepWithNoParseablePercentage_stillPasses(t *testing.T) {
 func TestRun_coverageStepThatFails_isStillAFailure(t *testing.T) {
 	steps := []gate.Step{{Name: "cov", Kind: gate.KindCoverage, Run: "echo 'coverage 71.0% is below the 90% gate'; exit 1"}}
 
-	got, _ := gate.Run(context.Background(), t.TempDir(), steps)
+	got, _ := gateexec.Run(context.Background(), t.TempDir(), steps)
 
 	if got[0].Verdict != gate.Fail {
 		t.Errorf("verdict = %v, want Fail: the exit code decides", got[0].Verdict)

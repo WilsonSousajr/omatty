@@ -1,4 +1,4 @@
-package gate
+package gateexec
 
 import (
 	"context"
@@ -21,17 +21,17 @@ import (
 //
 // An err means dir itself is unusable. A failing step is a result, not an
 // error - callers render it.
-func Run(ctx context.Context, dir string, steps []Step) ([]StepResult, error) {
+func Run(ctx context.Context, dir string, steps []dgate.Step) ([]dgate.StepResult, error) {
 	if err := usableDir(dir); err != nil {
 		return nil, err
 	}
-	results := make([]StepResult, len(steps))
+	results := make([]dgate.StepResult, len(steps))
 	for i, step := range steps {
-		results[i] = StepResult{Step: step, Verdict: Pending}
+		results[i] = dgate.StepResult{Step: step, Verdict: dgate.Pending}
 	}
 	for i := range steps {
 		results[i] = runStep(ctx, dir, steps[i])
-		if results[i].Verdict != Pass {
+		if results[i].Verdict != dgate.Pass {
 			break
 		}
 	}
@@ -58,11 +58,11 @@ func usableDir(dir string) error {
 }
 
 // runStep runs one step, or declines to run it when its tool is absent.
-func runStep(ctx context.Context, dir string, step Step) StepResult {
+func runStep(ctx context.Context, dir string, step dgate.Step) dgate.StepResult {
 	if tool, absent := absentTool(step.Run, dir); absent {
-		return StepResult{
+		return dgate.StepResult{
 			Step:    step,
-			Verdict: Missing,
+			Verdict: dgate.Missing,
 			Output:  fmt.Sprintf("gate: %q is not on PATH, so this step was not run\n", tool),
 		}
 	}
@@ -70,8 +70,8 @@ func runStep(ctx context.Context, dir string, step Step) StepResult {
 	out, err := shellOut(ctx, dir, step.Run)
 
 	verdict, code := classify(ctx, err)
-	result := StepResult{Step: step, Verdict: verdict, ExitCode: code, Output: out, Elapsed: time.Since(started)}
-	if step.Kind == KindCoverage {
+	result := dgate.StepResult{Step: step, Verdict: verdict, ExitCode: code, Output: out, Elapsed: time.Since(started)}
+	if step.Kind == dgate.KindCoverage {
 		result.Percent = dgate.PercentIn(result.Output)
 	}
 	return result
@@ -97,18 +97,18 @@ func shellOut(ctx context.Context, dir, run string) (string, error) {
 
 // classify turns the error from a finished command into a verdict. Invariant
 // 12: only the exit status is consulted, never the output.
-func classify(ctx context.Context, err error) (Verdict, int) {
+func classify(ctx context.Context, err error) (dgate.Verdict, int) {
 	if ctx.Err() != nil {
-		return Cancelled, -1
+		return dgate.Cancelled, -1
 	}
 	if err == nil {
-		return Pass, 0
+		return dgate.Pass, 0
 	}
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
-		return Fail, exit.ExitCode()
+		return dgate.Fail, exit.ExitCode()
 	}
-	return Fail, -1
+	return dgate.Fail, -1
 }
 
 // absentTool reports the step's leading command when the shell cannot resolve

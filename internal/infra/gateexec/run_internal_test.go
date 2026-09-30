@@ -1,8 +1,9 @@
-package gate
+package gateexec
 
 import (
 	"context"
 	"errors"
+	dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,14 +50,14 @@ func TestClassify(t *testing.T) {
 	cancel()
 
 	t.Run("no error is Pass", func(t *testing.T) {
-		if v, code := classify(context.Background(), nil); v != Pass || code != 0 {
+		if v, code := classify(context.Background(), nil); v != dgate.Pass || code != 0 {
 			t.Errorf("classify(nil) = %v, %d, want pass, 0", v, code)
 		}
 	})
 
 	t.Run("an exit status is Fail carrying the code", func(t *testing.T) {
 		err := exec.Command("sh", "-c", "exit 7").Run()
-		if v, code := classify(context.Background(), err); v != Fail || code != 7 {
+		if v, code := classify(context.Background(), err); v != dgate.Fail || code != 7 {
 			t.Errorf("classify(exit 7) = %v, %d, want fail, 7", v, code)
 		}
 	})
@@ -64,7 +65,7 @@ func TestClassify(t *testing.T) {
 	// A command that could not start at all is still not a Pass, and it has no
 	// exit status to report.
 	t.Run("a non-exit error is Fail with no code", func(t *testing.T) {
-		if v, code := classify(context.Background(), errors.New("fork/exec: no such file")); v != Fail || code != -1 {
+		if v, code := classify(context.Background(), errors.New("fork/exec: no such file")); v != dgate.Fail || code != -1 {
 			t.Errorf("classify(start error) = %v, %d, want fail, -1", v, code)
 		}
 	})
@@ -72,7 +73,7 @@ func TestClassify(t *testing.T) {
 	// A cancelled context outranks whatever the killed child reported: the
 	// operator stopped it, so it did not fail.
 	t.Run("a cancelled context outranks the child's status", func(t *testing.T) {
-		if v, _ := classify(cancelled, errors.New("signal: killed")); v != Cancelled {
+		if v, _ := classify(cancelled, errors.New("signal: killed")); v != dgate.Cancelled {
 			t.Errorf("classify(cancelled) = %v, want cancelled", v)
 		}
 	})
@@ -133,9 +134,9 @@ func TestRunStep_aRelativePathStepRuns_issue289(t *testing.T) {
 	dir := t.TempDir()
 	writeScript(t, filepath.Join(dir, "scripts", "check-coverage.sh"))
 
-	got := runStep(context.Background(), dir, Step{Name: "cov", Run: "./scripts/check-coverage.sh"})
+	got := runStep(context.Background(), dir, dgate.Step{Name: "cov", Run: "./scripts/check-coverage.sh"})
 
-	if got.Verdict != Pass {
+	if got.Verdict != dgate.Pass {
 		t.Errorf("verdict = %v, want pass; output:\n%s", got.Verdict, got.Output)
 	}
 }

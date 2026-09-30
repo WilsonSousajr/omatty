@@ -1,6 +1,6 @@
 //go:build !unix
 
-package gate
+package gateexec
 
 import "os/exec"
 
