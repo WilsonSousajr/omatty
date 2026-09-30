@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // generatedAttr is the attribute a repository declares its own generated files
@@ -129,7 +129,7 @@ func GeneratedHeader(head []byte) bool {
 // The declaration comes first because it is the only one that cannot be wrong:
 // the project said so. The header read is last because it costs a file open,
 // and it is skipped entirely for anything the first two already answered.
-func (s *Source) Generated(sess registry.Session, paths []string) (map[string]bool, error) {
+func (s *Source) Generated(sess sessions.Session, paths []string) (map[string]bool, error) {
 	declared, err := s.git.Attr(sess.Dir, generatedAttr, paths)
 	if err != nil {
 		return nil, fmt.Errorf("review: reading %s in %q: %w", generatedAttr, sess.Dir, err)

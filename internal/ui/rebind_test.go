@@ -7,7 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -18,7 +18,7 @@ type recordRebind struct {
 	SessionID, Conversation string
 	Calls                   int
 	Err                     error
-	Tailed                  []registry.Session
+	Tailed                  []sessions.Session
 }
 
 func (r *recordRebind) rebind(sessionID, conversation string) error {
@@ -27,7 +27,7 @@ func (r *recordRebind) rebind(sessionID, conversation string) error {
 	return r.Err
 }
 
-func (r *recordRebind) tail(sess registry.Session) { r.Tailed = append(r.Tailed, sess) }
+func (r *recordRebind) tail(sess sessions.Session) { r.Tailed = append(r.Tailed, sess) }
 
 func modelWithRebind(t *testing.T, r *recordRebind) *ui.Model {
 	t.Helper()

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/tally"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // #332's two numbers, rendered. A CLI line rather than a card: the sidebar's
@@ -74,7 +74,7 @@ func TestGateCommand_statsNeedsAKnownProject_issue332(t *testing.T) {
 	}
 }
 
-var _ = registry.Project{}
+var _ = sessions.Project{}
 
 // A lead time is hours and minutes. Duration.String leaves "0s" on a value
 // rounded to the minute, which spends two cells saying nothing.

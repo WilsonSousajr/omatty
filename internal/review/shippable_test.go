@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
-var shipSession = registry.Session{ID: "s1", Dir: "/wt/s1", Branch: "feat/a", Base: "develop"}
+var shipSession = sessions.Session{ID: "s1", Dir: "/wt/s1", Branch: "feat/a", Base: "develop"}
 
 // #331 pushes commits, and the gate verified a working tree. A session with
 // uncommitted work would open a pull request that differs from what was
@@ -61,7 +61,7 @@ func TestShippable_MeasuresAgainstHead_issue331(t *testing.T) {
 func TestShippable_AMainCheckoutSessionHasNothingToShip_issue331(t *testing.T) {
 	git := &FakeGit{Commits: 7}
 
-	got, err := review.NewSource(git).Shippable(registry.Session{ID: "s1", Dir: "/p/omatty"}, "/p/omatty")
+	got, err := review.NewSource(git).Shippable(sessions.Session{ID: "s1", Dir: "/p/omatty"}, "/p/omatty")
 	if err != nil {
 		t.Fatal(err)
 	}

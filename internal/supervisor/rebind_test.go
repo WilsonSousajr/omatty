@@ -11,7 +11,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 )
 
@@ -31,7 +31,7 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 	h := &fakeHolder{Wrapped: exec.Command("dtach", "-A", "/s.sock")}
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", home, h)
 
-	if _, err := l.Command(registry.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"}); err != nil {
+	if _, err := l.Command(sessions.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -49,7 +49,7 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 func TestLauncher_ExportsTheOwningSession_issue316(t *testing.T) {
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 
-	cmd, err := l.Command(registry.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"})
+	cmd, err := l.Command(sessions.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestLauncher_ReplacesAnInheritedOwningSession_issue316(t *testing.T) {
 	t.Setenv(hooks.SessionEnv, "outer-pane")
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 
-	cmd, err := l.Command(registry.Session{ID: "row-1", Dir: "/w"})
+	cmd, err := l.Command(sessions.Session{ID: "row-1", Dir: "/w"})
 	if err != nil {
 		t.Fatal(err)
 	}

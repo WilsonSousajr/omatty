@@ -1,4 +1,4 @@
-package registry_test
+package sessions_test
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // carryRepo is a main checkout holding two gitignored files a worktree needs,
@@ -43,12 +43,12 @@ func read(t *testing.T, path string) string {
 // on the files (#309).
 func TestCreator_carriesTheProjectsFilesIntoANewWorktree_issue309(t *testing.T) {
 	root, wtRoot := carryRepo(t), t.TempDir()
-	st := &registry.State{
-		Version:  registry.Version,
-		Projects: []registry.Project{{Name: "omatty", Root: root, Carry: []string{".env", "certs"}}},
+	st := &sessions.State{
+		Version:  sessions.Version,
+		Projects: []sessions.Project{{Name: "omatty", Root: root, Carry: []string{".env", "certs"}}},
 	}
 
-	sess, err := registry.NewCreator(&FakeGit{}, registry.CreatorOpts{WorktreeRoot: wtRoot, Carry: store.CarryInto}, stubID).
+	sess, err := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: wtRoot, Carry: store.CarryInto}, stubID).
 		CreateWorktree(st, "omatty", "poke", "topic")
 	if err != nil {
 		t.Fatal(err)
@@ -70,12 +70,12 @@ func TestCreator_carriesTheProjectsFilesIntoANewWorktree_issue309(t *testing.T) 
 // choose, and Create's promise is that a failure leaves st untouched (#309).
 func TestCreator_rollsBackTheWorktreeWhenACarryFails_issue309(t *testing.T) {
 	g := &FakeGit{}
-	st := &registry.State{
-		Version:  registry.Version,
-		Projects: []registry.Project{{Name: "omatty", Root: carryRepo(t), Carry: []string{"../escape"}}},
+	st := &sessions.State{
+		Version:  sessions.Version,
+		Projects: []sessions.Project{{Name: "omatty", Root: carryRepo(t), Carry: []string{"../escape"}}},
 	}
 
-	_, err := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: t.TempDir(), Carry: store.CarryInto}, stubID).
+	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: t.TempDir(), Carry: store.CarryInto}, stubID).
 		CreateWorktree(st, "omatty", "poke", "topic")
 
 	if err == nil {
@@ -94,7 +94,7 @@ func TestCreator_rollsBackTheWorktreeWhenACarryFails_issue309(t *testing.T) {
 func TestSetCarry_roundTripsThroughTheStateFile_issue309(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
 
-	if err := registry.SetCarry(store, "omatty", []string{".env", "certs"}); err != nil {
+	if err := sessions.SetCarry(store, "omatty", []string{".env", "certs"}); err != nil {
 		t.Fatalf("SetCarry() error = %v", err)
 	}
 
@@ -111,11 +111,11 @@ func TestSetCarry_roundTripsThroughTheStateFile_issue309(t *testing.T) {
 // a file written before #309 needs no migration and Version stays 1.
 func TestClearCarry_omitsTheKeyRatherThanWritingAnEmptyList_issue309(t *testing.T) {
 	store, path := storeWithProject(t, "omatty")
-	if err := registry.SetCarry(store, "omatty", []string{".env"}); err != nil {
+	if err := sessions.SetCarry(store, "omatty", []string{".env"}); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := registry.ClearCarry(store, "omatty"); err != nil {
+	if err := sessions.ClearCarry(store, "omatty"); err != nil {
 		t.Fatalf("ClearCarry() error = %v", err)
 	}
 
@@ -137,7 +137,7 @@ func TestClearCarry_omitsTheKeyRatherThanWritingAnEmptyList_issue309(t *testing.
 func TestSetCarry_refusesAnUnknownProject_issue309(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
 
-	err := registry.SetCarry(store, "nope", []string{".env"})
+	err := sessions.SetCarry(store, "nope", []string{".env"})
 
 	if err == nil {
 		t.Fatal("SetCarry() error = nil, want an unknown-project error")
@@ -152,12 +152,12 @@ func TestSetCarry_refusesAnUnknownProject_issue309(t *testing.T) {
 // create fails naming the project, and the worktree goes with it.
 func TestCreator_refusesACarryWithNoCopierWired_issue653(t *testing.T) {
 	g := &FakeGit{}
-	st := &registry.State{
-		Version:  registry.Version,
-		Projects: []registry.Project{{Name: "omatty", Root: carryRepo(t), Carry: []string{".env"}}},
+	st := &sessions.State{
+		Version:  sessions.Version,
+		Projects: []sessions.Project{{Name: "omatty", Root: carryRepo(t), Carry: []string{".env"}}},
 	}
 
-	_, err := registry.NewCreator(g, registry.CreatorOpts{WorktreeRoot: t.TempDir()}, stubID).
+	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: t.TempDir()}, stubID).
 		CreateWorktree(st, "omatty", "poke", "topic")
 
 	if err == nil || !strings.Contains(err.Error(), "omatty") {

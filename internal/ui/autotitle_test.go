@@ -7,18 +7,18 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
-func placeholderState() registry.State {
+func placeholderState() sessions.State {
 	st := twoProjectState()
-	st.Sessions[0].Title = registry.PlaceholderTitle("s1") // a session created untitled
+	st.Sessions[0].Title = sessions.PlaceholderTitle("s1") // a session created untitled
 	return st
 }
 
-func modelWithNamer(t *testing.T, st registry.State) (*ui.Model, *FakeNamer, *FakeRename) {
+func modelWithNamer(t *testing.T, st sessions.State) (*ui.Model, *FakeNamer, *FakeRename) {
 	t.Helper()
 	terms, _ := fakeTerms(t)
 	namer := &FakeNamer{Titles: map[string]string{"s1": "fix the wheel"}}
@@ -78,7 +78,7 @@ func TestModel_ARenameDuringTheReadWins_issue127(t *testing.T) {
 	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PromptSubmitted, At: time.Now()})
 	// The read is in flight; the operator renames first.
 	leader(m, shift('r', "R"))
-	for range len(registry.PlaceholderTitle("s1")) {
+	for range len(sessions.PlaceholderTitle("s1")) {
 		press(m, special(tea.KeyBackspace))
 	}
 	for _, r := range "mine" {
@@ -205,7 +205,7 @@ func TestModel_NoModelNamerMeansNoSecondCall_issue127(t *testing.T) {
 func TestModel_ARenameBeatsTheModelName_issue127(t *testing.T) {
 	mn := &FakeModelNamer{Names: map[string]string{"fix the wheel": "fix-wheel-pan"}}
 	m, ren := modelWithModelNamer(t, mn)
-	_, cmd := m.Update(ui.NamedMsg{SessionID: "s1", From: registry.PlaceholderTitle("s1"), Title: "fix the wheel"})
+	_, cmd := m.Update(ui.NamedMsg{SessionID: "s1", From: sessions.PlaceholderTitle("s1"), Title: "fix the wheel"})
 	leader(m, shift('r', "R"))
 	for range len("fix the wheel") {
 		press(m, special(tea.KeyBackspace))

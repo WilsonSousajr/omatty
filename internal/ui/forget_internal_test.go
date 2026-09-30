@@ -9,8 +9,8 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
@@ -83,11 +83,11 @@ func mapsMissing(m *Model, id string) []string {
 // an unexported field through reflect needs unsafe, and an explicit fixture is
 // what makes the guard below fail loudly when a new map appears.
 func filledModel() *Model {
-	sess := registry.Session{ID: forgottenID, Project: "p", Dir: "/tmp/p"}
+	sess := sessions.Session{ID: forgottenID, Project: "p", Dir: "/tmp/p"}
 	m := NewModel(Deps{
-		State: registry.State{
-			Projects: []registry.Project{{Name: "p", Root: "/tmp/p"}},
-			Sessions: []registry.Session{sess},
+		State: sessions.State{
+			Projects: []sessions.Project{{Name: "p", Root: "/tmp/p"}},
+			Sessions: []sessions.Session{sess},
 		},
 		Terms:      map[string]termwrap.Terminal{},
 		Reattached: map[string]bool{},
@@ -174,9 +174,9 @@ func slicesContain(xs []string, x string) bool {
 // A stopped card reads as asleep: its title is muted unless it is the one
 // selected, which stays bold so the cursor is never lost (#318).
 func TestTitleStyle_MutesAStoppedCard_issue318(t *testing.T) {
-	m := NewModel(Deps{State: registry.State{
-		Projects: []registry.Project{{Name: "p", Root: "/p"}},
-		Sessions: []registry.Session{{ID: "live", Project: "p"}, {ID: "asleep", Project: "p"}},
+	m := NewModel(Deps{State: sessions.State{
+		Projects: []sessions.Project{{Name: "p", Root: "/p"}},
+		Sessions: []sessions.Session{{ID: "live", Project: "p"}, {ID: "asleep", Project: "p"}},
 	}, Terms: map[string]termwrap.Terminal{"live": termwrap.NewFake("")}})
 
 	if got := m.titleStyle("asleep").Render("x"); got != mutedStyle.Render("x") {

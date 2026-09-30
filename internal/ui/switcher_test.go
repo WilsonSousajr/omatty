@@ -2,7 +2,7 @@ package ui_test
 
 import (
 	"fmt"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"strings"
 	"testing"
 
@@ -199,10 +199,10 @@ func TestModel_switcherKeysStayOutOfThePTY_issue42(t *testing.T) {
 // Offset stayed 0 and Window() never sliced. That is why both of #42's real
 // bugs - the clipped match count and the post-narrow offset - passed the gate
 // (#42).
-func manySessions(n int) registry.State {
-	st := registry.State{Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}}}
+func manySessions(n int) sessions.State {
+	st := sessions.State{Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}}}
 	for i := range n {
-		st.Sessions = append(st.Sessions, registry.Session{
+		st.Sessions = append(st.Sessions, sessions.Session{
 			ID:      fmt.Sprintf("s%02d", i),
 			Project: "omatty",
 			Title:   fmt.Sprintf("session-%02d", i),

@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
@@ -29,9 +29,9 @@ type unknownMsg struct{}
 
 func memoModel() (*Model, *mutablePane) {
 	pane := &mutablePane{Fake: termwrap.NewFake(""), view: "pane one\npane two"}
-	st := registry.State{
-		Projects: []registry.Project{{Name: "p", Root: "/tmp/p"}},
-		Sessions: []registry.Session{
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "p", Root: "/tmp/p"}},
+		Sessions: []sessions.Session{
 			{ID: "s1", Project: "p", Title: "first session", Dir: "/tmp/p"},
 			{ID: "s2", Project: "p", Title: "second session", Dir: "/tmp/p"},
 		},

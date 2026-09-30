@@ -18,7 +18,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/paste"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // BrowseFunc opens one item in the operator's browser. Injected so ui never runs
@@ -153,7 +153,7 @@ func (m *Model) startSessionOnIssue(row trackerRow) tea.Cmd {
 	}
 	project := m.review.Tracker.Project
 	title := row.ref() + " " + row.Title
-	branch := registry.Slug(strconv.Itoa(row.Number) + " " + row.Title)
+	branch := sessions.Slug(strconv.Itoa(row.Number) + " " + row.Title)
 	cmd, err := m.addSession(project, title, branch, true)
 	if err != nil {
 		slog.Error("starting a session on an issue", "project", project, "issue", row.Number, "err", err)

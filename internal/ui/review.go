@@ -6,15 +6,15 @@ import (
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // DiffFunc loads a session's diff. Injected so ui never touches git
 // (invariant 4); projectRoot is the session's project's main checkout, the
 // fallback base for worktrees that recorded none.
-type DiffFunc func(sess registry.Session, projectRoot string) (review.Diff, error)
+type DiffFunc func(sess sessions.Session, projectRoot string) (review.Diff, error)
 
 // DiffLoadedMsg carries a loaded diff into Update. Exported so tests can send
 // one.
@@ -32,7 +32,7 @@ type ListFilesFunc func(dir string) ([]string, error)
 // GeneratedFunc reports which of paths nobody wrote (#338). Injected like
 // ListFilesFunc, because the detection asks git about .gitattributes and reads
 // file headers, and ui does neither.
-type GeneratedFunc func(sess registry.Session, paths []string) (map[string]bool, error)
+type GeneratedFunc func(sess sessions.Session, paths []string) (map[string]bool, error)
 
 // TallyFunc records one gate run that followed a turn, and whether it passed
 // (#332). Injected because it writes state.json, which ui may not touch itself
@@ -209,7 +209,7 @@ const (
 
 // noDiff is the Deps.Diff default: it names the missing wiring rather than
 // showing an empty diff, which would read as "this session changed nothing".
-func noDiff(sess registry.Session, _ string) (review.Diff, error) {
+func noDiff(sess sessions.Session, _ string) (review.Diff, error) {
 	return review.Diff{}, fmt.Errorf("ui: no diff source configured for session %s", sess.ID)
 }
 
@@ -431,10 +431,10 @@ func keptView(v ReviewView) ReviewView {
 	return v
 }
 
-func (m *Model) session(id string) (registry.Session, bool) {
+func (m *Model) session(id string) (sessions.Session, bool) {
 	i, ok := m.sessionIndex(id)
 	if !ok {
-		return registry.Session{}, false
+		return sessions.Session{}, false
 	}
 	return m.state.Sessions[i], true
 }

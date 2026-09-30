@@ -11,7 +11,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
 
@@ -58,7 +58,7 @@ func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder deta
 // The conversation is what claude resumes, and the row's ID is what the holder
 // names and what the hook reads back from the environment: after /clear the
 // two differ, and only the first moves (#316).
-func (l *Launcher) Command(sess registry.Session) (*exec.Cmd, error) {
+func (l *Launcher) Command(sess sessions.Session) (*exec.Cmd, error) {
 	conv := sess.ConversationID()
 	resume := HasTranscript(l.profile, l.home, sess.Dir, conv)
 	args := l.profile.Command(l.bin, conv, sess.Dir, resume, l.hooksFile)
@@ -92,7 +92,7 @@ func HasTranscript(profile agent.Profile, home, dir, sessionID string) bool {
 
 // Start launches the session's process inside a w by h embedded terminal.
 func (l *Launcher) Start(
-	f termwrap.Factory, sess registry.Session, w, h int,
+	f termwrap.Factory, sess sessions.Session, w, h int,
 ) (termwrap.Terminal, error) {
 	cmd, err := l.Command(sess)
 	if err != nil {

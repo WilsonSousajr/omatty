@@ -23,7 +23,7 @@ import (
 
 	"github.com/mattn/go-runewidth"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // Runner executes the naming call. Injected so a test can assert the exact
@@ -117,7 +117,7 @@ func parseName(out []byte) (string, error) {
 	if r.IsError {
 		return "", fmt.Errorf("naming call: claude reported an error: %q", clipBytes([]byte(r.Result)))
 	}
-	return registry.Slug(r.Result), nil
+	return sessions.Slug(r.Result), nil
 }
 
 // clipBytes bounds what an error message quotes.

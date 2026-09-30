@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
 
@@ -40,15 +40,15 @@ func benchPane() string {
 // benchModel is a Model at the measured workload, sized and ready to draw.
 func benchModel(b *testing.B) *Model {
 	b.Helper()
-	st := registry.State{}
+	st := sessions.State{}
 	terms := map[string]termwrap.Terminal{}
 	pane := benchPane()
 	for p := range benchProjects {
-		st.Projects = append(st.Projects, registry.Project{Name: fmt.Sprintf("project-%d", p), Root: fmt.Sprintf("/tmp/p%d", p)})
+		st.Projects = append(st.Projects, sessions.Project{Name: fmt.Sprintf("project-%d", p), Root: fmt.Sprintf("/tmp/p%d", p)})
 	}
 	for s := range benchSessions {
 		id := fmt.Sprintf("session-%02d", s)
-		st.Sessions = append(st.Sessions, registry.Session{
+		st.Sessions = append(st.Sessions, sessions.Session{
 			ID: id, Project: fmt.Sprintf("project-%d", s%benchProjects),
 			Title: fmt.Sprintf("a session with a reasonably long title %d", s),
 			Dir:   fmt.Sprintf("/tmp/p%d", s%benchProjects),

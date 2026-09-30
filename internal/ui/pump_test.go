@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -86,4 +86,4 @@ func TestModel_CreatedSessionsTerminalIsInitialised_issue33(t *testing.T) {
 }
 
 var _ tea.Msg = emulatorMsg{}
-var _ = registry.State{}
+var _ = sessions.State{}

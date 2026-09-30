@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // Fingerprint is the part of the model a keypress or a message can change,
@@ -37,7 +37,7 @@ func UnexportedRouted(sessionID string) map[string]tea.Msg {
 		"coverageMsg":        coverageMsg{id: sessionID},
 		"generatedMsg":       generatedMsg{id: sessionID, gen: map[string]bool{}},
 		"previewRestMsg":     previewRestMsg{},
-		"sessionRelaunchMsg": sessionRelaunchMsg{Session: registry.Session{ID: sessionID}},
+		"sessionRelaunchMsg": sessionRelaunchMsg{Session: sessions.Session{ID: sessionID}},
 	}
 }
 

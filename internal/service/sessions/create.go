@@ -1,4 +1,4 @@
-package registry
+package sessions
 
 import (
 	"time"
@@ -32,7 +32,7 @@ type CreatorOpts struct {
 // Creator turns a request for a session into a registered Session, creating
 // a git worktree when the caller asked for one.
 //
-//	c := registry.NewCreator(vcs.NewCLI(), registry.CreatorOpts{WorktreeRoot: root}, uuid.NewString)
+//	c := sessions.NewCreator(vcs.NewCLI(), sessions.CreatorOpts{WorktreeRoot: root}, uuid.NewString)
 //	sess, err := c.Create(&state, "omatty", "parser fix", "parser-fix")
 type Creator struct {
 	git   vcs.Git

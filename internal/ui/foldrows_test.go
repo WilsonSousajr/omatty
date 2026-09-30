@@ -3,14 +3,14 @@ package ui_test
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
 // foldedState is twoProjectState with omatty folded: two sessions behind one
 // header, then api-svc open beneath it.
-func foldedState() registry.State {
+func foldedState() sessions.State {
 	st := twoProjectState()
 	st.Projects[0].Collapsed = true
 	return st
@@ -54,7 +54,7 @@ func TestFoldStatus_picksTheLoudest_issue505(t *testing.T) {
 		st := foldedState()
 		statuses := map[string]status.Status{"s1": c.in[0], "s2": c.in[1]}
 		if len(c.in) > 2 {
-			st.Sessions = append(st.Sessions, registry.Session{ID: "s4", Project: "omatty"})
+			st.Sessions = append(st.Sessions, sessions.Session{ID: "s4", Project: "omatty"})
 			statuses["s4"] = c.in[2]
 		}
 		if got := ui.SidebarRows(st, statuses)[0].Status; got != c.want {

@@ -1,11 +1,11 @@
-package registry_test
+package sessions_test
 
 import (
 	"strings"
 	"testing"
 
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // seedSession registers a project and one session on it, returning the store
@@ -14,10 +14,10 @@ func seedSession(t *testing.T) (*statestore.Store, string) {
 	t.Helper()
 	store, _ := newStoreAt(t)
 	git := &FakeGit{}
-	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
-	sess, err := registry.AddSession(store, registry.NewCreator(git, registry.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID), "omatty", "parser", "")
+	sess, err := sessions.AddSession(store, sessions.NewCreator(git, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID), "omatty", "parser", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func seedSession(t *testing.T) (*statestore.Store, string) {
 func TestRenameSession_PersistsTheNewTitle(t *testing.T) {
 	store, id := seedSession(t)
 
-	if err := registry.RenameSession(store, id, "parser-fix"); err != nil {
+	if err := sessions.RenameSession(store, id, "parser-fix"); err != nil {
 		t.Fatalf("RenameSession() error = %v, want nil", err)
 	}
 
@@ -49,7 +49,7 @@ func TestRenameSession_TouchesNothingButTheTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := registry.RenameSession(store, id, "renamed"); err != nil {
+	if err := sessions.RenameSession(store, id, "renamed"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -64,7 +64,7 @@ func TestRenameSession_TouchesNothingButTheTitle(t *testing.T) {
 func TestRenameSession_UnknownIDNamesItAndSavesNothing(t *testing.T) {
 	store, _ := seedSession(t)
 
-	err := registry.RenameSession(store, "ghost-uuid", "whatever")
+	err := sessions.RenameSession(store, "ghost-uuid", "whatever")
 
 	if err == nil {
 		t.Fatal("RenameSession() for an unknown id returned nil, want an error")
@@ -82,7 +82,7 @@ func TestRenameSession_UnknownIDNamesItAndSavesNothing(t *testing.T) {
 func TestRenameSession_EmptyTitleIsRejected(t *testing.T) {
 	store, id := seedSession(t)
 
-	if err := registry.RenameSession(store, id, ""); err == nil {
+	if err := sessions.RenameSession(store, id, ""); err == nil {
 		t.Fatal("RenameSession() with an empty title returned nil, want an error")
 	}
 	st, _ := store.Load()

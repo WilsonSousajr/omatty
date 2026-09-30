@@ -2,7 +2,7 @@
 package ui
 
 import (
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
@@ -15,9 +15,9 @@ import (
 // vanish behind the fold.
 type Row struct {
 	Project string
-	Session *registry.Session
+	Session *sessions.Session
 	Status  status.Status
-	Folded  []*registry.Session
+	Folded  []*sessions.Session
 }
 
 // SidebarRows flattens state into display order: each project followed by
@@ -25,7 +25,7 @@ type Row struct {
 // reported status render as idle.
 //
 //	rows := ui.SidebarRows(state, map[string]status.Status{"s2": status.StatusThinking})
-func SidebarRows(st registry.State, statuses map[string]status.Status) []Row {
+func SidebarRows(st sessions.State, statuses map[string]status.Status) []Row {
 	rows := make([]Row, 0, len(st.Projects)+len(st.Sessions))
 	for _, p := range st.Projects {
 		sessions := sessionRows(st, p.Name, statuses)
@@ -41,7 +41,7 @@ func SidebarRows(st registry.State, statuses map[string]status.Status) []Row {
 
 // sessionRows indexes st.Sessions rather than ranging by value, so each Row
 // points at its own session instead of aliasing the loop variable.
-func sessionRows(st registry.State, project string, statuses map[string]status.Status) []Row {
+func sessionRows(st sessions.State, project string, statuses map[string]status.Status) []Row {
 	var rows []Row
 	for i := range st.Sessions {
 		sess := &st.Sessions[i]

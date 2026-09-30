@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // cmd/omatty had no test file at all, and the coverage gate measures only
@@ -54,7 +54,7 @@ type errNotARepo struct{ dir string }
 func (e errNotARepo) Error() string { return "not a git repository: " + e.dir }
 
 // storeIn builds a registry over a temporary state.json.
-func storeIn(t *testing.T) registry.StateStore {
+func storeIn(t *testing.T) sessions.StateStore {
 	t.Helper()
 	return statestore.NewStore(filepath.Join(t.TempDir(), "state.json"))
 }

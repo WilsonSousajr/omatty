@@ -13,7 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
@@ -98,13 +98,13 @@ func (m *Model) gateFor(id string) []gate.Step {
 }
 
 // sessionByID is the registered session with that id.
-func (m *Model) sessionByID(id string) (registry.Session, bool) {
+func (m *Model) sessionByID(id string) (sessions.Session, bool) {
 	for _, sess := range m.state.Sessions {
 		if sess.ID == id {
 			return sess, true
 		}
 	}
-	return registry.Session{}, false
+	return sessions.Session{}, false
 }
 
 // tallyRun counts a gate run that followed a turn (#332).

@@ -9,7 +9,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
@@ -85,7 +85,7 @@ func TestStartTerminals_StartsOnlyTheWantedSessions_issue317(t *testing.T) {
 }
 
 // every is the want-set that starts every session, as lazy_start = false does.
-func every(st registry.State) map[string]bool {
+func every(st sessions.State) map[string]bool {
 	ids := map[string]bool{}
 	for _, sess := range st.Sessions {
 		ids[sess.ID] = true
@@ -156,10 +156,10 @@ func TestStartTerminals_BirthsThePTYAtThePaneSize_issue51(t *testing.T) {
 
 // oneSessionState has one session, unlike oneProject, so StartTerminals has
 // something to start.
-func oneSessionState() registry.State {
-	return registry.State{
-		Projects: []registry.Project{{Name: "p", Root: "/p"}},
-		Sessions: []registry.Session{{ID: "s1", Project: "p", Title: "one"}},
+func oneSessionState() sessions.State {
+	return sessions.State{
+		Projects: []sessions.Project{{Name: "p", Root: "/p"}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "p", Title: "one"}},
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -34,7 +34,7 @@ type recordAdopt struct {
 	// StartedRows are the whole Sessions start was handed, not just their ids:
 	// the id is the same either way, so only the rest of the row can show
 	// which value the picker used.
-	StartedRows []registry.Session
+	StartedRows []sessions.Session
 }
 
 func (r *recordAdopt) propose(projectRoot string) ([]ui.SessionProposal, error) {
@@ -46,13 +46,13 @@ func (r *recordAdopt) propose(projectRoot string) ([]ui.SessionProposal, error) 
 // rather than echoing the pick: Branch is filled in there and nowhere else, so
 // a fake that echoed the pick would hide a picker that ignored the result
 // (#91, #122).
-func (r *recordAdopt) adopt(project string, picks []ui.SessionProposal) []registry.Adoption {
+func (r *recordAdopt) adopt(project string, picks []ui.SessionProposal) []sessions.Adoption {
 	r.Project = project
-	out := make([]registry.Adoption, 0, len(picks))
+	out := make([]sessions.Adoption, 0, len(picks))
 	for _, p := range picks {
 		r.Adopted = append(r.Adopted, p.ID)
-		out = append(out, registry.Adoption{
-			Session: registry.Session{
+		out = append(out, sessions.Adoption{
+			Session: sessions.Session{
 				ID: p.ID, Project: project, Title: p.Title, Dir: p.Dir, Branch: r.WroteBranch,
 			},
 			Err: r.AdoptErr,
@@ -61,13 +61,13 @@ func (r *recordAdopt) adopt(project string, picks []ui.SessionProposal) []regist
 	return out
 }
 
-func (r *recordAdopt) start(sess registry.Session, _, _ int) (termwrap.Terminal, error) {
+func (r *recordAdopt) start(sess sessions.Session, _, _ int) (termwrap.Terminal, error) {
 	r.Started = append(r.Started, sess.ID)
 	r.StartedRows = append(r.StartedRows, sess)
 	return termwrap.NewFake("adopted"), nil
 }
 
-func (r *recordAdopt) tail(sess registry.Session) { r.Tailed = append(r.Tailed, sess.ID) }
+func (r *recordAdopt) tail(sess sessions.Session) { r.Tailed = append(r.Tailed, sess.ID) }
 
 func twoProposals() []ui.SessionProposal {
 	now := time.Now()

@@ -3,11 +3,11 @@ package ui
 import (
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
-func threeSessions() registry.State {
-	return registry.State{Sessions: []registry.Session{{ID: "s1"}, {ID: "s2"}, {ID: "s3"}}}
+func threeSessions() sessions.State {
+	return sessions.State{Sessions: []sessions.Session{{ID: "s1"}, {ID: "s2"}, {ID: "s3"}}}
 }
 
 // Regression, issue #317: boot spawned a claude for every row - 11 of them,

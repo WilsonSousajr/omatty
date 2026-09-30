@@ -10,9 +10,9 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
 	sgate "github.com/WilsonSousajr/omatty/internal/service/gate"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
@@ -30,7 +30,7 @@ const DefaultLeader = "ctrl+o"
 type Model struct {
 	// state is held so a session created at runtime can be folded in and the
 	// sidebar rebuilt (issue #32).
-	state   registry.State
+	state   sessions.State
 	sidebar *Sidebar
 	terms   map[string]termwrap.Terminal
 	router  *keys.Router
@@ -41,7 +41,7 @@ type Model struct {
 	status    map[string]status.SessionState
 	events    <-chan pubsub.Event[status.Event]
 	clock     func() time.Time
-	tailStart func(registry.Session)
+	tailStart func(sessions.Session)
 	notifier  notify.Notifier
 	// notified is when each session last posted a notification (issue #69).
 	notified map[string]time.Time

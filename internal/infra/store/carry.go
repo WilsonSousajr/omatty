@@ -1,7 +1,7 @@
 // Copying a project's gitignored files into a new worktree (#309): the file
 // half of carry, moved here from internal/registry because copying files is
 // infra's business (ADR 0001, migration step 5.4, #653). Which files, and
-// when, is the session service's; internal/registry/carry.go says why the
+// when, is the session service's; internal/service/sessions/carry.go says why the
 // list lives in state.json.
 
 package store

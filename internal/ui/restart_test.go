@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -52,7 +52,7 @@ func TestModel_ctrlOrRestartsTheFocusedSession_issue15(t *testing.T) {
 
 func TestModel_ctrlOrWithNoSessionIsHarmless_issue15(t *testing.T) {
 	s := &startRecorder{}
-	m := ui.NewModel(ui.Deps{State: registry.State{}, Terms: map[string]termwrap.Terminal{}, Create: noCreate, Start: s.fn})
+	m := ui.NewModel(ui.Deps{State: sessions.State{}, Terms: map[string]termwrap.Terminal{}, Create: noCreate, Start: s.fn})
 
 	press(m, ctrl('o'))
 	pressAndSettle(m, key('r'))

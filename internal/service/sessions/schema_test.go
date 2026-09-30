@@ -1,4 +1,4 @@
-package registry_test
+package sessions_test
 
 import (
 	"fmt"
@@ -10,15 +10,15 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // everyFieldSet is a State in which no field of State, Project or Session is
 // its zero value, so every key omitempty would hide is written and pinned.
-func everyFieldSet() registry.State {
-	return registry.State{
+func everyFieldSet() sessions.State {
+	return sessions.State{
 		Version: 1,
-		Projects: []registry.Project{{
+		Projects: []sessions.Project{{
 			Name:          "omatty",
 			Root:          "/src/omatty",
 			Gate:          []gate.Step{{Name: "test", Run: "go test ./...", Kind: "coverage", Profile: "cover.out"}},
@@ -27,7 +27,7 @@ func everyFieldSet() registry.State {
 			GateFirstPass: 5,
 			Collapsed:     true,
 		}},
-		Sessions: []registry.Session{{
+		Sessions: []sessions.Session{{
 			ID:           "11111111-2222-4333-8444-555555555555",
 			Project:      "omatty",
 			Title:        "fix the parser",

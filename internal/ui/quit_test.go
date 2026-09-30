@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -66,7 +66,7 @@ func TestModel_ctrlCStillReachesAFocusedSession_issue28(t *testing.T) {
 // With no projects registered, pressing n can only fail. Say so up front
 // rather than after the failure.
 func TestModel_emptyRegistryPointsAtOmattyAdd_issue28(t *testing.T) {
-	m := ui.NewModel(ui.Deps{State: registry.State{}, Terms: map[string]termwrap.Terminal{}, Create: noCreate, Start: noStart})
+	m := ui.NewModel(ui.Deps{State: sessions.State{}, Terms: map[string]termwrap.Terminal{}, Create: noCreate, Start: noStart})
 
 	got := m.View().Content
 
@@ -78,7 +78,7 @@ func TestModel_emptyRegistryPointsAtOmattyAdd_issue28(t *testing.T) {
 // A project with no sessions is a different empty state: creating one will
 // work, so the hint should say how.
 func TestModel_projectWithNoSessionsPointsAtTheNewSessionKey_issue28(t *testing.T) {
-	st := registry.State{Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}}}
+	st := sessions.State{Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}}}
 	m := ui.NewModel(ui.Deps{State: st, Terms: map[string]termwrap.Terminal{}, Create: noCreate, Start: noStart})
 
 	got := m.View().Content

@@ -16,12 +16,12 @@
 // operator's disk. The cost is real and worth naming - the list is not shared
 // with a team, and each person sets their own.
 
-package registry
+package sessions
 
 // SetCarry records the gitignored paths copied into each new worktree of a
 // project, replacing whatever it had.
 //
-//	err := registry.SetCarry(store, "omatty", []string{".env", "certs"})
+//	err := sessions.SetCarry(store, "omatty", []string{".env", "certs"})
 func SetCarry(s StateStore, project string, paths []string) error {
 	return editCarry(s, project, paths)
 }

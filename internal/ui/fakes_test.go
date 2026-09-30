@@ -1,8 +1,8 @@
 package ui_test
 
 import (
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // FakeStat stands in for the git-backed reader behind ui.RepoStatFunc (#180).
@@ -13,7 +13,7 @@ type FakeStat struct {
 	Roots []string
 }
 
-func (f *FakeStat) Stat(sess registry.Session, root string) (review.Stat, error) {
+func (f *FakeStat) Stat(sess sessions.Session, root string) (review.Stat, error) {
 	f.Asked = append(f.Asked, sess.ID)
 	f.Roots = append(f.Roots, root)
 	return f.Stats[sess.ID], f.Err
@@ -28,7 +28,7 @@ type FakeNamer struct {
 	Block  chan struct{} // when non-nil, Name waits on it: the never-blocks test
 }
 
-func (f *FakeNamer) Name(sess registry.Session) (string, error) {
+func (f *FakeNamer) Name(sess sessions.Session) (string, error) {
 	f.Asked = append(f.Asked, sess.ID)
 	if f.Block != nil {
 		<-f.Block

@@ -13,7 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -41,9 +41,9 @@ func (f *FakeIssues) asked() string {
 
 // withEmptyProject is twoProjectState plus a project nobody has started a
 // session in: the case the issue poll must cover and the PR poll must not.
-func withEmptyProject() registry.State {
+func withEmptyProject() sessions.State {
 	st := twoProjectState()
-	st.Projects = append(st.Projects, registry.Project{Name: "empty", Root: "/p/empty"})
+	st.Projects = append(st.Projects, sessions.Project{Name: "empty", Root: "/p/empty"})
 	return st
 }
 

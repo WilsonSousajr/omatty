@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -27,17 +27,17 @@ func (r *recordDiscover) propose() ([]ui.Proposal, error) {
 	return r.Proposed, r.ProposeErr
 }
 
-func (r *recordDiscover) register(roots []string) []registry.Registration {
-	out := make([]registry.Registration, 0, len(roots))
+func (r *recordDiscover) register(roots []string) []sessions.Registration {
+	out := make([]sessions.Registration, 0, len(roots))
 	for _, root := range roots {
 		r.Registered = append(r.Registered, root)
 		name := filepath.Base(root)
 		if n, ok := r.Names[root]; ok {
 			name = n
 		}
-		out = append(out, registry.Registration{
+		out = append(out, sessions.Registration{
 			Root:    root,
-			Project: registry.Project{Name: name, Root: root},
+			Project: sessions.Project{Name: name, Root: root},
 			Err:     r.RegisterErr,
 		})
 	}

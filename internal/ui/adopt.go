@@ -16,7 +16,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // SessionProposal is one claude session adoption offers.
@@ -47,7 +47,7 @@ type AdoptFunc func(projectRoot string) ([]SessionProposal, error)
 // state.json actually holds. Rebuilding one from the pick matched only while
 // AdoptSession stored the pick's fields verbatim, and it no longer does - it
 // fills in the branch a worktree session is on (#91, #122).
-type AdoptCommitFunc func(project string, picks []SessionProposal) []registry.Adoption
+type AdoptCommitFunc func(project string, picks []SessionProposal) []sessions.Adoption
 
 // noAdopt is the Deps.AdoptPropose default: it names the missing wiring rather
 // than proposing an empty list, which would read as "this project has no
@@ -58,10 +58,10 @@ func noAdopt(projectRoot string) ([]SessionProposal, error) {
 
 // noAdoptCommit is the Deps.AdoptCommit default, for the same reason: a silent
 // success would put a row in the sidebar that state.json does not hold.
-func noAdoptCommit(_ string, picks []SessionProposal) []registry.Adoption {
-	out := make([]registry.Adoption, 0, len(picks))
+func noAdoptCommit(_ string, picks []SessionProposal) []sessions.Adoption {
+	out := make([]sessions.Adoption, 0, len(picks))
 	for _, p := range picks {
-		out = append(out, registry.Adoption{
+		out = append(out, sessions.Adoption{
 			Err: fmt.Errorf("ui: no session registrar configured for %q", p.ID),
 		})
 	}
@@ -142,7 +142,7 @@ func (m *Model) onSessionsProposed(msg SessionsProposedMsg) tea.Cmd {
 // Adopting a session that is still open in a plain terminal starts a second
 // `claude --resume` against the same transcript: both processes append to one
 // JSONL, the tailer reads interleaved turns, the status glyph flaps and
-// whichever process wrote last wins. registry.refuseKnownSession guards the
+// whichever process wrote last wins. sessions.refuseKnownSession guards the
 // case where both rows are omatty's; nothing here can see a process omatty did
 // not start, and the README sells adoption as the way to pick up a session
 // begun in a plain terminal - which is exactly the terminal likely to still be
@@ -224,7 +224,7 @@ func (m *Model) pickedProposals() []SessionProposal {
 // row. Where the two disagreed, the sidebar showed a value state.json did not
 // have, `ctrl+o n` on it failed and a restart silently renamed the row (#91) -
 // and they do disagree now, because AdoptSession fills in the branch.
-func (m *Model) startAdopted(sess registry.Session) tea.Cmd {
+func (m *Model) startAdopted(sess sessions.Session) tea.Cmd {
 	cmd, err := m.foldInSession(sess)
 	if err != nil {
 		slog.Error("starting an adopted session", "session", sess.ID, "dir", sess.Dir, "err", err)

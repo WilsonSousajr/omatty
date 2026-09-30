@@ -8,14 +8,14 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 func TestRegisteredRoots_ListsWhatStateJSONHolds(t *testing.T) {
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty", "/work/api": "/work/api"}}
 	for _, dir := range []string{"/p/omatty", "/work/api"} {
-		if _, err := registry.AddProject(store, git, dir); err != nil {
+		if _, err := sessions.AddProject(store, git, dir); err != nil {
 			t.Fatalf("AddProject(%q): %v", dir, err)
 		}
 	}
@@ -62,7 +62,7 @@ func TestAdoptSessions_RegistersThePickedSession_issue122(t *testing.T) {
 	}
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{repo: repo}}
-	if _, err := registry.AddProject(store, git, repo); err != nil {
+	if _, err := sessions.AddProject(store, git, repo); err != nil {
 		t.Fatal(err)
 	}
 	adoptFixture(t, home, repo, "abc-123", "fix the parser")
@@ -93,7 +93,7 @@ func TestAdoptSessions_RegistersNothingForAnEmptyAnswer_issue122(t *testing.T) {
 	}
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{repo: repo}}
-	if _, err := registry.AddProject(store, git, repo); err != nil {
+	if _, err := sessions.AddProject(store, git, repo); err != nil {
 		t.Fatal(err)
 	}
 	adoptFixture(t, home, repo, "abc-123", "fix the parser")
@@ -124,7 +124,7 @@ func TestAdoptSessions_RequiresAProjectName_issue122(t *testing.T) {
 func TestRemoveProject_ForgetsAnEmptyProject_issue159(t *testing.T) {
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
-	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatalf("AddProject: %v", err)
 	}
 

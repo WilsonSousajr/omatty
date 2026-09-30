@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -308,9 +308,9 @@ func TestModel_gateRowsKeepOneCommandColumn_issue342(t *testing.T) {
 		{Name: "coverage", Run: "./cov.sh"},
 	}
 	runs := []string{"gofmt -l .", "go test ./...", "./cov.sh"}
-	st := registry.State{
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty", Gate: steps}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty", Gate: steps}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
 	m := ui.NewModel(baseDeps(st, fakeTermsFor(st))) // no runner: the pending view
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})

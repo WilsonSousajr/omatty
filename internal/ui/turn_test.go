@@ -7,8 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -26,16 +26,16 @@ type turnRecorder struct {
 
 func (r *turnRecorder) funcs() ui.TurnFuncs {
 	return ui.TurnFuncs{
-		Snap: func(s registry.Session) error {
+		Snap: func(s sessions.Session) error {
 			r.Snapped = append(r.Snapped, s.ID)
 			r.Events = append(r.Events, "snap "+s.ID)
 			return r.SnapErr
 		},
-		Diff: func(registry.Session, string) (review.Diff, error) {
+		Diff: func(sessions.Session, string) (review.Diff, error) {
 			r.DiffCalls++
 			return r.Diff, r.DiffErr
 		},
-		Drop: func(s registry.Session, root string) error {
+		Drop: func(s sessions.Session, root string) error {
 			r.Dropped = append(r.Dropped, [2]string{s.ID, root})
 			r.Events = append(r.Events, "drop "+s.ID)
 			return nil

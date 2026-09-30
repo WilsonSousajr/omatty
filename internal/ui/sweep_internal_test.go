@@ -5,7 +5,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 )
@@ -25,9 +25,9 @@ type sweepRig struct {
 func newSweepRig(t *testing.T, idle time.Duration) sweepRig {
 	t.Helper()
 	now, ended := sweepT0, []string{}
-	st := registry.State{
-		Projects: []registry.Project{{Name: "p", Root: "/p"}},
-		Sessions: []registry.Session{{ID: "s1", Project: "p", Title: "one"},
+	st := sessions.State{
+		Projects: []sessions.Project{{Name: "p", Root: "/p"}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "p", Title: "one"},
 			{ID: "s2", Project: "p", Title: "two"}, {ID: "s3", Project: "p", Title: "three"}},
 	}
 	terms := map[string]termwrap.Terminal{}
@@ -37,7 +37,7 @@ func newSweepRig(t *testing.T, idle time.Duration) sweepRig {
 	m := NewModel(Deps{State: st, Terms: terms, IdleStop: idle,
 		Clock: func() time.Time { return now },
 		Stop:  func(id string) error { ended = append(ended, id); return nil },
-		Start: func(registry.Session, int, int) (termwrap.Terminal, error) { return termwrap.NewFake(""), nil },
+		Start: func(sessions.Session, int, int) (termwrap.Terminal, error) { return termwrap.NewFake(""), nil },
 	})
 	return sweepRig{m: m, now: &now, ended: &ended}
 }

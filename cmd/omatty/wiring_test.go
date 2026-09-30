@@ -13,7 +13,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"net"
 )
@@ -27,7 +27,7 @@ func TestTuiDeps_PassesLazyStart_issue317(t *testing.T) {
 		env.Cfg = config.Defaults("/h")
 		env.Cfg.Sessions.LazyStart = lazy
 
-		if got := tuiDeps(env, nil, registry.State{}).LazyStart; got != lazy {
+		if got := tuiDeps(env, nil, sessions.State{}).LazyStart; got != lazy {
 			t.Errorf("config lazy_start = %v reached the boot as %v", lazy, got)
 		}
 	}
@@ -39,7 +39,7 @@ func TestTuiDeps_PassesIdleStop_issue319(t *testing.T) {
 	env.Cfg = config.Defaults("/h")
 	env.Cfg.Sessions.IdleStop = config.Duration(90 * time.Minute)
 
-	if got := tuiDeps(env, nil, registry.State{}).IdleStop; got != 90*time.Minute {
+	if got := tuiDeps(env, nil, sessions.State{}).IdleStop; got != 90*time.Minute {
 		t.Errorf("config idle_stop = 90m reached the sweep as %v", got)
 	}
 }
@@ -54,9 +54,9 @@ func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T)
 	env.Cfg.ClaudeBin = "/opt/claude"
 	env.Cfg.Leader = "ctrl+a"
 
-	deps := tuiDeps(env, nil, registry.State{})
+	deps := tuiDeps(env, nil, sessions.State{})
 
-	cmd, err := deps.Launch.Command(registry.Session{ID: "id", Dir: home})
+	cmd, err := deps.Launch.Command(sessions.Session{ID: "id", Dir: home})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestTuiDeps_WiresEveryForgeCallThroughTheRouter_issue452(t *testing.T) {
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 
-	deps := tuiDeps(env, nil, registry.State{})
+	deps := tuiDeps(env, nil, sessions.State{})
 
 	for name, missing := range map[string]bool{
 		"PRs": deps.PRs == nil, "Issues": deps.Issues == nil,
@@ -176,14 +176,14 @@ func TestProjectRegistrar_ReportsACollisionAndCarriesOn_issue91(t *testing.T) {
 func TestSessionArchiver_ReturnsTheRemovedSession_issue40(t *testing.T) {
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
-	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatalf("AddProject: %v", err)
 	}
 	st, err := store.Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	st.Sessions = append(st.Sessions, registry.Session{
+	st.Sessions = append(st.Sessions, sessions.Session{
 		ID: "s1", Project: "omatty", Title: "main", Dir: "/wt/omatty/fix", Worktree: true,
 	})
 	if err := store.Save(st); err != nil {
@@ -220,7 +220,7 @@ func TestProjectProposer_SurfacesAnUnreadableStore_issue91(t *testing.T) {
 }
 
 // The wiring took the concrete *vcs.CLI, so not one of these adapters could be
-// built in a test at all - the untestability registry.RepoRooter's own doc
+// built in a test at all - the untestability sessions.RepoRooter's own doc
 // records as the #91 defect, restated for the pickers (#122). This is the test
 // that could not be written before, and it is the whole point of narrowing the
 // parameter: every picker dependency is now reachable without a repository.
@@ -246,7 +246,7 @@ func TestWithPickerDeps_BuildsEveryPickerDependency_issue122(t *testing.T) {
 func TestSessionAdopter_ReturnsTheRowTheRegistryWrote_issue122(t *testing.T) {
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}, Branch: "fix/parser"}
-	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -269,7 +269,7 @@ func TestSessionAdopter_ReturnsTheRowTheRegistryWrote_issue122(t *testing.T) {
 func TestProjectRemover_ReturnsTheRemovedProject_issue159(t *testing.T) {
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
-	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatalf("AddProject: %v", err)
 	}
 
@@ -285,7 +285,7 @@ func TestProjectRemover_ReturnsTheRemovedProject_issue159(t *testing.T) {
 func TestProjectFolder_PersistsTheFold_issue505(t *testing.T) {
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
-	if _, err := registry.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatalf("AddProject: %v", err)
 	}
 
@@ -303,9 +303,9 @@ func TestProjectFolder_PersistsTheFold_issue505(t *testing.T) {
 // the next start resumes from.
 func TestSessionRebinder_PersistsTheConversation_issue316(t *testing.T) {
 	store := storeIn(t)
-	st := registry.State{Version: registry.Version,
-		Projects: []registry.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []registry.Session{{ID: "s1", Project: "omatty", Title: "main", Dir: "/p/omatty"}}}
+	st := sessions.State{Version: sessions.Version,
+		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "main", Dir: "/p/omatty"}}}
 	if err := store.Save(st); err != nil {
 		t.Fatal(err)
 	}
@@ -338,7 +338,7 @@ func TestSessionNamer_ReadsATranscriptBehindASymlink_issue564(t *testing.T) {
 	}
 	adoptFixture(t, home, physical, "abc", "fix the parser")
 
-	title, err := sessionNamer(home, claudeProfile())(registry.Session{ID: "abc", Dir: filepath.Join(root, "link", "omatty")})
+	title, err := sessionNamer(home, claudeProfile())(sessions.Session{ID: "abc", Dir: filepath.Join(root, "link", "omatty")})
 
 	if err != nil || !strings.Contains(title, "parser") {
 		t.Errorf("sessionNamer = (%q, %v), want a title from the transcript under the resolved directory", title, err)
@@ -353,7 +353,7 @@ func TestSessionNamer_ReadsTheReboundConversation_issue316(t *testing.T) {
 	adoptFixture(t, home, dir, "before-clear", "the old work")
 	adoptFixture(t, home, dir, "after-clear", "fix the parser")
 
-	title, err := sessionNamer(home, claudeProfile())(registry.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
+	title, err := sessionNamer(home, claudeProfile())(sessions.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
 
 	if err != nil || !strings.Contains(title, "parser") {
 		t.Errorf("sessionNamer = (%q, %v), want a title from the post-clear prompt", title, err)
@@ -371,7 +371,7 @@ func TestTuiDeps_OpensTranscriptsThroughTheReader_issue653(t *testing.T) {
 	}
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
-	deps := tuiDeps(env, nil, registry.State{})
+	deps := tuiDeps(env, nil, sessions.State{})
 	if deps.OpenTranscript == nil {
 		t.Fatal("OpenTranscript is not wired: every tailer would call a nil opener")
 	}
@@ -393,7 +393,7 @@ func TestTuiDeps_ServesTheHookSocket_issue653(t *testing.T) {
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
-	deps := tuiDeps(env, nil, registry.State{})
+	deps := tuiDeps(env, nil, sessions.State{})
 	if deps.ListenHooks == nil {
 		t.Fatal("ListenHooks is not wired: the watcher would call a nil server")
 	}
@@ -423,7 +423,7 @@ func TestTuiDeps_ServesTheHookSocket_issue653(t *testing.T) {
 func TestTuiDeps_RunsGatesThroughGateexec_issue653(t *testing.T) {
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
-	deps := tuiDeps(env, nil, registry.State{})
+	deps := tuiDeps(env, nil, sessions.State{})
 	if deps.RunGate == nil {
 		t.Fatal("RunGate is not wired: the first gate would call a nil runner")
 	}
@@ -443,7 +443,7 @@ func TestTuiDeps_ReadsCoverageThroughFsread_issue653(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, "cover.out"), "mode: set\nexample.com/m/a.go:3.10,5.4 2 1\n")
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
-	deps := tuiDeps(env, nil, registry.State{})
+	deps := tuiDeps(env, nil, sessions.State{})
 	if deps.Profiles == nil {
 		t.Fatal("Profiles is not wired: no coverage overlay would ever load")
 	}

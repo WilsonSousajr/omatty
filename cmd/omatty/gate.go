@@ -1,5 +1,5 @@
 // `omatty gate`: what a project is verified by, and how it comes to be set.
-// Thin over internal/gate, internal/infra/gateexec and internal/registry
+// Thin over internal/gate, internal/infra/gateexec and internal/service/sessions
 // (invariant 10).
 
 package main
@@ -11,7 +11,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // gateCommand shows, proposes, sets or clears a project's gate.
@@ -27,7 +27,7 @@ import (
 // on yes. Detection proposes and confirming is a separate act, which is what
 // stops a cloned repository getting a command run because omatty looked at it
 // (#226).
-func gateCommand(store registry.StateStore, args []string, in io.Reader, prs prLister) error {
+func gateCommand(store sessions.StateStore, args []string, in io.Reader, prs prLister) error {
 	project, err := gateProject(store, args)
 	if err != nil {
 		return err
@@ -36,7 +36,7 @@ func gateCommand(store registry.StateStore, args []string, in io.Reader, prs prL
 		return reportStats(store, project, prs)
 	}
 	if hasFlag(args, "--clear") {
-		if err := registry.ClearGate(store, project.Name); err != nil {
+		if err := sessions.ClearGate(store, project.Name); err != nil {
 			return err
 		}
 		// Silence would be indistinguishable from a command that did nothing,
@@ -52,7 +52,7 @@ func gateCommand(store registry.StateStore, args []string, in io.Reader, prs prL
 }
 
 // proposeGate detects, prints, and writes if it is allowed to.
-func proposeGate(store registry.StateStore, project registry.Project, args []string, in io.Reader) error {
+func proposeGate(store sessions.StateStore, project sessions.Project, args []string, in io.Reader) error {
 	steps := gateexec.Detect(project.Root)
 	if len(steps) == 0 {
 		report("nothing recognised in " + project.Root + "; set a gate by hand in ~/.omatty/state.json")
@@ -66,7 +66,7 @@ func proposeGate(store registry.StateStore, project registry.Project, args []str
 		report("nothing written")
 		return nil
 	}
-	if err := registry.SetGate(store, project.Name, steps); err != nil {
+	if err := sessions.SetGate(store, project.Name, steps); err != nil {
 		return err
 	}
 	report("gate set for " + project.Name)
@@ -105,13 +105,13 @@ func reportGate(heading string, steps []gate.Step) {
 
 // gateProject resolves the project argument, naming this command in the error
 // the way namedProject names adopt.
-func gateProject(store registry.StateStore, args []string) (registry.Project, error) {
+func gateProject(store sessions.StateStore, args []string) (sessions.Project, error) {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		return registry.Project{}, fmt.Errorf("gate: want <project> [--detect|--set|--clear|--stats], got no project")
+		return sessions.Project{}, fmt.Errorf("gate: want <project> [--detect|--set|--clear|--stats], got no project")
 	}
-	p, err := registry.NamedProject(store, args[0])
+	p, err := sessions.NamedProject(store, args[0])
 	if err != nil {
-		return registry.Project{}, fmt.Errorf("gate: %w", err)
+		return sessions.Project{}, fmt.Errorf("gate: %w", err)
 	}
 	return p, nil
 }

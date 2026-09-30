@@ -1,4 +1,4 @@
-package registry_test
+package sessions_test
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 )
 
 // update rewrites golden files instead of comparing them. Goldens change only
-// on purpose: go test ./internal/registry -run <Test> -update (#620).
+// on purpose: go test ./internal/service/sessions -run <Test> -update (#620).
 var update = flag.Bool("update", false, "rewrite golden files")
 
 // assertGolden fails when got differs from testdata/name, so a change to what

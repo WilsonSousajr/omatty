@@ -12,7 +12,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
@@ -23,7 +23,7 @@ import (
 func TestLauncher_CommandPassesSessionIDAndOwnSettings(t *testing.T) {
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/home/u/.omatty/hooks.json", t.TempDir(), &detach.Plain{})
 
-	cmd, err := l.Command(registry.Session{ID: "abc-123", Dir: "/w/parser-fix"})
+	cmd, err := l.Command(sessions.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
 	if err != nil {
 		t.Fatalf("Command() error = %v, want nil", err)
@@ -44,7 +44,7 @@ func TestLauncher_CommandPassesSessionIDAndOwnSettings(t *testing.T) {
 // arguments, not about that.
 func commandArgs(t *testing.T, l *supervisor.Launcher, sessionID, dir string) string {
 	t.Helper()
-	cmd, err := l.Command(registry.Session{ID: sessionID, Dir: dir})
+	cmd, err := l.Command(sessions.Session{ID: sessionID, Dir: dir})
 	if err != nil {
 		t.Fatalf("Command(%q, %q) error = %v, want nil", sessionID, dir, err)
 	}
@@ -71,7 +71,7 @@ func TestLauncher_StartHandsTheCommandToTheFactory(t *testing.T) {
 		gotW, gotH, gotDir = w, h, cmd.Dir
 		return fake, nil
 	}
-	sess := registry.Session{ID: "abc-123", Dir: "/w/parser-fix"}
+	sess := sessions.Session{ID: "abc-123", Dir: "/w/parser-fix"}
 
 	term, err := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}).Start(factory, sess, 80, 24)
 
@@ -92,7 +92,7 @@ func TestLauncher_StartFailureNamesTheSession(t *testing.T) {
 	}
 
 	_, err := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}).
-		Start(factory, registry.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
+		Start(factory, sessions.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
 
 	if err == nil {
 		t.Fatal("Start() returned nil after a factory failure, want an error")
@@ -113,7 +113,7 @@ func TestLauncher_StartRunsTheFakeClaude(t *testing.T) {
 		t.Fatal(err)
 	}
 	l := supervisor.NewLauncher(claudeProfile(), bin, "/h.json", t.TempDir(), &detach.Plain{})
-	sess := registry.Session{ID: "smoke-uuid", Dir: t.TempDir()}
+	sess := sessions.Session{ID: "smoke-uuid", Dir: t.TempDir()}
 
 	term, err := l.Start(termwrap.Start, sess, 60, 12)
 	if err != nil {
@@ -207,7 +207,7 @@ func TestLauncher_CommandWrapsThroughTheHolder_issue43(t *testing.T) {
 	h := &fakeHolder{Wrapped: exec.Command("dtach", "-A", "/s.sock")}
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h)
 
-	cmd, err := l.Command(registry.Session{ID: "abc-123", Dir: "/w/parser-fix"})
+	cmd, err := l.Command(sessions.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
 	if err != nil {
 		t.Fatalf("Command() error = %v, want nil", err)
@@ -229,7 +229,7 @@ func TestLauncher_CommandSurfacesAHolderFailure_issue43(t *testing.T) {
 	h := &fakeHolder{WrapErr: errors.New("socket path is 130 bytes, over the 104-byte limit")}
 	l := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h)
 
-	_, err := l.Command(registry.Session{ID: "abc-123", Dir: "/w"})
+	_, err := l.Command(sessions.Session{ID: "abc-123", Dir: "/w"})
 
 	if err == nil {
 		t.Fatal("Command() returned nil after the holder failed, want an error")
@@ -247,7 +247,7 @@ func TestLauncher_StartSurfacesAHolderFailure_issue43(t *testing.T) {
 	}
 
 	_, err := supervisor.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h).
-		Start(factory, registry.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
+		Start(factory, sessions.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
 
 	if err == nil {
 		t.Fatal("Start() returned nil after the holder failed, want an error")

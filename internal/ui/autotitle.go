@@ -11,7 +11,7 @@ import (
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // NameFunc reads a session's first typed prompt and returns the title to give
@@ -19,16 +19,16 @@ import (
 // closes it over discover.FirstPromptTitle. An empty title with a nil error
 // means the session has not been spoken to yet, which is not a failure.
 //
-//	deps.Name = func(sess registry.Session) (string, error) {
+//	deps.Name = func(sess sessions.Session) (string, error) {
 //	        return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()))
 //	}
-type NameFunc func(sess registry.Session) (string, error)
+type NameFunc func(sess sessions.Session) (string, error)
 
 // noName is the Deps.Name default: no reader, so nothing is auto-named. Like
 // noTailStart and unlike noRename, it does nothing rather than naming missing
 // wiring - a model built without a transcript store has no first prompt to
 // read, and an error on every status event would be noise.
-func noName(registry.Session) (string, error) { return "", nil }
+func noName(sessions.Session) (string, error) { return "", nil }
 
 // NamedMsg carries a derived title back into Update. From is the title the
 // derivation started from, so a name the operator typed with ctrl+o R while
@@ -47,8 +47,8 @@ type NamedMsg struct {
 // uuid forever - the case invariant 9 exists for. Both spellings are accepted
 // because there are two: a created session gets the short uuid, an adopted
 // one with no typed prompt gets the whole uuid (discover.titleOf, #122).
-func isPlaceholderTitle(sess registry.Session) bool {
-	return sess.Title == registry.PlaceholderTitle(sess.ID) || sess.Title == sess.ID
+func isPlaceholderTitle(sess sessions.Session) bool {
+	return sess.Title == sessions.PlaceholderTitle(sess.ID) || sess.Title == sess.ID
 }
 
 // maybeName asks for a title for a session that still carries its placeholder.
