@@ -6,11 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // seedThreeProjects registers a, b and c in that order, with one session in b.
-func seedThreeProjects(t *testing.T) *registry.Store {
+func seedThreeProjects(t *testing.T) *statestore.Store {
 	t.Helper()
 	store, _ := newStoreAt(t)
 	git := &FakeGit{}
@@ -26,7 +27,7 @@ func seedThreeProjects(t *testing.T) *registry.Store {
 	return store
 }
 
-func registeredNames(t *testing.T, store *registry.Store) string {
+func registeredNames(t *testing.T, store *statestore.Store) string {
 	t.Helper()
 	st, err := store.Load()
 	if err != nil {

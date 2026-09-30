@@ -99,7 +99,7 @@ func roundLead(d time.Duration) string {
 // prs is the forge reader, the TUI's own Router's ListPRs, so a project named
 // in [forge.hosts] gets its lead time here too (#452). A machine without the
 // forge's tool gets no lead time and the gate rate still prints.
-func reportStats(store *registry.Store, project registry.Project, prs prLister) error {
+func reportStats(store registry.StateStore, project registry.Project, prs prLister) error {
 	st, err := store.Load()
 	if err != nil {
 		return err

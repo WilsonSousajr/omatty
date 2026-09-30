@@ -5,14 +5,15 @@ import (
 	"strings"
 	"testing"
 
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
 // adoptStore is a store holding one project, which is what adoption registers
 // a session against.
-func adoptStore(t *testing.T) *registry.Store {
+func adoptStore(t *testing.T) *statestore.Store {
 	t.Helper()
-	s := registry.NewStore(filepath.Join(t.TempDir(), "state.json"))
+	s := statestore.NewStore(filepath.Join(t.TempDir(), "state.json"))
 	if _, err := registry.AddProject(s, &FakeGit{}, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}

@@ -23,6 +23,10 @@ type CreatorOpts struct {
 	// has to pass one; it is here rather than as a constructor parameter
 	// because an option struct can gain a field without touching a call site.
 	Clock func() time.Time
+	// Carry copies a project's gitignored files into a new worktree (#309).
+	// Injected, because copying files is infra's business (ADR 0001, migration
+	// step 5.4, #653): cmd passes internal/infra/store's CarryInto.
+	Carry func(dir, root string, paths []string) error
 }
 
 // Creator turns a request for a session into a registered Session, creating
@@ -106,7 +110,7 @@ func (c *Creator) carry(p Project, dir string) error {
 	if len(p.Carry) == 0 {
 		return nil
 	}
-	if err := CarryInto(dir, p.Root, p.Carry); err != nil {
+	if err := c.copyCarried(dir, p); err != nil {
 		if rmErr := c.git.RemoveWorktree(p.Root, dir); rmErr != nil {
 			slog.Error("removing a worktree whose carry failed",
 				"project", p.Name, "worktree", dir, "err", rmErr)
@@ -114,6 +118,16 @@ func (c *Creator) carry(p Project, dir string) error {
 		return err
 	}
 	return nil
+}
+
+// copyCarried runs the injected copy, or refuses when none was wired: a
+// project that lists files to carry and silently got none would fail its gate
+// for a reason that has nothing to do with the code (#309).
+func (c *Creator) copyCarried(dir string, p Project) error {
+	if c.opts.Carry == nil {
+		return fmt.Errorf("registry: project %q lists %d paths to carry but no copier is wired", p.Name, len(p.Carry))
+	}
+	return c.opts.Carry(dir, p.Root, p.Carry)
 }
 
 // branchOr is the branch to put a worktree on: the slug of what the operator

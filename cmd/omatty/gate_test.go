@@ -13,7 +13,7 @@ import (
 
 // gateFixture is a registered Go project, which is the shape Detect
 // recognises, plus a store to put its gate in.
-func gateFixture(t *testing.T) (*registry.Store, string) {
+func gateFixture(t *testing.T) (registry.StateStore, string) {
 	t.Helper()
 	home := t.TempDir()
 	repo := filepath.Join(home, "omatty")
@@ -31,7 +31,7 @@ func gateFixture(t *testing.T) (*registry.Store, string) {
 	return store, repo
 }
 
-func configuredGate(t *testing.T, store *registry.Store) []gate.Step {
+func configuredGate(t *testing.T, store registry.StateStore) []gate.Step {
 	t.Helper()
 	st, err := store.Load()
 	if err != nil {

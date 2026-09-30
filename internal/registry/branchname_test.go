@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
@@ -173,7 +174,7 @@ func (f *fakeBranchGit) RenameBranch(_, old, name string) error {
 	return f.Err
 }
 
-func worktreeSessionStore(t *testing.T) (*registry.Store, registry.Session) {
+func worktreeSessionStore(t *testing.T) (*statestore.Store, registry.Session) {
 	t.Helper()
 	store, _ := newStoreAt(t)
 	sess := registry.Session{

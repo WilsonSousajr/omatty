@@ -83,10 +83,11 @@ internal/
 │   ├── hooks/      the --settings hooks file, and the `omatty hook` command (invariant 11).
 │   ├── notify/     desktop notifications for a session needing attention.
 │   ├── paths/      every filesystem location omatty reads or writes. Pure.
+│   ├── store/      [ADR 0001] state.json, written atomically (invariant 9), and carry's file copy (#309).
 │   ├── transcript/ [ADR 0001] reads an agent's JSONL as it grows: new complete lines, truncation.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
 ├── pubsub/          [ADR 0001] Broker[T]: services publish (Publish waits, Offer drops), the TUI subscribes.
-├── registry/       persists projects and sessions to state.json; the record itself is domain/session.
+├── registry/       the commands that edit projects and sessions, over a StateStore; the record is domain/session.
 ├── termwrap/       OUR interface over bubbleterm (invariant 4).
 ├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
 ├── keys/           modal key router. Pure state machine (invariant 1).

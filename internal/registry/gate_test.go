@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
@@ -51,7 +52,7 @@ func TestLoad_aGateWrittenBeforeProfiles_loadsWithNoProfile(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	st, err := registry.NewStore(path).Load()
+	st, err := statestore.NewStore(path).Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
@@ -110,7 +111,7 @@ func TestLoad_aFileWrittenBeforeGatesExisted_loadsWithNoGate(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	st, err := registry.NewStore(path).Load()
+	st, err := statestore.NewStore(path).Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
@@ -210,10 +211,10 @@ func TestSetGate_persistsTheDeclaredShape(t *testing.T) {
 
 // storeWithProject is a store holding one registered project, which every
 // gate command needs before it can do anything.
-func storeWithProject(t *testing.T, name string) (*registry.Store, string) {
+func storeWithProject(t *testing.T, name string) (*statestore.Store, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "state.json")
-	store := registry.NewStore(path)
+	store := statestore.NewStore(path)
 	st := registry.State{
 		Version:  registry.Version,
 		Projects: []registry.Project{{Name: name, Root: filepath.Join("/tmp", name)}},
@@ -232,7 +233,7 @@ func TestSetGate_unreadableState_isAnError(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	err := registry.SetGate(registry.NewStore(path), "omatty", gateSteps())
+	err := registry.SetGate(statestore.NewStore(path), "omatty", gateSteps())
 
 	if err == nil {
 		t.Fatal("SetGate() error = nil, want the load failure surfaced")

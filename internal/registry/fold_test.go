@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
@@ -61,7 +62,7 @@ func TestSetCollapsed_unreadableState_isAnError(t *testing.T) {
 	if err := os.WriteFile(path, []byte("not json at all"), 0o600); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
-	if err := registry.SetCollapsed(registry.NewStore(path), "omatty", true); err == nil {
+	if err := registry.SetCollapsed(statestore.NewStore(path), "omatty", true); err == nil {
 		t.Fatal("SetCollapsed on a corrupt state file = nil error, want one")
 	}
 }
@@ -74,7 +75,7 @@ func TestLoad_aProjectWrittenBeforeFolding_loadsUnfolded(t *testing.T) {
 	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
-	st, err := registry.NewStore(path).Load()
+	st, err := statestore.NewStore(path).Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}

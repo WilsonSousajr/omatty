@@ -12,7 +12,7 @@ import "fmt"
 // has one spelling in state.json. A conversation another row already holds
 // is refused: two panes resuming one transcript would interleave two claudes
 // in one file.
-func RebindSession(s *Store, id, conversation string) error {
+func RebindSession(s StateStore, id, conversation string) error {
 	st, err := s.Load()
 	if err != nil {
 		return err

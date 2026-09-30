@@ -23,7 +23,7 @@ import (
 // dispatch runs a subcommand. `add` registers a repository and `rm` forgets
 // one; `new` creates a session, with a branch argument meaning "in a fresh
 // worktree".
-func dispatch(cmd string, args []string, home string, cfg config.Config, store *registry.Store) error {
+func dispatch(cmd string, args []string, home string, cfg config.Config, store registry.StateStore) error {
 	switch cmd {
 	case "add":
 		return addProject(store, args)
@@ -43,7 +43,7 @@ func dispatch(cmd string, args []string, home string, cfg config.Config, store *
 // dispatchSettings runs the per-project settings subcommands, and owns the
 // unknown-command error. Split from dispatch to keep each inside funlen: they
 // share a shape - resolve a project, then show, set or clear one field of it.
-func dispatchSettings(cmd string, args []string, store *registry.Store, prs prLister) error {
+func dispatchSettings(cmd string, args []string, store registry.StateStore, prs prLister) error {
 	switch cmd {
 	case "gate":
 		return gateCommand(store, args, os.Stdin, prs)
@@ -63,7 +63,7 @@ func dispatchSettings(cmd string, args []string, store *registry.Store, prs prLi
 // git is a parameter rather than built here so the flow is testable without a
 // real repository; everything else follows discoverProjects exactly.
 func adoptSessions(
-	store *registry.Store, home string, git discover.Git, args []string, in io.Reader,
+	store registry.StateStore, home string, git discover.Git, args []string, in io.Reader,
 ) error {
 	p, err := namedProject(store, args)
 	if err != nil {
@@ -82,7 +82,7 @@ func adoptSessions(
 
 // chooseAndAdopt prints the list, reads the answer, and registers each pick.
 func chooseAndAdopt(
-	store *registry.Store, p registry.Project, cands []discover.SessionCandidate, in io.Reader,
+	store registry.StateStore, p registry.Project, cands []discover.SessionCandidate, in io.Reader,
 ) error {
 	for _, line := range discover.ListSessions(cands, time.Now()) {
 		report(line)
@@ -99,7 +99,7 @@ func chooseAndAdopt(
 // adoptAll reports what registry.AdoptAll did with each pick. The loop is the
 // registry's; this one only says so on stdout (invariant 10).
 func adoptAll(
-	store *registry.Store, git registry.SessionBrancher,
+	store registry.StateStore, git registry.SessionBrancher,
 	project string, picked []discover.SessionCandidate,
 ) error {
 	for _, a := range registry.AdoptAll(store, git, project, sessionPicks(picked)) {
@@ -124,7 +124,7 @@ func sessionPicks(picked []discover.SessionCandidate) []registry.SessionPick {
 // namedProject resolves the project argument, which adopt requires: it acts on
 // one project, so a missing name is a usage error rather than a scan of
 // everything the operator has ever registered.
-func namedProject(store *registry.Store, args []string) (registry.Project, error) {
+func namedProject(store registry.StateStore, args []string) (registry.Project, error) {
 	if len(args) == 0 {
 		return registry.Project{}, fmt.Errorf("adopt: want <project>, got no argument")
 	}
@@ -138,7 +138,7 @@ func namedProject(store *registry.Store, args []string) (registry.Project, error
 // proposeSessions is the scan: the project's sessions, minus the ones state.json
 // already holds.
 func proposeSessions(
-	store *registry.Store, home string, git discover.Git, p registry.Project,
+	store registry.StateStore, home string, git discover.Git, p registry.Project,
 ) ([]discover.SessionCandidate, error) {
 	ids, err := registry.KnownSessionIDs(store)
 	if err != nil {
@@ -150,7 +150,7 @@ func proposeSessions(
 // discoverProjects lists the repositories claude has been used in and
 // registers the ones the operator picks. stdout is free here: discover runs
 // before the TUI starts, which is what report exists for (invariant 5).
-func discoverProjects(store *registry.Store, home string, in io.Reader) error {
+func discoverProjects(store registry.StateStore, home string, in io.Reader) error {
 	cands, err := proposeProjects(store, home)
 	if err != nil {
 		return err
@@ -173,7 +173,7 @@ func discoverProjects(store *registry.Store, home string, in io.Reader) error {
 
 // proposeProjects is the scan: what claude has been used in, minus what
 // state.json already holds.
-func proposeProjects(store *registry.Store, home string) ([]discover.Candidate, error) {
+func proposeProjects(store registry.StateStore, home string) ([]discover.Candidate, error) {
 	roots, err := registeredRoots(store)
 	if err != nil {
 		return nil, err
@@ -183,7 +183,7 @@ func proposeProjects(store *registry.Store, home string) ([]discover.Candidate, 
 
 // registeredRoots is what state.json already holds, so discovery does not
 // offer a repository that can only fail on commit (#91).
-func registeredRoots(store *registry.Store) ([]string, error) {
+func registeredRoots(store registry.StateStore) ([]string, error) {
 	st, err := store.Load()
 	if err != nil {
 		return nil, err
@@ -198,7 +198,7 @@ func registeredRoots(store *registry.Store) ([]string, error) {
 // registerAll reports what registry.RegisterAll did with each pick. The loop
 // itself lives there, shared with the TUI picker: cmd/ holds no logic
 // (invariant 10), and two copies of a collision policy drift (#91).
-func registerAll(store *registry.Store, picked []discover.Candidate) error {
+func registerAll(store registry.StateStore, picked []discover.Candidate) error {
 	roots := make([]string, 0, len(picked))
 	for _, c := range picked {
 		roots = append(roots, c.Root)
@@ -213,7 +213,7 @@ func registerAll(store *registry.Store, picked []discover.Candidate) error {
 	return nil
 }
 
-func addProject(store *registry.Store, args []string) error {
+func addProject(store registry.StateStore, args []string) error {
 	dir, err := argOrCwd(args)
 	if err != nil {
 		return err
@@ -228,7 +228,7 @@ func addProject(store *registry.Store, args []string) error {
 
 // removeProject is `omatty rm <project>`: the CLI twin of ctrl+o x on an
 // empty project's header, and the one surface that needs no cursor (#159).
-func removeProject(store *registry.Store, args []string) error {
+func removeProject(store registry.StateStore, args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("rm: want <project>, got %v", args)
 	}
@@ -240,7 +240,7 @@ func removeProject(store *registry.Store, args []string) error {
 	return nil
 }
 
-func newSession(store *registry.Store, cfg config.Config, args []string) error {
+func newSession(store registry.StateStore, cfg config.Config, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("new: want <project> <title> [branch], got %v", args)
 	}

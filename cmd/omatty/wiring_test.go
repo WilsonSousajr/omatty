@@ -80,6 +80,26 @@ func TestCreatorOpts_ComeFromTheConfig_issue44(t *testing.T) {
 	}
 }
 
+// Step 5.4 (#653): the carry copy is injected, because copying files is
+// infra's business. Both creators - the TUI's and `omatty new` - take their
+// options from creatorOpts, so the real wiring is pinned there: the wired
+// copier copies a real file.
+func TestCreatorOpts_CarryThroughTheStore_issue653(t *testing.T) {
+	root, dir := t.TempDir(), t.TempDir()
+	mustWriteFile(t, filepath.Join(root, ".env"), "TOKEN=shh")
+
+	carry := creatorOpts(config.Config{}).Carry
+	if carry == nil {
+		t.Fatal("Carry is not wired: every project with a carry list would fail to create a worktree")
+	}
+	if err := carry(dir, root, []string{".env"}); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, ".env")); err != nil || string(b) != "TOKEN=shh" {
+		t.Errorf("the wired copier left %q, %v; want the carried file", b, err)
+	}
+}
+
 // One Router answers every forge call the TUI makes (#452): the lists, an
 // item, the browser pair, the label and #331's ship calls. The label is the
 // Router's own - neutral for a project it has not resolved - and not ui's

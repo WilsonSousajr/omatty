@@ -5,13 +5,14 @@ import (
 	"strings"
 	"testing"
 
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
-func newStoreAt(t *testing.T) (*registry.Store, string) {
+func newStoreAt(t *testing.T) (*statestore.Store, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "state.json")
-	return registry.NewStore(path), path
+	return statestore.NewStore(path), path
 }
 
 func TestAddProject_NamesTheProjectAfterTheRepoDirectory(t *testing.T) {

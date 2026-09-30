@@ -9,7 +9,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
-func configuredCarry(t *testing.T, store *registry.Store) []string {
+func configuredCarry(t *testing.T, store registry.StateStore) []string {
 	t.Helper()
 	st, err := store.Load()
 	if err != nil {

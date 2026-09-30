@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
@@ -98,7 +99,7 @@ func TestTallyGateRun_KeepsTheSchemaAtVersionOne_issue332(t *testing.T) {
 }
 
 // storeHolding is a store already saved with these projects.
-func storeHolding(t *testing.T, projects ...registry.Project) *registry.Store {
+func storeHolding(t *testing.T, projects ...registry.Project) *statestore.Store {
 	t.Helper()
 	store, _ := newStoreAt(t)
 	if err := store.Save(registry.State{Version: registry.Version, Projects: projects}); err != nil {

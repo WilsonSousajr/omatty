@@ -1,4 +1,4 @@
-package registry
+package store
 
 import (
 	"errors"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 )
 
 // FailingWriter is a named fake whose Write always fails, standing in for a
@@ -17,7 +19,7 @@ func (f *FailingWriter) Write([]byte) (int, error) { return 0, f.Err }
 func TestEncodeState_WriteFailureNamesTheSessionCount(t *testing.T) {
 	w := &FailingWriter{Err: errors.New("disk full")}
 
-	err := encodeState(w, State{Sessions: []Session{{ID: "a"}, {ID: "b"}}})
+	err := encodeState(w, session.State{Sessions: []session.Session{{ID: "a"}, {ID: "b"}}})
 
 	if err == nil {
 		t.Fatal("encodeState() returned nil on a failing writer, want an error")
@@ -34,7 +36,7 @@ func TestStore_SaveWhenParentIsAFileNamesTheDirectory(t *testing.T) {
 	}
 	s := NewStore(filepath.Join(blocker, "state.json"))
 
-	err := s.Save(State{Version: Version})
+	err := s.Save(session.State{Version: session.Version})
 
 	if err == nil {
 		t.Fatal("Save() under a regular file returned nil, want an error")
@@ -54,7 +56,7 @@ func TestStore_SaveIntoAnUnwritableDirectoryNamesThePath(t *testing.T) {
 	}
 	path := filepath.Join(dir, "state.json")
 
-	err := NewStore(path).Save(State{Version: Version})
+	err := NewStore(path).Save(session.State{Version: session.Version})
 
 	if err == nil {
 		t.Fatal("Save() into a read-only directory returned nil, want an error")
@@ -75,7 +77,7 @@ func TestStore_SaveOverADirectoryNamesBothPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := NewStore(path).Save(State{Version: Version})
+	err := NewStore(path).Save(session.State{Version: session.Version})
 
 	if err == nil {
 		t.Fatal("Save() over a non-empty directory returned nil, want an error")
@@ -111,7 +113,7 @@ func TestStore_SaveLeavesNoTempFileBehindAfterAFailedRename(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_ = NewStore(path).Save(State{Version: Version})
+	_ = NewStore(path).Save(session.State{Version: session.Version})
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {

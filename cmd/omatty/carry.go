@@ -21,7 +21,7 @@ import (
 // Setting replaces rather than appends, which is what `gate` does and the same
 // reason: a list you can only add to needs a remove command to be usable, and
 // re-typing two paths is cheaper than that.
-func carryCommand(store *registry.Store, args []string) error {
+func carryCommand(store registry.StateStore, args []string) error {
 	project, err := carryProject(store, args)
 	if err != nil {
 		return err
@@ -45,7 +45,7 @@ func carryCommand(store *registry.Store, args []string) error {
 // clearCarry forgets the list and says so. Silence would be
 // indistinguishable from a command that did nothing, which is the argument
 // gateCommand's own --clear arm makes.
-func clearCarry(store *registry.Store, project string) error {
+func clearCarry(store registry.StateStore, project string) error {
 	if err := registry.ClearCarry(store, project); err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func reportCarry(p registry.Project) {
 
 // carryProject resolves the project argument, naming this command in the error
 // the way gateProject does.
-func carryProject(store *registry.Store, args []string) (registry.Project, error) {
+func carryProject(store registry.StateStore, args []string) (registry.Project, error) {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return registry.Project{}, fmt.Errorf("carry: want <project> [<path>...|--clear], got no project")
 	}
