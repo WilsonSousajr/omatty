@@ -1,4 +1,4 @@
-package gate_test
+package gateexec_test
 
 import (
 	"context"
@@ -6,7 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/domain/gate"
+	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 )
 
 // go test on a broken build writes unbounded output, and the whole of it would
@@ -15,7 +16,7 @@ import (
 func TestRun_floodOfOutput_keepsTheTailAndSaysWhatItDropped(t *testing.T) {
 	steps := []gate.Step{{Name: "test", Run: "seq 1 50000; echo FAIL; exit 1"}}
 
-	got, _ := gate.Run(context.Background(), t.TempDir(), steps)
+	got, _ := gateexec.Run(context.Background(), t.TempDir(), steps)
 
 	out := got[0].Output
 	if lines := strings.Count(out, "\n"); lines > gate.MaxOutputLines+2 {
@@ -35,7 +36,7 @@ func TestRun_floodOfOutput_keepsTheTailAndSaysWhatItDropped(t *testing.T) {
 func TestRun_outputUnderTheCap_isKeptWhole(t *testing.T) {
 	steps := []gate.Step{{Name: "test", Run: "printf 'one\ntwo\nthree\n'"}}
 
-	got, _ := gate.Run(context.Background(), t.TempDir(), steps)
+	got, _ := gateexec.Run(context.Background(), t.TempDir(), steps)
 
 	if want := "one\ntwo\nthree\n"; got[0].Output != want {
 		t.Errorf("Output = %q, want %q untouched", got[0].Output, want)
@@ -49,7 +50,7 @@ func TestRun_outputUnderTheCap_isKeptWhole(t *testing.T) {
 func TestRun_oneEnormousLine_isStillBounded(t *testing.T) {
 	steps := []gate.Step{{Name: "test", Run: fmt.Sprintf("head -c %d /dev/zero | tr '\\0' 'x'", gate.MaxOutputBytes*3)}}
 
-	got, _ := gate.Run(context.Background(), t.TempDir(), steps)
+	got, _ := gateexec.Run(context.Background(), t.TempDir(), steps)
 
 	if len(got[0].Output) > gate.MaxOutputBytes*2 {
 		t.Errorf("Output is %d bytes, want it bounded near %d", len(got[0].Output), gate.MaxOutputBytes)
@@ -61,7 +62,7 @@ func TestRun_oneEnormousLine_isStillBounded(t *testing.T) {
 func TestRun_aFloodBeyondTheCollectingWindow_isBoundedAndSaysSo(t *testing.T) {
 	steps := []gate.Step{{Name: "test", Run: fmt.Sprintf("head -c %d /dev/zero | tr '\\0' 'x'; echo; echo DONE", gate.KeptBytes*3)}}
 
-	got, _ := gate.Run(context.Background(), t.TempDir(), steps)
+	got, _ := gateexec.Run(context.Background(), t.TempDir(), steps)
 
 	out := got[0].Output
 	if len(out) > gate.MaxOutputBytes*2 {

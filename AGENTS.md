@@ -73,6 +73,7 @@ internal/
 │   ├── forge/      OUR interface over every forge's CLI - gh, glab, az, tea - behind
 │   │            one Router: pull requests, CI and issues, read on a timer;
 │   │            written only on a keypress (#310, #331, #452).
+│   ├── gateexec/   [M9] runs a gate's steps under sh; verdicts from exit status only (invariant 12).
 │   ├── gitdiff/    [ADR 0001] the only go-gitdiff importer: git's unified diff -> domain/review.Diff.
 │   ├── golist/     [M11] OUR interface over `go list` (invariant 4 in spirit).
 │   ├── highlight/  [M5] OUR interface over chroma (invariant 4 in spirit).
@@ -89,7 +90,7 @@ internal/
 ├── keys/           modal key router. Pure state machine (invariant 1).
 ├── discover/       proposes repositories to register, from claude's transcript store (#91).
 ├── review/         [M3] loads a diff and a turn, previews, reverts; the model is domain/review.
-├── gate/           [M9] runs a project's own verification commands; its vocabulary is domain/gate.
+├── gate/           [M9] the Runner: gates many sessions, bounded; infra/gateexec runs the steps.
 └── ui/             bubbletea model, panes, rendering.
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
@@ -214,7 +215,7 @@ not in the gate.
   Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
-  from `infra/detach`, `infra/forge`, `gate`, `infra/golist`, `infra/notify`, `supervisor`,
+  from `infra/detach`, `infra/forge`, `infra/gateexec`, `infra/golist`, `infra/notify`, `supervisor`,
   `termwrap` and `infra/vcs`, and nowhere else in production code. `termwrap` is on that list because it names
   `*exec.Cmd` in a signature without ever constructing one - a distinction
   depguard cannot draw. `forge` joined for #310 as omatty's one route to the

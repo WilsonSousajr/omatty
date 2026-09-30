@@ -1,5 +1,6 @@
 // `omatty gate`: what a project is verified by, and how it comes to be set.
-// Thin over internal/gate and internal/registry (invariant 10).
+// Thin over internal/gate, internal/infra/gateexec and internal/registry
+// (invariant 10).
 
 package main
 
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 )
 
@@ -51,7 +53,7 @@ func gateCommand(store *registry.Store, args []string, in io.Reader, prs prListe
 
 // proposeGate detects, prints, and writes if it is allowed to.
 func proposeGate(store *registry.Store, project registry.Project, args []string, in io.Reader) error {
-	steps := gate.Detect(project.Root)
+	steps := gateexec.Detect(project.Root)
 	if len(steps) == 0 {
 		report("nothing recognised in " + project.Root + "; set a gate by hand in ~/.omatty/state.json")
 		return nil

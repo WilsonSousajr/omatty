@@ -1,4 +1,6 @@
-package gate
+package gateexec
+
+import dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
 
 // boundedOutput collects a step's output while holding at most KeptBytes of
 // it, keeping the newest bytes and counting what it discarded so the elision
@@ -14,7 +16,7 @@ type boundedOutput struct {
 
 func (b *boundedOutput) Write(p []byte) (int, error) {
 	b.kept = append(b.kept, p...)
-	if excess := len(b.kept) - KeptBytes; excess > 0 {
+	if excess := len(b.kept) - dgate.KeptBytes; excess > 0 {
 		b.dropped += excess
 		b.kept = b.kept[:copy(b.kept, b.kept[excess:])]
 	}

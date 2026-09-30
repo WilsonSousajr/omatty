@@ -30,7 +30,7 @@ func TestRunner_neverExceedsItsParallelismBound(t *testing.T) {
 		return nil, nil
 	}
 
-	r := newRunnerWith(limit, work)
+	r := NewRunner(limit, work)
 	defer r.Close()
 	for i := range jobs {
 		r.Start(fmt.Sprintf("s%d", i), t.TempDir(), nil)
@@ -74,7 +74,7 @@ func TestRunner_aPanickingRun_marksOnlyItsOwnSession(t *testing.T) {
 		return []StepResult{{Step: Step{Name: "ok"}, Verdict: Pass}}, nil
 	}
 
-	r := newRunnerWith(2, work)
+	r := NewRunner(2, work)
 	defer r.Close()
 	r.Start("panics", "/tmp/boom", nil)
 	r.Start("fine", "/tmp/fine", nil)
@@ -100,8 +100,8 @@ func TestRunner_aPanickingRun_marksOnlyItsOwnSession(t *testing.T) {
 // configuration file meant.
 func TestNewRunner_raisesAnImpossibleLimit(t *testing.T) {
 	for _, limit := range []int{0, -3} {
-		if got := cap(newRunnerWith(limit, Run).slots); got != 1 {
-			t.Errorf("newRunnerWith(%d) slots = %d, want 1", limit, got)
+		if got := cap(NewRunner(limit, nil).slots); got != 1 {
+			t.Errorf("NewRunner(%d) slots = %d, want 1", limit, got)
 		}
 	}
 }

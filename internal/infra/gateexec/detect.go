@@ -1,7 +1,8 @@
-package gate
+package gateexec
 
 import (
 	"encoding/json"
+	dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"os"
 	"path/filepath"
 )
@@ -27,7 +28,7 @@ import (
 // Steps come out cheapest first, because a gate stops at the first step that
 // does not pass and there is no reason to spend a test suite discovering that
 // the tree is unformatted.
-func Detect(root string) []Step {
+func Detect(root string) []dgate.Step {
 	for _, d := range detectors {
 		if steps := d.detect(root); steps != nil {
 			return append(steps, coverageStep(root, d.profile)...)
@@ -44,7 +45,7 @@ func Detect(root string) []Step {
 // confirms it, which is the whole posture of this file - and a poor thing to
 // assume at read time, which is why Step.Profile exists at all.
 var detectors = []struct {
-	detect  func(string) []Step
+	detect  func(string) []dgate.Step
 	profile string
 }{
 	{detectGo, "cover.out"},
@@ -60,36 +61,36 @@ var detectors = []struct {
 // detectGo proposes the line a Go project almost always has, adding lint only
 // where the repository is configured for it - proposing a tool the project
 // does not use would report Missing forever.
-func detectGo(root string) []Step {
+func detectGo(root string) []dgate.Step {
 	if !exists(root, "go.mod") {
 		return nil
 	}
-	steps := []Step{
+	steps := []dgate.Step{
 		{Name: "fmt", Run: "gofmt -l ."},
 		{Name: "vet", Run: "go vet ./..."},
 	}
 	if exists(root, ".golangci.yml") || exists(root, ".golangci.yaml") {
-		steps = append(steps, Step{Name: "lint", Run: "golangci-lint run"})
+		steps = append(steps, dgate.Step{Name: "lint", Run: "golangci-lint run"})
 	}
-	return append(steps, Step{Name: "test", Run: "go test ./... -race"})
+	return append(steps, dgate.Step{Name: "test", Run: "go test ./... -race"})
 }
 
-func detectCargo(root string) []Step {
+func detectCargo(root string) []dgate.Step {
 	if !exists(root, "Cargo.toml") {
 		return nil
 	}
-	return []Step{
+	return []dgate.Step{
 		{Name: "fmt", Run: "cargo fmt --check"},
 		{Name: "lint", Run: "cargo clippy -- -D warnings"},
 		{Name: "test", Run: "cargo test"},
 	}
 }
 
-func detectPython(root string) []Step {
+func detectPython(root string) []dgate.Step {
 	if !exists(root, "pyproject.toml") {
 		return nil
 	}
-	return []Step{
+	return []dgate.Step{
 		{Name: "lint", Run: "ruff check ."},
 		{Name: "test", Run: "pytest"},
 	}
@@ -98,16 +99,16 @@ func detectPython(root string) []Step {
 // detectNode reads package.json for the *names* of scripts it defines, never
 // their bodies. See Detect's doc comment: this is the one detector whose
 // marker file is written by the repository rather than by a tool.
-func detectNode(root string) []Step {
+func detectNode(root string) []dgate.Step {
 	scripts, ok := packageScripts(root)
 	if !ok {
 		return nil
 	}
 	runner := nodeRunner(root)
-	var steps []Step
+	var steps []dgate.Step
 	for _, name := range []string{"lint", "test"} {
 		if _, defined := scripts[name]; defined {
-			steps = append(steps, Step{Name: name, Run: runner + " run " + name})
+			steps = append(steps, dgate.Step{Name: name, Run: runner + " run " + name})
 		}
 	}
 	return steps
@@ -150,12 +151,12 @@ func nodeRunner(root string) string {
 // its percentage reaches the card (#225). Last, because it is the most
 // expensive thing in the gate and the least likely to be the reason a change
 // is wrong.
-func coverageStep(root, profile string) []Step {
+func coverageStep(root, profile string) []dgate.Step {
 	const script = "scripts/check-coverage.sh"
 	if !exists(root, script) {
 		return nil
 	}
-	return []Step{{Name: "cov", Run: "./" + script, Kind: KindCoverage, Profile: profile}}
+	return []dgate.Step{{Name: "cov", Run: "./" + script, Kind: dgate.KindCoverage, Profile: profile}}
 }
 
 // exists reports whether root holds name.

@@ -13,7 +13,7 @@ const reportBuffer = 64
 
 // Runner runs gates for many sessions at once, bounded.
 //
-//	r := gate.NewRunner(cfg.Gate.MaxParallel)
+//	r := gate.NewRunner(cfg.Gate.MaxParallel, gateexec.Run)
 //	r.Start(sess.ID, sess.Dir, proj.Gate)
 //	for rep := range r.Reports() { ... }
 //
@@ -42,15 +42,20 @@ type Runner struct {
 
 	// run is the work itself, injected so a test can supply one that panics.
 	// Invariant 6 cannot be exercised against the real Run, which does not.
-	run func(context.Context, string, []Step) ([]StepResult, error)
+	run RunFunc
 }
 
-// NewRunner returns a Runner allowing at most limit gates at once. A limit
-// below 1 is raised to 1: zero would mean a gate that never runs, which is
-// never what a configuration file meant.
-func NewRunner(limit int) *Runner { return newRunnerWith(limit, Run) }
+// RunFunc runs a project's gate in dir and returns one result per step. It is
+// injected because running a step is infra's business (ADR 0001, migration
+// step 5.3, #653): cmd passes internal/infra/gateexec's Run.
+//
+//	r := gate.NewRunner(cfg.Gate.MaxParallel, gateexec.Run)
+type RunFunc func(ctx context.Context, dir string, steps []Step) ([]StepResult, error)
 
-func newRunnerWith(limit int, run func(context.Context, string, []Step) ([]StepResult, error)) *Runner {
+// NewRunner returns a Runner allowing at most limit gates at once, each run
+// by run. A limit below 1 is raised to 1: zero would mean a gate that never
+// runs, which is never what a configuration file meant.
+func NewRunner(limit int, run RunFunc) *Runner {
 	if limit < 1 {
 		limit = 1
 	}
