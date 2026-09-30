@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,15 +16,17 @@ import (
 // Store loads and saves State at a fixed path.
 //
 //	s := store.NewStore(paths.StateFile(home))
-//	state, err := s.Load()
+//	state, err := s.Load(ctx)
 type Store struct{ path string }
 
 // NewStore returns a Store backed by the file at path.
 func NewStore(path string) *Store { return &Store{path: path} }
 
 // Load reads the state file. A missing file is not an error: it yields an
-// empty state, which is what a first run should see.
-func (s *Store) Load() (session.State, error) {
+// empty state, which is what a first run should see. A read of one local file
+// has no deadline worth setting, so ctx is accepted for the port's shape
+// (ADR 0001, migration step 5.4, #653) and not consulted.
+func (s *Store) Load(_ context.Context) (session.State, error) {
 	b, err := os.ReadFile(s.path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return session.State{Version: session.Version}, nil
@@ -42,7 +45,7 @@ func (s *Store) Load() (session.State, error) {
 
 // Save writes the state atomically, so a crash mid-write cannot leave a
 // truncated registry that would strand running sessions (invariant 9).
-func (s *Store) Save(st session.State) error {
+func (s *Store) Save(_ context.Context, st session.State) error {
 	dir := filepath.Dir(s.path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("registry: creating state directory %q: %w", dir, err)

@@ -181,17 +181,17 @@ func TestProjectRegistrar_ReportsACollisionAndCarriesOn_issue91(t *testing.T) {
 func TestSessionArchiver_ReturnsTheRemovedSession_issue40(t *testing.T) {
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
-	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(t.Context(), store, git, "/p/omatty"); err != nil {
 		t.Fatalf("AddProject: %v", err)
 	}
-	st, err := store.Load()
+	st, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 	st.Sessions = append(st.Sessions, sessions.Session{
 		ID: "s1", Project: "omatty", Title: "main", Dir: "/wt/omatty/fix", Worktree: true,
 	})
-	if err := store.Save(st); err != nil {
+	if err := store.Save(t.Context(), st); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
@@ -230,7 +230,8 @@ func TestProjectProposer_SurfacesAnUnreadableStore_issue91(t *testing.T) {
 // that could not be written before, and it is the whole point of narrowing the
 // parameter: every picker dependency is now reachable without a repository.
 func TestWithPickerDeps_BuildsEveryPickerDependency_issue122(t *testing.T) {
-	deps := withPickerDeps(ui.RunDeps{}, storeIn(t), t.TempDir(), &FakeGit{})
+	g := &FakeGit{}
+	deps := withPickerDeps(ui.RunDeps{}, storeIn(t), t.TempDir(), g, g)
 
 	for name, built := range map[string]bool{
 		"Discover":     deps.Discover != nil,
@@ -251,7 +252,7 @@ func TestWithPickerDeps_BuildsEveryPickerDependency_issue122(t *testing.T) {
 func TestSessionAdopter_ReturnsTheRowTheRegistryWrote_issue122(t *testing.T) {
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}, Branch: "fix/parser"}
-	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(t.Context(), store, git, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -274,7 +275,7 @@ func TestSessionAdopter_ReturnsTheRowTheRegistryWrote_issue122(t *testing.T) {
 func TestProjectRemover_ReturnsTheRemovedProject_issue159(t *testing.T) {
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
-	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(t.Context(), store, git, "/p/omatty"); err != nil {
 		t.Fatalf("AddProject: %v", err)
 	}
 
@@ -290,7 +291,7 @@ func TestProjectRemover_ReturnsTheRemovedProject_issue159(t *testing.T) {
 func TestProjectFolder_PersistsTheFold_issue505(t *testing.T) {
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{"/p/omatty": "/p/omatty"}}
-	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(t.Context(), store, git, "/p/omatty"); err != nil {
 		t.Fatalf("AddProject: %v", err)
 	}
 
@@ -298,7 +299,7 @@ func TestProjectFolder_PersistsTheFold_issue505(t *testing.T) {
 		t.Fatalf("projectFolder: %v", err)
 	}
 
-	st, err := store.Load()
+	st, err := store.Load(t.Context())
 	if err != nil || !st.Projects[0].Collapsed {
 		t.Errorf("after folding, Load() = %+v, %v; want omatty collapsed", st.Projects, err)
 	}
@@ -311,7 +312,7 @@ func TestSessionRebinder_PersistsTheConversation_issue316(t *testing.T) {
 	st := sessions.State{Version: sessions.Version,
 		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
 		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "main", Dir: "/p/omatty"}}}
-	if err := store.Save(st); err != nil {
+	if err := store.Save(t.Context(), st); err != nil {
 		t.Fatal(err)
 	}
 
@@ -319,7 +320,7 @@ func TestSessionRebinder_PersistsTheConversation_issue316(t *testing.T) {
 		t.Fatalf("rebind error = %v, want nil", err)
 	}
 
-	got, _ := store.Load()
+	got, _ := store.Load(t.Context())
 	if got.Sessions[0].Conversation != "after-clear" {
 		t.Errorf("persisted row = %+v, want conversation after-clear", got.Sessions[0])
 	}

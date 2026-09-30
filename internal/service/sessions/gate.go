@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"context"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 )
 
@@ -8,24 +9,24 @@ import (
 // whatever it had. It is what the confirm picker and `omatty gate --set` both
 // call, so the two cannot disagree about what "setting a gate" means.
 //
-//	err := sessions.SetGate(store, "omatty", gate.Detect(root))
+//	err := sessions.SetGate(ctx, store, "omatty", gate.Detect(root))
 //
 // Setting a gate is deliberately a separate act from proposing one: detection
 // only ever proposes, and nothing runs a gate the operator has not confirmed.
-func SetGate(s StateStore, project string, steps []gate.Step) error {
-	return editGate(s, project, steps)
+func SetGate(ctx context.Context, s StateStore, project string, steps []gate.Step) error {
+	return editGate(ctx, s, project, steps)
 }
 
 // ClearGate forgets a project's gate, returning it to "not configured yet"
 // rather than "configured as nothing" - the distinction the nil in
 // Project.Gate carries.
-func ClearGate(s StateStore, project string) error {
-	return editGate(s, project, nil)
+func ClearGate(ctx context.Context, s StateStore, project string) error {
+	return editGate(ctx, s, project, nil)
 }
 
 // editGate is the load-find-write the two commands share.
-func editGate(s StateStore, project string, steps []gate.Step) error {
-	st, err := s.Load()
+func editGate(ctx context.Context, s StateStore, project string, steps []gate.Step) error {
+	st, err := s.Load(ctx)
 	if err != nil {
 		return err
 	}
@@ -37,13 +38,13 @@ func editGate(s StateStore, project string, steps []gate.Step) error {
 			st.Projects[i].Gate = steps
 		}
 	}
-	return s.Save(st)
+	return s.Save(ctx, st)
 }
 
 // TallyGateRun records one gate run that followed a turn: every call counts a
 // run, and a passing one counts towards the first-pass rate too (#332).
 //
-//	err := sessions.TallyGateRun(store, "omatty", passed)
+//	err := sessions.TallyGateRun(ctx, store, "omatty", passed)
 //
 // "Passed without a send-back" is simplified to "passed", deliberately: a
 // send-back only ever happens on a report that failed, so a run that passed is
@@ -52,8 +53,8 @@ func editGate(s StateStore, project string, steps []gate.Step) error {
 //
 // Two counters and no history. #332 asks for a rate, and a list of runs would
 // be the history browser R9 tells us not to build.
-func TallyGateRun(s StateStore, project string, passed bool) error {
-	st, err := s.Load()
+func TallyGateRun(ctx context.Context, s StateStore, project string, passed bool) error {
+	st, err := s.Load(ctx)
 	if err != nil {
 		return err
 	}
@@ -69,5 +70,5 @@ func TallyGateRun(s StateStore, project string, passed bool) error {
 			st.Projects[i].GateFirstPass++
 		}
 	}
-	return s.Save(st)
+	return s.Save(ctx, st)
 }

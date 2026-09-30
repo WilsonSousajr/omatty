@@ -5,5 +5,5 @@
 // StateStore port (ADR 0001, migration step 5.4, #653).
 //
 //	s := store.NewStore(paths.StateFile(home))
-//	state, err := s.Load()
+//	state, err := s.Load(ctx)
 package store

@@ -1,19 +1,22 @@
 package sessions
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // RebindSession records that the session's claude now runs conversation, as
 // it does after /clear. The row keeps its ID: that is the dtach socket's
 // name and the UI's key, and only the conversation changed (#316).
 //
-//	err := sessions.RebindSession(store, sess.ID, payload.SessionID)
+//	err := sessions.RebindSession(ctx, store, sess.ID, payload.SessionID)
 //
 // Rebinding to the row's own id stores the empty value, so a conversation
 // has one spelling in state.json. A conversation another row already holds
 // is refused: two panes resuming one transcript would interleave two claudes
 // in one file.
-func RebindSession(s StateStore, id, conversation string) error {
-	st, err := s.Load()
+func RebindSession(ctx context.Context, s StateStore, id, conversation string) error {
+	st, err := s.Load(ctx)
 	if err != nil {
 		return err
 	}
@@ -28,7 +31,7 @@ func RebindSession(s StateStore, id, conversation string) error {
 	if conversation == id {
 		st.Sessions[i].Conversation = ""
 	}
-	return s.Save(st)
+	return s.Save(ctx, st)
 }
 
 // refuseHeldConversation errors when a row other than id already answers to

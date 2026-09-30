@@ -4,5 +4,5 @@
 // internal/registry until migration step 5.4 (ADR 0001, #653); the record it
 // edits is internal/domain/session's.
 //
-//	err := sessions.RenameSession(store, id, "parser fix")
+//	err := sessions.RenameSession(ctx, store, id, "parser fix")
 package sessions

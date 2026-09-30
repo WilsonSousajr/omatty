@@ -36,7 +36,7 @@ func TestStore_SaveWhenParentIsAFileNamesTheDirectory(t *testing.T) {
 	}
 	s := NewStore(filepath.Join(blocker, "state.json"))
 
-	err := s.Save(session.State{Version: session.Version})
+	err := s.Save(t.Context(), session.State{Version: session.Version})
 
 	if err == nil {
 		t.Fatal("Save() under a regular file returned nil, want an error")
@@ -56,7 +56,7 @@ func TestStore_SaveIntoAnUnwritableDirectoryNamesThePath(t *testing.T) {
 	}
 	path := filepath.Join(dir, "state.json")
 
-	err := NewStore(path).Save(session.State{Version: session.Version})
+	err := NewStore(path).Save(t.Context(), session.State{Version: session.Version})
 
 	if err == nil {
 		t.Fatal("Save() into a read-only directory returned nil, want an error")
@@ -77,7 +77,7 @@ func TestStore_SaveOverADirectoryNamesBothPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := NewStore(path).Save(session.State{Version: session.Version})
+	err := NewStore(path).Save(t.Context(), session.State{Version: session.Version})
 
 	if err == nil {
 		t.Fatal("Save() over a non-empty directory returned nil, want an error")
@@ -93,7 +93,7 @@ func TestStore_LoadADirectoryNamesTheFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := NewStore(path).Load()
+	_, err := NewStore(path).Load(t.Context())
 
 	if err == nil {
 		t.Fatal("Load() on a directory returned nil, want an error")
@@ -113,7 +113,7 @@ func TestStore_SaveLeavesNoTempFileBehindAfterAFailedRename(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_ = NewStore(path).Save(session.State{Version: session.Version})
+	_ = NewStore(path).Save(t.Context(), session.State{Version: session.Version})
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {

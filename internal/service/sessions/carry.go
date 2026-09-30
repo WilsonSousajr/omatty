@@ -18,24 +18,26 @@
 
 package sessions
 
+import "context"
+
 // SetCarry records the gitignored paths copied into each new worktree of a
 // project, replacing whatever it had.
 //
-//	err := sessions.SetCarry(store, "omatty", []string{".env", "certs"})
-func SetCarry(s StateStore, project string, paths []string) error {
-	return editCarry(s, project, paths)
+//	err := sessions.SetCarry(ctx, store, "omatty", []string{".env", "certs"})
+func SetCarry(ctx context.Context, s StateStore, project string, paths []string) error {
+	return editCarry(ctx, s, project, paths)
 }
 
 // ClearCarry forgets a project's carry list, returning it to "nothing to
 // carry" - which is the nil Project.Carry already means.
-func ClearCarry(s StateStore, project string) error {
-	return editCarry(s, project, nil)
+func ClearCarry(ctx context.Context, s StateStore, project string) error {
+	return editCarry(ctx, s, project, nil)
 }
 
 // editCarry is the load-find-write both commands share, as editGate is for
 // the gate.
-func editCarry(s StateStore, project string, paths []string) error {
-	st, err := s.Load()
+func editCarry(ctx context.Context, s StateStore, project string, paths []string) error {
+	st, err := s.Load(ctx)
 	if err != nil {
 		return err
 	}
@@ -47,5 +49,5 @@ func editCarry(s StateStore, project string, paths []string) error {
 			st.Projects[i].Carry = paths
 		}
 	}
-	return s.Save(st)
+	return s.Save(ctx, st)
 }

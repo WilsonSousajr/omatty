@@ -47,7 +47,7 @@ func everyFieldSet() sessions.State {
 // every session - so a renamed tag is a lost session, not a refactor.
 func TestState_schemaIsPinned_issue620(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
-	if err := statestore.NewStore(path).Save(everyFieldSet()); err != nil {
+	if err := statestore.NewStore(path).Save(t.Context(), everyFieldSet()); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(path)
@@ -68,7 +68,7 @@ func TestState_goldenLoadsBackToTheSameState_issue620(t *testing.T) {
 	if err := os.WriteFile(path, golden, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	got, err := statestore.NewStore(path).Load()
+	got, err := statestore.NewStore(path).Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}

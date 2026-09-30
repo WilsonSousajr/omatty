@@ -35,7 +35,7 @@ import (
 )
 
 func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
-	state, err := store.Load()
+	state, err := store.Load(context.Background())
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func tuiDeps(env tuiEnv, store sessions.StateStore, state sessions.State) ui.Run
 		Files:     git.ListFiles,
 		Generated: src.Generated, Ship: shipFuncs(src, git, fg),
 	}
-	return withStoreDeps(withTableDeps(withForgeDeps(deps, fg), env.Cfg), store, home, git)
+	return withStoreDeps(withTableDeps(withForgeDeps(deps, fg), env.Cfg), store, home, git, git.Contextual())
 }
 
 // withForgeDeps points every forge-backed call at one Router: the pull requests
@@ -172,10 +172,17 @@ func withTableDeps(deps ui.RunDeps, cfg config.Config) ui.RunDeps {
 // main_test.go concedes this wiring is covered only by the milestone's PTY
 // smoke test (#122).
 type wiringGit interface {
-	sessions.RepoRooter
-	sessions.SessionBrancher
 	discover.Git
 	RemoveWorktree(repoRoot, dir string) error
+}
+
+// sessionsGit is the slice of git the session service's ports need. Its
+// methods take a context (ADR 0001, migration step 5.4, #653), so it is
+// vcs.CLI's Contextual, a second value beside wiringGit rather than a
+// widening of it: one type cannot hold RepoRoot both with and without one.
+type sessionsGit interface {
+	sessions.RepoRooter
+	sessions.SessionBrancher
 }
 
 // withStoreDeps adds the dependencies that close over the registry store: the
@@ -186,9 +193,9 @@ type wiringGit interface {
 // adoption arrived. The seam is where it is because these all share the store,
 // and the fields above share nothing but the window.
 func withStoreDeps(
-	deps ui.RunDeps, store sessions.StateStore, home string, git wiringGit,
+	deps ui.RunDeps, store sessions.StateStore, home string, git wiringGit, sgit sessionsGit,
 ) ui.RunDeps {
-	return withPickerDeps(withLifecycleDeps(deps, store, git), store, home, git)
+	return withPickerDeps(withLifecycleDeps(deps, store, git), store, home, git, sgit)
 }
 
 // withLifecycleDeps adds rename, rebind, archive, worktree removal, project
@@ -196,7 +203,7 @@ func withStoreDeps(
 func withLifecycleDeps(deps ui.RunDeps, store sessions.StateStore, git wiringGit) ui.RunDeps {
 	deps.Rename = sessionRenamer(store)
 	deps.Rebind = sessionRebinder(store)
-	deps.RenameBranch = branchRenamer(store, vcs.NewCLI())
+	deps.RenameBranch = branchRenamer(store, vcs.NewCLI().Contextual())
 	deps.Archive = sessionArchiver(store)
 	deps.RemoveWorktree = git.RemoveWorktree
 	deps.RemoveProject = projectRemover(store)
@@ -208,32 +215,32 @@ func withLifecycleDeps(deps ui.RunDeps, store sessions.StateStore, git wiringGit
 // gateTallier adapts sessions.TallyGateRun to ui.TallyFunc (#332).
 func gateTallier(store sessions.StateStore) ui.TallyFunc {
 	return func(project string, passed bool) error {
-		return sessions.TallyGateRun(store, project, passed)
+		return sessions.TallyGateRun(context.Background(), store, project, passed)
 	}
 }
 
 // projectRemover adapts sessions.RemoveProject to ui.RemoveProjectFunc (#159).
 func projectRemover(store sessions.StateStore) ui.RemoveProjectFunc {
 	return func(name string) (sessions.Project, error) {
-		return sessions.RemoveProject(store, name)
+		return sessions.RemoveProject(context.Background(), store, name)
 	}
 }
 
 // projectFolder adapts sessions.SetCollapsed to ui.FoldFunc (#505).
 func projectFolder(store sessions.StateStore) ui.FoldFunc {
 	return func(project string, collapsed bool) error {
-		return sessions.SetCollapsed(store, project, collapsed)
+		return sessions.SetCollapsed(context.Background(), store, project, collapsed)
 	}
 }
 
 // withPickerDeps adds the project picker (#91) and the adoption picker (#122).
 func withPickerDeps(
-	deps ui.RunDeps, store sessions.StateStore, home string, git wiringGit,
+	deps ui.RunDeps, store sessions.StateStore, home string, git wiringGit, sgit sessionsGit,
 ) ui.RunDeps {
 	deps.Discover = projectProposer(store, home, git)
-	deps.AddProject = projectRegistrar(store, git)
+	deps.AddProject = projectRegistrar(store, sgit)
 	deps.AdoptPropose = sessionProposer(store, home, git)
-	deps.AdoptCommit = sessionAdopter(store, git)
+	deps.AdoptCommit = sessionAdopter(store, sgit)
 	return deps
 }
 
@@ -267,7 +274,7 @@ func projectProposer(store sessions.StateStore, home string, git discover.Git) u
 // they differ for a session that ran in a linked worktree (#122).
 func sessionProposer(store sessions.StateStore, home string, git discover.Git) ui.AdoptFunc {
 	return func(projectRoot string) ([]ui.SessionProposal, error) {
-		ids, err := sessions.KnownSessionIDs(store)
+		ids, err := sessions.KnownSessionIDs(context.Background(), store)
 		if err != nil {
 			return nil, err
 		}
@@ -294,14 +301,14 @@ func sessionAdopter(store sessions.StateStore, git sessions.SessionBrancher) ui.
 		for _, p := range picks {
 			out = append(out, sessions.SessionPick{ID: p.ID, Title: p.Title, Dir: p.Dir})
 		}
-		return sessions.AdoptAll(store, git, project, out)
+		return sessions.AdoptAll(context.Background(), store, git, project, out)
 	}
 }
 
 // projectRegistrar adapts sessions.RegisterAll to ui.AddProjectFunc.
 func projectRegistrar(store sessions.StateStore, git sessions.RepoRooter) ui.AddProjectFunc {
 	return func(roots []string) []sessions.Registration {
-		return sessions.RegisterAll(store, git, roots)
+		return sessions.RegisterAll(context.Background(), store, git, roots)
 	}
 }
 
@@ -309,7 +316,7 @@ func projectRegistrar(store sessions.StateStore, git sessions.RepoRooter) ui.Add
 // can retitle a session without holding the store (#41).
 func sessionRenamer(store sessions.StateStore) ui.RenameFunc {
 	return func(sessionID, title string) error {
-		return sessions.RenameSession(store, sessionID, title)
+		return sessions.RenameSession(context.Background(), store, sessionID, title)
 	}
 }
 
@@ -318,16 +325,16 @@ func sessionRenamer(store sessions.StateStore) ui.RenameFunc {
 // (#316).
 func sessionRebinder(store sessions.StateStore) ui.RebindFunc {
 	return func(sessionID, conversation string) error {
-		return sessions.RebindSession(store, sessionID, conversation)
+		return sessions.RebindSession(context.Background(), store, sessionID, conversation)
 	}
 }
 
 // branchRenamer adapts sessions.RenameSessionBranch to ui.BranchRenameFunc, so
 // the model can name a worktree's branch without holding the store or git
 // (#151) - the shape sessionRenamer already has.
-func branchRenamer(store sessions.StateStore, git vcs.Git) ui.BranchRenameFunc {
+func branchRenamer(store sessions.StateStore, git sessions.BranchRenamer) ui.BranchRenameFunc {
 	return func(sess sessions.Session, branch string, unstartedOnly bool) (bool, error) {
-		return sessions.RenameSessionBranch(store, git, sess, branch, unstartedOnly)
+		return sessions.RenameSessionBranch(context.Background(), store, git, sess, branch, unstartedOnly)
 	}
 }
 
@@ -342,7 +349,7 @@ func branchRenamer(store sessions.StateStore, git vcs.Git) ui.BranchRenameFunc {
 // prevent (#40).
 func sessionArchiver(store sessions.StateStore) ui.ArchiveFunc {
 	return func(sessionID string) (sessions.Session, error) {
-		return sessions.RemoveSession(store, sessionID)
+		return sessions.RemoveSession(context.Background(), store, sessionID)
 	}
 }
 
@@ -393,15 +400,15 @@ func creatorOpts(cfg config.Config) sessions.CreatorOpts {
 // The session is registered but not started: starting it needs a terminal
 // factory inside the running program, which M2 wires up along with status.
 func sessionCreator(cfg config.Config, store sessions.StateStore) ui.CreateFunc {
-	c := sessions.NewCreator(vcs.NewCLI(), creatorOpts(cfg), uuid.NewString)
+	c := sessions.NewCreator(vcs.NewCLI().Contextual(), creatorOpts(cfg), uuid.NewString)
 	return func(project, title, branch string, worktree bool) (sessions.Session, error) {
 		if project == "" {
 			return sessions.Session{}, fmt.Errorf("no project selected; run `omatty add <dir>` first")
 		}
 		if worktree {
-			return sessions.AddWorktreeSession(store, c, project, title, branch)
+			return sessions.AddWorktreeSession(context.Background(), store, c, project, title, branch)
 		}
-		return sessions.AddSession(store, c, project, title, branch)
+		return sessions.AddSession(context.Background(), store, c, project, title, branch)
 	}
 }
 

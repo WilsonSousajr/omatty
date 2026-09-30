@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -29,7 +30,9 @@ type FakeGit struct {
 	Branch    string
 }
 
-func (f *FakeGit) RepoRoot(dir string) (string, error) { return lookup(f.Roots, dir) }
+func (f *FakeGit) RepoRoot(_ context.Context, dir string) (string, error) {
+	return lookup(f.Roots, dir)
+}
 
 func (f *FakeGit) MainCheckout(dir string) (string, error) {
 	if root, ok := f.Worktrees[dir]; ok {
@@ -38,7 +41,7 @@ func (f *FakeGit) MainCheckout(dir string) (string, error) {
 	return lookup(f.Roots, dir)
 }
 
-func (f *FakeGit) CurrentBranch(string) (string, error) { return f.Branch, nil }
+func (f *FakeGit) CurrentBranch(context.Context, string) (string, error) { return f.Branch, nil }
 
 func (f *FakeGit) RemoveWorktree(string, string) error { return nil }
 

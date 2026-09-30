@@ -1,12 +1,14 @@
 package sessions
 
+import "context"
+
 // SetCollapsed records whether a project is folded in the sidebar (#505). It
 // is the whole of what `ctrl+o tab` persists: the fold is a view preference,
 // but one the operator expects to survive a restart.
 //
-//	err := sessions.SetCollapsed(store, "omatty", true)
-func SetCollapsed(s StateStore, project string, collapsed bool) error {
-	st, err := s.Load()
+//	err := sessions.SetCollapsed(ctx, store, "omatty", true)
+func SetCollapsed(ctx context.Context, s StateStore, project string, collapsed bool) error {
+	st, err := s.Load(ctx)
 	if err != nil {
 		return err
 	}
@@ -18,5 +20,5 @@ func SetCollapsed(s StateStore, project string, collapsed bool) error {
 			st.Projects[i].Collapsed = collapsed
 		}
 	}
-	return s.Save(st)
+	return s.Save(ctx, st)
 }

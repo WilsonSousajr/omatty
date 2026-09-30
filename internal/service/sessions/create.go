@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"context"
 	"time"
 
 	"fmt"
@@ -34,7 +35,7 @@ type CreatorOpts struct {
 // Creator turns a request for a session into a registered Session, creating
 // a git worktree when the caller asked for one.
 //
-//	c := sessions.NewCreator(vcs.NewCLI(), sessions.CreatorOpts{WorktreeRoot: root, WorktreeDir: paths.WorktreeDir}, uuid.NewString)
+//	c := sessions.NewCreator(vcs.NewCLI().Contextual(), sessions.CreatorOpts{WorktreeRoot: root, WorktreeDir: paths.WorktreeDir}, uuid.NewString)
 //	sess, err := c.Create(&state, "omatty", "parser fix", "parser-fix")
 type Creator struct {
 	git   Worktrees
@@ -50,22 +51,22 @@ func NewCreator(git Worktrees, opts CreatorOpts, newID func() string) *Creator {
 // Create registers a session on st and returns it. An empty branch runs the
 // session in the project's main checkout; otherwise omatty creates a worktree
 // at CreatorOpts.WorktreeDir. On any failure st is left untouched.
-func (c *Creator) Create(st *State, project, title, branch string) (Session, error) {
-	return c.create(st, project, title, branch, branch != "")
+func (c *Creator) Create(ctx context.Context, st *State, project, title, branch string) (Session, error) {
+	return c.create(ctx, st, project, title, branch, branch != "")
 }
 
 // CreateWorktree registers a session on a fresh worktree whether or not a
 // branch was named. An empty branch takes the placeholder, which the session's
 // first prompt renames (#151) - so ctrl+o N no longer has one string it must
 // have before it can start anything.
-func (c *Creator) CreateWorktree(st *State, project, title, branch string) (Session, error) {
-	return c.create(st, project, title, branch, true)
+func (c *Creator) CreateWorktree(ctx context.Context, st *State, project, title, branch string) (Session, error) {
+	return c.create(ctx, st, project, title, branch, true)
 }
 
 // create is the one registration path both entry points take. worktree is a
 // parameter rather than "branch != \"\"" because since #151 those are different
 // questions: a worktree session may arrive with no branch named at all.
-func (c *Creator) create(st *State, project, title, branch string, worktree bool) (Session, error) {
+func (c *Creator) create(ctx context.Context, st *State, project, title, branch string, worktree bool) (Session, error) {
 	p, err := findProject(st, project)
 	if err != nil {
 		return Session{}, err
@@ -75,7 +76,7 @@ func (c *Creator) create(st *State, project, title, branch string, worktree bool
 		Started: c.now()}
 	if worktree {
 		sess.Branch = branchOr(branch, id)
-		if err := c.addWorktree(&sess, p); err != nil {
+		if err := c.addWorktree(ctx, &sess, p); err != nil {
 			return Session{}, err
 		}
 	}
@@ -85,8 +86,8 @@ func (c *Creator) create(st *State, project, title, branch string, worktree bool
 
 // addWorktree creates sess's worktree, forked from the configured base or
 // the branch the main checkout is on, and records that branch as Base (#21).
-func (c *Creator) addWorktree(sess *Session, p Project) error {
-	base, err := c.base(p.Root)
+func (c *Creator) addWorktree(ctx context.Context, sess *Session, p Project) error {
+	base, err := c.base(ctx, p.Root)
 	if err != nil {
 		return fmt.Errorf("registry: reading the base branch of %q: %w", p.Root, err)
 	}
@@ -94,12 +95,12 @@ func (c *Creator) addWorktree(sess *Session, p Project) error {
 		return fmt.Errorf("registry: project %q wants a worktree but no worktree path is wired", p.Name)
 	}
 	dir := c.opts.WorktreeDir(c.opts.WorktreeRoot, p.Name, sess.Branch)
-	if err := c.git.AddWorktree(p.Root, dir, sess.Branch, base); err != nil {
+	if err := c.git.AddWorktree(ctx, p.Root, dir, sess.Branch, base); err != nil {
 		return fmt.Errorf("registry: creating worktree %q on branch %q from %q: %w",
 			dir, sess.Branch, base, err)
 	}
 	sess.Dir, sess.Base, sess.Worktree = dir, recordedBase(base), true
-	return c.carry(p, dir)
+	return c.carry(ctx, p, dir)
 }
 
 // carry copies the project's gitignored files into the worktree just created,
@@ -111,12 +112,12 @@ func (c *Creator) addWorktree(sess *Session, p Project) error {
 // create's contract is that a failure leaves st untouched. The removal's own
 // error is logged rather than returned: the carry failure is the one worth
 // reporting, and hiding it behind a cleanup error would bury the cause.
-func (c *Creator) carry(p Project, dir string) error {
+func (c *Creator) carry(ctx context.Context, p Project, dir string) error {
 	if len(p.Carry) == 0 {
 		return nil
 	}
 	if err := c.copyCarried(dir, p); err != nil {
-		if rmErr := c.git.RemoveWorktree(p.Root, dir); rmErr != nil {
+		if rmErr := c.git.RemoveWorktree(ctx, p.Root, dir); rmErr != nil {
 			slog.Error("removing a worktree whose carry failed",
 				"project", p.Name, "worktree", dir, "err", rmErr)
 		}
@@ -164,11 +165,11 @@ func titleOr(title, id string) string {
 // base is the branch a new worktree forks from: the configured one, or the
 // branch the project's main checkout is on (#21, #44). A configured base is
 // not asked of git, which is one fork fewer per session.
-func (c *Creator) base(root string) (string, error) {
+func (c *Creator) base(ctx context.Context, root string) (string, error) {
 	if c.opts.BaseBranch != "" {
 		return c.opts.BaseBranch, nil
 	}
-	return c.git.CurrentBranch(root)
+	return c.git.CurrentBranch(ctx, root)
 }
 
 // recordedBase drops git's literal "HEAD" for a detached checkout: stored, it
