@@ -7,6 +7,7 @@ package vcs
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -15,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Git is the surface omatty uses. Fake it in tests; do not fake exec.Cmd.
@@ -69,7 +71,56 @@ type Git interface {
 // CLI runs the real git binary.
 //
 //	branch, err := vcs.NewCLI().CurrentBranch("/p/omatty")
-type CLI struct{ bin string }
+type CLI struct {
+	bin string
+	// limit, when set, replaces every per-command deadline. Only tests set it,
+	// so a git that hangs can be cut off in milliseconds rather than 30 s.
+	limit time.Duration
+}
+
+// Every git call has a deadline (#650). Several run on the TUI's event loop -
+// git worktree add on ctrl+o N, rev-parse per root on discovery - so a git
+// that hangs on a network filesystem, a lock or a credential prompt froze
+// omatty outright. These are the ceilings: generous for any healthy git, and
+// finite. ADR 0001's migration moves them to the service ports (5.4, 5.8).
+const (
+	gitDeadline         = 30 * time.Second
+	worktreeAddDeadline = 60 * time.Second // checks a whole tree out
+)
+
+// waitDelay bounds how long a killed git's output is still waited for. A git
+// that hung may have children - a credential helper, an ssh - still holding
+// its stdout, and without this the wait for them would outlast the deadline.
+const waitDelay = 2 * time.Second
+
+// commandFor is git in dir under its deadline. The caller defers cancel.
+func (c *CLI) commandFor(dir string, args []string) (*exec.Cmd, context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.deadlineFor(args))
+	cmd := exec.CommandContext(ctx, c.bin, args...)
+	cmd.Dir = dir
+	cmd.WaitDelay = waitDelay
+	return cmd, ctx, cancel
+}
+
+// failure is a failed invocation as a CommandError, saying so when the
+// deadline is what ended it: "signal: killed" alone would read as a crash.
+func (c *CLI) failure(ctx context.Context, dir string, args []string, stderr *bytes.Buffer, err error) error {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		err = fmt.Errorf("git did not finish within %v: %w", c.deadlineFor(args), ctx.Err())
+	}
+	return &CommandError{Args: args, Dir: dir, Stderr: strings.TrimSpace(stderr.String()), Err: err}
+}
+
+// deadlineFor is how long one invocation may take.
+func (c *CLI) deadlineFor(args []string) time.Duration {
+	if c.limit > 0 {
+		return c.limit
+	}
+	if len(args) >= 2 && args[0] == "worktree" && args[1] == "add" {
+		return worktreeAddDeadline
+	}
+	return gitDeadline
+}
 
 // NewCLI returns a CLI that invokes "git" from PATH.
 func NewCLI() *CLI { return &CLI{bin: "git"} }
@@ -88,8 +139,8 @@ func (c *CLI) captureEnv(dir string, okExit int, env []string, args ...string) (
 	if err := checkDir(dir); err != nil {
 		return "", err
 	}
-	cmd := exec.Command(c.bin, args...)
-	cmd.Dir = dir
+	cmd, ctx, cancel := c.commandFor(dir, args)
+	defer cancel()
 	if env != nil {
 		cmd.Env = append(os.Environ(), env...)
 	}
@@ -97,7 +148,7 @@ func (c *CLI) captureEnv(dir string, okExit int, env []string, args ...string) (
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil && !exitedWith(err, okExit) {
-		return "", &CommandError{Args: args, Dir: dir, Stderr: strings.TrimSpace(stderr.String()), Err: err}
+		return "", c.failure(ctx, dir, args, &stderr, err)
 	}
 	return string(out), nil
 }
