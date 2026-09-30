@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"github.com/WilsonSousajr/omatty/internal/watcher"
@@ -13,10 +14,10 @@ import (
 
 var fixedNow = time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
 
-func modelWithEvents(t *testing.T) (*ui.Model, chan watcher.Event, map[string]*termwrap.Fake) {
+func modelWithEvents(t *testing.T) (*ui.Model, chan pubsub.Event[watcher.Event], map[string]*termwrap.Fake) {
 	t.Helper()
 	terms, fakes := fakeTerms(t)
-	events := make(chan watcher.Event, 8)
+	events := make(chan pubsub.Event[watcher.Event], 8)
 	d := baseDeps(twoProjectState(), terms)
 	d.Events = events
 	d.Clock = func() time.Time { return fixedNow }
@@ -124,5 +125,19 @@ func TestNewModel_DefaultsTheOptionalDeps_issue76(t *testing.T) {
 	runCmd(cmd) // the silent notifier must not panic
 	if got := rowOf(t, m, "main"); !strings.Contains(got, "●") {
 		t.Errorf("status was not applied with default deps: %q", got)
+	}
+}
+
+// Step 5.2a (#653): status reaches the model through a pubsub subscription,
+// and the payload - not the envelope - is what the model folds in.
+func TestModel_aStatusEventFromTheSubscriptionArrivesAsItsPayload_issue653(t *testing.T) {
+	m, events, _ := modelWithEvents(t)
+	ev := watcher.Event{SessionID: "s1", Kind: watcher.TurnEnded, At: fixedNow}
+	events <- pubsub.Event[watcher.Event]{Kind: pubsub.Updated, Payload: ev}
+
+	msg := m.WaitForEvent()()
+
+	if got, ok := msg.(ui.StatusMsg); !ok || watcher.Event(got) != ev {
+		t.Errorf("WaitForEvent() = %#v, want StatusMsg of %+v", msg, ev)
 	}
 }

@@ -30,7 +30,7 @@ func (m *Model) waitForEvent() tea.Cmd {
 	if m.events == nil {
 		return nil
 	}
-	return func() tea.Msg { return StatusMsg(<-m.events) }
+	return func() tea.Msg { return StatusMsg((<-m.events).Payload) }
 }
 
 // onStatus folds a watcher event into the session's state and re-arms the

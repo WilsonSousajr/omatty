@@ -12,6 +12,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
+	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
@@ -63,13 +64,15 @@ type TurnFuncs struct {
 // silent notifier, no tailer for runtime sessions.
 //
 //	m := ui.NewModel(ui.Deps{State: st, Terms: terms, Create: create, Start: start,
-//	        Events: w.Events(), Clock: time.Now, Notifier: notify.New(), TailStart: w.Add})
+//	        Events: w.Subscribe(ctx), Clock: time.Now, Notifier: notify.New(), TailStart: w.Add})
 type Deps struct {
 	State  registry.State
 	Terms  map[string]termwrap.Terminal
 	Create CreateFunc
 	Start  StartFunc
-	Events <-chan watcher.Event
+	// Events is a subscription to the watcher's broker (ADR 0001, step 5.2a,
+	// #653): status reaches the model as one subscriber among any.
+	Events <-chan pubsub.Event[watcher.Event]
 	// GateReports and GateRun wire internal/gate's Runner in. Both optional:
 	// without them the gate pane still opens and explains itself, which is
 	// what a model built by a test sees.

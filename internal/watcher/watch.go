@@ -1,12 +1,14 @@
 package watcher
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
+	"github.com/WilsonSousajr/omatty/internal/pubsub"
 )
 
 // eventBuffer sizes the channel between the watcher and the UI. A short burst
@@ -25,10 +27,19 @@ const pollEvery = time.Second
 //	w := watcher.Start(watcher.WatchDeps{Home: home, Clock: time.Now,
 //	        Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}, st.Sessions)
 //	defer w.Close()
-//	model := ui.NewModel(ui.Deps{Events: w.Events(), TailStart: w.Add, /* ... */})
+//	model := ui.NewModel(ui.Deps{Events: w.Subscribe(ctx), TailStart: w.Add, /* ... */})
 type Watch struct {
-	deps     WatchDeps
-	events   chan Event
+	deps   WatchDeps
+	events chan Event
+	// broker fans events out to every subscriber (ADR 0001, step 5.2a, #653).
+	// The pump that feeds it starts on the first Subscribe: tailers report a
+	// session's current status the moment Start adds them, and published to
+	// nobody those would be lost. Until someone subscribes they wait in events,
+	// as they waited for the TUI to start reading before.
+	broker   *pubsub.Broker[Event]
+	pumpOnce sync.Once
+	stopPump context.CancelFunc
+	pumpCtx  context.Context
 	listener *Listener // nil when the socket could not bind (issue #49)
 	mu       sync.Mutex
 	// tailers is keyed by session id so archiving one session can stop its
@@ -46,10 +57,14 @@ type Watch struct {
 // The adapter and the transcript path come from the agent's profile, so
 // this package never names claude's own layout (#46).
 func Start(d WatchDeps, sessions []session.Session) *Watch {
+	pumpCtx, stopPump := context.WithCancel(context.Background())
 	w := &Watch{
-		deps:    d,
-		events:  make(chan Event, eventBuffer),
-		tailers: map[string]*Tailer{},
+		deps:     d,
+		events:   make(chan Event, eventBuffer),
+		broker:   pubsub.NewBroker[Event](eventBuffer),
+		pumpCtx:  pumpCtx,
+		stopPump: stopPump,
+		tailers:  map[string]*Tailer{},
 	}
 	l, err := Listen(paths.HookSocket(d.Home), w.events, d.Clock, d.Adapter)
 	if err != nil {
@@ -67,8 +82,29 @@ func Start(d WatchDeps, sessions []session.Session) *Watch {
 // (#311) - will ever happen (#49).
 func (w *Watch) HooksLive() bool { return w.listener != nil }
 
-// Events is the stream the model reads status from.
-func (w *Watch) Events() <-chan Event { return w.events }
+// Subscribe returns every status event from now on, until ctx ends. The first
+// call starts the pump, so nothing reported before anyone listened is lost.
+//
+//	events := w.Subscribe(ctx)
+func (w *Watch) Subscribe(ctx context.Context) <-chan pubsub.Event[Event] {
+	ch := w.broker.Subscribe(ctx)
+	w.pumpOnce.Do(func() { go w.pump() })
+	return ch
+}
+
+// pump republishes what the tailers and the listener report. Publish waits
+// for room rather than drop: a lost status is a wrong card (invariant 2). The
+// listener's drop-not-wait is untouched, because it offers into events.
+func (w *Watch) pump() {
+	for {
+		select {
+		case ev := <-w.events:
+			_ = w.broker.Publish(w.pumpCtx, pubsub.Event[Event]{Kind: pubsub.Updated, Payload: ev})
+		case <-w.pumpCtx.Done():
+			return
+		}
+	}
+}
 
 // Add starts tailing a session's transcript, for a session created at
 // runtime as well as the initial ones. Adding an id that is already tailed
@@ -107,6 +143,7 @@ func (w *Watch) Remove(sessionID string) {
 // Close stops the listener and every tailer. Idempotent per tailer; safe to
 // call once the program has exited.
 func (w *Watch) Close() {
+	defer w.stopPump()
 	if w.listener != nil {
 		_ = w.listener.Close()
 	}

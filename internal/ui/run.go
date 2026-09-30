@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/agent"
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
+	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
@@ -192,12 +194,16 @@ func Run(d RunDeps) error {
 	defer closeTerminals(terms)
 	watch := watcher.Start(watchDeps(d), d.State.Sessions)
 	defer watch.Close()
+	// The model's subscription lives as long as the program: cancelled on
+	// return, so the broker lets go of it (#653).
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	// One Runner for the whole app, bounded: four concurrent `go test -race`
 	// would make the machine unusable, and a laggy TUI is the one thing that
 	// would make the gate worse than running it by hand (#229).
 	gates := gate.NewRunner(d.GateParallel)
 	defer gates.Close()
-	return runProgram(modelFor(d, terms, held, watch, gates), len(terms))
+	return runProgram(modelFor(d, terms, held, watch.Subscribe(ctx), watch, gates), len(terms))
 }
 
 // modelFor assembles the root model's dependencies. Split out of Run because
@@ -205,7 +211,7 @@ func Run(d RunDeps) error {
 // terminals, the watcher and the gate Runner, each with its own defer.
 func modelFor(
 	d RunDeps, terms map[string]termwrap.Terminal, held map[string]bool,
-	watch *watcher.Watch, gates *gate.Runner,
+	events <-chan pubsub.Event[watcher.Event], watch *watcher.Watch, gates *gate.Runner,
 ) *Model {
 	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
@@ -214,7 +220,7 @@ func modelFor(
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,
 		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader, Reattached: held,
-		Events: watch.Events(), HooksDown: !watch.HooksLive(), Clock: time.Now, Notifier: notify.New(),
+		Events: events, HooksDown: !watch.HooksLive(), Clock: time.Now, Notifier: notify.New(),
 		TailStart: watch.Add, TailStop: watch.Remove,
 		GateReports: gates.Reports(), GateRun: gates.Start, GateAuto: d.GateAuto,
 		IdleStop: d.IdleStop, NerdIcons: d.NerdIcons,

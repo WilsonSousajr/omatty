@@ -73,7 +73,8 @@ func TestStart_TailsThePathTheProfileNames_issue46(t *testing.T) {
 	defer w.Close()
 
 	select {
-	case ev := <-w.Events():
+	case e := <-w.Subscribe(t.Context()):
+		ev := e.Payload
 		if ev.SessionID != "s1" || ev.Kind != watcher.TurnEnded {
 			t.Errorf("event %+v, want s1 TurnEnded from the profile's path", ev)
 		}
