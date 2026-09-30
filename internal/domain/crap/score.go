@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
-	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // Scores reads every function in pkgs and joins it to a coverage profile,
@@ -23,14 +22,14 @@ import (
 // than skipped. "Absent from the profile" and "nothing ran" are the same fact
 // here, and the second is the one worth printing: a scorer that quietly drops
 // what it cannot find reports a clean tree.
-func Scores(modulePath string, pkgs []golist.Package, blocks []coverage.Block) ([]Score, error) {
+func Scores(modulePath string, pkgs []Package, blocks []coverage.Block, files Files) ([]Score, error) {
 	byFile := blocksByFile(blocks)
 	var scores []Score
 	for _, pkg := range pkgs {
 		for _, file := range pkg.GoFiles {
 			relative := path.Join(relativeDir(pkg.ImportPath, modulePath), file)
 			blocks, profiled := byFile[relative]
-			found, err := fileScores(pkg, file, relative, blocks, profiled)
+			found, err := fileScores(pkg, file, relative, blocks, profiled, files)
 			if err != nil {
 				return nil, err
 			}
@@ -47,8 +46,8 @@ func Scores(modulePath string, pkgs []golist.Package, blocks []coverage.Block) (
 // not, the statement count comes from the source instead, so that a function
 // nothing tested scores zero coverage rather than passing as one with nothing
 // in it to test.
-func fileScores(pkg golist.Package, file, relative string, blocks []coverage.Block, profiled bool) ([]Score, error) {
-	extents, err := extentsIn(filepath.Join(pkg.Dir, file))
+func fileScores(pkg Package, file, relative string, blocks []coverage.Block, profiled bool, files Files) ([]Score, error) {
+	extents, err := readExtents(filepath.Join(pkg.Dir, file), files)
 	if err != nil {
 		return nil, err
 	}
@@ -113,4 +112,13 @@ func sortScores(scores []Score) {
 		}
 		return a.Line < b.Line
 	})
+}
+
+// readExtents reads path through files and returns its functions' extents.
+func readExtents(path string, files Files) ([]extent, error) {
+	src, err := files.Read(path)
+	if err != nil {
+		return nil, wrap("reading "+path, err)
+	}
+	return extentsIn(path, src)
 }

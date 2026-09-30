@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/crap"
-	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 // A test added after the profile changes coverage without touching one line of
@@ -24,9 +23,9 @@ func TestNewerSource_findsATestFileEditedAfterTheProfile_issue385(t *testing.T) 
 	cutoff := time.Now().Add(-time.Hour)
 	backdate(t, filepath.Join(dir, "a.go"), cutoff.Add(-time.Hour))
 
-	name, found, err := crap.NewerSource([]golist.Package{{
+	name, found, err := crap.NewerSource([]crap.Package{{
 		ImportPath: "m/a", Dir: dir, GoFiles: []string{"a.go"}, TestGoFiles: []string{"a_test.go"},
-	}}, cutoff)
+	}}, cutoff, osFiles)
 
 	if err != nil {
 		t.Fatal(err)
@@ -49,9 +48,9 @@ func TestNewerSource_findsAnExternalTestFileEditedAfterTheProfile_issue385(t *te
 	cutoff := time.Now().Add(-time.Hour)
 	backdate(t, filepath.Join(dir, "a.go"), cutoff.Add(-time.Hour))
 
-	name, found, err := crap.NewerSource([]golist.Package{{
+	name, found, err := crap.NewerSource([]crap.Package{{
 		ImportPath: "m/a", Dir: dir, GoFiles: []string{"a.go"}, XTestGoFiles: []string{"x_test.go"},
-	}}, cutoff)
+	}}, cutoff, osFiles)
 
 	if err != nil {
 		t.Fatal(err)

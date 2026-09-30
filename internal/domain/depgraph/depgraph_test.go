@@ -6,15 +6,14 @@ import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/depgraph"
-	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 const module = "m"
 
 // A three-package chain: ui depends on registry depends on paths. Instability
 // falls along it, which is what the Stable Dependencies Principle asks for.
-func chain() []golist.Package {
-	return []golist.Package{
+func chain() []depgraph.Package {
+	return []depgraph.Package{
 		{ImportPath: "m/internal/ui", Imports: []string{"m/internal/registry", "fmt"}},
 		{ImportPath: "m/internal/registry", Imports: []string{"m/internal/paths"}},
 		{ImportPath: "m/internal/paths", Imports: []string{"os"}},
@@ -59,7 +58,7 @@ func TestInstability_isEfferentOverTotalCoupling(t *testing.T) {
 
 // A package with no coupling at all is stable, not a division by zero.
 func TestInstability_anIsolatedPackageIsStable(t *testing.T) {
-	g := depgraph.Build(module, []golist.Package{{ImportPath: "m/internal/alone"}})
+	g := depgraph.Build(module, []depgraph.Package{{ImportPath: "m/internal/alone"}})
 
 	if got := g.Nodes["m/internal/alone"].Instability(); got != 0 {
 		t.Errorf("instability = %v, want 0 for a package with no coupling", got)
@@ -85,7 +84,7 @@ func TestViolations_aDescendingChainIsClean(t *testing.T) {
 // therefore runs uphill. It cannot be built as a cycle - a cycle equalises the
 // instability of everything in it, and the Go compiler refuses one anyway.
 func TestViolations_catchesAStablePackageDependingOnAnUnstableOne(t *testing.T) {
-	pkgs := []golist.Package{
+	pkgs := []depgraph.Package{
 		{ImportPath: "m/internal/x", Imports: []string{"m/internal/core"}},
 		{ImportPath: "m/internal/y", Imports: []string{"m/internal/core"}},
 		{ImportPath: "m/internal/z", Imports: []string{"m/internal/core"}},
@@ -109,7 +108,7 @@ func TestViolations_catchesAStablePackageDependingOnAnUnstableOne(t *testing.T) 
 // A violation's report must carry both endpoints' coupling, so a reader can
 // tell a broken architecture from an unrelated import that shifted a ratio.
 func TestReport_namesBothEndpointsCouplingOnAViolation(t *testing.T) {
-	pkgs := []golist.Package{
+	pkgs := []depgraph.Package{
 		{ImportPath: "m/internal/x", Imports: []string{"m/internal/core"}},
 		{ImportPath: "m/internal/y", Imports: []string{"m/internal/core"}},
 		{ImportPath: "m/internal/z", Imports: []string{"m/internal/core"}},
@@ -137,7 +136,7 @@ func TestReport_namesBothEndpointsCouplingOnAViolation(t *testing.T) {
 // invented as a node: scoring ./internal/... must not sprout a phantom entry
 // for cmd/omatty just because something mentions it.
 func TestBuild_ignoresImportsOfPackagesNotListed(t *testing.T) {
-	g := depgraph.Build(module, []golist.Package{
+	g := depgraph.Build(module, []depgraph.Package{
 		{ImportPath: "m/internal/a", Imports: []string{"m/cmd/omatty"}},
 	})
 
@@ -178,7 +177,7 @@ func TestMargin_reportsTheTightestEdge(t *testing.T) {
 // The compiler refuses a cycle in production imports, so a check there could
 // never fire. The test graph is where a Go repository can actually have one.
 func TestTestCycles_findsACycleThroughAnExternalTestPackage(t *testing.T) {
-	pkgs := []golist.Package{
+	pkgs := []depgraph.Package{
 		{ImportPath: "m/internal/a", XTestImports: []string{"m/internal/b"}},
 		{ImportPath: "m/internal/b", Imports: []string{"m/internal/a"}},
 	}
@@ -195,7 +194,7 @@ func TestTestCycles_findsACycleThroughAnExternalTestPackage(t *testing.T) {
 
 // And it must not invent one where the tests merely depend downward.
 func TestTestCycles_isQuietWhenTestsDependDownward(t *testing.T) {
-	pkgs := []golist.Package{
+	pkgs := []depgraph.Package{
 		{ImportPath: "m/internal/a", TestImports: []string{"m/internal/b"}},
 		{ImportPath: "m/internal/b"},
 	}
@@ -225,7 +224,7 @@ func TestReport_printsTheTableAndTheMargin(t *testing.T) {
 // naively it makes every tested package in the repository look like a one-node
 // cycle - which is what the first run of this check reported, 23 times.
 func TestTestCycles_aPackagesOwnExternalTestIsNotACycle(t *testing.T) {
-	pkgs := []golist.Package{
+	pkgs := []depgraph.Package{
 		{ImportPath: "m/internal/a", XTestImports: []string{"m/internal/a"}},
 	}
 

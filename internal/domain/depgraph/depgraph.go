@@ -26,8 +26,6 @@
 // speculative interfaces AGENTS.md bans (#263).
 package depgraph
 
-import "github.com/WilsonSousajr/omatty/internal/infra/golist"
-
 // Node is one package's coupling.
 type Node struct {
 	// ImportPath names the package.
@@ -68,7 +66,7 @@ type Graph struct {
 // Only imports carrying the module's own prefix are counted. Counting fmt and
 // os as efferent coupling would make every leaf look unstable and the metric
 // would say nothing about this repository's design.
-func Build(modulePath string, pkgs []golist.Package) Graph {
+func Build(modulePath string, pkgs []Package) Graph {
 	g := Graph{Nodes: map[string]Node{}}
 	for _, pkg := range pkgs {
 		g.Nodes[pkg.ImportPath] = Node{ImportPath: pkg.ImportPath}
