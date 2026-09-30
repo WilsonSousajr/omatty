@@ -8,8 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 func headerOf(m *ui.Model) string { return stripSGR(frameLines(m)[0]) }
@@ -40,9 +40,9 @@ func TestCollapse_DropsTheRightSideInTheSpecsOrder_issue177(t *testing.T) {
 func TestHeader_ReadsProjectTitleBranchStatusAndUsage_issue177(t *testing.T) {
 	m, _, _ := modelWithEvents(t)
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PermissionRequested, At: fixedNow.Add(-4 * time.Minute)})
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.UsageUpdated, At: fixedNow,
-		Tokens: watcher.Tokens{In: 2000, CacheRead: 8000, Out: 500}})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PermissionRequested, At: fixedNow.Add(-4 * time.Minute)})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.UsageUpdated, At: fixedNow,
+		Tokens: status.Tokens{In: 2000, CacheRead: 8000, Out: 500}})
 
 	head := headerOf(m)
 
@@ -61,8 +61,8 @@ func TestHeader_ReadsProjectTitleBranchStatusAndUsage_issue177(t *testing.T) {
 func TestHeader_CollapsesAtSixtyColumnsAndTheExitKeyStays_issue177(t *testing.T) {
 	m, _, _ := modelWithEvents(t)
 	m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PermissionRequested, At: fixedNow})
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.UsageUpdated, At: fixedNow, Tokens: watcher.Tokens{In: 2000, Out: 500}})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PermissionRequested, At: fixedNow})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.UsageUpdated, At: fixedNow, Tokens: status.Tokens{In: 2000, Out: 500}})
 	head := headerOf(m)
 	if strings.Contains(head, "cached") || strings.Contains(head, " in /") || !strings.Contains(head, "waiting") {
 		t.Errorf("header at 60 = %q, want the usage collapsed and the status kept", head)

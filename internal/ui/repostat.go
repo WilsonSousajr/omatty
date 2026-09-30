@@ -10,7 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/review"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // RepoStatMsg carries one poll's answer into Update. Exported so tests can
@@ -75,8 +75,8 @@ func (m *Model) pollStat(id string) tea.Cmd {
 
 // refreshStat polls a session the moment its turn ends or it stops for a
 // question: the two moments its numbers change (the rule refreshReview uses).
-func (m *Model) refreshStat(id string, before, after watcher.Status) tea.Cmd {
-	if before == after || (after != watcher.StatusDone && after != watcher.StatusWaiting) {
+func (m *Model) refreshStat(id string, before, after status.Status) tea.Cmd {
+	if before == after || (after != status.StatusDone && after != status.StatusWaiting) {
 		return nil
 	}
 	return m.pollStat(id)

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"charm.land/lipgloss/v2"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -20,14 +20,14 @@ func stripSGR(s string) string { return sgr.ReplaceAllString(s, "") }
 // fresh input that also primed the cache, so it counts against the share.
 func TestRenderMeter_Table_issue153(t *testing.T) {
 	for _, tt := range []struct {
-		tokens watcher.Tokens
+		tokens status.Tokens
 		want   string // filled cells, then empty
 	}{
-		{watcher.Tokens{In: 100}, "▱▱▱▱▱▱▱▱"},
-		{watcher.Tokens{CacheRead: 100}, "▰▰▰▰▰▰▰▰"},
-		{watcher.Tokens{In: 20, CacheRead: 80}, "▰▰▰▰▰▰▱▱"},
-		{watcher.Tokens{In: 10, CacheWrite: 10, CacheRead: 80}, "▰▰▰▰▰▰▱▱"},
-		{watcher.Tokens{In: 50, CacheRead: 50}, "▰▰▰▰▱▱▱▱"},
+		{status.Tokens{In: 100}, "▱▱▱▱▱▱▱▱"},
+		{status.Tokens{CacheRead: 100}, "▰▰▰▰▰▰▰▰"},
+		{status.Tokens{In: 20, CacheRead: 80}, "▰▰▰▰▰▰▱▱"},
+		{status.Tokens{In: 10, CacheWrite: 10, CacheRead: 80}, "▰▰▰▰▰▰▱▱"},
+		{status.Tokens{In: 50, CacheRead: 50}, "▰▰▰▰▱▱▱▱"},
 	} {
 		got := ui.RenderMeter(tt.tokens)
 		if plain := stripSGR(got); plain != tt.want {
@@ -42,7 +42,7 @@ func TestRenderMeter_Table_issue153(t *testing.T) {
 // No input at all draws no meter: a session that has said nothing is not 0%
 // cached, it is nothing yet.
 func TestRenderMeter_NoInputDrawsNothing_issue153(t *testing.T) {
-	if got := ui.RenderMeter(watcher.Tokens{Out: 5}); got != "" {
+	if got := ui.RenderMeter(status.Tokens{Out: 5}); got != "" {
 		t.Errorf("RenderMeter with no input = %q, want \"\"", got)
 	}
 }
@@ -59,8 +59,8 @@ func TestMeterGlyphs_AreOneCellWide_issue153(t *testing.T) {
 func TestModel_TheRuleCarriesTheCacheMeter_issue153(t *testing.T) {
 	m, _, _ := modelWithEvents(t)
 
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.UsageUpdated, At: fixedNow,
-		Tokens: watcher.Tokens{In: 2000, CacheRead: 8000, Out: 500}})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.UsageUpdated, At: fixedNow,
+		Tokens: status.Tokens{In: 2000, CacheRead: 8000, Out: 500}})
 
 	lines := strings.Split(m.View().Content, "\n")
 	rule := stripSGR(lines[0])
@@ -89,12 +89,12 @@ func TestModel_TheRuleCarriesTheCacheMeter_issue153(t *testing.T) {
 func TestTokensPart_InIsEverythingFed_issue170(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
-		tokens watcher.Tokens
+		tokens status.Tokens
 		want   string
 	}{
-		{"cache hides the input", watcher.Tokens{In: 154, CacheRead: 60_000, CacheWrite: 2_400, Out: 62_600}, "62.6k in / 62.6k out"},
-		{"a cold turn is all fresh", watcher.Tokens{In: 2_000, Out: 500}, "2.0k in / 500 out"},
-		{"a write counts as fed", watcher.Tokens{CacheWrite: 1_500, Out: 20}, "1.5k in / 20 out"},
+		{"cache hides the input", status.Tokens{In: 154, CacheRead: 60_000, CacheWrite: 2_400, Out: 62_600}, "62.6k in / 62.6k out"},
+		{"a cold turn is all fresh", status.Tokens{In: 2_000, Out: 500}, "2.0k in / 500 out"},
+		{"a write counts as fed", status.Tokens{CacheWrite: 1_500, Out: 20}, "1.5k in / 20 out"},
 	} {
 		got := stripSGR(ui.TokensPart(tt.tokens))
 		if !strings.Contains(got, tt.want) {

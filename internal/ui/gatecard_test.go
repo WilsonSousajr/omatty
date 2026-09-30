@@ -9,8 +9,8 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 func results(names []string, verdicts ...gate.Verdict) []gate.StepResult {
@@ -28,7 +28,7 @@ func results(names []string, verdicts ...gate.Verdict) []gate.StepResult {
 // under it.
 func TestCard_isThreeLinesOfTheSidebarWidth_issue230(t *testing.T) {
 	m, _ := modelWithFakes(t)
-	status(m, "s1", watcher.TurnEnded, time.Now().Add(-4*time.Minute))
+	sendStatus(m, "s1", status.TurnEnded, time.Now().Add(-4*time.Minute))
 
 	card := m.CardOf("s1")
 
@@ -131,7 +131,7 @@ func TestCard_ready_needsAGreenGateChangesAndARestingSession_issue230(t *testing
 		m, _ := modelWithFakes(t)
 		green(m)
 		m.SetRepoStat("s1", review.Stat{Branch: "main", Added: 12, Removed: 3})
-		status(m, "s1", watcher.TurnEnded, time.Now())
+		sendStatus(m, "s1", status.TurnEnded, time.Now())
 		if third := stripSGR(m.CardOf("s1")[2]); !strings.Contains(third, "READY") {
 			t.Errorf("line three = %q, want READY", third)
 		}
@@ -141,7 +141,7 @@ func TestCard_ready_needsAGreenGateChangesAndARestingSession_issue230(t *testing
 		m, _ := modelWithFakes(t)
 		green(m)
 		m.SetRepoStat("s1", review.Stat{Branch: "main"})
-		status(m, "s1", watcher.TurnEnded, time.Now())
+		sendStatus(m, "s1", status.TurnEnded, time.Now())
 		if third := stripSGR(m.CardOf("s1")[2]); strings.Contains(third, "READY") {
 			t.Errorf("line three = %q, want no READY without a diff", third)
 		}
@@ -151,7 +151,7 @@ func TestCard_ready_needsAGreenGateChangesAndARestingSession_issue230(t *testing
 		m, _ := modelWithFakes(t)
 		green(m)
 		m.SetRepoStat("s1", review.Stat{Branch: "main", Added: 12})
-		status(m, "s1", watcher.ToolStarted, time.Now())
+		sendStatus(m, "s1", status.ToolStarted, time.Now())
 		if third := stripSGR(m.CardOf("s1")[2]); strings.Contains(third, "READY") {
 			t.Errorf("line three = %q, want no READY while the session is working", third)
 		}

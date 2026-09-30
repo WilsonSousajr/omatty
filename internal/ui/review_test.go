@@ -8,9 +8,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // sampleDiff mirrors review's fixture: one modified file, one new file.
@@ -230,9 +230,9 @@ func TestModel_OpenReviewReloadsWhenItsSessionStops_issue21(t *testing.T) {
 	leader(m, key('d'))
 
 	for _, ev := range []ui.StatusMsg{
-		{SessionID: "s1", Kind: watcher.TurnEnded, At: fixedNow},
-		{SessionID: "s2", Kind: watcher.TurnEnded, At: fixedNow},
-		{SessionID: "s1", Kind: watcher.UsageUpdated, At: fixedNow},
+		{SessionID: "s1", Kind: status.TurnEnded, At: fixedNow},
+		{SessionID: "s2", Kind: status.TurnEnded, At: fixedNow},
+		{SessionID: "s1", Kind: status.UsageUpdated, At: fixedNow},
 	} {
 		_, cmd := m.Update(ev)
 		deliver(m, cmd)
@@ -312,8 +312,8 @@ func TestModel_ATurnEndingWhileClosedReloadsOnReopen_issue124(t *testing.T) {
 	leader(m, key('d'))
 
 	for _, ev := range []ui.StatusMsg{
-		{SessionID: "s1", Kind: watcher.PromptSubmitted, At: fixedNow},
-		{SessionID: "s1", Kind: watcher.TurnEnded, At: fixedNow},
+		{SessionID: "s1", Kind: status.PromptSubmitted, At: fixedNow},
+		{SessionID: "s1", Kind: status.TurnEnded, At: fixedNow},
 	} {
 		_, cmd := m.Update(ev)
 		deliver(m, cmd)

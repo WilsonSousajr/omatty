@@ -8,8 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 func placeholderState() registry.State {
@@ -32,7 +32,7 @@ func modelWithNamer(t *testing.T, st registry.State) (*ui.Model, *FakeNamer, *Fa
 
 // statusDeliver sends one status event and feeds every message its commands
 // produce back into the model, so a name read off the event loop lands.
-func statusDeliver(m *ui.Model, id string, k watcher.Kind, at time.Time) {
+func statusDeliver(m *ui.Model, id string, k status.Kind, at time.Time) {
 	_, cmd := m.Update(ui.StatusMsg{SessionID: id, Kind: k, At: at})
 	deliver(m, cmd)
 }
@@ -40,7 +40,7 @@ func statusDeliver(m *ui.Model, id string, k watcher.Kind, at time.Time) {
 func TestModel_APlaceholderSessionTakesItsFirstPrompt_issue127(t *testing.T) {
 	m, namer, ren := modelWithNamer(t, placeholderState())
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if len(namer.Asked) != 1 || ren.Titles["s1"] != "fix the wheel" {
 		t.Fatalf("asked %v, persisted %v; want s1 named fix the wheel", namer.Asked, ren.Titles)
@@ -56,7 +56,7 @@ func TestModel_APlaceholderSessionTakesItsFirstPrompt_issue127(t *testing.T) {
 func TestModel_AnUntitledSessionIsNamedAfterARelaunch_issue127(t *testing.T) {
 	m, _, ren := modelWithNamer(t, placeholderState())
 
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now().Add(-time.Hour))
+	statusDeliver(m, "s1", status.TurnEnded, time.Now().Add(-time.Hour))
 
 	if ren.Titles["s1"] != "fix the wheel" {
 		t.Errorf("persisted %v, want s1 named from a replayed TurnEnded", ren.Titles)
@@ -66,7 +66,7 @@ func TestModel_AnUntitledSessionIsNamedAfterARelaunch_issue127(t *testing.T) {
 func TestModel_ATypedTitleIsNeverOverwritten_issue127(t *testing.T) {
 	m, namer, _ := modelWithNamer(t, twoProjectState()) // s1 is "main"
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if len(namer.Asked) != 0 {
 		t.Errorf("a titled session was asked for a name: %v", namer.Asked)
@@ -75,7 +75,7 @@ func TestModel_ATypedTitleIsNeverOverwritten_issue127(t *testing.T) {
 
 func TestModel_ARenameDuringTheReadWins_issue127(t *testing.T) {
 	m, _, ren := modelWithNamer(t, placeholderState())
-	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PromptSubmitted, At: time.Now()})
+	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PromptSubmitted, At: time.Now()})
 	// The read is in flight; the operator renames first.
 	leader(m, shift('r', "R"))
 	for range len(registry.PlaceholderTitle("s1")) {
@@ -97,7 +97,7 @@ func TestModel_OnlyOneNameReadIsInFlightPerSession_issue127(t *testing.T) {
 	m, namer, _ := modelWithNamer(t, placeholderState())
 	var cmds []tea.Cmd
 	for range 3 {
-		_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PromptSubmitted, At: time.Now()})
+		_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PromptSubmitted, At: time.Now()})
 		cmds = append(cmds, cmd)
 	}
 	for _, cmd := range cmds {
@@ -111,13 +111,13 @@ func TestModel_OnlyOneNameReadIsInFlightPerSession_issue127(t *testing.T) {
 func TestModel_AnEmptyTitleLeavesThePlaceholderAndRetriesLater_issue127(t *testing.T) {
 	m, namer, ren := modelWithNamer(t, placeholderState())
 	namer.Titles["s1"] = ""
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 	if ren.Calls != 0 {
 		t.Fatalf("an empty title was persisted: %v", ren.Titles)
 	}
 
 	namer.Titles["s1"] = "fix the wheel"
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if len(namer.Asked) != 2 || ren.Titles["s1"] != "fix the wheel" {
 		t.Errorf("asked %v persisted %v; want a retry that names s1", namer.Asked, ren.Titles)
@@ -129,7 +129,7 @@ func TestModel_NamingNeverBlocksUpdate_issue127(t *testing.T) {
 	namer.Block = make(chan struct{})
 	done := make(chan struct{})
 	go func() {
-		m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PromptSubmitted, At: time.Now()})
+		m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PromptSubmitted, At: time.Now()})
 		close(done)
 	}()
 	select {
@@ -146,7 +146,7 @@ func TestModel_AFailedNameLeavesTheRowAlone_issue127(t *testing.T) {
 	m, namer, ren := modelWithNamer(t, placeholderState())
 	namer.Err = errors.New("disk")
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if ren.Calls != 0 || strings.Contains(m.View().Content, "error:") {
 		t.Errorf("a failed read persisted %d titles or put an error in the footer", ren.Calls)
@@ -160,7 +160,7 @@ func TestModel_AToolResultDoesNotInventATitle_issue127(t *testing.T) {
 	m, namer, ren := modelWithNamer(t, placeholderState())
 	namer.Titles["s1"] = ""
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if ren.Calls != 0 || len(namer.Asked) != 1 {
 		t.Errorf("persisted %d titles after %d reads; want none and one", ren.Calls, len(namer.Asked))
@@ -183,7 +183,7 @@ func TestModel_TheModelNameReplacesThePromptDerivedOne_issue127(t *testing.T) {
 	mn := &FakeModelNamer{Names: map[string]string{"fix the wheel": "fix-wheel-pan"}}
 	m, ren := modelWithModelNamer(t, mn)
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if ren.Titles["s1"] != "fix-wheel-pan" || len(mn.Asked) != 1 {
 		t.Errorf("persisted %q asked %v; want fix-wheel-pan after one call", ren.Titles["s1"], mn.Asked)
@@ -195,7 +195,7 @@ func TestModel_TheModelNameReplacesThePromptDerivedOne_issue127(t *testing.T) {
 func TestModel_NoModelNamerMeansNoSecondCall_issue127(t *testing.T) {
 	m, _, ren := modelWithNamer(t, placeholderState())
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if ren.Titles["s1"] != "fix the wheel" || ren.Calls != 1 {
 		t.Errorf("with naming off: title %q after %d renames; want the prompt title once", ren.Titles["s1"], ren.Calls)
@@ -228,7 +228,7 @@ func TestModel_AFailedOrEmptyModelNameKeepsTheStepOneTitle_issue127(t *testing.T
 		"empty":  {Names: map[string]string{}},
 	} {
 		m, ren := modelWithModelNamer(t, mn)
-		statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+		statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 		if ren.Titles["s1"] != "fix the wheel" || strings.Contains(m.View().Content, "error:") {
 			t.Errorf("%s: title %q; want the step-1 title and no footer error", name, ren.Titles["s1"])
 		}
@@ -241,7 +241,7 @@ func TestModel_TheModelNameDoesNotAskForAThirdName_issue127(t *testing.T) {
 	mn := &FakeModelNamer{Names: map[string]string{"fix the wheel": "a", "a": "b"}}
 	m, ren := modelWithModelNamer(t, mn)
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if len(mn.Asked) != 1 || ren.Titles["s1"] != "a" {
 		t.Errorf("model asked %v, title %q; want exactly one call and a", mn.Asked, ren.Titles["s1"])

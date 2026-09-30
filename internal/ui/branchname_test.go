@@ -8,8 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // recordBranchRename is a named BranchRenameFunc fake: it records the rename
@@ -81,7 +81,7 @@ func TestModel_theFirstPromptRenamesThePlaceholderBranch_issue151(t *testing.T) 
 	r := &recordBranchRename{}
 	m := placeholderWorktree(t, r, "Fix the horizontal wheel pan!")
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if r.Calls != 1 {
 		t.Fatalf("the branch rename ran %d times, want 1", r.Calls)
@@ -97,7 +97,7 @@ func TestModel_aNamedBranchIsNeverRenamed_issue151(t *testing.T) {
 	r := &recordBranchRename{}
 	m := modelForBranchRename(t, r, "Fix the wheel", "parser-fix", true)
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if r.Calls != 0 {
 		t.Errorf("the branch rename ran %d times against a named branch, want 0", r.Calls)
@@ -109,7 +109,7 @@ func TestModel_aMainCheckoutSessionHasNoBranchToRename_issue151(t *testing.T) {
 	r := &recordBranchRename{}
 	m := modelForBranchRename(t, r, "Fix the wheel pan", "", false)
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if r.Calls != 0 {
 		t.Errorf("the branch rename ran %d times for a main-checkout session, want 0", r.Calls)
@@ -123,7 +123,7 @@ func TestModel_aFailedBranchRenameKeepsThePlaceholderAndSaysSo_issue151(t *testi
 	r := &recordBranchRename{Err: errors.New("boom")}
 	m := placeholderWorktree(t, r, "Fix the wheel pan")
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if got := m.View().Content; !strings.Contains(got, "boom") {
 		t.Errorf("nothing in the footer says the branch rename failed:\n%s", got)
@@ -139,7 +139,7 @@ func TestModel_aBranchWithCommitsKeepsItsPlaceholder_issue151(t *testing.T) {
 	r := &recordBranchRename{Declined: true}
 	m := placeholderWorktree(t, r, "Fix the wheel pan")
 
-	statusDeliver(m, "s1", watcher.PromptSubmitted, time.Now())
+	statusDeliver(m, "s1", status.PromptSubmitted, time.Now())
 
 	if m.SessionBranch("s1") != registry.PlaceholderBranch("s1") {
 		t.Errorf("branch = %q, want the placeholder kept when declined", m.SessionBranch("s1"))

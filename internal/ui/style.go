@@ -7,7 +7,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/review"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // Palette. ANSI 256 indices so it degrades sanely on 16-colour terminals.
@@ -42,14 +42,14 @@ var (
 // are text: working is the default, and the spinner already says busy
 // (#410). Amber goes to waiting alone, so an amber glyph in the sidebar
 // still answers "which of these needs me" (#175).
-var statusColors = map[watcher.Status]color.Color{
-	watcher.StatusIdle: colorMuted, watcher.StatusThinking: colorText, watcher.StatusTool: colorText,
-	watcher.StatusWaiting: colorAmber, watcher.StatusDone: colorGreen, watcher.StatusError: colorRed,
-	watcher.StatusExited: colorMuted,
+var statusColors = map[status.Status]color.Color{
+	status.StatusIdle: colorMuted, status.StatusThinking: colorText, status.StatusTool: colorText,
+	status.StatusWaiting: colorAmber, status.StatusDone: colorGreen, status.StatusError: colorRed,
+	status.StatusExited: colorMuted,
 }
 
 // glyphStyle colours a status glyph.
-func glyphStyle(s watcher.Status) lipgloss.Style {
+func glyphStyle(s status.Status) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(glyphColor(s))
 }
 
@@ -60,8 +60,8 @@ func glyphStyle(s watcher.Status) lipgloss.Style {
 // every card of every frame, and a frame is drawn on every message. Built on
 // first use rather than in an initialiser, the pattern internal/infra/highlight
 // uses for its style.
-var statusCells = sync.OnceValue(func() map[watcher.Status]string {
-	cells := make(map[watcher.Status]string, len(statusGlyphs))
+var statusCells = sync.OnceValue(func() map[status.Status]string {
+	cells := make(map[status.Status]string, len(statusGlyphs))
 	for st := range statusGlyphs {
 		cells[st] = glyphStyle(st).Render(statusGlyph(st))
 	}
@@ -70,7 +70,7 @@ var statusCells = sync.OnceValue(func() map[watcher.Status]string {
 
 // statusCell is a status's coloured glyph. A status with no glyph of its own
 // falls through to the same rendering statusGlyph's "-" default would give.
-func statusCell(s watcher.Status) string {
+func statusCell(s status.Status) string {
 	if c, ok := statusCells()[s]; ok {
 		return c
 	}
@@ -94,13 +94,13 @@ var (
 // the pause sign #128 warned about are gone. ○ ◐ ◆ ● are East Asian
 // Ambiguous like the rail: RUNEWIDTH_EASTASIAN=1 doubles
 // all of them or none. A status not listed renders "-".
-var statusGlyphs = map[watcher.Status]string{
-	watcher.StatusIdle: "○", watcher.StatusThinking: "◐", watcher.StatusTool: "◆",
-	watcher.StatusWaiting: "●", watcher.StatusDone: "✓", watcher.StatusError: "✕",
-	watcher.StatusExited: "∅",
+var statusGlyphs = map[status.Status]string{
+	status.StatusIdle: "○", status.StatusThinking: "◐", status.StatusTool: "◆",
+	status.StatusWaiting: "●", status.StatusDone: "✓", status.StatusError: "✕",
+	status.StatusExited: "∅",
 }
 
-func statusGlyph(s watcher.Status) string {
+func statusGlyph(s status.Status) string {
 	if g, ok := statusGlyphs[s]; ok {
 		return g
 	}

@@ -8,8 +8,8 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // mutablePane is a Fake whose rendered grid a test can change between
@@ -69,7 +69,7 @@ func TestFrame_MemoMatchesAFreshFrameAfterEveryMessage(t *testing.T) {
 	}{
 		{"tick", TickMsg(time.Unix(1, 0))},
 		{"stat tick", StatTickMsg(time.Unix(1, 0))},
-		{"status", StatusMsg(watcher.Event{SessionID: "s1", Kind: watcher.PermissionRequested, At: time.Unix(2, 0)})},
+		{"status", StatusMsg(status.Event{SessionID: "s1", Kind: status.PermissionRequested, At: time.Unix(2, 0)})},
 		{"repo stat", RepoStatMsg{SessionID: "s1", Stat: review.Stat{Branch: "topic", Added: 9, Removed: 4}}},
 		{"diff loaded", DiffLoadedMsg{SessionID: "s1"}},
 		{"files loaded", FilesLoadedMsg{SessionID: "s1", Paths: []string{"a.go"}}},
@@ -115,7 +115,7 @@ func TestFrame_EmulatorTrafficKeepsTheMemo(t *testing.T) {
 	before := m.frame()
 
 	m.Update(unknownMsg{})
-	m.status["s1"] = watcher.SessionState{Status: watcher.StatusWaiting}
+	m.status["s1"] = status.SessionState{Status: status.StatusWaiting}
 
 	if got := m.frame(); got != before {
 		t.Error("emulator traffic dropped the memo; the frame was rebuilt although nothing on it had changed")

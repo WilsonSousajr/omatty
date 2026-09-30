@@ -1,30 +1,30 @@
-package watcher_test
+package status_test
 
 import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 func TestKindOf_MapsEveryHookEvent(t *testing.T) {
 	tests := []struct {
 		event, notif string
-		want         watcher.Kind
+		want         status.Kind
 	}{
-		{"SessionStart", "", watcher.SessionStarted},
-		{"UserPromptSubmit", "", watcher.PromptSubmitted},
-		{"PreToolUse", "", watcher.ToolStarted},
-		{"PostToolUse", "", watcher.ToolFinished},
-		{"PermissionRequest", "", watcher.PermissionRequested},
-		{"Notification", "idle_prompt", watcher.Idle},
-		{"Notification", "permission_prompt", watcher.PermissionRequested},
-		{"Stop", "", watcher.TurnEnded},
-		{"SessionEnd", "", watcher.SessionEnded},
+		{"SessionStart", "", status.SessionStarted},
+		{"UserPromptSubmit", "", status.PromptSubmitted},
+		{"PreToolUse", "", status.ToolStarted},
+		{"PostToolUse", "", status.ToolFinished},
+		{"PermissionRequest", "", status.PermissionRequested},
+		{"Notification", "idle_prompt", status.Idle},
+		{"Notification", "permission_prompt", status.PermissionRequested},
+		{"Stop", "", status.TurnEnded},
+		{"SessionEnd", "", status.SessionEnded},
 	}
 	for _, tt := range tests {
 		p := hooks.Payload{HookEventName: tt.event, NotificationType: tt.notif}
-		got, ok := watcher.KindOf(p)
+		got, ok := status.KindOf(p)
 		if !ok || got != tt.want {
 			t.Errorf("KindOf(%s/%s) = (%v, %v), want (%v, true)", tt.event, tt.notif, got, ok, tt.want)
 		}
@@ -32,7 +32,7 @@ func TestKindOf_MapsEveryHookEvent(t *testing.T) {
 }
 
 func TestKindOf_UnknownEventIsDropped(t *testing.T) {
-	if _, ok := watcher.KindOf(hooks.Payload{HookEventName: "PreCompact"}); ok {
+	if _, ok := status.KindOf(hooks.Payload{HookEventName: "PreCompact"}); ok {
 		t.Error("KindOf mapped an event omatty does not track")
 	}
 }
@@ -43,7 +43,7 @@ func TestKindOf_UnknownEventIsDropped(t *testing.T) {
 func TestKindOf_ClearedSessionStartIsRebound_issue316(t *testing.T) {
 	for _, source := range []string{"clear", "compact"} {
 		p := hooks.Payload{HookEventName: "SessionStart", Source: source}
-		if got, ok := watcher.KindOf(p); !ok || got != watcher.SessionRebound {
+		if got, ok := status.KindOf(p); !ok || got != status.SessionRebound {
 			t.Errorf("KindOf(SessionStart/%s) = (%v, %v), want (SessionRebound, true)", source, got, ok)
 		}
 	}
@@ -55,7 +55,7 @@ func TestKindOf_ClearedSessionStartIsRebound_issue316(t *testing.T) {
 func TestKindOf_ForkedSessionStartIsNotRebound_issue316(t *testing.T) {
 	for _, source := range []string{"resume", "startup", ""} {
 		p := hooks.Payload{HookEventName: "SessionStart", Source: source}
-		if got, ok := watcher.KindOf(p); !ok || got != watcher.SessionStarted {
+		if got, ok := status.KindOf(p); !ok || got != status.SessionStarted {
 			t.Errorf("KindOf(SessionStart/%q) = (%v, %v), want (SessionStarted, true)", source, got, ok)
 		}
 	}

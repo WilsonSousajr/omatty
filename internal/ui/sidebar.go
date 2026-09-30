@@ -3,7 +3,7 @@ package ui
 
 import (
 	"github.com/WilsonSousajr/omatty/internal/registry"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // Row is one line in the sidebar: a project header, or a session under it.
@@ -16,7 +16,7 @@ import (
 type Row struct {
 	Project string
 	Session *registry.Session
-	Status  watcher.Status
+	Status  status.Status
 	Folded  []*registry.Session
 }
 
@@ -24,11 +24,11 @@ type Row struct {
 // its own sessions, projects in registration order. Sessions with no
 // reported status render as idle.
 //
-//	rows := ui.SidebarRows(state, map[string]watcher.Status{"s2": watcher.StatusThinking})
-func SidebarRows(st registry.State, status map[string]watcher.Status) []Row {
+//	rows := ui.SidebarRows(state, map[string]status.Status{"s2": status.StatusThinking})
+func SidebarRows(st registry.State, statuses map[string]status.Status) []Row {
 	rows := make([]Row, 0, len(st.Projects)+len(st.Sessions))
 	for _, p := range st.Projects {
-		sessions := sessionRows(st, p.Name, status)
+		sessions := sessionRows(st, p.Name, statuses)
 		if p.Collapsed && len(sessions) > 0 {
 			rows = append(rows, foldedHeader(p.Name, sessions))
 			continue
@@ -41,16 +41,16 @@ func SidebarRows(st registry.State, status map[string]watcher.Status) []Row {
 
 // sessionRows indexes st.Sessions rather than ranging by value, so each Row
 // points at its own session instead of aliasing the loop variable.
-func sessionRows(st registry.State, project string, status map[string]watcher.Status) []Row {
+func sessionRows(st registry.State, project string, statuses map[string]status.Status) []Row {
 	var rows []Row
 	for i := range st.Sessions {
 		sess := &st.Sessions[i]
 		if sess.Project != project {
 			continue
 		}
-		s, ok := status[sess.ID]
+		s, ok := statuses[sess.ID]
 		if !ok {
-			s = watcher.StatusIdle
+			s = status.StatusIdle
 		}
 		rows = append(rows, Row{Project: project, Session: sess, Status: s})
 	}

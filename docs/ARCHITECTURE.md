@@ -35,7 +35,7 @@ keystroke -> keys.Router -> ui.Model -> termwrap.Terminal -> PTY -> claude
 ```
 
 **Status out.** Nothing reads the screen. Two structured sources feed
-`internal/watcher`: the transcript JSONL Claude Code writes under
+`internal/service/status`: the transcript JSONL Claude Code writes under
 `~/.claude/projects/<slug>/<uuid>.jsonl`, tailed once a second, and hook
 events - Claude runs `omatty hook` on each lifecycle event, which forwards the
 payload over a unix socket to the watcher's listener. Hooks are fast and are
@@ -124,8 +124,8 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/domain/gate` | The gate's vocabulary - `Step`, `Verdict`, `StepResult`, `Report` - the output caps and the prompt `Compose` writes. Pure; `internal/gate` aliases it until migration step 8.1. |
 | `internal/infra/highlight` | omatty's only route to the syntax highlighter (chroma), with omatty's own colour style (#197). |
 | `internal/infra/gitdiff` | The only package that imports go-gitdiff: parses git's unified output into `domain/review.Diff`, numbering every line on both sides. |
-| `internal/infra/transcript` | Reads an agent's JSONL transcript as it grows: the complete lines appended since the last poll, a truncation flag, the line cap. What the lines mean is `internal/watcher`'s. |
-| `internal/infra/hookserver` | omatty's end of the hook socket: user-only, bounded connections and payloads, a read deadline; each payload is offered on and dropped rather than waited on (invariant 11). What a payload means is `internal/watcher`'s. |
+| `internal/infra/transcript` | Reads an agent's JSONL transcript as it grows: the complete lines appended since the last poll, a truncation flag, the line cap. What the lines mean is `internal/service/status`'s. |
+| `internal/infra/hookserver` | omatty's end of the hook socket: user-only, bounded connections and payloads, a read deadline; each payload is offered on and dropped rather than waited on (invariant 11). What a payload means is `internal/service/status`'s. |
 | `internal/infra/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/infra/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
@@ -135,13 +135,13 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/registry` | Projects, sessions, `state.json`, and the commands that edit them (add, remove, rename, adopt, create, gate, carry). Creating a worktree also carries the project's gitignored paths into it, before the session is registered (#309). |
 | `internal/domain/review` | The review model: a diff as files, hunks and lines; comments anchored on content, not line numbers (invariant 7); where they land after the diff moves; the file tree; the prompt `Compose` writes. Pure; `internal/review` aliases it until migration step 8.1. |
 | `internal/domain/session` | `Project`, `Session`, `State` - what `state.json` holds, whose JSON tags are invariant 9 - and the placeholder title and branch a new session starts with. Pure; `internal/registry` aliases it until migration step 8.1. |
-| `internal/domain/status` | A session's status vocabulary - `Kind`, `Status`, `Event`, `Tokens`, `SessionState`, `HookPayload` - and `Apply`, which folds an event into a state. Pure; `internal/watcher` and `internal/infra/hooks` alias it until migration step 8.1. |
+| `internal/domain/status` | A session's status vocabulary - `Kind`, `Status`, `Event`, `Tokens`, `SessionState`, `HookPayload` - and `Apply`, which folds an event into a state. Pure; `internal/service/status` and `internal/infra/hooks` alias it until migration step 8.1. |
 | `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |
 | `internal/supervisor` | The `claude` process behind each session: fresh start vs resume, the PTY, the holder. |
 | `internal/termwrap` | omatty's only route to the terminal emulator (bubbleterm). |
 | `internal/ui` | The bubbletea model: sidebar, panes, modals, review column, rendering. |
 | `internal/infra/vcs` | omatty's only route to git, via the CLI. |
-| `internal/watcher` | Transcript tailer + hook listener → typed status events, through an `Adapter`. |
+| `internal/service/status` | Transcript tailer + hook listener → typed status events, through an `Adapter`. |
 | `testdata/` | `fake-claude`, `ptyrun`, `screen`, `dtachprobe`: the harness for the real-PTY smoke test the gate cannot replace. |
 
 ## The twelve invariants, and why
@@ -279,7 +279,7 @@ Paths are relative to `internal/`; the figures are `./scripts/check-deps.sh`'s.
 | `supervisor` | 1 | 6 | 0.86 |
 | `review` | 1 | 3 | 0.75 |
 | `agent` | 2 | 3 | 0.60 |
-| `infra/detach`, `watcher` | 1, 3 | 1, 3 | 0.50 |
+| `infra/detach`, `service/status` | 1, 3 | 1, 3 | 0.50 |
 | `registry` | 5 | 3 | 0.38 |
 | `infra/paths` | 6 | 0 | 0.00 |
 | `infra/forge`, `infra/hooks` | 3 | 0 | 0.00 |
@@ -287,9 +287,9 @@ Paths are relative to `internal/`; the figures are `./scripts/check-deps.sh`'s.
 | `infra/highlight`, `infra/notify`, `keys`, `domain/paste` | 1 | 0 | 0.00 |
 
 The chain reads as a clean monotonic descent —
-`cmd → ui → supervisor → agent → watcher → registry → {gate, paths, vcs}` — so
+`cmd → ui → supervisor → agent → service/status → registry → {gate, paths, vcs}` — so
 the Stable Dependencies Principle holds with **0 violations over 41 edges**, the
-tightest being `agent → watcher` at **+0.100**. (The 41st is M16's
+tightest being `agent → service/status` at **+0.100**. (The 41st is M16's
 `config → forge`, for `[forge.hosts]`: a leaf at I=1.00 onto one at 0.00.)
 
 `internal/domain/tally` (#332) is a leaf nothing depends on, importing

@@ -14,7 +14,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/registry"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // GateMsg carries one finished gate run into the model's Update loop.
@@ -161,7 +161,7 @@ func passedWholly(report gate.Report) bool {
 // Guarded on the transition, not the state: the tailer replays, and gating
 // again on a repeated TurnEnded would cancel a run in flight to start the
 // same one over.
-func (m *Model) autoGate(id string, before, after watcher.Status) {
+func (m *Model) autoGate(id string, before, after status.Status) {
 	if !m.gateAuto || before == after || !atRest(after) {
 		return
 	}

@@ -8,8 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // recordRebind is a named fake for Deps.Rebind and Deps.TailStart: what the
@@ -43,7 +43,7 @@ func modelWithRebind(t *testing.T, r *recordRebind) *ui.Model {
 // cleared is the SessionStart a /clear in s1's pane produces: claude's new
 // conversation id, and the pane's registry id from the hook's environment.
 func cleared(owner string) ui.StatusMsg {
-	return ui.StatusMsg{SessionID: "after-clear", Owner: owner, Kind: watcher.SessionRebound, At: fixedNow}
+	return ui.StatusMsg{SessionID: "after-clear", Owner: owner, Kind: status.SessionRebound, At: fixedNow}
 }
 
 // Regression, issue #316: a /clear left the row on the pre-clear uuid, so
@@ -70,7 +70,7 @@ func TestModel_StatusUnderTheNewConversationReachesTheRow_issue316(t *testing.T)
 	m := modelWithRebind(t, &recordRebind{})
 	m.Update(cleared("s1"))
 
-	m.Update(ui.StatusMsg{SessionID: "after-clear", Kind: watcher.PermissionRequested, At: fixedNow.Add(time.Second)})
+	m.Update(ui.StatusMsg{SessionID: "after-clear", Kind: status.PermissionRequested, At: fixedNow.Add(time.Second)})
 
 	if got := rowOf(t, m, "main"); !strings.Contains(got, "●") {
 		t.Errorf("a hook under the post-clear id did not reach s1's row: %q", got)
@@ -97,7 +97,7 @@ func TestModel_ForkedSessionStartDoesNotRebind_issue316(t *testing.T) {
 	r := &recordRebind{}
 	m := modelWithRebind(t, r)
 
-	m.Update(ui.StatusMsg{SessionID: "fork", Owner: "s1", Kind: watcher.SessionStarted, At: fixedNow})
+	m.Update(ui.StatusMsg{SessionID: "fork", Owner: "s1", Kind: status.SessionStarted, At: fixedNow})
 
 	if r.Calls != 0 || len(r.Tailed) != 0 {
 		t.Errorf("a forked session re-bound s1: %d rebinds, tails %+v", r.Calls, r.Tailed)

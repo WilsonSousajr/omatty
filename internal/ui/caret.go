@@ -6,8 +6,8 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // paneCursor is where bubbletea should put the terminal cursor: the emulated
@@ -40,7 +40,7 @@ func (m *Model) paneCursor() *tea.Cursor {
 // nothing panicked - so Guard.Panicked is false too. The registry's status is
 // the only thing that knows, and the sidebar already draws it (#106).
 func (m *Model) sessionExited() bool {
-	return m.status[m.Selected()].Status == watcher.StatusExited
+	return m.status[m.Selected()].Status == status.StatusExited
 }
 
 // applyShape copies the emulator's cursor style over, unless it is reporting

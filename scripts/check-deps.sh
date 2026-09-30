@@ -30,7 +30,7 @@
 #
 # Universe is ./internal/... alone. Adding cmd/omatty raises Ca on thirteen
 # packages, dropping their I and putting two edges at a zero margin, where the
-# next import anywhere near internal/watcher would fail the gate for a reason
+# next import anywhere near internal/service/status would fail the gate for a reason
 # nobody would recognise as architectural.
 set -euo pipefail
 go run ./tools/depcheck "$@"

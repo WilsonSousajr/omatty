@@ -1,4 +1,4 @@
-package watcher
+package status
 
 import (
 	"sync"
@@ -16,7 +16,7 @@ const ringSize = 32
 // implements it; reading bytes - offsets, split lines, the line cap - is its
 // business, and what the lines mean is this package's (step 5.2c, #653).
 //
-//	tl := watcher.Tail(sess.ID, transcript.NewReader(path), events, time.Now, time.Second, adapter)
+//	tl := status.Tail(sess.ID, transcript.NewReader(path), events, time.Now, time.Second, adapter)
 type Transcript interface {
 	Poll() (lines [][]byte, truncated, ok bool)
 }
@@ -46,7 +46,7 @@ type Tailer struct {
 // it. clock is injected so a test can prove the event carries the entry's own
 // timestamp, not now.
 //
-//	tl := watcher.Tail(sess.ID, transcript.NewReader(path), events, time.Now, time.Second, watcher.ClaudeAdapter())
+//	tl := status.Tail(sess.ID, transcript.NewReader(path), events, time.Now, time.Second, status.ClaudeAdapter())
 //	defer tl.Close()
 //
 // adapter is the agent's own parser: which lines matter and what they mean is

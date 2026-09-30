@@ -7,8 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // footerOf is the frame's last line.
@@ -22,7 +22,7 @@ func footerOf(m *ui.Model) string {
 func TestFooter_CarriesTheSessionCountAndTheWaitingCountOnTheRight_issue178(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
-	status(m, "s3", watcher.PermissionRequested, time.Now())
+	sendStatus(m, "s3", status.PermissionRequested, time.Now())
 
 	got := footerOf(m)
 

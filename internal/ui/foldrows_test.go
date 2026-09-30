@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // foldedState is twoProjectState with omatty folded: two sessions behind one
@@ -17,7 +17,7 @@ func foldedState() registry.State {
 }
 
 func TestSidebarRows_aFoldedProjectDrawsOnlyItsHeader_issue505(t *testing.T) {
-	rows := ui.SidebarRows(foldedState(), map[string]watcher.Status{"s2": watcher.StatusWaiting})
+	rows := ui.SidebarRows(foldedState(), map[string]status.Status{"s2": status.StatusWaiting})
 
 	if len(rows) != 3 {
 		t.Fatalf("got %d rows, want header omatty, header api-svc, s3: %+v", len(rows), rows)
@@ -29,7 +29,7 @@ func TestSidebarRows_aFoldedProjectDrawsOnlyItsHeader_issue505(t *testing.T) {
 	if len(h.Folded) != 2 || h.Folded[0].ID != "s1" || h.Folded[1].ID != "s2" {
 		t.Errorf("Folded = %+v, want s1 and s2 in order", h.Folded)
 	}
-	if h.Status != watcher.StatusWaiting {
+	if h.Status != status.StatusWaiting {
 		t.Errorf("folded header status = %q, want the loudest hidden one, waiting", h.Status)
 	}
 	if len(rows[1].Folded) != 0 {
@@ -41,23 +41,23 @@ func TestSidebarRows_aFoldedProjectDrawsOnlyItsHeader_issue505(t *testing.T) {
 // error outranks done outranks work outranks rest.
 func TestFoldStatus_picksTheLoudest_issue505(t *testing.T) {
 	cases := []struct {
-		in   []watcher.Status
-		want watcher.Status
+		in   []status.Status
+		want status.Status
 	}{
-		{[]watcher.Status{watcher.StatusIdle, watcher.StatusThinking}, watcher.StatusThinking},
-		{[]watcher.Status{watcher.StatusTool, watcher.StatusDone}, watcher.StatusDone},
-		{[]watcher.Status{watcher.StatusDone, watcher.StatusError}, watcher.StatusError},
-		{[]watcher.Status{watcher.StatusError, watcher.StatusWaiting, watcher.StatusIdle}, watcher.StatusWaiting},
-		{[]watcher.Status{watcher.StatusExited, watcher.StatusIdle}, watcher.StatusIdle},
+		{[]status.Status{status.StatusIdle, status.StatusThinking}, status.StatusThinking},
+		{[]status.Status{status.StatusTool, status.StatusDone}, status.StatusDone},
+		{[]status.Status{status.StatusDone, status.StatusError}, status.StatusError},
+		{[]status.Status{status.StatusError, status.StatusWaiting, status.StatusIdle}, status.StatusWaiting},
+		{[]status.Status{status.StatusExited, status.StatusIdle}, status.StatusIdle},
 	}
 	for _, c := range cases {
 		st := foldedState()
-		status := map[string]watcher.Status{"s1": c.in[0], "s2": c.in[1]}
+		statuses := map[string]status.Status{"s1": c.in[0], "s2": c.in[1]}
 		if len(c.in) > 2 {
 			st.Sessions = append(st.Sessions, registry.Session{ID: "s4", Project: "omatty"})
-			status["s4"] = c.in[2]
+			statuses["s4"] = c.in[2]
 		}
-		if got := ui.SidebarRows(st, status)[0].Status; got != c.want {
+		if got := ui.SidebarRows(st, statuses)[0].Status; got != c.want {
 			t.Errorf("loudest of %v = %q, want %q", c.in, got, c.want)
 		}
 	}

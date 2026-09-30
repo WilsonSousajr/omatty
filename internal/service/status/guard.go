@@ -1,4 +1,4 @@
-package watcher
+package status
 
 import "log/slog"
 

@@ -11,8 +11,8 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // shipper is a named ShipFuncs fake recording every outside effect it was asked
@@ -97,7 +97,7 @@ func modelReadyToShipOn(t *testing.T, sh *shipper, prs []forge.PR, label ui.Labe
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.SetRepoStat("s1", review.Stat{Branch: "feat/parser", Added: 12, Removed: 3, Head: "abc123"})
 	m.Update(ui.PRsLoadedMsg{Project: "omatty", PRs: prs})
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 	return m
 }
@@ -274,7 +274,7 @@ func TestModel_pRefusesAMainCheckoutSession_issue331(t *testing.T) {
 	m := ui.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.SetRepoStat("s1", review.Stat{Branch: "develop", Added: 3, Head: "abc123"})
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 
 	leaderDeliver(m, key('p'))
@@ -291,7 +291,7 @@ func TestModel_pWithNoForgeWiredSaysSo_issue331(t *testing.T) {
 	m := ui.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.SetRepoStat("s1", review.Stat{Branch: "feat/parser", Added: 12, Head: "abc123"})
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 
 	leaderDeliver(m, key('p'))
@@ -310,7 +310,7 @@ func leaderDeliver(m *ui.Model, k tea.KeyPressMsg) {
 	deliver(m, cmd)
 }
 
-// Regression, found by #331's own real-PTY run: watcher.Status is a string, so a
+// Regression, found by #331's own real-PTY run: status.Status is a string, so a
 // session nothing has reported on holds "" rather than StatusIdle, and
 // atRest("") is false. readyToShip therefore never said READY for a stopped
 // session with a green gate, and `p` refused it with "the gate is not green" -

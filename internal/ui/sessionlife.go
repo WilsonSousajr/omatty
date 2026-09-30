@@ -10,7 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // sessionRelaunchMsg carries a session whose held claude has been ended and
@@ -183,9 +183,9 @@ func (m *Model) onStoppedKey(msg tea.KeyPressMsg) tea.Cmd {
 }
 
 // stopNotice is what the footer says after a stop.
-func stopNotice(title string, status watcher.Status) string {
+func stopNotice(title string, was status.Status) string {
 	notice := "stopped " + title + "; enter resumes it"
-	if status == watcher.StatusThinking || status == watcher.StatusTool {
+	if was == status.StatusThinking || was == status.StatusTool {
 		notice += " (its turn in flight was lost)"
 	}
 	return notice

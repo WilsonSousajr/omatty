@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // The token meter (#153, the second slice of #128): how much of what a
@@ -31,14 +31,14 @@ const meterFull, meterEmpty = "▰", "▱"
 // couple hundred tokens, and the rule read "154 in / 62.6k out" on a session
 // that had sent 60k (#170). Output is not in it: this is the size of what went
 // up, and the meter beside it says how much of that was cheap.
-func inputTotal(t watcher.Tokens) int { return t.In + t.CacheRead + t.CacheWrite }
+func inputTotal(t status.Tokens) int { return t.In + t.CacheRead + t.CacheWrite }
 
 // cacheShare is CacheRead over everything the prompt was fed. A cache write is
 // fresh input that also primed the cache, so it counts against the share, and
 // output is not in it at all: the meter is about what a turn cost, not what it
 // produced. ok is false with no input yet, so a session that has said nothing
 // draws no meter rather than 0%.
-func cacheShare(t watcher.Tokens) (float64, bool) {
+func cacheShare(t status.Tokens) (float64, bool) {
 	fed := inputTotal(t)
 	if fed == 0 {
 		return 0, false
@@ -78,12 +78,12 @@ const styledCellBudget = 24
 // there is input to measure, then the in/out counts (#39, #153). The header
 // row takes the two halves separately so it can drop them one at a time
 // (#177); this joins them for a reader that wants the whole.
-func tokensPart(t watcher.Tokens) string {
+func tokensPart(t status.Tokens) string {
 	return dots(meterPart(t), countsPart(t))
 }
 
 // meterPart is the bar and its percentage, "" with no input to measure.
-func meterPart(t watcher.Tokens) string {
+func meterPart(t status.Tokens) string {
 	share, ok := cacheShare(t)
 	if !ok {
 		return ""
@@ -93,8 +93,8 @@ func meterPart(t watcher.Tokens) string {
 
 // countsPart is the in/out counts, "in" being everything fed (#170), and ""
 // for a session that has reported no tokens at all.
-func countsPart(t watcher.Tokens) string {
-	if t == (watcher.Tokens{}) {
+func countsPart(t status.Tokens) string {
+	if t == (status.Tokens{}) {
 		return ""
 	}
 	return mutedStyle.Render(KString(inputTotal(t)) + " in / " + KString(t.Out) + " out")

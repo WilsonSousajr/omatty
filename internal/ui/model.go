@@ -12,8 +12,8 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // DefaultLeader is the key omatty intercepts while the terminal has focus,
@@ -37,8 +37,8 @@ type Model struct {
 	create  CreateFunc
 	start   StartFunc
 	// status is the live per-session state from the watcher; events feeds it.
-	status    map[string]watcher.SessionState
-	events    <-chan pubsub.Event[watcher.Event]
+	status    map[string]status.SessionState
+	events    <-chan pubsub.Event[status.Event]
 	clock     func() time.Time
 	tailStart func(registry.Session)
 	notifier  notify.Notifier
@@ -287,7 +287,7 @@ func (m *Model) withGate(d Deps) *Model {
 // live status, notification times, and each session's queued review comments.
 // They are never nil, so no method needs a nil guard (issue #76).
 func (m *Model) withRuntimeMaps() *Model {
-	m.status = map[string]watcher.SessionState{}
+	m.status = map[string]status.SessionState{}
 	m.notified = map[string]time.Time{}
 	m.comments = map[string]*review.Comments{}
 	m.namePending = map[string]bool{}

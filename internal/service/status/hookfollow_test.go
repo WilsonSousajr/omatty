@@ -1,4 +1,4 @@
-package watcher_test
+package status_test
 
 import (
 	"io"
@@ -9,7 +9,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 type nopCloser struct{}
@@ -19,13 +19,13 @@ func (nopCloser) Close() error { return nil }
 // hookFed starts a Watch whose hook server is a channel the test holds, so a
 // payload can be handed over exactly as internal/infra/hookserver would hand
 // it (step 5.2d, #653), and returns the first event that comes out.
-func hookFed(t *testing.T, adapter watcher.Adapter, clock func() time.Time, p dstatus.HookPayload) watcher.Event {
+func hookFed(t *testing.T, adapter status.Adapter, clock func() time.Time, p dstatus.HookPayload) status.Event {
 	t.Helper()
 	var sink chan<- dstatus.HookPayload
-	w := watcher.Start(watcher.WatchDeps{
+	w := status.Start(status.WatchDeps{
 		Home: t.TempDir(), Clock: clock, Adapter: adapter,
 		TranscriptPath: func(_, _, _ string) string { return os.DevNull },
-		OpenTranscript: func(p string) watcher.Transcript { return transcript.NewReader(p) },
+		OpenTranscript: func(p string) status.Transcript { return transcript.NewReader(p) },
 		ListenHooks: func(_ string, s chan<- dstatus.HookPayload) (io.Closer, error) {
 			sink = s
 			return nopCloser{}, nil
@@ -39,7 +39,7 @@ func hookFed(t *testing.T, adapter watcher.Adapter, clock func() time.Time, p ds
 		return e.Payload
 	case <-time.After(3 * time.Second):
 		t.Fatal("no event came out of the hook follower")
-		return watcher.Event{}
+		return status.Event{}
 	}
 }
 
@@ -47,9 +47,9 @@ func hookFed(t *testing.T, adapter watcher.Adapter, clock func() time.Time, p ds
 // compares like-for-like with tailer timestamps (#18).
 func TestHooks_aPayloadBecomesAnEventStampedNow_issue18(t *testing.T) {
 	fixed := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
-	ev := hookFed(t, watcher.ClaudeAdapter(), func() time.Time { return fixed },
+	ev := hookFed(t, status.ClaudeAdapter(), func() time.Time { return fixed },
 		dstatus.HookPayload{SessionID: "abc", HookEventName: "PreToolUse", ToolName: "Bash"})
-	if ev.SessionID != "abc" || ev.Kind != watcher.ToolStarted || !ev.At.Equal(fixed) {
+	if ev.SessionID != "abc" || ev.Kind != status.ToolStarted || !ev.At.Equal(fixed) {
 		t.Errorf("event = %+v, want abc ToolStarted at %v", ev, fixed)
 	}
 }
@@ -57,9 +57,9 @@ func TestHooks_aPayloadBecomesAnEventStampedNow_issue18(t *testing.T) {
 // The owning registry id rides on the event, so the UI can find the pane a
 // new conversation belongs to without guessing from its directory (#316).
 func TestHooks_carryTheOwningSession_issue316(t *testing.T) {
-	ev := hookFed(t, watcher.ClaudeAdapter(), time.Now,
+	ev := hookFed(t, status.ClaudeAdapter(), time.Now,
 		dstatus.HookPayload{SessionID: "new", HookEventName: "SessionStart", Source: "clear", OmattySession: "row-1"})
-	if ev.SessionID != "new" || ev.Owner != "row-1" || ev.Kind != watcher.SessionRebound {
+	if ev.SessionID != "new" || ev.Owner != "row-1" || ev.Kind != status.SessionRebound {
 		t.Errorf("event = %+v, want conversation new, owner row-1, SessionRebound", ev)
 	}
 }
@@ -67,9 +67,9 @@ func TestHooks_carryTheOwningSession_issue316(t *testing.T) {
 // A hook's events say they came from a hook: only a hook prompt snaps a turn
 // baseline (#311).
 func TestHooks_markTheirEventsAsFromAHook_issue311(t *testing.T) {
-	ev := hookFed(t, watcher.ClaudeAdapter(), time.Now,
+	ev := hookFed(t, status.ClaudeAdapter(), time.Now,
 		dstatus.HookPayload{SessionID: "abc", HookEventName: "UserPromptSubmit"})
-	if !ev.Hook || ev.Kind != watcher.PromptSubmitted {
+	if !ev.Hook || ev.Kind != status.PromptSubmitted {
 		t.Errorf("event = %+v, want a PromptSubmitted marked Hook", ev)
 	}
 }
@@ -77,9 +77,9 @@ func TestHooks_markTheirEventsAsFromAHook_issue311(t *testing.T) {
 // Which hook names mean what is the agent's business: the adapter's KindOf
 // decides, not a table here (#46).
 func TestHooks_mapPayloadsThroughTheAdapter_issue46(t *testing.T) {
-	a := &fakeAdapter{Kind: watcher.TurnEnded, At: time.Now()}
+	a := &fakeAdapter{Kind: status.TurnEnded, At: time.Now()}
 	ev := hookFed(t, a, time.Now, dstatus.HookPayload{SessionID: "s1", HookEventName: "whatever-this-agent-says"})
-	if ev.SessionID != "s1" || ev.Kind != watcher.TurnEnded {
+	if ev.SessionID != "s1" || ev.Kind != status.TurnEnded {
 		t.Errorf("event = %+v, want s1 TurnEnded from the adapter", ev)
 	}
 }

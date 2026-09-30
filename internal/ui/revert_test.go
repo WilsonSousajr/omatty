@@ -9,8 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // turnReverter is a named RevertFunc fake: it counts files and records the
@@ -37,7 +37,7 @@ func modelWithRevert(t *testing.T, rev *turnReverter) *ui.Model {
 	m := ui.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	// A turn has to have started for there to be a baseline to go back to.
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 	return m
 }
 
@@ -102,7 +102,7 @@ func TestModel_enterDoesNotConfirmARevert_issue334(t *testing.T) {
 func TestModel_uRefusesWhileATurnIsInFlight_issue334(t *testing.T) {
 	rev := &turnReverter{Files: 3}
 	m := modelWithRevert(t, rev)
-	statusDeliver(m, "s1", watcher.ToolStarted, time.Now())
+	statusDeliver(m, "s1", status.ToolStarted, time.Now())
 
 	leader(m, key('u'))
 
@@ -172,7 +172,7 @@ func TestModel_aRevertSaysWhatItDid_issue334(t *testing.T) {
 	}
 }
 
-// Regression, found by #334's own real-PTY smoke test: watcher.Status is a
+// Regression, found by #334's own real-PTY smoke test: status.Status is a
 // string, so a session nothing has reported on holds "" rather than
 // StatusIdle - and atRest("") is false. u refused every such session with
 // "cannot revert mid-turn", which is every session at boot and every stopped

@@ -1,7 +1,7 @@
 // Package transcript reads an agent's JSONL transcript as it grows: the
 // complete lines appended since the last read, and whether the file was cut
 // short in between. It knows nothing of what the lines mean; that is
-// internal/watcher's business (ADR 0001, migration step 5.2c, #653).
+// internal/service/status's business (ADR 0001, migration step 5.2c, #653).
 //
 //	r := transcript.NewReader(path)
 //	lines, truncated, ok := r.Poll()

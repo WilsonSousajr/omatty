@@ -7,8 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // treeOnModelGo opens the tree and puts the cursor on internal/ui/model.go,
@@ -71,7 +71,7 @@ func TestModel_aReviewedFileThatChangesSaysChangedSince_issue337(t *testing.T) {
 	rec.Diff = parseDiff(t, strings.Replace(sampleDiff, "+	b := 3", "+	b := 99", 1))
 	// The turn ending is what reloads the diff in real use (#21, #195); the
 	// tree's own r only re-lists the worktree.
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 
 	row := columnPart(lineWith(t, m.View().Content, "M model.go"))
 	if strings.Contains(row, "✓") {
@@ -88,7 +88,7 @@ func TestModel_aReviewedFileThatDidNotChangeKeepsItsMark_issue337(t *testing.T) 
 	m, _ := treeOnModelGo(t)
 	press(m, key('v'))
 
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 
 	if row := lineWith(t, m.View().Content, "M model.go"); !strings.Contains(row, "✓") {
 		t.Errorf("row = %q, want the mark to survive a reload that changed nothing", row)
@@ -166,7 +166,7 @@ func TestModel_aReviewedRowGoesQuietAndAChangedOneDoesNot_issue337(t *testing.T)
 	}
 
 	rec.Diff = parseDiff(t, strings.Replace(sampleDiff, "+	b := 3", "+	b := 99", 1))
-	statusDeliver(m, "s1", watcher.TurnEnded, time.Now())
+	statusDeliver(m, "s1", status.TurnEnded, time.Now())
 
 	row := columnPart(lineWith(t, m.View().Content, "~M model.go"))
 	if strings.Contains(row, sgrMuted) {

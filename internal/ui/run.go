@@ -13,9 +13,9 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/supervisor"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 	"io"
 )
 
@@ -106,7 +106,7 @@ type RunDeps struct {
 	Home string
 	// OpenTranscript reads a session's transcript for the watcher. cmd wires
 	// internal/infra/transcript's reader in (ADR 0001, step 5.2c, #653).
-	OpenTranscript func(path string) watcher.Transcript
+	OpenTranscript func(path string) status.Transcript
 	// ListenHooks serves the hook socket for the watcher. cmd wires
 	// internal/infra/hookserver in (ADR 0001, step 5.2d, #653).
 	ListenHooks func(path string, sink chan<- dstatus.HookPayload) (io.Closer, error)
@@ -200,7 +200,7 @@ func Run(d RunDeps) error {
 	held := HeldSessions(d.Launch, d.State)
 	terms := StartTerminals(d.State, sessionsToStart(d, held), d.Launch, d.Factory, d.Width, d.Height, d.Leader)
 	defer closeTerminals(terms)
-	watch := watcher.Start(watchDeps(d), d.State.Sessions)
+	watch := status.Start(watchDeps(d), d.State.Sessions)
 	defer watch.Close()
 	// The model's subscription lives as long as the program: cancelled on
 	// return, so the broker lets go of it (#653).
@@ -219,7 +219,7 @@ func Run(d RunDeps) error {
 // terminals, the watcher and the gate Runner, each with its own defer.
 func modelFor(
 	d RunDeps, terms map[string]termwrap.Terminal, held map[string]bool,
-	events <-chan pubsub.Event[watcher.Event], watch *watcher.Watch, gates *gate.Runner,
+	events <-chan pubsub.Event[status.Event], watch *status.Watch, gates *gate.Runner,
 ) *Model {
 	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
@@ -237,12 +237,12 @@ func modelFor(
 
 // watchDeps is the watcher's slice of the agent profile: its status adapter
 // and its transcript location. An unset profile is claude (#46).
-func watchDeps(d RunDeps) watcher.WatchDeps {
+func watchDeps(d RunDeps) status.WatchDeps {
 	profile := d.Agent
 	if profile.Status == nil {
 		profile = agent.Claude()
 	}
-	return watcher.WatchDeps{Home: d.Home, Clock: time.Now, OpenTranscript: d.OpenTranscript, ListenHooks: d.ListenHooks,
+	return status.WatchDeps{Home: d.Home, Clock: time.Now, OpenTranscript: d.OpenTranscript, ListenHooks: d.ListenHooks,
 		Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}
 }
 

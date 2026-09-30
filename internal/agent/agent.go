@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // Profile is one agent. Every field is a pure function or a value, so a
@@ -44,7 +44,7 @@ type Profile struct {
 	// Status reads this agent's transcript lines and hook payloads into
 	// omatty's neutral vocabulary. It is the half of a Profile the watcher
 	// holds; the command template is the half only the supervisor needs.
-	Status watcher.Adapter
+	Status status.Adapter
 }
 
 // Lookup returns the profile a Session names. An empty name is claude: every

@@ -11,8 +11,8 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/gate"
 	"github.com/WilsonSousajr/omatty/internal/registry"
 	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // The archived session whose id must not survive anywhere on the Model.
@@ -92,7 +92,7 @@ func filledModel() *Model {
 		Terms:      map[string]termwrap.Terminal{},
 		Reattached: map[string]bool{},
 	})
-	m.status[forgottenID] = watcher.SessionState{}
+	m.status[forgottenID] = status.SessionState{}
 	m.notified[forgottenID] = time.Unix(0, 0)
 	m.comments[forgottenID] = &review.Comments{}
 	m.namePending[forgottenID] = true

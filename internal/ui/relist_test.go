@@ -6,17 +6,17 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/ui"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
 )
 
 // turn drives s1 through one turn: a prompt, then the end of the turn. Each
 // event is delivered the way the runtime would, so the relist that a turn end
 // schedules actually runs.
 func turn(m *ui.Model, at time.Time) {
-	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PromptSubmitted, At: at})
+	_, cmd := m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PromptSubmitted, At: at})
 	deliver(m, cmd)
-	_, cmd = m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.TurnEnded, At: at.Add(time.Second)})
+	_, cmd = m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.TurnEnded, At: at.Add(time.Second)})
 	deliver(m, cmd)
 }
 
@@ -112,9 +112,9 @@ func TestModel_ASecondTurnEndWaitsForTheListingInFlight_issue195(t *testing.T) {
 	leader(m, key('f'))
 	now := time.Now()
 
-	_, first := m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.TurnEnded, At: now})
-	m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.PromptSubmitted, At: now.Add(time.Second)})
-	_, second := m.Update(ui.StatusMsg{SessionID: "s1", Kind: watcher.TurnEnded, At: now.Add(2 * time.Second)})
+	_, first := m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.TurnEnded, At: now})
+	m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.PromptSubmitted, At: now.Add(time.Second)})
+	_, second := m.Update(ui.StatusMsg{SessionID: "s1", Kind: status.TurnEnded, At: now.Add(2 * time.Second)})
 	deliver(m, first)
 	deliver(m, second)
 

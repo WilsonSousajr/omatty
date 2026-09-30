@@ -1,5 +1,5 @@
 // Package e2e verifies the real cross-process status path: the actual `omatty
-// hook` binary writing to a real watcher.Listen socket. This is the wiring the
+// hook` binary writing to a real status.Listen socket. This is the wiring the
 // unit tests fake on both ends, and the roadmap's rule-2 check for M2.
 package e2e_test
 
@@ -14,7 +14,7 @@ import (
 
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
-	"github.com/WilsonSousajr/omatty/internal/watcher"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // omattyBin is the binary under test, built once for the package (issue #80:
@@ -27,7 +27,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	omattyBin = filepath.Join(dir, "omatty")
-	build := exec.Command("go", "build", "-o", omattyBin, "../../../cmd/omatty")
+	build := exec.Command("go", "build", "-o", omattyBin, "../../../../cmd/omatty")
 	if out, err := build.CombinedOutput(); err != nil {
 		panic(fmt.Sprintf("building omatty: %v\n%s", err, out))
 	}
@@ -57,9 +57,9 @@ func TestOmattyHook_DeliversToARealListener(t *testing.T) {
 	case p := <-events:
 		// The hook server hands over the payload; the watcher's adapter says
 		// what it means (step 5.2d, #653). Both halves are real here.
-		kind, _ := watcher.KindOf(p)
-		ev := watcher.Event{SessionID: p.SessionID, Kind: kind}
-		if ev.SessionID != "abc" || ev.Kind != watcher.PermissionRequested {
+		kind, _ := status.KindOf(p)
+		ev := status.Event{SessionID: p.SessionID, Kind: kind}
+		if ev.SessionID != "abc" || ev.Kind != status.PermissionRequested {
 			t.Errorf("received %+v, want session abc PermissionRequested", ev)
 		}
 	case <-time.After(3 * time.Second):

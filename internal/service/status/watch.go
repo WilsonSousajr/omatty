@@ -1,4 +1,4 @@
-package watcher
+package status
 
 import (
 	"context"
@@ -26,7 +26,7 @@ const pollEvery = time.Second
 // knows the socket path, the transcript path, the poll interval, or the
 // buffer size (issue #77).
 //
-//	w := watcher.Start(watcher.WatchDeps{Home: home, Clock: time.Now,
+//	w := status.Start(status.WatchDeps{Home: home, Clock: time.Now,
 //	        Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}, st.Sessions)
 //	defer w.Close()
 //	model := ui.NewModel(ui.Deps{Events: w.Subscribe(ctx), TailStart: w.Add, /* ... */})
