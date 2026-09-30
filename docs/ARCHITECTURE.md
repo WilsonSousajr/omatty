@@ -124,6 +124,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/domain/gate` | The gate's vocabulary - `Step`, `Verdict`, `StepResult`, `Report` - the output caps and the prompt `Compose` writes. Pure; `internal/gate` aliases it until migration step 8.1. |
 | `internal/infra/highlight` | omatty's only route to the syntax highlighter (chroma), with omatty's own colour style (#197). |
 | `internal/infra/gitdiff` | The only package that imports go-gitdiff: parses git's unified output into `domain/review.Diff`, numbering every line on both sides. |
+| `internal/infra/transcript` | Reads an agent's JSONL transcript as it grows: the complete lines appended since the last poll, a truncation flag, the line cap. What the lines mean is `internal/watcher`'s. |
 | `internal/infra/hooks` | Renders `~/.omatty/hooks.json` and implements the `omatty hook` reporter. |
 | `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/infra/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |

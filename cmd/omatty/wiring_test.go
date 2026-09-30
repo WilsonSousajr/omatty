@@ -336,3 +336,24 @@ func TestSessionNamer_ReadsTheReboundConversation_issue316(t *testing.T) {
 		t.Errorf("sessionNamer = (%q, %v), want a title from the post-clear prompt", title, err)
 	}
 }
+
+// Step 5.2c (#653): the watcher reads transcripts through an injected opener,
+// because reading files is infra's business. Left unset, every session's
+// tailer would call a nil function at startup - which no watcher test with a
+// fake opener could notice - so the wiring itself is pinned here.
+func TestTuiDeps_OpensTranscriptsThroughTheReader_issue653(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	if err := os.WriteFile(path, []byte("line\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env := tuiEnv{Home: "/h", Agent: agent.Claude(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env.Cfg = config.Defaults("/h")
+	deps := tuiDeps(env, nil, registry.State{})
+	if deps.OpenTranscript == nil {
+		t.Fatal("OpenTranscript is not wired: every tailer would call a nil opener")
+	}
+	lines, _, ok := deps.OpenTranscript(path).Poll()
+	if !ok || len(lines) != 1 || string(lines[0]) != "line" {
+		t.Errorf("the wired opener read %q, %v; want [line], true", lines, ok)
+	}
+}

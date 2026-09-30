@@ -1,9 +1,6 @@
 package watcher
 
 import (
-	"bytes"
-	"io"
-	"os"
 	"sync"
 	"time"
 )
@@ -12,13 +9,17 @@ import (
 // Only the tail matters, so there is no reason to grow without limit.
 const ringSize = 32
 
-// maxPollBytes bounds one read, so a large delta is consumed in chunks
-// rather than allocated at once (issue #64).
-const maxPollBytes = 1 << 20
-
-// maxLineBytes bounds a single JSONL line. A longer one - a tool returning a
-// huge file - is discarded whole rather than buffered without limit.
-const maxLineBytes = 1 << 20
+// Transcript is one transcript file, read incrementally: ADR 0001's
+// Transcripts port, declared here by its consumer. Poll returns the complete
+// lines appended since the last call, whether the file was cut short since the
+// last batch, and whether anything was read at all. internal/infra/transcript
+// implements it; reading bytes - offsets, split lines, the line cap - is its
+// business, and what the lines mean is this package's (step 5.2c, #653).
+//
+//	tl := watcher.Tail(sess.ID, transcript.NewReader(path), events, time.Now, time.Second, adapter)
+type Transcript interface {
+	Poll() (lines [][]byte, truncated, ok bool)
+}
 
 // Tailer polls one session's transcript and emits status and usage events as
 // the file grows. It is the source of truth on attach (omatty may start after
@@ -26,17 +27,14 @@ const maxLineBytes = 1 << 20
 // source of age and tokens.
 type Tailer struct {
 	sessionID string
-	path      string
+	src       Transcript
 	sink      chan<- Event
 	clock     func() time.Time
 	adapter   Adapter // the agent's parser (#46)
 
-	offset      int64   // bytes already consumed
 	ring        []Entry // last ringSize relevant entries
 	usage       Tokens  // cumulative across the whole file
 	lastUsageID string  // the response whose usage was last counted (issue #59)
-	partial     []byte  // a trailing line not yet terminated by \n
-	skipping    bool    // inside a line over maxLineBytes; discard to the next newline
 	last        Event   // the status event most recently sent, to skip repeats (issue #66)
 	usageDirty  bool    // usage changed since it was last sent
 	stop        chan struct{}
@@ -44,19 +42,19 @@ type Tailer struct {
 	once        sync.Once
 }
 
-// Tail starts polling path every `every` and returns the Tailer. Close stops
+// Tail starts polling src every `every` and returns the Tailer. Close stops
 // it. clock is injected so a test can prove the event carries the entry's own
 // timestamp, not now.
 //
-//	tl := watcher.Tail(sess.ID, path, events, time.Now, time.Second, watcher.ClaudeAdapter())
+//	tl := watcher.Tail(sess.ID, transcript.NewReader(path), events, time.Now, time.Second, watcher.ClaudeAdapter())
 //	defer tl.Close()
 //
 // adapter is the agent's own parser: which lines matter and what they mean is
 // the agent's business, not the tailer's (#46).
 func Tail(
-	sessionID, path string, sink chan<- Event, clock func() time.Time, every time.Duration, adapter Adapter,
+	sessionID string, src Transcript, sink chan<- Event, clock func() time.Time, every time.Duration, adapter Adapter,
 ) *Tailer {
-	tl := &Tailer{sessionID: sessionID, path: path, sink: sink, clock: clock, adapter: adapter,
+	tl := &Tailer{sessionID: sessionID, src: src, sink: sink, clock: clock, adapter: adapter,
 		stop: make(chan struct{}), done: make(chan struct{})}
 	go tl.loop(every)
 	return tl
@@ -86,70 +84,27 @@ func (tl *Tailer) loop(every time.Duration) {
 
 // Poll reads whatever has been appended since the last call and emits at most
 // one status event and one usage event. It is exported so tests drive it
-// directly rather than waiting on a ticker. A missing file is not an error -
-// the session has simply not spoken yet.
+// directly rather than waiting on a ticker. A missing file reads nothing - the
+// session has simply not spoken yet.
 func (tl *Tailer) Poll() {
-	f, err := os.Open(tl.path)
-	if err != nil {
+	lines, truncated, ok := tl.src.Poll()
+	if !ok {
 		return
 	}
-	defer func() { _ = f.Close() }()
-	tl.reconcileTruncation(f)
-	if tl.drain(f) {
-		tl.emit()
+	if truncated {
+		tl.startOver()
 	}
+	for _, line := range lines {
+		tl.ingest(line)
+	}
+	tl.emit()
 }
 
-// drain reads everything appended since the last poll in chunks of at most
-// maxPollBytes, so a large delta costs a bounded buffer rather than an
-// allocation its own size (issue #64). It reports whether anything was read.
-func (tl *Tailer) drain(f *os.File) bool {
-	read := false
-	for {
-		fresh, err := readFrom(f, tl.offset)
-		if err != nil || len(fresh) == 0 {
-			return read
-		}
-		read = true
-		tl.offset += int64(len(fresh))
-		tl.consume(fresh)
-		if len(fresh) < maxPollBytes {
-			return true
-		}
-	}
-}
-
-// reconcileTruncation resets the read offset when the file shrank, which
-// happens on a /clear or a rewrite. The zeroed usage must reach the sidebar,
-// so it is marked dirty.
-func (tl *Tailer) reconcileTruncation(f *os.File) {
-	if info, err := f.Stat(); err == nil && info.Size() < tl.offset {
-		tl.offset, tl.usage, tl.ring, tl.partial = 0, Tokens{}, nil, nil
-		tl.lastUsageID, tl.skipping = "", false
-		tl.last, tl.usageDirty = Event{}, true
-	}
-}
-
-// consume parses complete lines out of the fresh bytes, carrying any trailing
-// partial line to the next poll so a line split across reads is not lost. A
-// line over maxLineBytes, complete or not, is dropped (issue #64).
-func (tl *Tailer) consume(fresh []byte) {
-	buf := append(tl.partial, fresh...)
-	for {
-		i := bytes.IndexByte(buf, '\n')
-		if i < 0 {
-			break
-		}
-		if !tl.skipping && i <= maxLineBytes {
-			tl.ingest(buf[:i])
-		}
-		tl.skipping = false
-		buf = buf[i+1:]
-	}
-	if len(buf) > maxLineBytes {
-		tl.skipping, buf = true, nil
-	}
-	tl.partial = append([]byte(nil), buf...)
+// startOver forgets everything read before a truncation - a /clear or a
+// rewrite - and marks the zeroed usage dirty, so it reaches the sidebar.
+func (tl *Tailer) startOver() {
+	tl.usage, tl.ring, tl.lastUsageID = Tokens{}, nil, ""
+	tl.last, tl.usageDirty = Event{}, true
 }
 
 func (tl *Tailer) ingest(line []byte) {
@@ -192,11 +147,4 @@ func (tl *Tailer) send(ev Event) {
 	case tl.sink <- ev:
 	case <-tl.stop:
 	}
-}
-
-func readFrom(f *os.File, offset int64) ([]byte, error) {
-	if _, err := f.Seek(offset, io.SeekStart); err != nil {
-		return nil, err
-	}
-	return io.ReadAll(io.LimitReader(f, maxPollBytes))
 }
