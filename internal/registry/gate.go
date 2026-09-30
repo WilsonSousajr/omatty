@@ -1,7 +1,7 @@
 package registry
 
 import (
-	"github.com/WilsonSousajr/omatty/internal/gate"
+	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 )
 
 // SetGate records the verification commands a project is checked by, replacing
