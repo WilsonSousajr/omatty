@@ -10,3 +10,14 @@ type StateStore interface {
 	Load() (State, error)
 	Save(State) error
 }
+
+// Worktrees is the slice of git a Creator needs: the branch a checkout is on,
+// and adding and removing a worktree (ADR 0001's port, migration step 5.4,
+// #653). internal/infra/vcs's CLI implements it.
+//
+//	c := sessions.NewCreator(vcs.NewCLI(), opts, uuid.NewString)
+type Worktrees interface {
+	CurrentBranch(dir string) (string, error)
+	AddWorktree(repoRoot, dir, branch, base string) error
+	RemoveWorktree(repoRoot, dir string) error
+}

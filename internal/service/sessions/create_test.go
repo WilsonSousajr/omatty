@@ -2,6 +2,7 @@ package sessions_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"strings"
 	"testing"
 
@@ -21,7 +22,7 @@ func TestCreator_OnMainCheckoutMakesNoWorktree(t *testing.T) {
 	g := &FakeGit{}
 	st := baseState()
 
-	got, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).Create(st, "omatty", "poke", "")
+	got, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID).Create(st, "omatty", "poke", "")
 
 	if err != nil {
 		t.Fatalf("Create() error = %v, want nil", err)
@@ -43,7 +44,7 @@ func TestCreator_OnMainCheckoutMakesNoWorktree(t *testing.T) {
 func TestCreator_OnBranchCreatesWorktree(t *testing.T) {
 	g := &FakeGit{}
 
-	got, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
+	got, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(baseState(), "omatty", "parser", "parser-fix")
 
 	if err != nil {
@@ -66,7 +67,7 @@ func TestCreator_OnBranchCreatesWorktree(t *testing.T) {
 func TestCreator_RecordsTheBaseBranchAndForksFromIt_issue21(t *testing.T) {
 	g := &FakeGit{Branch: "develop"}
 
-	got, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
+	got, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(baseState(), "omatty", "parser", "parser-fix")
 
 	if err != nil {
@@ -85,7 +86,7 @@ func TestCreator_RecordsTheBaseBranchAndForksFromIt_issue21(t *testing.T) {
 func TestCreator_DetachedRootLeavesBaseEmpty_issue21(t *testing.T) {
 	g := &FakeGit{Branch: "HEAD"}
 
-	got, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
+	got, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(baseState(), "omatty", "t", "b")
 
 	if err != nil {
@@ -97,7 +98,7 @@ func TestCreator_DetachedRootLeavesBaseEmpty_issue21(t *testing.T) {
 }
 
 func TestCreator_MainCheckoutHasNoBase_issue21(t *testing.T) {
-	got, err := sessions.NewCreator(&FakeGit{Branch: "main"}, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
+	got, err := sessions.NewCreator(&FakeGit{Branch: "main"}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(baseState(), "omatty", "poke", "")
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +109,7 @@ func TestCreator_MainCheckoutHasNoBase_issue21(t *testing.T) {
 }
 
 func TestCreator_UnknownProjectNamesItAndTheKnownOnes(t *testing.T) {
-	_, err := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
+	_, err := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(baseState(), "ghost", "t", "")
 
 	if err == nil {
@@ -126,7 +127,7 @@ func TestCreator_WorktreeFailureAddsNoSession(t *testing.T) {
 	g := &FakeGit{AddErr: errors.New("branch exists")}
 	st := baseState()
 
-	if _, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
+	if _, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID).
 		Create(st, "omatty", "t", "dup"); err == nil {
 		t.Fatal("Create() returned nil after a worktree failure, want an error")
 	}
@@ -137,7 +138,7 @@ func TestCreator_WorktreeFailureAddsNoSession(t *testing.T) {
 
 func TestCreator_ConfiguredBaseBranchOverridesTheCurrentBranch_issue44(t *testing.T) {
 	g := &FakeGit{Branch: "main"}
-	c := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/vol/wt", BaseBranch: "develop"}, stubID)
+	c := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/vol/wt", BaseBranch: "develop"}, stubID)
 
 	got, err := c.Create(baseState(), "omatty", "parser", "parser-fix")
 
@@ -154,7 +155,7 @@ func TestCreator_ConfiguredBaseBranchOverridesTheCurrentBranch_issue44(t *testin
 
 func TestCreator_NoConfiguredBaseFallsBackToTheCurrentBranch_issue44(t *testing.T) {
 	g := &FakeGit{Branch: "main"}
-	c := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/vol/wt"}, stubID)
+	c := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/vol/wt"}, stubID)
 	got, err := c.Create(baseState(), "omatty", "parser", "parser-fix")
 	if err != nil || got.Base != "main" {
 		t.Fatalf("Base = %q err = %v, want main from the checkout", got.Base, err)
@@ -163,7 +164,7 @@ func TestCreator_NoConfiguredBaseFallsBackToTheCurrentBranch_issue44(t *testing.
 
 func TestCreator_PlacesTheWorktreeUnderTheConfiguredRoot_issue44(t *testing.T) {
 	g := &FakeGit{Branch: "main"}
-	c := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/vol/wt"}, stubID)
+	c := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/vol/wt"}, stubID)
 	got, err := c.Create(baseState(), "omatty", "parser", "parser-fix")
 	if err != nil || got.Dir != "/vol/wt/omatty/parser-fix" {
 		t.Fatalf("Dir = %q err = %v, want /vol/wt/omatty/parser-fix", got.Dir, err)
@@ -173,7 +174,7 @@ func TestCreator_PlacesTheWorktreeUnderTheConfiguredRoot_issue44(t *testing.T) {
 // A session created before the work it would describe exists is registered
 // under a placeholder; its first prompt names it (#127).
 func TestCreator_ABlankTitleBecomesThePlaceholder_issue127(t *testing.T) {
-	c := sessions.NewCreator(&FakeGit{Branch: "main"}, sessions.CreatorOpts{WorktreeRoot: "/vol/wt"}, stubID)
+	c := sessions.NewCreator(&FakeGit{Branch: "main"}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/vol/wt"}, stubID)
 	sess, err := c.Create(baseState(), "omatty", "  ", "")
 	if err != nil || sess.Title != sessions.PlaceholderTitle("fixed-uuid") {
 		t.Fatalf("Title = %q err = %v, want the placeholder %q", sess.Title, err, sessions.PlaceholderTitle("fixed-uuid"))
@@ -181,9 +182,27 @@ func TestCreator_ABlankTitleBecomesThePlaceholder_issue127(t *testing.T) {
 }
 
 func TestCreator_ATypedTitleIsKept_issue127(t *testing.T) {
-	c := sessions.NewCreator(&FakeGit{Branch: "main"}, sessions.CreatorOpts{WorktreeRoot: "/vol/wt"}, stubID)
+	c := sessions.NewCreator(&FakeGit{Branch: "main"}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/vol/wt"}, stubID)
 	sess, err := c.Create(baseState(), "omatty", "parser fix", "")
 	if err != nil || sess.Title != "parser fix" {
 		t.Fatalf("Title = %q err = %v, want parser fix", sess.Title, err)
+	}
+}
+
+// Where a worktree goes is infra's knowledge (ADR 0001: paths is infra), so
+// since migration step 5.4 (#653) the path function is injected. A creator
+// with none wired refuses the worktree, naming the project, rather than
+// panicking or inventing a path of its own - and registers nothing.
+func TestCreator_refusesAWorktreeWithNoPathFunctionWired_issue653(t *testing.T) {
+	g := &FakeGit{}
+	st := baseState()
+
+	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeRoot: "/wt"}, stubID).CreateWorktree(st, "omatty", "poke", "topic")
+
+	if err == nil || !strings.Contains(err.Error(), "omatty") {
+		t.Fatalf("CreateWorktree() error = %v, want one naming the project", err)
+	}
+	if g.AddedDir != "" || len(st.Sessions) != 0 {
+		t.Errorf("added worktree %q and registered %d sessions, want neither", g.AddedDir, len(st.Sessions))
 	}
 }

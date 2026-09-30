@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"testing"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 func TestCreate_RecordsWhenTheSessionStarted_issue332(t *testing.T) {
 	at := time.Date(2026, 9, 26, 10, 0, 0, 0, time.UTC)
 	st := sessions.State{Projects: []sessions.Project{{Name: "omatty", Root: t.TempDir()}}}
-	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{
+	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir,
 		WorktreeRoot: t.TempDir(),
 		Clock:        func() time.Time { return at },
 	}, func() string { return "s1" })
@@ -33,7 +34,7 @@ func TestCreate_RecordsWhenTheSessionStarted_issue332(t *testing.T) {
 // No clock is the wall clock, so nothing has to pass one.
 func TestCreate_WithoutAClockUsesTheWallClock_issue332(t *testing.T) {
 	st := sessions.State{Projects: []sessions.Project{{Name: "omatty", Root: t.TempDir()}}}
-	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: t.TempDir()},
+	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: t.TempDir()},
 		func() string { return "s1" })
 
 	sess, err := c.Create(&st, "omatty", "one", "")

@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"strings"
 	"testing"
 
@@ -20,7 +21,7 @@ func seedTwoSessions(t *testing.T) (*statestore.Store, string, string) {
 	ids := make([]string, 0, 2)
 	for i, branch := range []string{"", "parser-fix"} {
 		n := i
-		c := sessions.NewCreator(git, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, func() string { return string(rune('a' + n)) })
+		c := sessions.NewCreator(git, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, func() string { return string(rune('a' + n)) })
 		sess, err := sessions.AddSession(store, c, "omatty", "session-"+string(rune('a'+n)), branch)
 		if err != nil {
 			t.Fatal(err)

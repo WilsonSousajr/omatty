@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -62,7 +63,7 @@ func TestAddSession_PersistsTheNewSession(t *testing.T) {
 	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
-	creator := sessions.NewCreator(git, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
+	creator := sessions.NewCreator(git, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
 
 	got, err := sessions.AddSession(store, creator, "omatty", "parser", "parser-fix")
 
@@ -83,7 +84,7 @@ func TestAddSession_PersistsTheNewSession(t *testing.T) {
 
 func TestAddSession_FailureLeavesStateUnchanged(t *testing.T) {
 	store, _ := newStoreAt(t)
-	creator := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
+	creator := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
 
 	if _, err := sessions.AddSession(store, creator, "ghost", "t", ""); err == nil {
 		t.Fatal("AddSession() for an unknown project returned nil, want an error")

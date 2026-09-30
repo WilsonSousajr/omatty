@@ -78,6 +78,11 @@ func TestCreatorOpts_ComeFromTheConfig_issue44(t *testing.T) {
 	if got.WorktreeRoot != "/vol/wt" || got.BaseBranch != "develop" {
 		t.Errorf("creatorOpts() = %+v, want /vol/wt forked from develop", got)
 	}
+	// Step 5.4 (#653): the path function is injected; unset, every worktree
+	// session would be refused.
+	if got.WorktreeDir == nil || got.WorktreeDir(got.WorktreeRoot, "p", "b") != "/vol/wt/p/b" {
+		t.Error("creatorOpts() does not wire paths.WorktreeDir")
+	}
 }
 
 // Step 5.4 (#653): the carry copy is injected, because copying files is
