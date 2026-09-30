@@ -15,10 +15,10 @@ func seedSession(t *testing.T) (*statestore.Store, string) {
 	t.Helper()
 	store, _ := newStoreAt(t)
 	git := &FakeGit{}
-	if _, err := sessions.AddProject(store, git, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(t.Context(), store, git, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
-	sess, err := sessions.AddSession(store, sessions.NewCreator(git, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID), "omatty", "parser", "")
+	sess, err := sessions.AddSession(t.Context(), store, sessions.NewCreator(git, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID), "omatty", "parser", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,11 +28,11 @@ func seedSession(t *testing.T) (*statestore.Store, string) {
 func TestRenameSession_PersistsTheNewTitle(t *testing.T) {
 	store, id := seedSession(t)
 
-	if err := sessions.RenameSession(store, id, "parser-fix"); err != nil {
+	if err := sessions.RenameSession(t.Context(), store, id, "parser-fix"); err != nil {
 		t.Fatalf("RenameSession() error = %v, want nil", err)
 	}
 
-	st, err := store.Load()
+	st, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,16 +45,16 @@ func TestRenameSession_PersistsTheNewTitle(t *testing.T) {
 // relaunching the session depends on (invariant 9).
 func TestRenameSession_TouchesNothingButTheTitle(t *testing.T) {
 	store, id := seedSession(t)
-	before, err := store.Load()
+	before, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := sessions.RenameSession(store, id, "renamed"); err != nil {
+	if err := sessions.RenameSession(t.Context(), store, id, "renamed"); err != nil {
 		t.Fatal(err)
 	}
 
-	after, _ := store.Load()
+	after, _ := store.Load(t.Context())
 	was, now := before.Sessions[0], after.Sessions[0]
 	was.Title = now.Title
 	if was != now {
@@ -65,7 +65,7 @@ func TestRenameSession_TouchesNothingButTheTitle(t *testing.T) {
 func TestRenameSession_UnknownIDNamesItAndSavesNothing(t *testing.T) {
 	store, _ := seedSession(t)
 
-	err := sessions.RenameSession(store, "ghost-uuid", "whatever")
+	err := sessions.RenameSession(t.Context(), store, "ghost-uuid", "whatever")
 
 	if err == nil {
 		t.Fatal("RenameSession() for an unknown id returned nil, want an error")
@@ -73,7 +73,7 @@ func TestRenameSession_UnknownIDNamesItAndSavesNothing(t *testing.T) {
 	if !strings.Contains(err.Error(), "ghost-uuid") {
 		t.Errorf("error %q does not name the offending id", err)
 	}
-	st, _ := store.Load()
+	st, _ := store.Load(t.Context())
 	if st.Sessions[0].Title != "parser" {
 		t.Errorf("title = %q after a failed rename, want the original parser", st.Sessions[0].Title)
 	}
@@ -83,10 +83,10 @@ func TestRenameSession_UnknownIDNamesItAndSavesNothing(t *testing.T) {
 func TestRenameSession_EmptyTitleIsRejected(t *testing.T) {
 	store, id := seedSession(t)
 
-	if err := sessions.RenameSession(store, id, ""); err == nil {
+	if err := sessions.RenameSession(t.Context(), store, id, ""); err == nil {
 		t.Fatal("RenameSession() with an empty title returned nil, want an error")
 	}
-	st, _ := store.Load()
+	st, _ := store.Load(t.Context())
 	if st.Sessions[0].Title != "parser" {
 		t.Errorf("title = %q after a rejected rename, want the original parser", st.Sessions[0].Title)
 	}

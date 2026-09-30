@@ -50,7 +50,7 @@ func TestCreator_carriesTheProjectsFilesIntoANewWorktree_issue309(t *testing.T) 
 	}
 
 	sess, err := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: wtRoot, Carry: store.CarryInto}, stubID).
-		CreateWorktree(st, "omatty", "poke", "topic")
+		CreateWorktree(t.Context(), st, "omatty", "poke", "topic")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestCreator_rollsBackTheWorktreeWhenACarryFails_issue309(t *testing.T) {
 	}
 
 	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: t.TempDir(), Carry: store.CarryInto}, stubID).
-		CreateWorktree(st, "omatty", "poke", "topic")
+		CreateWorktree(t.Context(), st, "omatty", "poke", "topic")
 
 	if err == nil {
 		t.Fatal("CreateWorktree() error = nil, want the refused carry path")
@@ -95,11 +95,11 @@ func TestCreator_rollsBackTheWorktreeWhenACarryFails_issue309(t *testing.T) {
 func TestSetCarry_roundTripsThroughTheStateFile_issue309(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
 
-	if err := sessions.SetCarry(store, "omatty", []string{".env", "certs"}); err != nil {
+	if err := sessions.SetCarry(t.Context(), store, "omatty", []string{".env", "certs"}); err != nil {
 		t.Fatalf("SetCarry() error = %v", err)
 	}
 
-	st, err := store.Load()
+	st, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,11 +112,11 @@ func TestSetCarry_roundTripsThroughTheStateFile_issue309(t *testing.T) {
 // a file written before #309 needs no migration and Version stays 1.
 func TestClearCarry_omitsTheKeyRatherThanWritingAnEmptyList_issue309(t *testing.T) {
 	store, path := storeWithProject(t, "omatty")
-	if err := sessions.SetCarry(store, "omatty", []string{".env"}); err != nil {
+	if err := sessions.SetCarry(t.Context(), store, "omatty", []string{".env"}); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := sessions.ClearCarry(store, "omatty"); err != nil {
+	if err := sessions.ClearCarry(t.Context(), store, "omatty"); err != nil {
 		t.Fatalf("ClearCarry() error = %v", err)
 	}
 
@@ -124,7 +124,7 @@ func TestClearCarry_omitsTheKeyRatherThanWritingAnEmptyList_issue309(t *testing.
 	if strings.Contains(raw, "carry") {
 		t.Errorf("state.json still carries the key:\n%s", raw)
 	}
-	st, err := store.Load()
+	st, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestClearCarry_omitsTheKeyRatherThanWritingAnEmptyList_issue309(t *testing.
 func TestSetCarry_refusesAnUnknownProject_issue309(t *testing.T) {
 	store, _ := storeWithProject(t, "omatty")
 
-	err := sessions.SetCarry(store, "nope", []string{".env"})
+	err := sessions.SetCarry(t.Context(), store, "nope", []string{".env"})
 
 	if err == nil {
 		t.Fatal("SetCarry() error = nil, want an unknown-project error")
@@ -159,7 +159,7 @@ func TestCreator_refusesACarryWithNoCopierWired_issue653(t *testing.T) {
 	}
 
 	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: t.TempDir()}, stubID).
-		CreateWorktree(st, "omatty", "poke", "topic")
+		CreateWorktree(t.Context(), st, "omatty", "poke", "topic")
 
 	if err == nil || !strings.Contains(err.Error(), "omatty") {
 		t.Fatalf("CreateWorktree() error = %v, want one naming the project", err)

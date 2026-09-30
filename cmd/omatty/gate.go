@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -36,7 +37,7 @@ func gateCommand(store sessions.StateStore, args []string, in io.Reader, prs prL
 		return reportStats(store, project, prs)
 	}
 	if hasFlag(args, "--clear") {
-		if err := sessions.ClearGate(store, project.Name); err != nil {
+		if err := sessions.ClearGate(context.Background(), store, project.Name); err != nil {
 			return err
 		}
 		// Silence would be indistinguishable from a command that did nothing,
@@ -66,7 +67,7 @@ func proposeGate(store sessions.StateStore, project sessions.Project, args []str
 		report("nothing written")
 		return nil
 	}
-	if err := sessions.SetGate(store, project.Name, steps); err != nil {
+	if err := sessions.SetGate(context.Background(), store, project.Name, steps); err != nil {
 		return err
 	}
 	report("gate set for " + project.Name)
@@ -109,7 +110,7 @@ func gateProject(store sessions.StateStore, args []string) (sessions.Project, er
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return sessions.Project{}, fmt.Errorf("gate: want <project> [--detect|--set|--clear|--stats], got no project")
 	}
-	p, err := sessions.NamedProject(store, args[0])
+	p, err := sessions.NamedProject(context.Background(), store, args[0])
 	if err != nil {
 		return sessions.Project{}, fmt.Errorf("gate: %w", err)
 	}

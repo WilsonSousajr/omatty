@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"context"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"regexp"
 	"strings"
@@ -51,7 +52,7 @@ func TestCreate_slugsATypedBranch_issue151(t *testing.T) {
 	g := &FakeGit{}
 	c := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"}, stubID)
 
-	sess, err := c.Create(baseState(), "omatty", "", "../../etc/passwd")
+	sess, err := c.Create(t.Context(), baseState(), "omatty", "", "../../etc/passwd")
 	if err != nil {
 		t.Fatalf("Create() error = %v, want nil", err)
 	}
@@ -71,7 +72,7 @@ func TestCreate_aWorktreeWithNoTypedBranchTakesThePlaceholder_issue151(t *testin
 	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"},
 		func() string { return id })
 
-	sess, err := c.CreateWorktree(baseState(), "omatty", "", "")
+	sess, err := c.CreateWorktree(t.Context(), baseState(), "omatty", "", "")
 	if err != nil {
 		t.Fatalf("CreateWorktree() error = %v, want nil", err)
 	}
@@ -96,15 +97,15 @@ func TestRenameBranch_writesTheBranchAndLeavesTheDirectory_issue151(t *testing.T
 			Dir: "/home/u/.omatty/wt/omatty/omatty-s1", Branch: "omatty-s1", Worktree: true,
 		}},
 	}
-	if err := store.Save(st); err != nil {
+	if err := store.Save(t.Context(), st); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := sessions.RenameBranch(store, "s1", "fix-the-wheel-pan"); err != nil {
+	if err := sessions.RenameBranch(t.Context(), store, "s1", "fix-the-wheel-pan"); err != nil {
 		t.Fatalf("RenameBranch() error = %v, want nil", err)
 	}
 
-	got, err := store.Load()
+	got, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestRenameBranch_writesTheBranchAndLeavesTheDirectory_issue151(t *testing.T
 // names the branch when nobody else did, and persists both.
 func TestAddWorktreeSession_namesTheBranchAndPersistsIt_issue151(t *testing.T) {
 	store, _ := newStoreAt(t)
-	if err := store.Save(sessions.State{
+	if err := store.Save(t.Context(), sessions.State{
 		Version:  sessions.Version,
 		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
 	}); err != nil {
@@ -130,7 +131,7 @@ func TestAddWorktreeSession_namesTheBranchAndPersistsIt_issue151(t *testing.T) {
 	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/home/u/.omatty/wt"},
 		func() string { return id })
 
-	sess, err := sessions.AddWorktreeSession(store, c, "omatty", "", "")
+	sess, err := sessions.AddWorktreeSession(t.Context(), store, c, "omatty", "", "")
 	if err != nil {
 		t.Fatalf("AddWorktreeSession() error = %v, want nil", err)
 	}
@@ -138,7 +139,7 @@ func TestAddWorktreeSession_namesTheBranchAndPersistsIt_issue151(t *testing.T) {
 	if want := sessions.PlaceholderBranch(id); sess.Branch != want {
 		t.Errorf("branch = %q, want the placeholder %q", sess.Branch, want)
 	}
-	got, err := store.Load()
+	got, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +153,7 @@ func TestAddWorktreeSession_refusesAnUnknownProject_issue151(t *testing.T) {
 	store, _ := newStoreAt(t)
 	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/wt"}, stubID)
 
-	if _, err := sessions.AddWorktreeSession(store, c, "nope", "", ""); err == nil {
+	if _, err := sessions.AddWorktreeSession(t.Context(), store, c, "nope", "", ""); err == nil {
 		t.Error("AddWorktreeSession() into an unregistered project returned nil, want an error")
 	}
 }
@@ -166,11 +167,11 @@ type fakeBranchGit struct {
 	Err      error
 }
 
-func (f *fakeBranchGit) MainCheckout(string) (string, error) { return f.Root, nil }
-func (f *fakeBranchGit) CommitsOnBranch(string, string, string) (int, error) {
+func (f *fakeBranchGit) MainCheckout(context.Context, string) (string, error) { return f.Root, nil }
+func (f *fakeBranchGit) CommitsOnBranch(context.Context, string, string, string) (int, error) {
 	return f.Commits, nil
 }
-func (f *fakeBranchGit) RenameBranch(_, old, name string) error {
+func (f *fakeBranchGit) RenameBranch(_ context.Context, _, old, name string) error {
 	f.From, f.To = old, name
 	return f.Err
 }
@@ -182,7 +183,7 @@ func worktreeSessionStore(t *testing.T) (*statestore.Store, sessions.Session) {
 		ID: "s1", Project: "omatty", Title: "one",
 		Dir: "/wt/omatty/omatty-s1", Branch: "omatty-s1", Base: "main", Worktree: true,
 	}
-	if err := store.Save(sessions.State{
+	if err := store.Save(t.Context(), sessions.State{
 		Version:  sessions.Version,
 		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
 		Sessions: []sessions.Session{sess},
@@ -198,7 +199,7 @@ func TestRenameSessionBranch_renamesAnUnstartedBranch_issue151(t *testing.T) {
 	store, sess := worktreeSessionStore(t)
 	g := &fakeBranchGit{Root: "/p/omatty"}
 
-	renamed, err := sessions.RenameSessionBranch(store, g, sess, "fix-the-wheel-pan", true)
+	renamed, err := sessions.RenameSessionBranch(t.Context(), store, g, sess, "fix-the-wheel-pan", true)
 
 	if err != nil || !renamed {
 		t.Fatalf("RenameSessionBranch() = %v, %v, want true, nil", renamed, err)
@@ -206,7 +207,7 @@ func TestRenameSessionBranch_renamesAnUnstartedBranch_issue151(t *testing.T) {
 	if g.From != "omatty-s1" || g.To != "fix-the-wheel-pan" {
 		t.Errorf("git renamed %q -> %q, want omatty-s1 -> fix-the-wheel-pan", g.From, g.To)
 	}
-	got, _ := store.Load()
+	got, _ := store.Load(t.Context())
 	if got.Sessions[0].Branch != "fix-the-wheel-pan" {
 		t.Errorf("state.json holds branch %q, want the new name", got.Sessions[0].Branch)
 	}
@@ -218,7 +219,7 @@ func TestRenameSessionBranch_declinesAStartedBranch_issue151(t *testing.T) {
 	store, sess := worktreeSessionStore(t)
 	g := &fakeBranchGit{Root: "/p/omatty", Commits: 1}
 
-	renamed, err := sessions.RenameSessionBranch(store, g, sess, "fix-the-wheel-pan", true)
+	renamed, err := sessions.RenameSessionBranch(t.Context(), store, g, sess, "fix-the-wheel-pan", true)
 
 	if err != nil || renamed {
 		t.Fatalf("RenameSessionBranch() = %v, %v, want false, nil", renamed, err)
@@ -233,7 +234,7 @@ func TestRenameSessionBranch_theOperatorMayRenameAStartedBranch_issue151(t *test
 	store, sess := worktreeSessionStore(t)
 	g := &fakeBranchGit{Root: "/p/omatty", Commits: 3}
 
-	renamed, err := sessions.RenameSessionBranch(store, g, sess, "mine", false)
+	renamed, err := sessions.RenameSessionBranch(t.Context(), store, g, sess, "mine", false)
 
 	if err != nil || !renamed {
 		t.Fatalf("RenameSessionBranch() = %v, %v, want true, nil", renamed, err)
@@ -251,7 +252,7 @@ func TestRenameSessionBranch_aSessionWithNoBaseIsLeftAlone_issue151(t *testing.T
 	sess.Base = ""
 	g := &fakeBranchGit{Root: "/p/omatty"}
 
-	renamed, err := sessions.RenameSessionBranch(store, g, sess, "fix", true)
+	renamed, err := sessions.RenameSessionBranch(t.Context(), store, g, sess, "fix", true)
 
 	if err != nil || renamed {
 		t.Fatalf("RenameSessionBranch() = %v, %v, want false, nil", renamed, err)

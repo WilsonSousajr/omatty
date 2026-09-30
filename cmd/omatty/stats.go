@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -100,7 +101,7 @@ func roundLead(d time.Duration) string {
 // in [forge.hosts] gets its lead time here too (#452). A machine without the
 // forge's tool gets no lead time and the gate rate still prints.
 func reportStats(store sessions.StateStore, project sessions.Project, prs prLister) error {
-	st, err := store.Load()
+	st, err := store.Load(context.Background())
 	if err != nil {
 		return err
 	}

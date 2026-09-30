@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,7 +36,7 @@ func carryCommand(store sessions.StateStore, args []string) error {
 		return nil
 	}
 	warnMissing(project.Root, paths)
-	if err := sessions.SetCarry(store, project.Name, paths); err != nil {
+	if err := sessions.SetCarry(context.Background(), store, project.Name, paths); err != nil {
 		return err
 	}
 	report(fmt.Sprintf("carry list set for %s: %s", project.Name, strings.Join(paths, " ")))
@@ -46,7 +47,7 @@ func carryCommand(store sessions.StateStore, args []string) error {
 // indistinguishable from a command that did nothing, which is the argument
 // gateCommand's own --clear arm makes.
 func clearCarry(store sessions.StateStore, project string) error {
-	if err := sessions.ClearCarry(store, project); err != nil {
+	if err := sessions.ClearCarry(context.Background(), store, project); err != nil {
 		return err
 	}
 	report("carry list cleared for " + project)
@@ -99,7 +100,7 @@ func carryProject(store sessions.StateStore, args []string) (sessions.Project, e
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return sessions.Project{}, fmt.Errorf("carry: want <project> [<path>...|--clear], got no project")
 	}
-	p, err := sessions.NamedProject(store, args[0])
+	p, err := sessions.NamedProject(context.Background(), store, args[0])
 	if err != nil {
 		return sessions.Project{}, fmt.Errorf("carry: %w", err)
 	}

@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -93,7 +94,7 @@ func chooseAndAdopt(
 	if err != nil {
 		return err
 	}
-	return adoptAll(store, vcs.NewCLI(), p.Name, picked)
+	return adoptAll(store, vcs.NewCLI().Contextual(), p.Name, picked)
 }
 
 // adoptAll reports what sessions.AdoptAll did with each pick. The loop is the
@@ -102,7 +103,7 @@ func adoptAll(
 	store sessions.StateStore, git sessions.SessionBrancher,
 	project string, picked []discover.SessionCandidate,
 ) error {
-	for _, a := range sessions.AdoptAll(store, git, project, sessionPicks(picked)) {
+	for _, a := range sessions.AdoptAll(context.Background(), store, git, project, sessionPicks(picked)) {
 		if a.Err != nil {
 			report("skipped: " + a.Err.Error())
 			continue
@@ -128,7 +129,7 @@ func namedProject(store sessions.StateStore, args []string) (sessions.Project, e
 	if len(args) == 0 {
 		return sessions.Project{}, fmt.Errorf("adopt: want <project>, got no argument")
 	}
-	p, err := sessions.NamedProject(store, args[0])
+	p, err := sessions.NamedProject(context.Background(), store, args[0])
 	if err != nil {
 		return sessions.Project{}, fmt.Errorf("adopt: %w", err)
 	}
@@ -140,7 +141,7 @@ func namedProject(store sessions.StateStore, args []string) (sessions.Project, e
 func proposeSessions(
 	store sessions.StateStore, home string, git discover.Git, p sessions.Project,
 ) ([]discover.SessionCandidate, error) {
-	ids, err := sessions.KnownSessionIDs(store)
+	ids, err := sessions.KnownSessionIDs(context.Background(), store)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +185,7 @@ func proposeProjects(store sessions.StateStore, home string) ([]discover.Candida
 // registeredRoots is what state.json already holds, so discovery does not
 // offer a repository that can only fail on commit (#91).
 func registeredRoots(store sessions.StateStore) ([]string, error) {
-	st, err := store.Load()
+	st, err := store.Load(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +204,7 @@ func registerAll(store sessions.StateStore, picked []discover.Candidate) error {
 	for _, c := range picked {
 		roots = append(roots, c.Root)
 	}
-	for _, r := range sessions.RegisterAll(store, vcs.NewCLI(), roots) {
+	for _, r := range sessions.RegisterAll(context.Background(), store, vcs.NewCLI().Contextual(), roots) {
 		if r.Err != nil {
 			report("skipped " + r.Root + ": " + r.Err.Error())
 			continue
@@ -218,7 +219,7 @@ func addProject(store sessions.StateStore, args []string) error {
 	if err != nil {
 		return err
 	}
-	p, err := sessions.AddProject(store, vcs.NewCLI(), dir)
+	p, err := sessions.AddProject(context.Background(), store, vcs.NewCLI().Contextual(), dir)
 	if err != nil {
 		return err
 	}
@@ -232,7 +233,7 @@ func removeProject(store sessions.StateStore, args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("rm: want <project>, got %v", args)
 	}
-	p, err := sessions.RemoveProject(store, args[0])
+	p, err := sessions.RemoveProject(context.Background(), store, args[0])
 	if err != nil {
 		return err
 	}
@@ -248,8 +249,8 @@ func newSession(store sessions.StateStore, cfg config.Config, args []string) err
 	if len(args) > 2 {
 		branch = args[2]
 	}
-	c := sessions.NewCreator(vcs.NewCLI(), creatorOpts(cfg), uuid.NewString)
-	sess, err := sessions.AddSession(store, c, args[0], args[1], branch)
+	c := sessions.NewCreator(vcs.NewCLI().Contextual(), creatorOpts(cfg), uuid.NewString)
+	sess, err := sessions.AddSession(context.Background(), store, c, args[0], args[1], branch)
 	if err != nil {
 		return err
 	}

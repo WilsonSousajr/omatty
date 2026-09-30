@@ -25,7 +25,7 @@ func gateFixture(t *testing.T) (sessions.StateStore, string) {
 	}
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{repo: repo}}
-	if _, err := sessions.AddProject(store, git, repo); err != nil {
+	if _, err := sessions.AddProject(t.Context(), store, git, repo); err != nil {
 		t.Fatal(err)
 	}
 	return store, repo
@@ -33,7 +33,7 @@ func gateFixture(t *testing.T) (sessions.StateStore, string) {
 
 func configuredGate(t *testing.T, store sessions.StateStore) []gate.Step {
 	t.Helper()
-	st, err := store.Load()
+	st, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestGateCommand_clearForgetsTheGate(t *testing.T) {
 // the common case is "what is this checked by?", not "replace it".
 func TestGateCommand_aConfiguredProjectIsShownItsGate(t *testing.T) {
 	store, _ := gateFixture(t)
-	if err := sessions.SetGate(store, "omatty", []gate.Step{{Name: "only", Run: "make check"}}); err != nil {
+	if err := sessions.SetGate(t.Context(), store, "omatty", []gate.Step{{Name: "only", Run: "make check"}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -142,7 +142,7 @@ func TestGateCommand_theListingNamesTheProfileACoverageStepWrites(t *testing.T) 
 		{Name: "test", Run: "go test ./..."},
 		{Name: "cov", Run: "./scripts/check-coverage.sh", Kind: gate.KindCoverage, Profile: "cover.out"},
 	}
-	if err := sessions.SetGate(store, "omatty", steps); err != nil {
+	if err := sessions.SetGate(t.Context(), store, "omatty", steps); err != nil {
 		t.Fatal(err)
 	}
 
@@ -203,7 +203,7 @@ func TestGateCommand_nothingRecognised_saysSoAndSucceeds(t *testing.T) {
 	}
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{repo: repo}}
-	if _, err := sessions.AddProject(store, git, repo); err != nil {
+	if _, err := sessions.AddProject(t.Context(), store, git, repo); err != nil {
 		t.Fatal(err)
 	}
 

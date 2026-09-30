@@ -14,7 +14,7 @@ import (
 func adoptStore(t *testing.T) *statestore.Store {
 	t.Helper()
 	s := statestore.NewStore(filepath.Join(t.TempDir(), "state.json"))
-	if _, err := sessions.AddProject(s, &FakeGit{}, "/p/omatty"); err != nil {
+	if _, err := sessions.AddProject(t.Context(), s, &FakeGit{}, "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
 	return s
@@ -27,7 +27,7 @@ func adoptStore(t *testing.T) *statestore.Store {
 func TestAdoptSession_RegistersASessionOmattyDoesNotOwnTheDirectoryOf_issue122(t *testing.T) {
 	s := adoptStore(t)
 
-	sess, err := sessions.AdoptSession(s, &FakeGit{}, "abc-123", "omatty", "fix the parser", "/p/omatty")
+	sess, err := sessions.AdoptSession(t.Context(), s, &FakeGit{}, "abc-123", "omatty", "fix the parser", "/p/omatty")
 
 	if err != nil {
 		t.Fatalf("AdoptSession() error = %v, want nil", err)
@@ -35,7 +35,7 @@ func TestAdoptSession_RegistersASessionOmattyDoesNotOwnTheDirectoryOf_issue122(t
 	if sess.Worktree {
 		t.Error("Worktree = true; omatty did not create this directory and must never delete it")
 	}
-	st, err := s.Load()
+	st, err := s.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,11 +54,11 @@ func TestAdoptSession_RegistersASessionOmattyDoesNotOwnTheDirectoryOf_issue122(t
 func TestAdoptSession_PersistsEnoughToRelaunch_invariant9(t *testing.T) {
 	s := adoptStore(t)
 
-	if _, err := sessions.AdoptSession(s, &FakeGit{}, "abc-123", "omatty", "one", "/p/omatty"); err != nil {
+	if _, err := sessions.AdoptSession(t.Context(), s, &FakeGit{}, "abc-123", "omatty", "one", "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
 
-	st, _ := s.Load()
+	st, _ := s.Load(t.Context())
 	sess := st.Sessions[0]
 	if sess.ID == "" || sess.Dir == "" {
 		t.Errorf("session %+v cannot be relaunched: --resume needs an id and a directory", sess)
@@ -69,11 +69,11 @@ func TestAdoptSession_PersistsEnoughToRelaunch_invariant9(t *testing.T) {
 // process, and the second would fight the first for the PTY.
 func TestAdoptSession_RefusesADuplicateID_issue122(t *testing.T) {
 	s := adoptStore(t)
-	if _, err := sessions.AdoptSession(s, &FakeGit{}, "abc-123", "omatty", "one", "/p/omatty"); err != nil {
+	if _, err := sessions.AdoptSession(t.Context(), s, &FakeGit{}, "abc-123", "omatty", "one", "/p/omatty"); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := sessions.AdoptSession(s, &FakeGit{}, "abc-123", "omatty", "two", "/p/omatty")
+	_, err := sessions.AdoptSession(t.Context(), s, &FakeGit{}, "abc-123", "omatty", "two", "/p/omatty")
 
 	if err == nil {
 		t.Fatal("AdoptSession() with an id already registered returned nil, want an error")
@@ -81,7 +81,7 @@ func TestAdoptSession_RefusesADuplicateID_issue122(t *testing.T) {
 	if !strings.Contains(err.Error(), "abc-123") {
 		t.Errorf("error %q does not name the offending id", err)
 	}
-	st, _ := s.Load()
+	st, _ := s.Load(t.Context())
 	if len(st.Sessions) != 1 {
 		t.Errorf("state holds %d sessions, want the failed adoption to have changed nothing", len(st.Sessions))
 	}
@@ -92,7 +92,7 @@ func TestAdoptSession_RefusesADuplicateID_issue122(t *testing.T) {
 func TestAdoptSession_RefusesABlankTitle_issue122(t *testing.T) {
 	s := adoptStore(t)
 
-	_, err := sessions.AdoptSession(s, &FakeGit{}, "abc-123", "omatty", "   ", "/p/omatty")
+	_, err := sessions.AdoptSession(t.Context(), s, &FakeGit{}, "abc-123", "omatty", "   ", "/p/omatty")
 
 	if err == nil {
 		t.Fatal("AdoptSession() with a whitespace title returned nil, want an error")
@@ -104,7 +104,7 @@ func TestAdoptSession_RefusesABlankTitle_issue122(t *testing.T) {
 func TestAdoptSession_RefusesAnUnknownProject_issue122(t *testing.T) {
 	s := adoptStore(t)
 
-	_, err := sessions.AdoptSession(s, &FakeGit{}, "abc-123", "nope", "one", "/p/nope")
+	_, err := sessions.AdoptSession(t.Context(), s, &FakeGit{}, "abc-123", "nope", "one", "/p/nope")
 
 	if err == nil {
 		t.Fatal("AdoptSession() with an unregistered project returned nil, want an error")
@@ -126,7 +126,7 @@ func TestAdoptSession_RefusesAnUnknownProject_issue122(t *testing.T) {
 func TestAdoptSession_RecordsTheBranchOfAWorktreeSession_issue122(t *testing.T) {
 	s := adoptStore(t)
 
-	sess, err := sessions.AdoptSession(
+	sess, err := sessions.AdoptSession(t.Context(),
 		s, &FakeGit{Branch: "fix/parser"}, "abc-123", "omatty", "fix the parser", "/p/omatty/.omatty/wt/fix")
 
 	if err != nil {
@@ -146,7 +146,7 @@ func TestAdoptSession_RecordsTheBranchOfAWorktreeSession_issue122(t *testing.T) 
 func TestAdoptSession_RecordsNoBranchForACheckoutSession_issue122(t *testing.T) {
 	s := adoptStore(t)
 
-	sess, err := sessions.AdoptSession(
+	sess, err := sessions.AdoptSession(t.Context(),
 		s, &FakeGit{Branch: "main"}, "abc-123", "omatty", "fix the parser", "/p/omatty")
 
 	if err != nil {

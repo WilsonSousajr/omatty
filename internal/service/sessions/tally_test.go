@@ -6,7 +6,6 @@ import (
 	"time"
 
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
@@ -21,7 +20,7 @@ func TestCreate_RecordsWhenTheSessionStarted_issue332(t *testing.T) {
 		Clock:        func() time.Time { return at },
 	}, func() string { return "s1" })
 
-	sess, err := c.Create(&st, "omatty", "one", "")
+	sess, err := c.Create(t.Context(), &st, "omatty", "one", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +36,7 @@ func TestCreate_WithoutAClockUsesTheWallClock_issue332(t *testing.T) {
 	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: t.TempDir()},
 		func() string { return "s1" })
 
-	sess, err := c.Create(&st, "omatty", "one", "")
+	sess, err := c.Create(t.Context(), &st, "omatty", "one", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,12 +53,12 @@ func TestTallyGateRun_CountsRunsAndTheOnesThatPassed_issue332(t *testing.T) {
 	store := storeHolding(t, sessions.Project{Name: "omatty", Root: "/p/omatty"})
 
 	for _, passed := range []bool{true, false, true} {
-		if err := sessions.TallyGateRun(store, "omatty", passed); err != nil {
+		if err := sessions.TallyGateRun(t.Context(), store, "omatty", passed); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	st, err := store.Load()
+	st, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +75,7 @@ func TestTallyGateRun_CountsRunsAndTheOnesThatPassed_issue332(t *testing.T) {
 func TestTallyGateRun_ReportsAnUnknownProject_issue332(t *testing.T) {
 	store := storeHolding(t)
 
-	if err := sessions.TallyGateRun(store, "ghost", true); err == nil {
+	if err := sessions.TallyGateRun(t.Context(), store, "ghost", true); err == nil {
 		t.Error("tallying against a project that does not exist should fail")
 	}
 }
@@ -86,11 +85,11 @@ func TestTallyGateRun_ReportsAnUnknownProject_issue332(t *testing.T) {
 func TestTallyGateRun_KeepsTheSchemaAtVersionOne_issue332(t *testing.T) {
 	store := storeHolding(t, sessions.Project{Name: "omatty", Root: "/p/omatty"})
 
-	if err := sessions.TallyGateRun(store, "omatty", true); err != nil {
+	if err := sessions.TallyGateRun(t.Context(), store, "omatty", true); err != nil {
 		t.Fatal(err)
 	}
 
-	st, err := store.Load()
+	st, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,10 +102,18 @@ func TestTallyGateRun_KeepsTheSchemaAtVersionOne_issue332(t *testing.T) {
 func storeHolding(t *testing.T, projects ...sessions.Project) *statestore.Store {
 	t.Helper()
 	store, _ := newStoreAt(t)
-	if err := store.Save(sessions.State{Version: sessions.Version, Projects: projects}); err != nil {
+	if err := store.Save(t.Context(), sessions.State{Version: sessions.Version, Projects: projects}); err != nil {
 		t.Fatal(err)
 	}
 	return store
 }
 
-var _ vcs.Git = (*FakeGit)(nil)
+// FakeGit stands in for every git port the session service declares; since
+// migration step 5.4 (#653) those take a context, so it no longer matches
+// vcs.Git, whose methods do not.
+var _ interface {
+	sessions.Worktrees
+	sessions.RepoRooter
+	sessions.SessionBrancher
+	sessions.BranchRenamer
+} = (*FakeGit)(nil)

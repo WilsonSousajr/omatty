@@ -20,7 +20,7 @@ func seedReboundPair(t *testing.T) *statestore.Store {
 			{ID: "row-1", Project: "omatty", Title: "one", Dir: "/p/omatty"},
 			{ID: "row-2", Project: "omatty", Title: "two", Dir: "/p/omatty", Conversation: "conv-2"},
 		}}
-	if err := store.Save(st); err != nil {
+	if err := store.Save(t.Context(), st); err != nil {
 		t.Fatal(err)
 	}
 	return store
@@ -43,11 +43,11 @@ func TestSession_ConversationIDIsIDUntilRebound_issue316(t *testing.T) {
 func TestRebindSession_PersistsTheNewConversation_issue316(t *testing.T) {
 	store := seedReboundPair(t)
 
-	if err := sessions.RebindSession(store, "row-1", "after-clear"); err != nil {
+	if err := sessions.RebindSession(t.Context(), store, "row-1", "after-clear"); err != nil {
 		t.Fatalf("RebindSession() error = %v, want nil", err)
 	}
 
-	st, _ := store.Load()
+	st, _ := store.Load(t.Context())
 	if got := st.Sessions[0]; got.ID != "row-1" || got.Conversation != "after-clear" {
 		t.Errorf("row after rebind = %+v, want ID row-1 on conversation after-clear", got)
 	}
@@ -58,11 +58,11 @@ func TestRebindSession_PersistsTheNewConversation_issue316(t *testing.T) {
 func TestRebindSession_BackToItsOwnIDStoresTheEmptyValue_issue316(t *testing.T) {
 	store := seedReboundPair(t)
 
-	if err := sessions.RebindSession(store, "row-2", "row-2"); err != nil {
+	if err := sessions.RebindSession(t.Context(), store, "row-2", "row-2"); err != nil {
 		t.Fatal(err)
 	}
 
-	st, _ := store.Load()
+	st, _ := store.Load(t.Context())
 	if got := st.Sessions[1].Conversation; got != "" {
 		t.Errorf("Conversation = %q, want empty for a row on its own id", got)
 	}
@@ -74,12 +74,12 @@ func TestRebindSession_RefusesAConversationAnotherRowHolds_issue316(t *testing.T
 	for _, taken := range []string{"row-2", "conv-2"} {
 		store := seedReboundPair(t)
 
-		err := sessions.RebindSession(store, "row-1", taken)
+		err := sessions.RebindSession(t.Context(), store, "row-1", taken)
 
 		if err == nil || !strings.Contains(err.Error(), taken) || !strings.Contains(err.Error(), "row-2") {
 			t.Errorf("RebindSession onto %q = %v, want an error naming it and row-2", taken, err)
 		}
-		if st, _ := store.Load(); st.Sessions[0].Conversation != "" {
+		if st, _ := store.Load(t.Context()); st.Sessions[0].Conversation != "" {
 			t.Errorf("row-1 was rebound to %q despite the refusal", st.Sessions[0].Conversation)
 		}
 	}
@@ -88,7 +88,7 @@ func TestRebindSession_RefusesAConversationAnotherRowHolds_issue316(t *testing.T
 func TestRebindSession_UnknownSessionIsAnError_issue316(t *testing.T) {
 	store := seedReboundPair(t)
 
-	if err := sessions.RebindSession(store, "nope", "after-clear"); err == nil {
+	if err := sessions.RebindSession(t.Context(), store, "nope", "after-clear"); err == nil {
 		t.Error("RebindSession of an unknown id = nil, want an error")
 	}
 }
@@ -98,7 +98,7 @@ func TestRebindSession_UnknownSessionIsAnError_issue316(t *testing.T) {
 func TestKnownSessionIDs_IncludesReboundConversations_issue316(t *testing.T) {
 	store := seedReboundPair(t)
 
-	ids, err := sessions.KnownSessionIDs(store)
+	ids, err := sessions.KnownSessionIDs(t.Context(), store)
 
 	if err != nil || !slices.Contains(ids, "conv-2") || !slices.Contains(ids, "row-2") {
 		t.Errorf("KnownSessionIDs = %v (err %v), want row-2 and conv-2 both", ids, err)

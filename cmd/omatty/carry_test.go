@@ -11,7 +11,7 @@ import (
 
 func configuredCarry(t *testing.T, store sessions.StateStore) []string {
 	t.Helper()
-	st, err := store.Load()
+	st, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestCarryCommand_warnsAboutAPathTheCheckoutDoesNotHave_issue309(t *testing.
 // state.json.
 func TestCarryCommand_printsTheListWithNoPaths_issue309(t *testing.T) {
 	store, _ := gateFixture(t)
-	if err := sessions.SetCarry(store, "omatty", []string{".env", "certs"}); err != nil {
+	if err := sessions.SetCarry(t.Context(), store, "omatty", []string{".env", "certs"}); err != nil {
 		t.Fatal(err)
 	}
 

@@ -13,7 +13,7 @@ import (
 
 func TestStore_LoadMissingFileReturnsEmptyState(t *testing.T) {
 	s := store.NewStore(filepath.Join(t.TempDir(), "state.json"))
-	got, err := s.Load()
+	got, err := s.Load(t.Context())
 	if err != nil {
 		t.Fatalf("Load() on a missing file returned error %v, want nil", err)
 	}
@@ -33,10 +33,10 @@ func TestStore_SaveThenLoadRoundTrips(t *testing.T) {
 			Dir: "/w/parser-fix", Branch: "parser-fix", Worktree: true,
 		}},
 	}
-	if err := s.Save(want); err != nil {
+	if err := s.Save(t.Context(), want); err != nil {
 		t.Fatalf("Save() error = %v, want nil", err)
 	}
-	got, err := s.Load()
+	got, err := s.Load(t.Context())
 	if err != nil {
 		t.Fatalf("Load() error = %v, want nil", err)
 	}
@@ -53,7 +53,7 @@ func TestStore_LoadMalformedJSONNamesTheFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := store.NewStore(path).Load()
+	_, err := store.NewStore(path).Load(t.Context())
 	if err == nil {
 		t.Fatal("Load() on malformed JSON returned nil error, want an error")
 	}
@@ -65,7 +65,7 @@ func TestStore_LoadMalformedJSONNamesTheFile(t *testing.T) {
 func TestStore_SaveLeavesNoTempFiles(t *testing.T) {
 	dir := t.TempDir()
 	s := store.NewStore(filepath.Join(dir, "state.json"))
-	if err := s.Save(session.State{Version: 1}); err != nil {
+	if err := s.Save(t.Context(), session.State{Version: 1}); err != nil {
 		t.Fatalf("Save() error = %v, want nil", err)
 	}
 	entries, err := os.ReadDir(dir)
@@ -81,7 +81,7 @@ func TestStore_SaveLeavesNoTempFiles(t *testing.T) {
 // stale "thinking" cannot survive a restart.
 func TestSession_HasNoPersistedStatusField(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
-	if err := store.NewStore(path).Save(session.State{
+	if err := store.NewStore(path).Save(t.Context(), session.State{
 		Version:  1,
 		Sessions: []session.Session{{ID: "abc-123"}},
 	}); err != nil {

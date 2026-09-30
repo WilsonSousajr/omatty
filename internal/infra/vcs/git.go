@@ -76,6 +76,10 @@ type CLI struct {
 	// limit, when set, replaces every per-command deadline. Only tests set it,
 	// so a git that hangs can be cut off in milliseconds rather than 30 s.
 	limit time.Duration
+	// parent is the caller's context, set by Contextual's methods (ADR 0001's
+	// ports, migration step 5.4, #653). Nil is the background: a call made
+	// through a plain method is bounded by its deadline alone.
+	parent context.Context
 }
 
 // Every git call has a deadline (#650). Several run on the TUI's event loop -
@@ -95,7 +99,7 @@ const waitDelay = 2 * time.Second
 
 // commandFor is git in dir under its deadline. The caller defers cancel.
 func (c *CLI) commandFor(dir string, args []string) (*exec.Cmd, context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.deadlineFor(args))
+	ctx, cancel := context.WithTimeout(c.parentOrBackground(), c.deadlineFor(args))
 	cmd := exec.CommandContext(ctx, c.bin, args...)
 	cmd.Dir = dir
 	cmd.WaitDelay = waitDelay
@@ -105,7 +109,10 @@ func (c *CLI) commandFor(dir string, args []string) (*exec.Cmd, context.Context,
 // failure is a failed invocation as a CommandError, saying so when the
 // deadline is what ended it: "signal: killed" alone would read as a crash.
 func (c *CLI) failure(ctx context.Context, dir string, args []string, stderr *bytes.Buffer, err error) error {
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+	switch {
+	case c.parent != nil && c.parent.Err() != nil:
+		err = fmt.Errorf("git was stopped by its caller: %w", c.parent.Err())
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
 		err = fmt.Errorf("git did not finish within %v: %w", c.deadlineFor(args), ctx.Err())
 	}
 	return &CommandError{Args: args, Dir: dir, Stderr: strings.TrimSpace(stderr.String()), Err: err}
