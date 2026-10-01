@@ -35,10 +35,20 @@ type sessionStartedMsg struct {
 }
 
 // createCmd registers a session off the Update goroutine.
+//
+// It is a registry write, so it joins the writer's queue behind every write
+// asked for before it (5.6b, #653): a create racing a rename would otherwise
+// load state.json, and save it, across the rename's own load and save.
 func (m *Model) createCmd(project, title, branch string, worktree bool) tea.Cmd {
 	create := m.create
+	var sess sessions.Session
+	result := m.writes.submit(func() error {
+		var err error
+		sess, err = create(project, title, branch, worktree)
+		return err
+	})
 	return func() tea.Msg {
-		sess, err := create(project, title, branch, worktree)
+		err := <-result
 		return sessionCreatedMsg{sess: sess, err: err, project: project, title: title, branch: branch}
 	}
 }

@@ -208,10 +208,10 @@ func TestModel_ARenameBeatsTheModelName_issue127(t *testing.T) {
 	_, cmd := m.Update(ui.NamedMsg{SessionID: "s1", From: sessions.PlaceholderTitle("s1"), Title: "fix the wheel"})
 	leader(m, shift('r', "R"))
 	for range len("fix the wheel") {
-		press(m, special(tea.KeyBackspace))
+		pressAndSettle(m, special(tea.KeyBackspace))
 	}
 	for _, r := range "mine" {
-		press(m, key(r))
+		pressAndSettle(m, key(r))
 	}
 	pressAndSettle(m, special(tea.KeyEnter))
 

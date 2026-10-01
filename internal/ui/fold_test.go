@@ -168,11 +168,11 @@ func TestModel_aClickOnAProjectHeaderFoldsAndUnfoldsIt_issue505(t *testing.T) {
 	f := &recordFold{}
 	m := modelWithFold(t, twoProjectState(), f, &recordCreate{})
 
-	m.Update(clickAt(4, sidebarLineY(0)))
+	settle(m, second(m.Update(clickAt(4, sidebarLineY(0)))))
 	if len(f.Calls) != 1 || f.Calls[0] != "fold omatty" || m.SidebarRows() != 3 {
 		t.Fatalf("header click persisted %v with %d rows; want omatty folded", f.Calls, m.SidebarRows())
 	}
-	m.Update(clickAt(4, sidebarLineY(0)))
+	settle(m, second(m.Update(clickAt(4, sidebarLineY(0)))))
 	if len(f.Calls) != 2 || f.Calls[1] != "unfold omatty" || m.SidebarRows() != 5 {
 		t.Errorf("second click persisted %v with %d rows; want omatty unfolded", f.Calls, m.SidebarRows())
 	}

@@ -41,6 +41,12 @@ type Model struct {
 	// Update goroutine, so a second enter while one is on its way does not
 	// start another (migration step 5.6a, #653). Nil until the first start.
 	starting map[string]bool
+	// writes runs every registry write in the order Update asked for it,
+	// one at a time (#653).
+	writes writer
+	// titleAsked counts the titles asked for each session, so the answer to
+	// one that a newer title has overtaken is not shown over it (#653).
+	titleAsked map[string]int
 	// status is the live per-session state from the watcher; events feeds it.
 	status    map[string]status.SessionState
 	events    <-chan pubsub.Event[status.Event]

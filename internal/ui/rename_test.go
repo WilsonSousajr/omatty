@@ -69,18 +69,18 @@ func TestModel_renameCommitsTheNewTitle_issue41(t *testing.T) {
 	r := &recordRename{}
 	m, _ := modelWithRename(t, r)
 
-	press(m, ctrl('o'))
-	press(m, shift('r', "R"))
+	pressAndSettle(m, ctrl('o'))
+	pressAndSettle(m, shift('r', "R"))
 	for range len("main") {
-		press(m, special(tea.KeyBackspace))
+		pressAndSettle(m, special(tea.KeyBackspace))
 	}
 	// A title no other row in the fixture has. "parser-fix" is s2's title, so
 	// asserting on it passed on s2's row whatever s1 did: deleting both the
 	// retitle and the SetRows left this test green (#41).
 	for _, c := range "zzz-renamed" {
-		press(m, key(c))
+		pressAndSettle(m, key(c))
 	}
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if r.Calls != 1 || r.SessionID != "s1" || r.Title != "zzz-renamed" {
 		t.Fatalf("rename called %d times with (%q, %q), want once with (s1, zzz-renamed)",
@@ -110,10 +110,10 @@ func TestModel_renameFailureSurfacesAndKeepsTheOldTitle_issue41(t *testing.T) {
 	r := &recordRename{Err: errors.New("state.json is read-only")}
 	m, _ := modelWithRename(t, r)
 
-	press(m, ctrl('o'))
-	press(m, shift('r', "R"))
-	press(m, key('x'))
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, ctrl('o'))
+	pressAndSettle(m, shift('r', "R"))
+	pressAndSettle(m, key('x'))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	got := m.View().Content
 	if !strings.Contains(got, "read-only") {

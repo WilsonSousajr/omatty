@@ -2,31 +2,43 @@ package ui_test
 
 import (
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
 // Migration step 5.6a (#653; ADR 0001 pain point 5): `git worktree add` and
-// the PTY spawn ran inside Update, so a slow one froze every pane. Submitting
-// the prompt now only schedules them: nothing is created or started until the
-// command runs, off the Update goroutine.
-func TestModel_submittingAPromptCreatesNothingInsideUpdate_issue653(t *testing.T) {
-	c, s := &liveCreate{}, &startRecorder{}
-	m := ui.NewModel(ui.Deps{State: oneProject(), Terms: map[string]termwrap.Terminal{}, Create: c.fn, Start: s.fn})
+// the PTY spawn ran inside Update, so a slow one froze every pane. A create
+// that does not return must not hold Update: the enter comes back at once, and
+// the session arrives when the create does.
+func TestModel_aSlowCreateDoesNotHoldUpdate_issue653(t *testing.T) {
+	release := make(chan struct{})
+	s := &startRecorder{}
+	create := func(project, title, _ string, _ bool) (sessions.Session, error) {
+		<-release
+		return sessions.Session{ID: "new-id", Project: project, Title: title}, nil
+	}
+	m := ui.NewModel(ui.Deps{State: oneProject(), Terms: map[string]termwrap.Terminal{}, Create: create, Start: s.fn})
 	m.Update(ctrl('o'))
 	m.Update(key('n'))
 	m.Update(key('x'))
 
-	_, cmd := m.Update(special(tea.KeyEnter))
-
-	if c.Calls != 0 || len(s.Started) != 0 {
-		t.Fatalf("Update created %d and started %v itself, want neither until the command runs", c.Calls, s.Started)
+	returned := make(chan tea.Cmd, 1)
+	go func() { _, cmd := m.Update(special(tea.KeyEnter)); returned <- cmd }()
+	var cmd tea.Cmd
+	select {
+	case cmd = <-returned:
+	case <-time.After(5 * time.Second):
+		close(release)
+		t.Fatal("Update waited for the create to finish")
 	}
+	close(release)
 	settle(m, cmd)
-	if c.Calls != 1 || len(s.Started) != 1 {
-		t.Errorf("after the command ran: created %d, started %v; want one of each", c.Calls, s.Started)
+	if len(s.Started) != 1 || m.Selected() != "new-id" {
+		t.Errorf("after the create landed: started %v, selected %q; want new-id started and selected", s.Started, m.Selected())
 	}
 }
 

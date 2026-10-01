@@ -107,7 +107,7 @@ func TestModel_archiveWithNoStopConfiguredStillArchives_issue43(t *testing.T) {
 	m := ui.NewModel(d) // no d.Stop
 	openArchive(t, m, "s2")
 
-	press(m, key('y'))
+	pressAndSettle(m, key('y'))
 
 	if len(r.Archived) != 1 {
 		t.Errorf("archived = %v, want the session archived despite no holder", r.Archived)

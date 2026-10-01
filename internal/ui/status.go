@@ -43,19 +43,20 @@ func (m *Model) waitForEvent() tea.Cmd {
 // move a conversation out from under its row (#316).
 func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 	e := status.Event(ev)
+	var rebound tea.Cmd
 	if e.Kind == status.SessionRebound {
-		m.followClear(e)
+		rebound = m.followClear(e)
 	}
 	id, ok := m.sessionOfConversation(e.SessionID)
 	if !ok {
-		return m.waitForEvent()
+		return tea.Batch(rebound, m.waitForEvent())
 	}
 	e.SessionID = id
 	before := m.status[e.SessionID]
 	after := status.Apply(before, e)
 	m.status[e.SessionID] = after
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
-	return m.afterStatus(e, before.Status, after.Status)
+	return tea.Batch(rebound, m.afterStatus(e, before.Status, after.Status))
 }
 
 // afterStatus is everything a status event sets in motion off the Update

@@ -70,7 +70,8 @@ count after the step.
 | 5.5a (launch) | #653 | #675 | merged | 13 |
 | 5.5b (agentcli) | #653 | #676 | merged | 11 |
 | 5.5c (launcher) | #653 | #677 | merged | 8 |
-| 5.6a | #653 | #678 | open | 8 |
+| 5.6a | #653 | #678 | merged | 8 |
+| 5.6b | #653 | this PR | open | 8 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,

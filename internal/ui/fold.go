@@ -61,9 +61,24 @@ func loudness(s status.Status) int {
 // fold, so it is left alone.
 func (m *Model) toggleFold(project string) tea.Cmd {
 	i := m.foldable(project)
-	if i < 0 || !m.persistFold(i, !m.state.Projects[i].Collapsed) {
+	if i < 0 {
 		return nil
 	}
+	collapsed, fold := !m.state.Projects[i].Collapsed, m.fold
+	// Saved before shown, off the Update goroutine (#653): a fold that could
+	// not be written must not appear to have happened.
+	return m.persistCmd("saving a project fold", []any{"project", project, "collapsed", collapsed},
+		func() error { return fold(project, collapsed) },
+		func(m *Model) tea.Cmd { return m.folded(project, collapsed) })
+}
+
+// folded shows a fold that is on disk.
+func (m *Model) folded(project string, collapsed bool) tea.Cmd {
+	i := m.foldable(project)
+	if i < 0 {
+		return nil
+	}
+	m.state.Projects[i].Collapsed = collapsed
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
 	m.sidebar.SelectByProject(project)
 	// The pair commitJump uses: size what we landed on and drag an open

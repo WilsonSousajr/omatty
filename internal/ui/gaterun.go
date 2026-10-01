@@ -47,8 +47,7 @@ func (m *Model) onGate(msg GateMsg) tea.Cmd {
 	if m.review.SessionID == report.ID {
 		m.openFirstFailure(report)
 	}
-	m.tallyRun(report)
-	return tea.Batch(m.waitForGate(), m.gateNotice(report), m.loadCoverage(report.ID))
+	return tea.Batch(m.waitForGate(), m.gateNotice(report), m.loadCoverage(report.ID), m.tallyRun(report))
 }
 
 // holds reports whether a session is one of omatty's own.
@@ -117,17 +116,24 @@ func (m *Model) sessionByID(id string) (sessions.Session, bool) {
 // A failure to record is logged and nothing else. Measuring must never be able
 // to disturb a session: the report has already landed, and a number nobody can
 // see is worth less than the run it describes.
-func (m *Model) tallyRun(report gate.Report) {
+func (m *Model) tallyRun(report gate.Report) tea.Cmd {
 	if !m.turnGated[report.ID] {
-		return
+		return nil
 	}
 	delete(m.turnGated, report.ID)
 	sess, ok := m.session(report.ID)
 	if !ok {
-		return
+		return nil
 	}
-	if err := m.tally(sess.Project, passedWholly(report)); err != nil {
-		slog.Warn("recording a gate run", "project", sess.Project, "err", err)
+	// On the writer, off the Update goroutine (#653): it is a state.json
+	// write. A failure is a warning only, as it always was.
+	tally, project, passed := m.tally, sess.Project, passedWholly(report)
+	result := m.writes.submit(func() error { return tally(project, passed) })
+	return func() tea.Msg {
+		if err := <-result; err != nil {
+			slog.Warn("recording a gate run", "project", project, "err", err)
+		}
+		return nil
 	}
 }
 

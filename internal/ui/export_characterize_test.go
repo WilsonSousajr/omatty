@@ -43,6 +43,7 @@ func UnexportedRouted(sessionID string) map[string]tea.Msg {
 		// starts a process under the table (#653).
 		"sessionCreatedMsg": sessionCreatedMsg{err: errors.New("fixture: create refused")},
 		"sessionStartedMsg": sessionStartedMsg{sess: sessions.Session{ID: sessionID}, err: errors.New("fixture: pty refused"), restart: true},
+		"persistedMsg":      persistedMsg{err: errors.New("fixture: save refused"), what: "fixture write", warnOnly: true},
 	}
 }
 

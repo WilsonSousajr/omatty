@@ -8,7 +8,6 @@ package ui
 
 import (
 	"fmt"
-	"log/slog"
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
@@ -45,14 +44,16 @@ func (m *Model) openRemoveProject(name string) {
 func (m *Model) removeProjectRow() tea.Cmd {
 	name := m.modal.Confirm.Project
 	m.modal, m.lastErr = modal{}, ""
-	if _, err := m.removeProject(name); err != nil {
-		slog.Error("removing project", "project", name, "err", err)
-		m.lastErr = err.Error()
-		return nil
+	remove := m.removeProject
+	write := func() error {
+		_, err := remove(name)
+		return err
 	}
-	m.forgetProject(name)
-	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
-	return tea.Batch(m.resizeSelected(), m.followSession())
+	return m.persistCmd("removing project", []any{"project", name}, write, func(m *Model) tea.Cmd {
+		m.forgetProject(name)
+		m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
+		return tea.Batch(m.resizeSelected(), m.followSession())
+	})
 }
 
 // forgetProject drops the project from the in-memory state. A fresh slice,
