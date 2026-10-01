@@ -35,6 +35,9 @@ type Git interface {
 	CommitsOnBranch(repoRoot, base, branch string) (int, error)
 	// MergeBase returns the commit where ref and dir's HEAD diverged.
 	MergeBase(dir, ref string) (string, error)
+	// CommitExists reports whether ref still names a commit, which a merged
+	// and deleted base branch does not (#684).
+	CommitExists(dir, ref string) (bool, error)
 	// Diff returns the unified diff of dir's working tree against commit, so
 	// committed and uncommitted changes appear as one diff (#21).
 	Diff(dir, commit string) (string, error)
@@ -307,6 +310,17 @@ func diffArgs(extra ...string) []string {
 //	base, err := vcs.NewCLI().MergeBase("/wt/parser-fix", "develop")
 func (c *CLI) MergeBase(dir, ref string) (string, error) {
 	return c.run(dir, "merge-base", ref, "HEAD")
+}
+
+// CommitExists reports whether ref names a commit in dir's repository. A ref
+// that does not is false, not an error: rev-parse --verify --quiet says so
+// with exit 1 and no output. Review asks after merge-base has failed on a
+// session's recorded base, since a merged branch is normally deleted (#684).
+//
+//	ok, err := vcs.NewCLI().CommitExists("/wt/parser-fix", "develop")
+func (c *CLI) CommitExists(dir, ref string) (bool, error) {
+	out, err := c.capture(dir, 1, "rev-parse", "--verify", "--quiet", ref+"^{commit}")
+	return err == nil && strings.TrimSpace(out) != "", err
 }
 
 // Diff returns the working tree's unified diff against commit, which is
