@@ -9,7 +9,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // The built-in list is the third and last of #338's detections, and the one

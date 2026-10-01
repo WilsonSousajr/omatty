@@ -8,7 +8,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 var turnSess = session.Session{ID: "s1", Dir: "/wt/s1"}

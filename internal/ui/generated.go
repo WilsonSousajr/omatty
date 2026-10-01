@@ -7,7 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // generatedMsg carries one session's detection back into Update.

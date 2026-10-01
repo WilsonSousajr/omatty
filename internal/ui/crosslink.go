@@ -6,7 +6,7 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // openPreviewAtCursor is o in the diff: the preview of the entry's file with

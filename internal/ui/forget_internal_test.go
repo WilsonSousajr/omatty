@@ -9,7 +9,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"

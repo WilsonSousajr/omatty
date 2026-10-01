@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // uncoveredMark is what an added line no test covers draws instead of its +.

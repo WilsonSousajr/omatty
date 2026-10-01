@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // RevertTurn is LoadTurn's mirror: the same baseline, written back instead of

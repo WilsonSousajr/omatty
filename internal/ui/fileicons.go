@@ -11,7 +11,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // Folder and fallback glyphs, Font Awesome's as every Nerd Font patches them.

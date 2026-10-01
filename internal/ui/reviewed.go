@@ -2,7 +2,7 @@
 
 package ui
 
-import "github.com/WilsonSousajr/omatty/internal/review"
+import "github.com/WilsonSousajr/omatty/internal/service/review"
 
 // The review gutter's three states. One cell, left of the change letter, so
 // every row a session did not touch still reads exactly as it did: the change

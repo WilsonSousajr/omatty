@@ -5,7 +5,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // tabWidth is what a tab becomes before a row is measured. Tabs are expanded

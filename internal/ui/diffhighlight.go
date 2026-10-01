@@ -15,7 +15,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/highlight"
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // hunkStyle is a hunk drawn: each line's text finished - syntax-coloured, its
