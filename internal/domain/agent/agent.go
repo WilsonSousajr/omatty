@@ -29,6 +29,9 @@ type Profile struct {
 	Name string
 	// DefaultBin is the binary to run when the config file names none.
 	DefaultBin string
+	// Caps is what the agent offers, and so what omatty may claim about its
+	// sessions: the tier is derived from it, never declared (#520).
+	Caps Caps
 	// Command is the argument list, bin included, for one session. resume is
 	// true once the agent has written a transcript for the id: claude refuses
 	// --session-id then, because the transcript itself is the claim (#36).

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
@@ -41,6 +42,28 @@ func TestClaude_EveryProfileFieldIsSet_issue46(t *testing.T) {
 	}
 	if len(agentNames()) != 1 || agentNames()[0] != "claude" {
 		t.Errorf("Names() = %v, want [claude]", agentNames())
+	}
+}
+
+// claude is the shape every tier is measured against (#520).
+func TestClaude_DerivesFullTier_issue520(t *testing.T) {
+	if got := claudeProfile().Caps.Tier(); got != agent.Full {
+		t.Errorf("claude's tier = %v, want full (caps %+v)", got, claudeProfile().Caps)
+	}
+}
+
+// A capability a profile declares and cannot serve would fail at session
+// start, not at build: hooks need their events and renderer, a transcript
+// its path and parser (#520).
+func TestCatalog_EveryDeclaredCapabilityHasItsFunc_issue520(t *testing.T) {
+	for _, name := range agentNames() {
+		p, _ := lookupAgent(name)
+		if p.Caps.Status >= agent.StatusTranscript && (p.TranscriptPath == nil || p.Status == nil) {
+			t.Errorf("%s declares a transcript and lacks its path or parser", name)
+		}
+		if p.Caps.Status == agent.StatusHooks && (p.HookEvents == nil || p.RenderSettings == nil) {
+			t.Errorf("%s declares hooks and lacks their events or renderer", name)
+		}
 	}
 }
 
