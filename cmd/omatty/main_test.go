@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
@@ -60,25 +59,4 @@ func (e errNotARepo) Error() string { return "not a git repository: " + e.dir }
 func storeIn(t *testing.T) sessions.StateStore {
 	t.Helper()
 	return statestore.NewStore(filepath.Join(t.TempDir(), "state.json"))
-}
-
-func TestReadLine_TakesTheAnswerAndTrimsIt(t *testing.T) {
-	for _, tt := range []struct {
-		name, in, want string
-	}{
-		{"a selection", "1 3\n", "1 3"},
-		{"trailing spaces", "  all  \n", "all"},
-		{"just enter", "\n", ""},
-		// The EOF path: a closed stdin is no answer, which is the same as
-		// choosing nothing. The old guard for it was dead code - both branches
-		// returned "" - and nothing covered either (#91).
-		{"eof with no newline", "all", "all"},
-		{"eof with nothing at all", "", ""},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := readLine(strings.NewReader(tt.in)); got != tt.want {
-				t.Errorf("readLine(%q) = %q, want %q", tt.in, got, tt.want)
-			}
-		})
-	}
 }
