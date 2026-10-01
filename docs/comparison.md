@@ -105,7 +105,7 @@ See "Is this just lazygit?" below, because it is the right question.
   no agent-to-agent messaging, no unattended queues, no cloud. Each of those is
   refused with a stated reason in "Not on the roadmap".
 
-Several repositories in one window (`internal/service/sessions`, `internal/discover`)
+Several repositories in one window (`internal/service/sessions`, `internal/service/discovery`)
 and working over SSH are facts about omatty, not distinctions: `claude agents`,
 herdr, ccmanager and fleet span repositories, and herdr, Orca and emdash reach
 remote machines.

@@ -9,7 +9,7 @@
 // Nothing here writes to the registry either: it proposes, and state.json stays
 // the single source of truth (invariant 9).
 
-package discover
+package discovery
 
 import (
 	"bufio"
@@ -51,7 +51,7 @@ type SessionCandidate struct {
 // ProposeSessions returns the sessions in projectRoot that omatty does not
 // already hold, most recently used first.
 //
-//	cands, err := discover.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids)
+//	cands, err := discovery.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids)
 //
 // known is the session ids already in state.json, which are left out. Offering
 // one again would make its row fail on commit with "already registered" and say
@@ -210,7 +210,7 @@ type promptRecord struct {
 // FirstPromptTitle is the title to give a session, read from the first thing
 // the operator typed into its transcript, or "" when it holds none yet.
 //
-//	title, err := discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()))
+//	title, err := discovery.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()))
 //
 // Exported so a session omatty created is named the way an adopted one is:
 // titleOf is this function's other caller, and two rules for what a session

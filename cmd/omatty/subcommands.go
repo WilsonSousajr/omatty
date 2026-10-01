@@ -14,10 +14,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/WilsonSousajr/omatty/internal/discover"
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
+	"github.com/WilsonSousajr/omatty/internal/service/discovery"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
@@ -64,7 +64,7 @@ func dispatchSettings(cmd string, args []string, store sessions.StateStore, prs 
 // git is a parameter rather than built here so the flow is testable without a
 // real repository; everything else follows discoverProjects exactly.
 func adoptSessions(
-	store sessions.StateStore, home string, git discover.Git, args []string, in io.Reader,
+	store sessions.StateStore, home string, git discovery.Git, args []string, in io.Reader,
 ) error {
 	p, err := namedProject(store, args)
 	if err != nil {
@@ -83,14 +83,14 @@ func adoptSessions(
 
 // chooseAndAdopt prints the list, reads the answer, and registers each pick.
 func chooseAndAdopt(
-	store sessions.StateStore, p sessions.Project, cands []discover.SessionCandidate, in io.Reader,
+	store sessions.StateStore, p sessions.Project, cands []discovery.SessionCandidate, in io.Reader,
 ) error {
-	for _, line := range discover.ListSessions(cands, time.Now()) {
+	for _, line := range discovery.ListSessions(cands, time.Now()) {
 		report(line)
 	}
 	report("")
 	report("adopt which? (numbers, or `all`, or enter for none)")
-	picked, err := discover.ChooseSessions(cands, readLine(in))
+	picked, err := discovery.ChooseSessions(cands, readLine(in))
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func chooseAndAdopt(
 // registry's; this one only says so on stdout (invariant 10).
 func adoptAll(
 	store sessions.StateStore, git sessions.SessionBrancher,
-	project string, picked []discover.SessionCandidate,
+	project string, picked []discovery.SessionCandidate,
 ) error {
 	for _, a := range sessions.AdoptAll(context.Background(), store, git, project, sessionPicks(picked)) {
 		if a.Err != nil {
@@ -114,7 +114,7 @@ func adoptAll(
 }
 
 // sessionPicks narrows candidates to what the registry writes a row from.
-func sessionPicks(picked []discover.SessionCandidate) []sessions.SessionPick {
+func sessionPicks(picked []discovery.SessionCandidate) []sessions.SessionPick {
 	out := make([]sessions.SessionPick, 0, len(picked))
 	for _, c := range picked {
 		out = append(out, sessions.SessionPick{ID: c.ID, Title: c.Title, Dir: c.Dir})
@@ -139,13 +139,13 @@ func namedProject(store sessions.StateStore, args []string) (sessions.Project, e
 // proposeSessions is the scan: the project's sessions, minus the ones state.json
 // already holds.
 func proposeSessions(
-	store sessions.StateStore, home string, git discover.Git, p sessions.Project,
-) ([]discover.SessionCandidate, error) {
+	store sessions.StateStore, home string, git discovery.Git, p sessions.Project,
+) ([]discovery.SessionCandidate, error) {
 	ids, err := sessions.KnownSessionIDs(context.Background(), store)
 	if err != nil {
 		return nil, err
 	}
-	return discover.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids)
+	return discovery.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids)
 }
 
 // discoverProjects lists the repositories claude has been used in and
@@ -160,12 +160,12 @@ func discoverProjects(store sessions.StateStore, home string, in io.Reader) erro
 		report("no repositories found in " + paths.TranscriptsDir(home))
 		return nil
 	}
-	for _, line := range discover.List(cands, time.Now()) {
+	for _, line := range discovery.List(cands, time.Now()) {
 		report(line)
 	}
 	report("")
 	report("register which? (numbers, or `all`, or enter for none)")
-	picked, err := discover.Choose(cands, readLine(in))
+	picked, err := discovery.Choose(cands, readLine(in))
 	if err != nil {
 		return err
 	}
@@ -174,12 +174,12 @@ func discoverProjects(store sessions.StateStore, home string, in io.Reader) erro
 
 // proposeProjects is the scan: what claude has been used in, minus what
 // state.json already holds.
-func proposeProjects(store sessions.StateStore, home string) ([]discover.Candidate, error) {
+func proposeProjects(store sessions.StateStore, home string) ([]discovery.Candidate, error) {
 	roots, err := registeredRoots(store)
 	if err != nil {
 		return nil, err
 	}
-	return discover.Propose(paths.TranscriptsDir(home), vcs.NewCLI(), roots)
+	return discovery.Propose(paths.TranscriptsDir(home), vcs.NewCLI(), roots)
 }
 
 // registeredRoots is what state.json already holds, so discovery does not
@@ -199,7 +199,7 @@ func registeredRoots(store sessions.StateStore) ([]string, error) {
 // registerAll reports what sessions.RegisterAll did with each pick. The loop
 // itself lives there, shared with the TUI picker: cmd/ holds no logic
 // (invariant 10), and two copies of a collision policy drift (#91).
-func registerAll(store sessions.StateStore, picked []discover.Candidate) error {
+func registerAll(store sessions.StateStore, picked []discovery.Candidate) error {
 	roots := make([]string, 0, len(picked))
 	for _, c := range picked {
 		roots = append(roots, c.Root)
