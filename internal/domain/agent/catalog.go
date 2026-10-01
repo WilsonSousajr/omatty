@@ -50,15 +50,31 @@ func NewCatalog(profiles ...Profile) (Catalog, error) {
 // serves it, which would otherwise fail at session start rather than at
 // build (#520).
 func (p Profile) servesItsCaps() error {
-	switch {
-	case p.Command == nil:
-		return fmt.Errorf("agent %q: no command template, want one to start it", p.Name)
-	case p.Caps.Status >= StatusTranscript && (p.TranscriptPath == nil || p.Status == nil):
-		return fmt.Errorf("agent %q: declares a transcript, want a transcript path and a status adapter", p.Name)
-	case p.Caps.Status == StatusHooks && (p.HookEvents == nil || p.RenderSettings == nil || p.ParseHook == nil):
-		return fmt.Errorf("agent %q: declares hooks, want hook events, a settings renderer and a payload parser", p.Name)
+	checks := []struct {
+		missing bool
+		want    string
+	}{
+		{p.Command == nil, "no command template, want one to start it"},
+		{p.lacksScan(), "declares a scanned identity, want a Locate to scan its store with"},
+		{p.lacksTranscript(), "declares a transcript, want a transcript path and a status adapter"},
+		{p.lacksHooks(), "declares hooks, want hook events, a settings renderer and a payload parser"},
+	}
+	for _, c := range checks {
+		if c.missing {
+			return fmt.Errorf("agent %q: %s", p.Name, c.want)
+		}
 	}
 	return nil
+}
+
+func (p Profile) lacksScan() bool { return p.Caps.Identity == Scanned && p.Locate == nil }
+
+func (p Profile) lacksTranscript() bool {
+	return p.Caps.Status >= StatusTranscript && (p.TranscriptPath == nil || p.Status == nil)
+}
+
+func (p Profile) lacksHooks() bool {
+	return p.Caps.Status == StatusHooks && (p.HookEvents == nil || p.RenderSettings == nil || p.ParseHook == nil)
 }
 
 // Lookup returns the profile a session names. An unknown name is an error

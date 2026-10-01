@@ -23,6 +23,7 @@ package agent
 
 import (
 	"io"
+	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/status"
 )
@@ -50,6 +51,9 @@ type Profile struct {
 	// RenderSettings is the settings-file content that makes the agent
 	// report to `omatty hook`.
 	RenderSettings func(binPath string, eventNames []string) ([]byte, error)
+	// Locate lists the conversations in the agent's store for dir begun at
+	// or after since: how a Scanned identity is found (#523).
+	Locate func(home, dir string, since time.Time) []string
 	// ParseHook reads this agent's hook payload from the hook's stdin.
 	ParseHook func(stdin io.Reader) (status.HookPayload, bool)
 	// Status reads this agent's transcript lines and hook payloads into
