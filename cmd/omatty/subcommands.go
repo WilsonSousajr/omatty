@@ -23,7 +23,7 @@ import (
 
 // dispatch runs a subcommand. `add` registers a repository and `rm` forgets
 // one; `new` creates a session, with a branch argument meaning "in a fresh
-// worktree".
+// worktree"; `sessions --json` and `status --json` read them (#653).
 func dispatch(cmd string, args []string, home string, cfg config.Config, store sessions.StateStore) error {
 	switch cmd {
 	case "add":
@@ -36,6 +36,8 @@ func dispatch(cmd string, args []string, home string, cfg config.Config, store s
 		return discoverProjects(store, home, os.Stdin)
 	case "adopt":
 		return adoptSessions(store, home, vcs.NewCLI(), args, os.Stdin)
+	case "sessions", "status":
+		return readCommand(cmd, args, home, store, os.Stdout)
 	default:
 		return dispatchSettings(cmd, args, store, newRouter(cfg, vcs.NewCLI()).ListPRs)
 	}
@@ -52,7 +54,7 @@ func dispatchSettings(cmd string, args []string, store sessions.StateStore, prs 
 		return carryCommand(store, args)
 	default:
 		return fmt.Errorf(
-			"unknown command %q (want add, rm, new, discover, adopt, gate, carry, --version, or no argument)", cmd)
+			"unknown command %q (want add, rm, new, discover, adopt, gate, carry, sessions, status, --version, or no argument)", cmd)
 	}
 }
 

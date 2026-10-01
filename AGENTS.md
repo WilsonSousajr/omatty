@@ -90,6 +90,7 @@ internal/
 │   ├── store/      [ADR 0001] state.json, written atomically (invariant 9), and carry's file copy (#309).
 │   ├── transcript/ [ADR 0001] reads an agent's JSONL as it grows: new complete lines, truncation.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
+├── cli/            [ADR 0001] the second driving adapter: `sessions --json`, `status --json`. No UI library beneath it.
 ├── pubsub/          [ADR 0001] Broker[T]: services publish (Publish waits, Offer drops), the TUI subscribes.
 └── tui/          [ADR 0001] the TUI: driving adapter 1.
     ├── app/        bubbletea model, panes, rendering.
