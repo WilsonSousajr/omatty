@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/WilsonSousajr/omatty/internal/cli"
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
@@ -30,13 +31,13 @@ func dispatch(cmd string, args []string, home string, cfg config.Config, store s
 	case "add":
 		return addProject(store, args)
 	case "rm":
-		return removeProject(store, args)
+		return cli.Remove(context.Background(), os.Stdout, store, args)
 	case "new":
 		return newSession(store, cfg, args)
 	case "discover":
 		return discoverProjects(store, home, os.Stdin)
 	case "adopt":
-		return adoptSessions(store, home, vcs.NewCLI(), args, os.Stdin)
+		return cli.Adopt(context.Background(), os.Stdout, os.Stdin, adoptPorts(store, home), args)
 	case "sessions", "status":
 		return readCommand(cmd, args, home, store, os.Stdout)
 	default:
@@ -47,7 +48,7 @@ func dispatch(cmd string, args []string, home string, cfg config.Config, store s
 // dispatchSettings runs the per-project settings subcommands, and owns the
 // unknown-command error. Split from dispatch to keep each inside funlen: they
 // share a shape - resolve a project, then show, set or clear one field of it.
-func dispatchSettings(cmd string, args []string, store sessions.StateStore, prs prLister) error {
+func dispatchSettings(cmd string, args []string, store sessions.StateStore, prs cli.PRLister) error {
 	switch cmd {
 	case "gate":
 		return gateCommand(store, args, os.Stdin, prs)
@@ -59,96 +60,12 @@ func dispatchSettings(cmd string, args []string, store sessions.StateStore, prs 
 	}
 }
 
-// adoptSessions lists the claude sessions in one registered project that omatty
-// does not yet hold, and registers the ones the operator picks. The CLI twin of
-// the ctrl+o A picker, and the sibling of discoverProjects: one finds
-// repositories, this finds sessions inside one (#122).
-//
-// git is a parameter rather than built here so the flow is testable without a
-// real repository; everything else follows discoverProjects exactly.
-func adoptSessions(
-	store sessions.StateStore, home string, git discovery.Git, args []string, in io.Reader,
-) error {
-	p, err := namedProject(store, args)
-	if err != nil {
-		return err
-	}
-	cands, err := proposeSessions(store, home, git, p)
-	if err != nil {
-		return err
-	}
-	if len(cands) == 0 {
-		report("no unregistered claude sessions found in " + p.Root)
-		return nil
-	}
-	return chooseAndAdopt(store, p, cands, in)
-}
-
-// chooseAndAdopt prints the list, reads the answer, and registers each pick.
-func chooseAndAdopt(
-	store sessions.StateStore, p sessions.Project, cands []discovery.SessionCandidate, in io.Reader,
-) error {
-	for _, line := range discovery.ListSessions(cands, time.Now()) {
-		report(line)
-	}
-	report("")
-	report("adopt which? (numbers, or `all`, or enter for none)")
-	picked, err := discovery.ChooseSessions(cands, readLine(in))
-	if err != nil {
-		return err
-	}
-	return adoptAll(store, vcs.NewCLI().Contextual(), p.Name, picked)
-}
-
-// adoptAll reports what sessions.AdoptAll did with each pick. The loop is the
-// registry's; this one only says so on stdout (invariant 10).
-func adoptAll(
-	store sessions.StateStore, git sessions.SessionBrancher,
-	project string, picked []discovery.SessionCandidate,
-) error {
-	for _, a := range sessions.AdoptAll(context.Background(), store, git, project, sessionPicks(picked)) {
-		if a.Err != nil {
-			report("skipped: " + a.Err.Error())
-			continue
-		}
-		report("adopted " + a.Session.ID + " (" + a.Session.Title + ") in " + a.Session.Dir)
-	}
-	return nil
-}
-
-// sessionPicks narrows candidates to what the registry writes a row from.
-func sessionPicks(picked []discovery.SessionCandidate) []sessions.SessionPick {
-	out := make([]sessions.SessionPick, 0, len(picked))
-	for _, c := range picked {
-		out = append(out, sessions.SessionPick{ID: c.ID, Title: c.Title, Dir: c.Dir})
-	}
-	return out
-}
-
-// namedProject resolves the project argument, which adopt requires: it acts on
-// one project, so a missing name is a usage error rather than a scan of
-// everything the operator has ever registered.
-func namedProject(store sessions.StateStore, args []string) (sessions.Project, error) {
-	if len(args) == 0 {
-		return sessions.Project{}, fmt.Errorf("adopt: want <project>, got no argument")
-	}
-	p, err := sessions.NamedProject(context.Background(), store, args[0])
-	if err != nil {
-		return sessions.Project{}, fmt.Errorf("adopt: %w", err)
-	}
-	return p, nil
-}
-
-// proposeSessions is the scan: the project's sessions, minus the ones state.json
-// already holds.
-func proposeSessions(
-	store sessions.StateStore, home string, git discovery.Git, p sessions.Project,
-) ([]discovery.SessionCandidate, error) {
-	ids, err := sessions.KnownSessionIDs(context.Background(), store)
-	if err != nil {
-		return nil, err
-	}
-	return discovery.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids, status.PromptText)
+// adoptPorts is what `omatty adopt` reads and writes through: the real git
+// and claude's transcript store under home.
+func adoptPorts(store sessions.StateStore, home string) cli.AdoptPorts {
+	git := vcs.NewCLI()
+	return cli.AdoptPorts{Store: store, Git: git, Branches: git.Contextual(),
+		TranscriptsDir: paths.TranscriptsDir(home), Prompts: status.PromptText}
 }
 
 // discoverProjects lists the repositories claude has been used in and
@@ -168,7 +85,7 @@ func discoverProjects(store sessions.StateStore, home string, in io.Reader) erro
 	}
 	report("")
 	report("register which? (numbers, or `all`, or enter for none)")
-	picked, err := discovery.Choose(cands, readLine(in))
+	picked, err := discovery.Choose(cands, cli.ReadLine(in))
 	if err != nil {
 		return err
 	}
@@ -227,20 +144,6 @@ func addProject(store sessions.StateStore, args []string) error {
 		return err
 	}
 	report("registered " + p.Name + " at " + p.Root)
-	return nil
-}
-
-// removeProject is `omatty rm <project>`: the CLI twin of ctrl+o x on an
-// empty project's header, and the one surface that needs no cursor (#159).
-func removeProject(store sessions.StateStore, args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("rm: want <project>, got %v", args)
-	}
-	p, err := sessions.RemoveProject(context.Background(), store, args[0])
-	if err != nil {
-		return err
-	}
-	report("removed " + p.Name + " (the repository at " + p.Root + " is untouched)")
 	return nil
 }
 

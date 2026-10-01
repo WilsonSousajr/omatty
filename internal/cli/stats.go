@@ -1,15 +1,17 @@
-// `omatty gate <project> --stats`: the two numbers #332 asks for.
+// `omatty gate <project> --stats`: the two numbers #332 asks for. Moved from
+// cmd/omatty in migration step 7.2 (#653), output unchanged.
 
-package main
+package cli
 
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/tally"
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
@@ -23,21 +25,21 @@ import (
 // The pull requests come from the operator's own `gh`, read-only, and a machine
 // without gh simply gets no lead time - the same quiet degradation the cards
 // have (#310).
-func gateStats(project sessions.Project, sessions []sessions.Session, prs prLister) error {
-	merged, err := mergedPRs(project, prs)
+func gateStats(w io.Writer, project sessions.Project, sessions []sessions.Session, prs PRLister) error {
+	merged, err := mergedPRs(w, project, prs)
 	if err != nil {
 		return err
 	}
-	report("the numbers for " + project.Name + ":")
+	say(w, "the numbers for "+project.Name+":")
 	for _, line := range statsLines(tally.Of(project, sessions, merged)) {
-		report(line)
+		say(w, line)
 	}
 	return nil
 }
 
-// prLister is what gateStats needs of the forge, so the command can be tested
-// without one.
-type prLister func(repoRoot string) ([]forge.PR, error)
+// PRLister is what Stats needs of the forge, so the command can be tested
+// without one. cmd passes the forge Router's ListPRs.
+type PRLister func(repoRoot string) ([]forge.PR, error)
 
 // mergedPRs reads the project's pull requests, or none when there is no gh and
 // nothing to ask.
@@ -45,13 +47,13 @@ type prLister func(repoRoot string) ([]forge.PR, error)
 // gh missing is not a failure of this command: half the measurement still works,
 // and saying so is better than refusing to print the gate rate because the
 // forge could not be reached.
-func mergedPRs(project sessions.Project, prs prLister) ([]forge.PR, error) {
+func mergedPRs(w io.Writer, project sessions.Project, prs PRLister) ([]forge.PR, error) {
 	if prs == nil {
 		return nil, nil
 	}
 	list, err := prs(project.Root)
 	if err != nil {
-		report("(no pull requests: " + err.Error() + ")")
+		say(w, "(no pull requests: "+err.Error()+")")
 		return nil, nil
 	}
 	return list, nil
@@ -94,16 +96,19 @@ func roundLead(d time.Duration) string {
 	return strings.TrimSuffix(d.Round(time.Minute).String(), "0s")
 }
 
-// reportStats is the --stats branch of `omatty gate`, kept out of gateCommand
-// so that command stays a list of flag arms.
+// Stats is the --stats branch of `omatty gate`: project's lead time and
+// first-pass gate rate, written to w. Kept out of cmd's gateCommand so that
+// command stays a list of flag arms (migration step 7.2, #653).
 //
 // prs is the forge reader, the TUI's own Router's ListPRs, so a project named
 // in [forge.hosts] gets its lead time here too (#452). A machine without the
 // forge's tool gets no lead time and the gate rate still prints.
-func reportStats(store sessions.StateStore, project sessions.Project, prs prLister) error {
-	st, err := store.Load(context.Background())
+//
+//	err := cli.Stats(ctx, os.Stdout, store, project, router.ListPRs)
+func Stats(ctx context.Context, w io.Writer, store Store, project sessions.Project, prs PRLister) error {
+	st, err := store.Load(ctx)
 	if err != nil {
 		return err
 	}
-	return gateStats(project, st.Sessions, prs)
+	return gateStats(w, project, st.Sessions, prs)
 }

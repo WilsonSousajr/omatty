@@ -8,8 +8,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
+	"github.com/WilsonSousajr/omatty/internal/cli"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
@@ -28,13 +30,13 @@ import (
 // on yes. Detection proposes and confirming is a separate act, which is what
 // stops a cloned repository getting a command run because omatty looked at it
 // (#226).
-func gateCommand(store sessions.StateStore, args []string, in io.Reader, prs prLister) error {
+func gateCommand(store sessions.StateStore, args []string, in io.Reader, prs cli.PRLister) error {
 	project, err := gateProject(store, args)
 	if err != nil {
 		return err
 	}
 	if hasFlag(args, "--stats") {
-		return reportStats(store, project, prs)
+		return cli.Stats(context.Background(), os.Stdout, store, project, prs)
 	}
 	if hasFlag(args, "--clear") {
 		if err := sessions.ClearGate(context.Background(), store, project.Name); err != nil {
@@ -80,7 +82,7 @@ func proposeGate(store sessions.StateStore, project sessions.Project, args []str
 func confirmed(in io.Reader) bool {
 	report("")
 	report("use it? (y to confirm, anything else to decline)")
-	answer := strings.ToLower(readLine(in))
+	answer := strings.ToLower(cli.ReadLine(in))
 	return answer == "y" || answer == "yes"
 }
 
@@ -105,7 +107,7 @@ func reportGate(heading string, steps []gate.Step) {
 }
 
 // gateProject resolves the project argument, naming this command in the error
-// the way namedProject names adopt.
+// the way cli's namedProject names adopt.
 func gateProject(store sessions.StateStore, args []string) (sessions.Project, error) {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return sessions.Project{}, fmt.Errorf("gate: want <project> [--detect|--set|--clear|--stats], got no project")

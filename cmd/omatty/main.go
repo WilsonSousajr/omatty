@@ -25,13 +25,10 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
@@ -107,14 +104,6 @@ func run() error {
 		return runTUI(home, cfg, store)
 	}
 	return dispatch(os.Args[1], os.Args[2:], home, cfg, store)
-}
-
-// readLine reads the operator's answer. An unreadable stdin means no answer,
-// which is the same as choosing nothing - and so does a blank line, so the
-// error needs no branch of its own: TrimSpace gives "" for both.
-func readLine(in io.Reader) string {
-	line, _ := bufio.NewReader(in).ReadString('\n')
-	return strings.TrimSpace(line)
 }
 
 func argOrCwd(args []string) (string, error) {
