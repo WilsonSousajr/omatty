@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
@@ -183,7 +184,7 @@ func TestModel_TheTitleMarksAPannedColumn_issue94(t *testing.T) {
 // wideDiff is a one-file diff whose added line is far wider than the column.
 func wideDiff(t *testing.T) review.Diff {
 	t.Helper()
-	d, err := review.ParseDiff(strings.NewReader("diff --git a/w.go b/w.go\n" +
+	d, err := gitdiff.ParseDiff(strings.NewReader("diff --git a/w.go b/w.go\n" +
 		"--- a/w.go\n+++ b/w.go\n@@ -1 +1,2 @@\n context\n" +
 		"+// bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb DIFF_END\n"))
 	if err != nil {

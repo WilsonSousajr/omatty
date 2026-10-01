@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -317,7 +318,9 @@ func (c *CLI) Diff(dir, commit string) (string, error) {
 }
 
 // Shortstat is git's one-line summary of a diff.
-type Shortstat struct{ Files, Added, Removed int }
+// Shortstat is review.Shortstat, the numbers a sidebar card shows (#180). It
+// moved to internal/domain/review in migration step 5.8 (#653).
+type Shortstat = review.Shortstat
 
 // Shortstat is the numbers a session's sidebar card shows (#180), measured
 // the way Diff measures: the working tree against commit, renames detected.
@@ -347,14 +350,15 @@ func parseShortstat(line string) (Shortstat, error) {
 		if err != nil {
 			return Shortstat{}, fmt.Errorf("vcs: shortstat clause %q: want a count first: %w", clause, err)
 		}
-		st = st.with(fields[1], n)
+		st = withClause(st, fields[1], n)
 	}
 	return st, nil
 }
 
-// with sets the counter a shortstat clause names: file(s), insertion(s) or
-// deletion(s).
-func (st Shortstat) with(noun string, n int) Shortstat {
+// withClause sets the counter a shortstat clause names: file(s), insertion(s)
+// or deletion(s). A function rather than a method since Shortstat became an
+// alias of a domain type (#653).
+func withClause(st Shortstat, noun string, n int) Shortstat {
 	switch {
 	case strings.HasPrefix(noun, "file"):
 		st.Files = n

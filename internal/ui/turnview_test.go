@@ -3,6 +3,7 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
@@ -32,7 +33,7 @@ index 3333333..2222222 100644
 
 func turnDiffParsed(t *testing.T) review.Diff {
 	t.Helper()
-	d, err := review.ParseDiff(strings.NewReader(turnDiffText))
+	d, err := gitdiff.ParseDiff(strings.NewReader(turnDiffText))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,11 +302,11 @@ func TestModel_aSnapshotReloadsAnOpenTurnView_issue311(t *testing.T) {
 // comment on this turn's "}" must reach claude as that line, f.go:5 - before
 // the fix the anchor fell back to the first "+}" and claude was told f.go:3.
 func TestModel_aTurnCommentOnARepeatedLineIsSentAsThatLine_issue311(t *testing.T) {
-	session, err := review.ParseDiff(strings.NewReader("diff --git a/f.go b/f.go\nindex 1111111..2222222 100644\n--- a/f.go\n+++ b/f.go\n@@ -1 +1,5 @@\n package f\n+func a() {\n+}\n+func b() {\n+}\n"))
+	session, err := gitdiff.ParseDiff(strings.NewReader("diff --git a/f.go b/f.go\nindex 1111111..2222222 100644\n--- a/f.go\n+++ b/f.go\n@@ -1 +1,5 @@\n package f\n+func a() {\n+}\n+func b() {\n+}\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	turn, err := review.ParseDiff(strings.NewReader("diff --git a/f.go b/f.go\nindex 3333333..2222222 100644\n--- a/f.go\n+++ b/f.go\n@@ -1,3 +1,5 @@\n package f\n func a() {\n }\n+func b() {\n+}\n"))
+	turn, err := gitdiff.ParseDiff(strings.NewReader("diff --git a/f.go b/f.go\nindex 3333333..2222222 100644\n--- a/f.go\n+++ b/f.go\n@@ -1,3 +1,5 @@\n package f\n func a() {\n }\n+func b() {\n+}\n"))
 	if err != nil {
 		t.Fatal(err)
 	}

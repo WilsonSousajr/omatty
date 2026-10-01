@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
@@ -137,7 +138,7 @@ func TestModel_OrphanedCommentIsMarkedMoved_issue22(t *testing.T) {
 	down(m, 4)
 	typeNote(m, "gone now")
 	changed := strings.Replace(sampleDiff, "+\tb := 3", "+\tb := 99", 1)
-	d, err := review.ParseDiff(strings.NewReader(changed))
+	d, err := gitdiff.ParseDiff(strings.NewReader(changed))
 	if err != nil {
 		t.Fatal(err)
 	}

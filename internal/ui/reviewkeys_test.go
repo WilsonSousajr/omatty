@@ -1,11 +1,11 @@
 package ui_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -148,7 +148,7 @@ func TestModel_CommentsSurviveAReload_issue22(t *testing.T) {
 	down(m, 4)
 	typeNote(m, "keep me")
 	shifted := strings.Replace(sampleDiff, "@@ -10,4 +10,5 @@", "@@ -30,4 +31,5 @@", 1)
-	d, err := review.ParseDiff(strings.NewReader(shifted))
+	d, err := gitdiff.ParseDiff(strings.NewReader(shifted))
 	if err != nil {
 		t.Fatal(err)
 	}

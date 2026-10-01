@@ -1,13 +1,13 @@
 package ui_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"regexp"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -116,7 +116,7 @@ func TestModel_aSentCommentWhoseLineIsGoneIsDropped_issue335(t *testing.T) {
 	down(m, 3)
 	typeNote(m, "pend b")
 
-	edited, err := review.ParseDiff(strings.NewReader(strings.Replace(sampleDiff, "-\tb := 2", "-\tb := 7", 1)))
+	edited, err := gitdiff.ParseDiff(strings.NewReader(strings.Replace(sampleDiff, "-\tb := 2", "-\tb := 7", 1)))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,13 +1,13 @@
 package ui_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
@@ -148,7 +148,7 @@ func TestModel_theTreeTitleStillFitsItsColumn_issue285(t *testing.T) {
 // how the title gets a path long enough for the column to do something about.
 func modelPreviewing(t *testing.T, path string) *ui.Model {
 	t.Helper()
-	d, err := review.ParseDiff(strings.NewReader(diffOf(map[string][]string{path: {"x := 1"}})))
+	d, err := gitdiff.ParseDiff(strings.NewReader(diffOf(map[string][]string{path: {"x := 1"}})))
 	if err != nil {
 		t.Fatalf("parsing the fixture: %v", err)
 	}

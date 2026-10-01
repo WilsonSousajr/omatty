@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
@@ -52,7 +53,7 @@ func (r *diffRecorder) fn(sess sessions.Session, root string) (review.Diff, erro
 
 func sampleDiffParsed(t *testing.T) review.Diff {
 	t.Helper()
-	d, err := review.ParseDiff(strings.NewReader(sampleDiff))
+	d, err := gitdiff.ParseDiff(strings.NewReader(sampleDiff))
 	if err != nil {
 		t.Fatal(err)
 	}

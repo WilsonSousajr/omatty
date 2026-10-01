@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 )
 
 // ErrNoTurn is LoadTurn's answer for a session with no turn baseline: no
@@ -17,7 +17,7 @@ var ErrNoTurn = errors.New("review: no turn recorded yet")
 // starting - what LoadTurn diffs against until the next prompt (#311).
 //
 //	err := src.SnapTurn(sess)
-func (s *Source) SnapTurn(sess sessions.Session) error {
+func (s *Source) SnapTurn(sess session.Session) error {
 	tree, err := s.git.SnapshotTree(sess.Dir)
 	if err != nil {
 		return fmt.Errorf("review: snapshotting session %s in %q: %w", sess.ID, sess.Dir, err)
@@ -33,7 +33,7 @@ func (s *Source) SnapTurn(sess sessions.Session) error {
 // DiffFunc like Load, so the UI loads both the same way.
 //
 //	d, err := src.LoadTurn(sess, projectRoot)
-func (s *Source) LoadTurn(sess sessions.Session, _ string) (Diff, error) {
+func (s *Source) LoadTurn(sess session.Session, _ string) (Diff, error) {
 	base, ok, err := s.git.TurnRef(sess.Dir, sess.ID)
 	if err != nil {
 		return Diff{}, fmt.Errorf("review: reading the turn baseline of session %s: %w", sess.ID, err)
@@ -49,13 +49,13 @@ func (s *Source) LoadTurn(sess sessions.Session, _ string) (Diff, error) {
 	if err != nil {
 		return Diff{}, fmt.Errorf("review: diffing session %s's turn: %w", sess.ID, err)
 	}
-	return ParseDiff(strings.NewReader(raw))
+	return s.parse(strings.NewReader(raw))
 }
 
 // DropTurn deletes sess's baseline when the session is archived. From
 // projectRoot, because the worktree may be removed in the same breath and
 // the ref lives in the common repository anyway.
-func (s *Source) DropTurn(sess sessions.Session, projectRoot string) error {
+func (s *Source) DropTurn(sess session.Session, projectRoot string) error {
 	if err := s.git.DeleteTurnRef(projectRoot, sess.ID); err != nil {
 		return fmt.Errorf("review: deleting the turn baseline of session %s: %w", sess.ID, err)
 	}

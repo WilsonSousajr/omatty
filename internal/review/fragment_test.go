@@ -1,6 +1,7 @@
 package review_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
@@ -21,7 +22,7 @@ index 1111111..2222222 100644
 
 func fragmentParsed(t *testing.T) review.Diff {
 	t.Helper()
-	d, err := review.ParseDiff(strings.NewReader(fragmentDiff))
+	d, err := gitdiff.ParseDiff(strings.NewReader(fragmentDiff))
 	if err != nil {
 		t.Fatal(err)
 	}
