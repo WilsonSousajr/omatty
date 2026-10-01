@@ -2,6 +2,7 @@ package status
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"net"
 	"os"
 	"path/filepath"
@@ -35,7 +36,7 @@ func shortHome(t *testing.T) string {
 // claudeDeps is Start's dependencies for claude, so the tests written before
 // the seam (#46) read as they did.
 func claudeDeps(home string) WatchDeps {
-	return WatchDeps{Home: home, HookSocket: paths.HookSocket(home), Clock: time.Now, Adapter: ClaudeAdapter(), TranscriptPath: paths.Transcript,
+	return WatchDeps{Home: home, HookSocket: paths.HookSocket(home), Clock: time.Now, Agents: AgentsOf(ClaudeAdapter(), paths.Transcript),
 		OpenTranscript: func(p string) Transcript { return transcript.NewReader(p) },
 		ListenHooks:    listenHooks}
 }
@@ -233,4 +234,51 @@ func TestWatch_HooksLiveSaysWhetherTheSocketBound_issue311(t *testing.T) {
 	if dead.HooksLive() {
 		t.Error("HooksLive() = true when the socket could not bind")
 	}
+}
+
+// AgentsOf is a catalog of one claude-named agent reading through a, at path
+// (#521). Exported from a test file so the external tests share it. Building it cannot fail: the profile declares no capability it
+// lacks the function for.
+func AgentsOf(a dstatus.Adapter, path func(home, dir, sessionID string) string) agent.Catalog {
+	c, err := agent.NewCatalog(agent.Profile{Name: "claude", Command: agent.ClaudeCommand, TranscriptPath: path, Status: a})
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+// A session naming an agent the catalog lacks is not tailed: there is no
+// parser to read it with, and reading it as claude's is the bug #521 removes.
+func TestWatch_UnknownAgentIsNotTailed_issue521(t *testing.T) {
+	w := &Watch{deps: WatchDeps{Agents: AgentsOf(ClaudeAdapter(), paths.Transcript)},
+		tailers: map[string]*Tailer{}, adapters: map[string]dstatus.Adapter{}}
+	w.Add(session.Session{ID: "x1", Dir: "/w", Agent: "codex"})
+	if w.tailers["x1"] != nil {
+		t.Error("a session naming an unknown agent is tailed, want it left alone")
+	}
+}
+
+// A hook payload is read by the agent of the session it names, and one
+// naming no tailed session by the default agent's (#521).
+func TestWatch_AHookIsReadByItsSessionsAgent_issue521(t *testing.T) {
+	toy, claude := &recordingAdapter{}, &recordingAdapter{}
+	w := &Watch{deps: WatchDeps{Agents: AgentsOf(claude, paths.Transcript)},
+		adapters: map[string]dstatus.Adapter{"t1": toy}}
+	w.hookAdapter("t1").KindOf(dstatus.HookPayload{})
+	w.hookAdapter("unknown").KindOf(dstatus.HookPayload{})
+	if toy.Calls != 1 || claude.Calls != 1 {
+		t.Errorf("toy read %d, claude read %d; want one each", toy.Calls, claude.Calls)
+	}
+}
+
+// recordingAdapter counts the hook payloads it is asked to read.
+type recordingAdapter struct{ Calls int }
+
+func (*recordingAdapter) ParseEntry([]byte) (dstatus.Entry, bool) { return dstatus.Entry{}, false }
+func (*recordingAdapter) DeriveKind([]dstatus.Entry) (dstatus.Kind, time.Time, bool) {
+	return 0, time.Time{}, false
+}
+func (r *recordingAdapter) KindOf(dstatus.HookPayload) (dstatus.Kind, bool) {
+	r.Calls++
+	return 0, false
 }

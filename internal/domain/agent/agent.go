@@ -5,7 +5,8 @@
 //
 // Claude is the only profile today (#46). It exists as a profile rather than
 // as the hardcoded default it was, so a second agent is a new catalog entry and
-// not a simultaneous edit to supervisor, watcher, paths and cmd.
+// not a simultaneous edit to the launcher, the watcher, paths and cmd. Each
+// session's agent is resolved through an injected Catalog (#521).
 //
 // The catalog - which profiles exist, and the implementations each one
 // carries - is composed in cmd/omatty (ADR 0001, migration step 5.2b,

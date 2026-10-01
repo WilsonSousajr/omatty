@@ -25,8 +25,7 @@ const pollEvery = time.Second
 // knows the socket path, the transcript path, the poll interval, or the
 // buffer size (issue #77).
 //
-//	w := status.Start(status.WatchDeps{Home: home, Clock: time.Now,
-//	        Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}, st.Sessions)
+//	w := status.Start(status.WatchDeps{Home: home, Clock: time.Now, Agents: agents}, st.Sessions)
 //	defer w.Close()
 //	model := ui.NewModel(ui.Deps{Events: w.Subscribe(ctx), TailStart: w.Add, /* ... */})
 type Watch struct {
@@ -48,6 +47,9 @@ type Watch struct {
 	// an id to a goroutine, so a removed session polled a path that no longer
 	// existed once a second until omatty quit.
 	tailers map[string]*Tailer
+	// adapters is each tailed session's parser, so a hook payload is read by
+	// the agent of the session it names (#521). Guarded by mu.
+	adapters map[string]dstatus.Adapter
 }
 
 // Start opens the hook socket and a tailer per session. A socket that cannot
@@ -66,6 +68,7 @@ func Start(d WatchDeps, sessions []session.Session) *Watch {
 		pumpCtx:  pumpCtx,
 		stopPump: stopPump,
 		tailers:  map[string]*Tailer{},
+		adapters: map[string]dstatus.Adapter{},
 	}
 	w.serveHooks()
 	for _, sess := range sessions {
@@ -111,14 +114,21 @@ func (w *Watch) pump() {
 // after /clear that is no longer sess.ID, and re-adding the rebound session
 // is how the tailer follows it (#316). The map stays keyed by sess.ID.
 func (w *Watch) Add(sess session.Session) {
+	profile, err := w.deps.Agents.Lookup(sess.Agent)
+	if err != nil {
+		slog.Warn("session not tailed: its agent is unknown", "session", sess.ID, "err", err)
+		w.Remove(sess.ID)
+		return
+	}
 	conv := sess.ConversationID()
-	tl := Tail(conv, w.deps.OpenTranscript(w.deps.TranscriptPath(w.deps.Home, sess.Dir, conv)), w.events, w.deps.Clock, pollEvery, w.deps.Adapter)
+	tl := Tail(conv, w.deps.OpenTranscript(profile.TranscriptPath(w.deps.Home, sess.Dir, conv)), w.events, w.deps.Clock, pollEvery, profile.Status)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if old := w.tailers[sess.ID]; old != nil {
 		old.Close()
 	}
 	w.tailers[sess.ID] = tl
+	w.adapters[sess.ID] = profile.Status
 }
 
 // Remove stops one session's tailer, for a session archived at runtime (#40).
@@ -135,6 +145,7 @@ func (w *Watch) Remove(sessionID string) {
 	}
 	tl.Close()
 	delete(w.tailers, sessionID)
+	delete(w.adapters, sessionID)
 }
 
 // Close stops the listener and every tailer. Idempotent per tailer; safe to
@@ -183,7 +194,7 @@ func (w *Watch) followHooks(payloads <-chan dstatus.HookPayload) {
 }
 
 func (w *Watch) offerHook(p dstatus.HookPayload) {
-	kind, ok := w.deps.Adapter.KindOf(p)
+	kind, ok := w.hookAdapter(p.OmattySession).KindOf(p)
 	if !ok {
 		return
 	}
@@ -193,4 +204,19 @@ func (w *Watch) offerHook(p dstatus.HookPayload) {
 	default:
 		slog.Debug("hook event dropped, events full", "session", ev.SessionID)
 	}
+}
+
+// hookAdapter is the parser for a hook payload: the agent of the session the
+// payload's OMATTY_SESSION names. A payload naming no tailed session - a
+// claude started before #316 set the variable - is read as the default
+// agent's, which is what every hook was before M17 (#521).
+func (w *Watch) hookAdapter(owner string) dstatus.Adapter {
+	w.mu.Lock()
+	a := w.adapters[owner]
+	w.mu.Unlock()
+	if a != nil {
+		return a
+	}
+	profile, _ := w.deps.Agents.Lookup("")
+	return profile.Status
 }

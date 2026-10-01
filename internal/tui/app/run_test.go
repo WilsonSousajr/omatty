@@ -29,7 +29,7 @@ func TestStartTerminals_OnePerSessionInItsOwnDirectory(t *testing.T) {
 	}
 
 	terms := app.StartTerminals(
-		twoProjectState(), every(twoProjectState()), sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, app.DefaultLeader)
+		twoProjectState(), every(twoProjectState()), sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, app.DefaultLeader)
 
 	if len(terms) != 3 {
 		t.Errorf("started %d terminals, want 3", len(terms))
@@ -59,7 +59,7 @@ func TestStartTerminals_AFailedStartLeavesOnlyThatSessionStopped_issue317(t *tes
 	}
 
 	terms := app.StartTerminals(
-		twoProjectState(), every(twoProjectState()), sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, app.DefaultLeader)
+		twoProjectState(), every(twoProjectState()), sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, app.DefaultLeader)
 
 	if terms["s1"] != nil || terms["s2"] == nil || terms["s3"] == nil {
 		t.Errorf("started %v, want s2 and s3 with s1 left stopped", keysOf(terms))
@@ -76,7 +76,7 @@ func TestStartTerminals_StartsOnlyTheWantedSessions_issue317(t *testing.T) {
 	}
 
 	terms := app.StartTerminals(
-		twoProjectState(), map[string]bool{"s2": true}, sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, app.DefaultLeader)
+		twoProjectState(), map[string]bool{"s2": true}, sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, app.DefaultLeader)
 
 	if len(terms) != 1 || terms["s2"] == nil || calls != 1 {
 		t.Errorf("started %v with %d factory calls, want only s2 and one call", keysOf(terms), calls)
@@ -109,7 +109,7 @@ func TestStartTerminals_EmptyRegistryStartsNothing(t *testing.T) {
 	}
 
 	terms := app.StartTerminals(
-		emptyState(), every(emptyState()), sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, app.DefaultLeader)
+		emptyState(), every(emptyState()), sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, app.DefaultLeader)
 
 	if len(terms) != 0 || called != 0 {
 		t.Errorf("started %d terminals with %d factory calls, want 0 and 0", len(terms), called)
@@ -124,7 +124,7 @@ func TestStartTerminals_WrapsEveryTerminalInAGuard(t *testing.T) {
 	}
 
 	terms := app.StartTerminals(
-		twoProjectState(), every(twoProjectState()), sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, app.DefaultLeader)
+		twoProjectState(), every(twoProjectState()), sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), &detach.Plain{}), factory, 80, 24, app.DefaultLeader)
 
 	for id, term := range terms {
 		if _, ok := term.(*terminal.Guard); !ok {
@@ -143,7 +143,7 @@ func TestStartTerminals_BirthsThePTYAtThePaneSize_issue51(t *testing.T) {
 		return terminal.NewFake(""), nil
 	}
 
-	app.StartTerminals(oneSessionState(), every(oneSessionState()), sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}),
+	app.StartTerminals(oneSessionState(), every(oneSessionState()), sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), &detach.Plain{}),
 		factory, 140, 40, app.DefaultLeader)
 
 	// PaneSize(140, 40) is 112x37, and the PTY is the whole pane now that the
@@ -175,7 +175,7 @@ func (h *heldHolder) Held(id string) (bool, error) { return h.IDs[id], h.Err }
 // The boot asks the holder which sessions are already running, so their
 // panes can be nudged to repaint; a failed check reads as fresh (#191).
 func TestHeldSessions_AsksTheHolderPerSession_issue191(t *testing.T) {
-	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &heldHolder{IDs: map[string]bool{"s2": true}})
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), &heldHolder{IDs: map[string]bool{"s2": true}})
 
 	held := app.HeldSessions(l, twoProjectState())
 
@@ -185,10 +185,20 @@ func TestHeldSessions_AsksTheHolderPerSession_issue191(t *testing.T) {
 }
 
 func TestHeldSessions_AFailedCheckReadsAsFresh_issue191(t *testing.T) {
-	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(),
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(),
 		&heldHolder{IDs: map[string]bool{"s1": true}, Err: errors.New("stat exploded")})
 
 	if held := app.HeldSessions(l, twoProjectState()); len(held) != 0 {
 		t.Errorf("HeldSessions() = %v with a failing holder, want none", held)
 	}
+}
+
+// catalogFor is a one-profile catalog running bin, for a launcher test (#521).
+func catalogFor(t *testing.T, p agent.Profile, bin string) agent.Catalog {
+	t.Helper()
+	c, err := agent.NewCatalog(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c.WithBins(map[string]string{p.Name: bin})
 }

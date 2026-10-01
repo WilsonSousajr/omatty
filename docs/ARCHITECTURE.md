@@ -154,7 +154,7 @@ bubbleterm is itself a bubbletea component, so `terminal.Terminal` returns
 
 | Package | Owns |
 |---|---|
-| `internal/domain/agent` | What a coding agent is: a command template plus a status adapter. Claude is the only profile (#46), composed in `cmd/omatty/agents.go` with the implementations it carries. |
+| `internal/domain/agent` | What a coding agent is: a command template plus a status adapter (#46), its `Caps` and the tier derived from them (#520), and the `Catalog` that resolves each session's agent (#521). Claude is the only profile so far, composed in `cmd/omatty/agents.go` with the implementations it carries. |
 | `internal/domain/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. It parses a reader. |
 | `internal/domain/crap` | Per-function complexity × coverage → a C.R.A.P. score, for the gate tool that holds the limit (#262). |
 | `internal/domain/depgraph` | The internal import graph → Ca, Ce, instability and the SDP check `check-deps.sh` runs (#263, #269). |

@@ -9,28 +9,26 @@ package status
 import (
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
+
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"io"
 )
 
-// TranscriptPathFunc is where an agent writes a session's transcript. A
-// function type rather than the Profile itself, for the reason Adapter is
-// declared in internal/domain/status rather than in internal/domain/agent.
-type TranscriptPathFunc func(home, dir, sessionID string) string
-
 // WatchDeps is what Start needs beyond the session list.
 //
-//	w := status.Start(status.WatchDeps{Home: home, Clock: time.Now,
-//	        Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}, st.Sessions)
+//	w := status.Start(status.WatchDeps{Home: home, Clock: time.Now, Agents: agents}, st.Sessions)
 type WatchDeps struct {
 	Home string
 	// HookSocket is where the hook server listens. A value from cmd since
 	// migration step 5.10 (#653): where omatty keeps files is infra's
 	// knowledge (ADR 0001: paths is infra), so the service is told.
-	HookSocket     string
-	Clock          func() time.Time
-	Adapter        dstatus.Adapter
-	TranscriptPath TranscriptPathFunc
+	HookSocket string
+	Clock      func() time.Time
+	// Agents resolves each session's agent, and so the transcript path and
+	// the parser its tailer uses (#521). A session's agent, not one per app:
+	// two sessions side by side may run two agents.
+	Agents agent.Catalog
 	// OpenTranscript reads a transcript at a path. It is injected, because
 	// reading files is infra's business (ADR 0001, step 5.2c, #653): cmd passes
 	// internal/infra/transcript's NewReader.

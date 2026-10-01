@@ -13,7 +13,7 @@ import (
 // would back the server's sink up and stall every hook on the machine.
 func TestWatch_aHookEventIsDroppedNotWaitedOnWhenEventsAreFull_issue653(t *testing.T) {
 	w := &Watch{
-		deps:   WatchDeps{Adapter: ClaudeAdapter(), Clock: time.Now},
+		deps:   WatchDeps{Agents: AgentsOf(ClaudeAdapter(), func(_, _, _ string) string { return "" }), Clock: time.Now},
 		events: make(chan dstatus.Event), // unbuffered, never read: always full
 	}
 	done := make(chan struct{})
