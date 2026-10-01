@@ -13,10 +13,30 @@ import (
 //
 //	src := review.NewSource(vcs.NewCLI())
 //	d, err := src.Load(sess, projectRoot)
-type Source struct{ git vcs.Git }
+type Source struct {
+	git vcs.Git
+	// head reads the start of a worktree file for the generated-file sniff
+	// (#338). Injected, because opening a file is infra's business (migration
+	// step 5.8, #653); nil reads nothing, so no header says "generated" -
+	// the safe direction to be wrong in.
+	head HeadFunc
+}
+
+// HeadFunc reads at most limit bytes from the start of rel under dir.
+// internal/infra/fsread's Head is the real one.
+type HeadFunc func(dir, rel string, limit int64) ([]byte, error)
 
 // NewSource returns a Source reading through git.
 func NewSource(git vcs.Git) *Source { return &Source{git: git} }
+
+// WithHeads returns s reading file heads through head.
+//
+//	src := review.NewSource(vcs.NewCLI()).WithHeads(fsread.Head)
+func (s *Source) WithHeads(head HeadFunc) *Source {
+	cp := *s
+	cp.head = head
+	return &cp
+}
 
 // Load returns everything sess changed, committed or not: the working tree
 // against the merge-base with the session's base branch, plus untracked files

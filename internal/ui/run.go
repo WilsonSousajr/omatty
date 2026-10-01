@@ -186,6 +186,9 @@ type RunDeps struct {
 	// Profiles reads a gate's coverage profile; cmd passes
 	// internal/infra/fsread's (ADR 0001, migration step 5.3, #653).
 	Profiles gate.ProfileReader
+	// Preview reads a file for the tree's preview; cmd passes
+	// internal/infra/fsread's (ADR 0001, migration step 5.8, #653).
+	Preview PreviewFunc
 	// IdleStop stops a session quiet this long; zero is off (#319).
 	IdleStop time.Duration
 	// LazyStart boots only the sessions a holder already keeps alive; the
@@ -231,7 +234,7 @@ func modelFor(
 ) *Model {
 	return NewModel(Deps{
 		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
-		Diff: d.Diff, Files: d.Files, Generated: d.Generated, Ship: d.Ship, Tally: d.Tally, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Issues: d.Issues, Item: d.Item, Browse: d.Browse, Label: d.Label, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
+		Diff: d.Diff, Files: d.Files, Preview: d.Preview, Generated: d.Generated, Ship: d.Ship, Tally: d.Tally, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Issues: d.Issues, Item: d.Item, Browse: d.Browse, Label: d.Label, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
 		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject, Fold: d.Fold,
 		Discover: d.Discover, AddProject: d.AddProject,
 		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,

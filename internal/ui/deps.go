@@ -6,6 +6,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -211,10 +212,11 @@ func (d Deps) withReviewDefaults() Deps {
 	if d.Files == nil {
 		d.Files = noFiles
 	}
-	// The real reader has no dependency to inject, so it is the default
-	// rather than an error: only a test replaces it (#24).
+	// Reading a file is infra's business since migration step 5.8 (#653), so
+	// cmd injects internal/infra/fsread's reader; unwired, the preview names
+	// the missing wiring as noFiles does, rather than reading anything.
 	if d.Preview == nil {
-		d.Preview = review.ReadPreview
+		d.Preview = noPreview
 	}
 	if d.Generated == nil {
 		d.Generated = noGenerated
@@ -410,3 +412,8 @@ func withForgeShipDefaults(s ShipFuncs) ShipFuncs {
 
 // errNoShip is what an unwired ship says.
 var errNoShip = errors.New("ui: no forge wired, so this session cannot be shipped from here")
+
+// noPreview is the Deps.Preview default, for the reason noFiles is (#653).
+func noPreview(dir, rel string) (review.Preview, error) {
+	return review.Preview{}, fmt.Errorf("ui: no file reader configured for %q in %q", rel, dir)
+}

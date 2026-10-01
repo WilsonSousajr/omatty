@@ -121,10 +121,10 @@ func newRouter(cfg config.Config, git *vcs.CLI) *forge.Router {
 func tuiDeps(env tuiEnv, store sessions.StateStore, state sessions.State) ui.RunDeps {
 	home, hooksFile, w, h := env.Home, env.HooksFile, env.Width, env.Height
 	git, holder := vcs.NewCLI(), env.Holder
-	src, fg := review.NewSource(git), newRouter(env.Cfg, git)
+	src, fg := review.NewSource(git).WithHeads(fsread.Head), newRouter(env.Cfg, git)
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h, OpenTranscript: openTranscript, ListenHooks: listenHooks,
-		RunGate: gateexec.Run, Profiles: fsread.CoverageProfiles{}, Stop: holder.Stop,
+		RunGate: gateexec.Run, Profiles: fsread.CoverageProfiles{}, Preview: fsread.ReadPreview, Stop: holder.Stop,
 		Notice:    holder.Notice(),
 		Launch:    sessions.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
 		Agent:     env.Agent,

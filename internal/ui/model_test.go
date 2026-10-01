@@ -36,7 +36,7 @@ func fakeTerms(t *testing.T) (map[string]termwrap.Terminal, map[string]*termwrap
 // optional fields they exercise.
 func baseDeps(st sessions.State, terms map[string]termwrap.Terminal) ui.Deps {
 	return ui.Deps{State: st, Terms: terms, Create: noCreate, Start: noStart, SpinTick: instantTick,
-		Profiles: fsread.CoverageProfiles{}}
+		Profiles: fsread.CoverageProfiles{}, Preview: fsread.ReadPreview}
 }
 
 // instantTick is a ui.TickFunc that answers at once, at fixedNow. The helpers

@@ -7,10 +7,7 @@ package review
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -136,7 +133,7 @@ func (s *Source) Generated(sess sessions.Session, paths []string) (map[string]bo
 	}
 	out := make(map[string]bool, len(paths))
 	for _, p := range paths {
-		out[p] = declared[p] || GeneratedName(p) || (sniffable(p) && headerSays(sess.Dir, p))
+		out[p] = declared[p] || GeneratedName(p) || (sniffable(p) && s.headerSays(sess.Dir, p))
 	}
 	return out, nil
 }
@@ -151,19 +148,18 @@ func (s *Source) Generated(sess sessions.Session, paths []string) (map[string]bo
 // both better evidence and cost nothing per file.
 func sniffable(p string) bool { return strings.HasSuffix(p, ".go") }
 
-// headerSays reads the first headBytes of a file and asks GeneratedHeader.
+// headerSays reads the first headBytes of a file, through the injected head
+// reader, and asks GeneratedHeader.
 //
 // A file that cannot be read is not generated: a deleted file is in the diff
 // and gone from the worktree, and an unreadable one is the operator's business
 // rather than this detection's. Either way the honest answer is "the header did
 // not say so", never an error that would take the whole listing down with it.
-func headerSays(dir, rel string) bool {
-	f, err := os.Open(filepath.Join(dir, rel))
-	if err != nil {
+func (s *Source) headerSays(dir, rel string) bool {
+	if s.head == nil {
 		return false
 	}
-	defer func() { _ = f.Close() }()
-	head, err := io.ReadAll(io.LimitReader(f, headBytes))
+	head, err := s.head(dir, rel, headBytes)
 	if err != nil {
 		return false
 	}
