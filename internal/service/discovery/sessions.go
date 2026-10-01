@@ -27,14 +27,23 @@ import (
 	"unicode"
 
 	"github.com/mattn/go-runewidth"
-
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // maxTitleCells bounds a proposed title in display columns. A row is one line
 // of a pane that is about fifty columns on an eighty-column window, so a pasted
 // essay would push the detail column off the screen entirely.
 const maxTitleCells = 60
+
+// PromptText is the agent's reading of a user entry's content: what the
+// operator typed, and whether it was a typed prompt at all. Which shapes a
+// prompt takes and which bodies the agent injected itself is its transcript
+// format's business, not this package's (#46, #61, #62, #122). cmd passes
+// service/status's PromptText for claude.
+//
+// A port rather than an import since migration step 7.2 (#653): this package
+// depended on service/status for that one function, and with internal/cli
+// depending on it in turn the edge ran against stability (SDP, #269).
+type PromptText func(content json.RawMessage) (string, bool)
 
 // SessionCandidate is one claude session worth offering for adoption.
 //
@@ -51,14 +60,14 @@ type SessionCandidate struct {
 // ProposeSessions returns the sessions in projectRoot that omatty does not
 // already hold, most recently used first.
 //
-//	cands, err := discovery.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids)
+//	cands, err := discovery.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids, status.PromptText)
 //
 // known is the session ids already in state.json, which are left out. Offering
 // one again would make its row fail on commit with "already registered" and say
 // nothing about why - the same reasoning that keeps registered roots out of
 // project discovery (#91).
 func ProposeSessions(
-	storeRoot string, git Git, projectRoot string, known []string,
+	storeRoot string, git Git, projectRoot string, known []string, prompt PromptText,
 ) ([]SessionCandidate, error) {
 	entries, err := os.ReadDir(storeRoot)
 	if err != nil {
@@ -70,7 +79,7 @@ func ProposeSessions(
 		if !e.IsDir() {
 			continue
 		}
-		found = append(found, inProject(filepath.Join(storeRoot, e.Name()), git, want, held)...)
+		found = append(found, inProject(filepath.Join(storeRoot, e.Name()), git, want, held, prompt)...)
 	}
 	sortSessions(found)
 	return found, nil
@@ -126,13 +135,13 @@ func resolvedRoot(projectRoot string, git Git) string {
 //
 // One git call per distinct working directory, which is normally one for the
 // whole slug directory - that is what a slug is.
-func inProject(slugDir string, git Git, projectRoot string, held map[string]bool) []SessionCandidate {
+func inProject(slugDir string, git Git, projectRoot string, held map[string]bool, prompt PromptText) []SessionCandidate {
 	var out []SessionCandidate
 	for dir, group := range byCwd(transcripts(slugDir)) {
 		if root, ok := resolveRoot(dir, git); !ok || root != projectRoot {
 			continue
 		}
-		out = append(out, candidatesIn(group, dir, held)...)
+		out = append(out, candidatesIn(group, dir, held, prompt)...)
 	}
 	return out
 }
@@ -160,7 +169,7 @@ func byCwd(found []transcript) map[string][]transcript {
 }
 
 // candidatesIn turns each transcript in one working directory into a candidate.
-func candidatesIn(found []transcript, dir string, held map[string]bool) []SessionCandidate {
+func candidatesIn(found []transcript, dir string, held map[string]bool, prompt PromptText) []SessionCandidate {
 	out := make([]SessionCandidate, 0, len(found))
 	for _, t := range found {
 		id := sessionID(t.Path)
@@ -168,7 +177,7 @@ func candidatesIn(found []transcript, dir string, held map[string]bool) []Sessio
 			continue
 		}
 		out = append(out, SessionCandidate{
-			ID: id, Title: titleOf(t.Path, id), Dir: dir, LastUsed: t.Used,
+			ID: id, Title: titleOf(t.Path, id, prompt), Dir: dir, LastUsed: t.Used,
 		})
 	}
 	return out
@@ -183,9 +192,9 @@ func sessionID(path string) string {
 // titleOf labels a row with what the session was about, falling back to the id
 // for a session that never got a typed prompt - which still exists and is still
 // adoptable, so an empty cell would be worse than an unreadable one.
-func titleOf(path, id string) string {
-	if prompt := firstPrompt(path); prompt != "" {
-		return prompt
+func titleOf(path, id string, prompt PromptText) string {
+	if typed := firstPrompt(path, prompt); typed != "" {
+		return typed
 	}
 	return id
 }
@@ -202,7 +211,7 @@ type promptRecord struct {
 	Message struct {
 		// A prompt is a bare string, or a list of blocks when it carries an
 		// attachment. Which of those is a typed prompt is status.PromptText's
-		// question, not this struct's.
+		// question - the PromptText port's - not this struct's.
 		Content json.RawMessage `json:"content"`
 	} `json:"message"`
 }
@@ -210,14 +219,14 @@ type promptRecord struct {
 // FirstPromptTitle is the title to give a session, read from the first thing
 // the operator typed into its transcript, or "" when it holds none yet.
 //
-//	title, err := discovery.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()))
+//	title, err := discovery.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()), status.PromptText)
 //
 // Exported so a session omatty created is named the way an adopted one is:
 // titleOf is this function's other caller, and two rules for what a session
 // is called is how created and adopted rows would drift apart (#122, #127).
 // The error is for a transcript that exists and cannot be read. A missing
 // one is not an error: a session that has not spoken yet simply has no title.
-func FirstPromptTitle(path string) (string, error) {
+func FirstPromptTitle(path string, prompt PromptText) (string, error) {
 	f, err := os.Open(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", nil
@@ -226,7 +235,7 @@ func FirstPromptTitle(path string) (string, error) {
 		return "", fmt.Errorf("discover: transcript %s: %w", path, err)
 	}
 	defer func() { _ = f.Close() }()
-	title, err := scanFirstPrompt(f)
+	title, err := scanFirstPrompt(f, prompt)
 	if err != nil {
 		return "", fmt.Errorf("discover: reading the head of transcript %s (%d-byte cap): %w", path, maxHeadBytes, err)
 	}
@@ -240,13 +249,13 @@ func FirstPromptTitle(path string) (string, error) {
 // The content is untrusted (AGENTS.md, Security): it is read to make a display
 // string and for nothing else, and it is flattened before it can reach a
 // rendered row.
-func firstPrompt(path string) string {
+func firstPrompt(path string, prompt PromptText) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
 	}
 	defer func() { _ = f.Close() }()
-	title, err := scanFirstPrompt(f)
+	title, err := scanFirstPrompt(f, prompt)
 	// The same cap readCwd hits, and the same argument: one record is routinely
 	// hundreds of kilobytes, so a head that blows it stops the scan with
 	// ErrTooLong - indistinguishable from "this transcript opens with no typed
@@ -263,11 +272,11 @@ func firstPrompt(path string) string {
 // scanFirstPrompt reads the head of an open transcript for a typed prompt.
 // The error is the scanner's: a head over the byte cap, or a file that
 // cannot be read.
-func scanFirstPrompt(f io.Reader) (string, error) {
+func scanFirstPrompt(f io.Reader, prompt PromptText) (string, error) {
 	scan := bufio.NewScanner(&io.LimitedReader{R: f, N: maxHeadBytes})
 	scan.Buffer(nil, maxHeadBytes)
 	for i := 0; i < maxHeadLines && scan.Scan(); i++ {
-		if text, ok := typedPrompt(scan.Bytes()); ok {
+		if text, ok := typedPrompt(scan.Bytes(), prompt); ok {
 			return flatten(text), nil
 		}
 	}
@@ -281,7 +290,7 @@ func scanFirstPrompt(f io.Reader) (string, error) {
 // injected, and a body claude wrote itself - a slash command, its output, a
 // caveat. The head of a real transcript is mostly those, so without the check
 // every session would be titled "<command-name>/clear" (#61, #122).
-func typedPrompt(line []byte) (string, bool) {
+func typedPrompt(line []byte, prompt PromptText) (string, bool) {
 	var rec promptRecord
 	if json.Unmarshal(line, &rec) != nil || rec.Type != "user" || rec.IsMeta {
 		return "", false
@@ -290,7 +299,7 @@ func typedPrompt(line []byte) (string, bool) {
 	// only the string form here skipped every prompt that carried an
 	// attachment - the list-of-blocks shape #62 exists for - so those sessions
 	// fell back to the unreadable uuid titleOf is written to avoid (#61, #122).
-	return status.PromptText(rec.Message.Content)
+	return prompt(rec.Message.Content)
 }
 
 // flatten makes an untrusted prompt safe and short enough for one row:

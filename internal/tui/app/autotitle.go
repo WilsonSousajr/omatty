@@ -20,7 +20,7 @@ import (
 // means the session has not been spoken to yet, which is not a failure.
 //
 //	deps.Name = func(sess sessions.Session) (string, error) {
-//	        return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()))
+//	        return discover.FirstPromptTitle(paths.Transcript(home, sess.Dir, sess.ConversationID()), status.PromptText)
 //	}
 type NameFunc func(sess sessions.Session) (string, error)
 

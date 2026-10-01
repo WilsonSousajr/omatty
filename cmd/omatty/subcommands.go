@@ -19,6 +19,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/service/discovery"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // dispatch runs a subcommand. `add` registers a repository and `rm` forgets
@@ -147,7 +148,7 @@ func proposeSessions(
 	if err != nil {
 		return nil, err
 	}
-	return discovery.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids)
+	return discovery.ProposeSessions(paths.TranscriptsDir(home), git, p.Root, ids, status.PromptText)
 }
 
 // discoverProjects lists the repositories claude has been used in and

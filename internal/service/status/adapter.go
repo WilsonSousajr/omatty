@@ -44,7 +44,8 @@ type WatchDeps struct {
 
 // claudeStatus reads claude's transcript through the functions this package
 // already exports. The parsing stays here for now: that is where its tests
-// and fixtures live, and discover imports PromptText from the same file.
+// and fixtures live, and cmd hands discovery PromptText from the same file
+// (a port since #653; discovery imported it before).
 // What the type buys is the call-site indirection - the tailer and the
 // listener no longer call those functions directly, so a second agent
 // supplies its own without touching either (#46, #61, #62, #122).
