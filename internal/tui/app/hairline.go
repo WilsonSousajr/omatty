@@ -10,6 +10,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -52,15 +53,14 @@ func (m *Model) keyboardEdge() keyboardEdge {
 // grey on every other seam.
 func hairlineStyle(accent bool) lipgloss.Style {
 	if accent {
-		return accentStyle
+		return theme.Accent
 	}
-	return hairlineGreyStyle
+	return theme.Divider
 }
 
 // hairlineGreyStyle is every seam that does not own the keyboard. A fixed
 // style beside style.go's, rather than one built per cell per frame; the
 // accent case is accentStyle, which is already the same colour.
-var hairlineGreyStyle = lipgloss.NewStyle().Foreground(colorHairline)
 
 // hairlineColumn is one hairline h rows tall, a column for JoinHorizontal.
 // Each cell is rendered on its own so a line of the frame carries the cell's
@@ -104,9 +104,9 @@ func headerRow(segs []segment) string {
 // rest, so the header row says where a keystroke lands as the hairline does.
 func segmentStyle(owns bool) lipgloss.Style {
 	if owns {
-		return headerStyle
+		return theme.Header
 	}
-	return mutedStyle
+	return theme.Muted
 }
 
 // ruleRow is the line under the header row: dashes across every column and a

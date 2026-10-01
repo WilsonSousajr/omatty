@@ -18,6 +18,7 @@ package app
 
 import (
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -154,5 +155,5 @@ func reverseRun(row string, from, to int) string {
 	left := ansi.Cut(row, 0, from)
 	mid := ansi.Strip(ansi.Cut(row, from, to+1))
 	right := ansi.TruncateLeft(row, to+1, "")
-	return left + cursorStyle.Render(mid) + right
+	return left + theme.Cursor.Render(mid) + right
 }

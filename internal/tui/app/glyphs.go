@@ -10,9 +10,8 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"image/color"
-
-	"charm.land/lipgloss/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
@@ -60,8 +59,8 @@ var nerdGlyphs = glyphSet{
 // operator's move - a tool to install, a conflict to resolve - and never an
 // error, because a missing tool says nothing about the code (invariant 12).
 var markColors = map[markState]color.Color{
-	markPass: colorGreen, markFail: colorRed, markMissing: colorAmber, markConflict: colorAmber,
-	markRunning: colorText, markPending: colorMuted, markCancelled: colorMuted, markDraft: colorMuted,
+	markPass: theme.ColorGreen, markFail: theme.ColorRed, markMissing: theme.ColorAmber, markConflict: theme.ColorAmber,
+	markRunning: theme.ColorText, markPending: theme.ColorMuted, markCancelled: theme.ColorMuted, markDraft: theme.ColorMuted,
 }
 
 // glyphsFor is the set the config asked for.
@@ -79,7 +78,7 @@ func (g glyphSet) mark(s markState) string { return g[s] }
 
 // cell is s's glyph in its colour.
 func (g glyphSet) cell(s markState) string {
-	return lipgloss.NewStyle().Foreground(markColors[s]).Render(g[s])
+	return theme.Foreground(markColors[s]).Render(g[s])
 }
 
 // verdictState is the mark a gate step's verdict draws as.

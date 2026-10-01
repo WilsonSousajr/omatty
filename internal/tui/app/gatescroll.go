@@ -10,7 +10,10 @@
 
 package app
 
-import "github.com/WilsonSousajr/omatty/internal/domain/gate"
+import (
+	"github.com/WilsonSousajr/omatty/internal/domain/gate"
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
+)
 
 // gateSpan is one step's lines in gateLines' coordinates: its row, and the last
 // line of its output when folded open - its row again when shut.
@@ -126,7 +129,7 @@ func stepRows(spans []gateSpan) map[int]bool {
 // colour run inside would end the reverse part-way along it.
 func (m *Model) gateRow(plain, styled string, cursor bool, w int) string {
 	if cursor {
-		return cursorStyle.Render(m.fitContent(plain, w))
+		return theme.Cursor.Render(m.fitContent(plain, w))
 	}
 	return m.fitStyled(styled, w)
 }

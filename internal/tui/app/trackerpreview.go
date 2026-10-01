@@ -6,6 +6,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -76,7 +77,7 @@ func (m *Model) withPreview(list []string, h int) []string {
 	}
 	out := make([]string, h)
 	for i := range out {
-		out[i] = fitLine(lineAt(list, i), lw) + mutedStyle.Render(previewSeam) + fitLine(lineAt(item, i), pw)
+		out[i] = fitLine(lineAt(list, i), lw) + theme.Muted.Render(previewSeam) + fitLine(lineAt(item, i), pw)
 	}
 	return out
 }

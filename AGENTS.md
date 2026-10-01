@@ -94,7 +94,8 @@ internal/
 └── tui/          [ADR 0001] the TUI: driving adapter 1.
     ├── app/        bubbletea model, panes, rendering.
     ├── keys/       modal key router. Pure state machine (invariant 1).
-    └── terminal/   OUR interface over bubbleterm (invariant 4).
+    ├── terminal/   OUR interface over bubbleterm (invariant 4).
+    └── theme/      [ADR 0001] the one palette and every style; app builds none of its own (#653).
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
 tools/              gate tools with a main: crapcheck, depcheck. Inside ./... so gofmt,

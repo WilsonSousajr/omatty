@@ -6,6 +6,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strconv"
 	"strings"
 	"time"
@@ -80,10 +81,10 @@ func (m *Model) renderHeaderRow(row Row) string {
 	name := m.foldArrow(row) + row.Project
 	right := joinSpaced(m.forgeCounts(row.Project), foldSummary(row))
 	if right == "" {
-		return rail + mutedStyle.Render(fitLine(name, cardCols-1-gutterCols))
+		return rail + theme.Muted.Render(fitLine(name, cardCols-1-gutterCols))
 	}
 	name = fitLine(name, cardCols-1-gutterCols-1-lipgloss.Width(right))
-	return rail + mutedStyle.Render(name+" "+right)
+	return rail + theme.Muted.Render(name+" "+right)
 }
 
 // headerSelected is whether the cursor rests on project's header.
@@ -128,7 +129,7 @@ func joinSpaced(a, b string) string {
 func (m *Model) cardTop(row Row, now time.Time) string {
 	glyph := m.glyphCell(row.Session.ID, row.Status, now)
 	title := m.titleStyle(row.Session.ID).Render(fitLine(row.Session.Title, titleCols))
-	age := mutedStyle.Render(padLeft(clip(AgeString(now, m.status[row.Session.ID].At), ageCols), ageCols))
+	age := theme.Muted.Render(padLeft(clip(AgeString(now, m.status[row.Session.ID].At), ageCols), ageCols))
 	return glyph + " " + title + " " + age + " "
 }
 
@@ -182,7 +183,7 @@ func diffstatWithin(st review.Stat, w int) string {
 	if full := diffstat(st); lipgloss.Width(full) <= w {
 		return full
 	}
-	if added := addedStyle.Render("+" + KString(st.Added)); lipgloss.Width(added) <= w {
+	if added := theme.Added.Render("+" + KString(st.Added)); lipgloss.Width(added) <= w {
 		return added
 	}
 	return ""
@@ -210,13 +211,13 @@ func diffstat(st review.Stat) string {
 	if st.Added == 0 && st.Removed == 0 {
 		return ""
 	}
-	return addedStyle.Render("+"+KString(st.Added)) + " " + removedStyle.Render("−"+KString(st.Removed))
+	return theme.Added.Render("+"+KString(st.Added)) + " " + theme.Removed.Render("−"+KString(st.Removed))
 }
 
 // rail is the accent bar on the selected card, a blank column on the rest.
 func (m *Model) rail(selected bool) string {
 	if selected {
-		return accentStyle.Render(rail)
+		return theme.Accent.Render(rail)
 	}
 	return " "
 }
@@ -227,12 +228,12 @@ func (m *Model) rail(selected bool) string {
 // no legend and no layout change (#318).
 func (m *Model) titleStyle(id string) lipgloss.Style {
 	if m.isSelected(id) {
-		return headerStyle
+		return theme.Header
 	}
 	if m.terms[id] == nil {
-		return mutedStyle
+		return theme.Muted
 	}
-	return textStyle
+	return theme.Text
 }
 
 // isSelected reports whether the cursor rests on session id.
@@ -247,7 +248,7 @@ func clip(s string, width int) string {
 	if lipgloss.Width(s) <= width {
 		return s
 	}
-	return lipgloss.NewStyle().MaxWidth(width).Render(s)
+	return theme.Clip(width).Render(s)
 }
 
 // padLeft right-aligns s in width, ANSI-aware like padRight.

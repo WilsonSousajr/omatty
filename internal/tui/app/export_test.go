@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"image/color"
 	"time"
 
@@ -29,13 +30,13 @@ func LeaderKeys() []string {
 }
 
 // Bold is s as a heading or a title is drawn (#433).
-func Bold(s string) string { return headerStyle.Render(s) }
+func Bold(s string) string { return theme.Header.Render(s) }
 
 // Strong is s as a body's **strong** run is drawn (#433).
-func Strong(s string) string { return strongStyle.Render(s) }
+func Strong(s string) string { return theme.Strong.Render(s) }
 
 // SearchHit is s as the gate draws a search match (#429).
-func SearchHit(s string) string { return searchStyle.Render(s) }
+func SearchHit(s string) string { return theme.Search.Render(s) }
 
 // UseNerdIcons switches the model to the Nerd Font glyph set, as
 // [ui] icons = "nerd" does through Deps (#425).
@@ -112,16 +113,16 @@ func (m *Model) CardOf(id string) []string {
 	}
 	return nil
 }
-func Rail() string { return accentStyle.Render(rail) }
+func Rail() string { return theme.Accent.Render(rail) }
 
 // Amber renders s in the waiting colour, so a footer test can find the
 // waiting count by its colour (#178).
-func Amber(s string) string { return amberStyle.Render(s) }
+func Amber(s string) string { return theme.Amber.Render(s) }
 
 // Added and Removed render s in the diff colours, so a card test can find
 // the diffstat by colour (#180).
-func Added(s string) string   { return addedStyle.Render(s) }
-func Removed(s string) string { return removedStyle.Render(s) }
+func Added(s string) string   { return theme.Added.Render(s) }
+func Removed(s string) string { return theme.Removed.Render(s) }
 
 // PollAll is one stat tick's worth of polls without the tick that re-arms
 // it, so a test can run them without blocking on tea.Tick (#180). RepoStatOf
@@ -176,14 +177,14 @@ func MeterCells() int       { return meterCells }
 // entry (#154).
 func Blend(a, b color.Color, t float64) color.Color { return blend(a, b, t) }
 func MeterCellColor(i int) color.Color              { return meterCellColor(i) }
-func StatusColor(s status.Status) color.Color       { return statusColors[s] }
+func StatusColor(s status.Status) color.Color       { return theme.StatusColor(s) }
 
 // AccentColor, AmberColor and TextColor are the palette entries the colour
 // rule binds (#175); AllStatuses is every status the tables must cover.
 func MeterRamp() (warm, cool color.Color) { return rampWarm, rampCool }
-func AccentColor() color.Color            { return colorAccent }
-func AmberColor() color.Color             { return colorAmber }
-func TextColor() color.Color              { return colorText }
+func AccentColor() color.Color            { return theme.ColorAccent }
+func AmberColor() color.Color             { return theme.ColorAmber }
+func TextColor() color.Color              { return theme.ColorText }
 func AllStatuses() []status.Status {
 	return []status.Status{status.StatusIdle, status.StatusThinking, status.StatusTool,
 		status.StatusWaiting, status.StatusDone, status.StatusError, status.StatusExited}

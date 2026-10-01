@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -12,16 +13,16 @@ import (
 // window after the cursor last moved.
 func (m *Model) renderTree(w, rows int) []string {
 	if m.review.TreeErr != "" {
-		return []string{errorStyle.Render(fitLine(m.review.TreeErr, w))}
+		return []string{theme.Error.Render(fitLine(m.review.TreeErr, w))}
 	}
 	// Three states, told apart explicitly: no *Tree is "not listed yet", a
 	// *Tree with no rows is "listed, and there is nothing" (#131).
 	if m.review.Tree == nil {
-		return []string{mutedStyle.Render("listing files...")}
+		return []string{theme.Muted.Render("listing files...")}
 	}
 	nodes := m.treeRows()
 	if len(nodes) == 0 {
-		return m.withFilterLine([]string{mutedStyle.Render(fitLine(m.emptyTreeText(), w))}, w, rows)
+		return m.withFilterLine([]string{theme.Muted.Render(fitLine(m.emptyTreeText(), w))}, w, rows)
 	}
 	return m.withFilterLine(m.treeLines(nodes, w, rows), w, rows)
 }
@@ -109,23 +110,23 @@ func changeLetter(c review.Change) string {
 func treeStyle(n review.TreeNode, cursor bool, mark string) lipgloss.Style {
 	switch {
 	case cursor:
-		return cursorStyle
+		return theme.Cursor
 	// A file read and unchanged since is the one row worth making quieter
 	// than the rest: it is done, and the point of the mark is to stop the eye
 	// going back to it. A changed-since row keeps its change colour, because
 	// it wants attention again (#337).
 	case mark == reviewedMark:
-		return mutedStyle
+		return theme.Muted
 	case n.Change == review.ChangeAdded:
-		return addedStyle
+		return theme.Added
 	case n.Change == review.ChangeDeleted:
-		return removedStyle
+		return theme.Removed
 	case n.Change != review.ChangeNone:
-		return commentStyle
+		return theme.Comment
 	case n.IsDir:
-		return headerStyle
+		return theme.Header
 	}
-	return lipgloss.NewStyle()
+	return theme.Plain()
 }
 
 // renderPreview draws the file's lines from the scroll offset, numbered, and
@@ -133,12 +134,12 @@ func treeStyle(n review.TreeNode, cursor bool, mark string) lipgloss.Style {
 func (m *Model) renderPreview(w, rows int) []string {
 	p := m.review.Preview
 	if p.Binary {
-		return []string{mutedStyle.Render(p.Path + " is a binary file")}
+		return []string{theme.Muted.Render(p.Path + " is a binary file")}
 	}
 	// The path is in the title; the body only needs the reason, which then
 	// also fits the narrowest column.
 	if p.Deleted {
-		return []string{mutedStyle.Render(fitLine("deleted in this session", w))}
+		return []string{theme.Muted.Render(fitLine("deleted in this session", w))}
 	}
 	// The offset is re-clamped here rather than trusted, for the reason
 	// renderEntries and renderTree give: a resize changes rows after the cursor
@@ -152,12 +153,12 @@ func (m *Model) renderPreview(w, rows int) []string {
 		out = append(out, m.previewLine(p, i, w))
 	}
 	if p.Truncated && end == len(p.Lines) {
-		out = append(out, mutedStyle.Render("... truncated at 256 KiB"))
+		out = append(out, theme.Muted.Render("... truncated at 256 KiB"))
 	}
 	if p.Unhighlighted && end == len(p.Lines) {
 		// Short enough for the narrowest column (23 cells), like the
 		// truncation note above it.
-		out = append(out, mutedStyle.Render("... not highlighted"))
+		out = append(out, theme.Muted.Render("... not highlighted"))
 	}
 	return out
 }

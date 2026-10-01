@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
@@ -68,7 +69,7 @@ func (m *Model) reviewBody(w, rows int) []string {
 		}
 	}
 	if len(m.review.Entries) == 0 {
-		return []string{mutedStyle.Render(m.noChanges())}
+		return []string{theme.Muted.Render(m.noChanges())}
 	}
 	if !m.review.Note.Active {
 		return m.renderEntries(w, rows)
@@ -96,10 +97,10 @@ func (m *Model) renderEntries(w, rows int) []string {
 func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []review.Comment) string {
 	text := m.fitRow(e, comments, w)
 	if cursor {
-		return cursorStyle.Render(text)
+		return theme.Cursor.Render(text)
 	}
 	if e.Kind == review.EntryComment && !comments[e.Comment].Sent.IsZero() {
-		return mutedStyle.Render(text) // sent: context for this turn, not a to-do (#335)
+		return theme.Muted.Render(text) // sent: context for this turn, not a to-do (#335)
 	}
 	if e.Kind == review.EntryLine {
 		return m.styledLine(e, w) // syntax and changed words (#435)
@@ -182,9 +183,9 @@ func (m *Model) noChanges() string {
 // edge: a cut line lost the part of an error that says what went wrong
 // (#351), and git's stderr can be several lines of its own.
 func noticeLines(lines []string, isErr bool, w int) []string {
-	style := mutedStyle
+	style := theme.Muted
 	if isErr {
-		style = errorStyle
+		style = theme.Error
 	}
 	var out []string
 	for _, l := range lines {

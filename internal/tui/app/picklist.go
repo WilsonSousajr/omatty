@@ -6,6 +6,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strconv"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/fuzzy"
@@ -191,7 +192,7 @@ func pickRow(it pickItem, l *pickList) string {
 	// (#424). The detail goes unstyled on the cursor row: a muted run inside
 	// ends in a reset, which would cut the reverse short mid-row.
 	if cur, ok := l.Current(); ok && cur.ID == it.ID {
-		return cursorStyle.Render("  " + mark + it.Label + "  " + it.Detail)
+		return theme.Cursor.Render("  " + mark + it.Label + "  " + it.Detail)
 	}
-	return "  " + mark + it.Label + "  " + mutedStyle.Render(it.Detail)
+	return "  " + mark + it.Label + "  " + theme.Muted.Render(it.Detail)
 }

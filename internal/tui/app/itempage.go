@@ -9,6 +9,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"regexp"
 	"sort"
 	"strconv"
@@ -21,7 +22,6 @@ import (
 
 // strongStyle is a body's **strong** run: bold, and no hue - the palette's
 // colours each already mean something (#175).
-var strongStyle = lipgloss.NewStyle().Bold(true)
 
 // strongRun is **text**, the one inline mark worth drawing.
 var strongRun = regexp.MustCompile(`\*\*([^*]+)\*\*`)
@@ -59,9 +59,9 @@ func blockStyle(line string, fenced bool) (func(...string) string, string) {
 	indent := line[:len(line)-len(trimmed)]
 	switch {
 	case fenced:
-		return mutedStyle.Render, line
+		return theme.Muted.Render, line
 	case strings.HasPrefix(trimmed, "#"):
-		return headerStyle.Render, strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
+		return theme.Header.Render, strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
 	case strings.HasPrefix(trimmed, "- "), strings.HasPrefix(trimmed, "* "):
 		return strongRuns, indent + "• " + trimmed[2:]
 	}
@@ -71,7 +71,7 @@ func blockStyle(line string, fenced bool) (func(...string) string, string) {
 // strongRuns draws a line's **strong** runs bold and the rest as it is.
 func strongRuns(parts ...string) string {
 	return strongRun.ReplaceAllStringFunc(strings.Join(parts, ""), func(run string) string {
-		return strongStyle.Render(strings.Trim(run, "*"))
+		return theme.Strong.Render(strings.Trim(run, "*"))
 	})
 }
 
@@ -88,7 +88,7 @@ func (m *Model) itemChecks(item forge.Detail) []string {
 	for _, c := range checks {
 		nameW = max(nameW, lipgloss.Width(c.Name))
 	}
-	lines := []string{mutedStyle.Render("checks · " + checkCounts(checks))}
+	lines := []string{theme.Muted.Render("checks · " + checkCounts(checks))}
 	for _, c := range checks {
 		s := checkMark(c.State)
 		lines = append(lines, m.glyphs.cell(s)+" "+padRight(c.Name, nameW)+" "+padLeft(durationText(c.Took), 6))

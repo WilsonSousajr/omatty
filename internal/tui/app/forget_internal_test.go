@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"reflect"
 	"sort"
 	"testing"
@@ -181,7 +182,7 @@ func TestTitleStyle_MutesAStoppedCard_issue318(t *testing.T) {
 		Sessions: []sessions.Session{{ID: "live", Project: "p"}, {ID: "asleep", Project: "p"}},
 	}, Terms: map[string]terminal.Terminal{"live": terminal.NewFake("")}})
 
-	if got := m.titleStyle("asleep").Render("x"); got != mutedStyle.Render("x") {
-		t.Errorf("a stopped card's title renders %q, want the muted %q", got, mutedStyle.Render("x"))
+	if got := m.titleStyle("asleep").Render("x"); got != theme.Muted.Render("x") {
+		t.Errorf("a stopped card's title renders %q, want the muted %q", got, theme.Muted.Render("x"))
 	}
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strconv"
 	"strings"
 	"time"
@@ -104,7 +105,7 @@ func (m *Model) trackerLine(r trackerRow, selected bool, numW int) string {
 	lead, age := trackerParts(r, m.clock(), w, numW)
 	text := m.fitContent(lead, w-len(trackerAgeGap)-trackerAgeCols) + trackerAgeGap + age
 	if selected {
-		return cursorStyle.Render(text)
+		return theme.Cursor.Render(text)
 	}
 	return text
 }

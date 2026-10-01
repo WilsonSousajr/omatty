@@ -4,6 +4,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -57,7 +58,7 @@ func (m *Model) helpBody(width int) []string {
 			continue
 		}
 		if i > 0 || s.Prefix == "" {
-			lines = append(lines, "", headerStyle.Render(s.Title))
+			lines = append(lines, "", theme.Header.Render(s.Title))
 		}
 		lines = append(lines, rows...)
 	}
@@ -82,7 +83,7 @@ func helpRows(s helpSection, query string, gutter, width int) []string {
 
 // helpRow draws one binding: the key in the accent, what it does as text.
 func helpRow(key, does string, gutter, width int) string {
-	return fitLine("  "+accentStyle.Render(padRight(key, gutter))+"  "+textStyle.Render(does), width)
+	return fitLine("  "+theme.Accent.Render(padRight(key, gutter))+"  "+theme.Text.Render(does), width)
 }
 
 // helpGutter is the key column's width: the longest key in any table, so a
@@ -108,9 +109,9 @@ func (m *Model) helpFoot(width int, scrolls bool) string {
 		return editLine("filter", m.modal.HelpQuery, width)
 	}
 	if scrolls {
-		return mutedStyle.Render("j/k scroll  / filter  esc close  ctrl+c quit")
+		return theme.Muted.Render("j/k scroll  / filter  esc close  ctrl+c quit")
 	}
-	return mutedStyle.Render("/ filter  esc close  ctrl+c quit")
+	return theme.Muted.Render("/ filter  esc close  ctrl+c quit")
 }
 
 // editHelpFilter edits the query with the shared editline: enter keeps it,

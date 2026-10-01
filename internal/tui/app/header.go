@@ -6,6 +6,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strconv"
 	"strings"
 	"time"
@@ -90,7 +91,7 @@ func (m *Model) paneSegment(now time.Time, width int, owns bool) string {
 func (m *Model) paneParts(row Row, now time.Time, owns bool) headerParts {
 	st := m.status[row.Session.ID]
 	p := headerParts{
-		Crumb:  mutedStyle.Render(row.Project) + " " + crumbRail(owns) + " " + row.Session.Title,
+		Crumb:  theme.Muted.Render(row.Project) + " " + crumbRail(owns) + " " + row.Session.Title,
 		Branch: m.breadcrumbBranch(row.Session.ID),
 	}
 	if st.Status != "" {
@@ -105,9 +106,9 @@ func (m *Model) paneParts(row Row, now time.Time, owns bool) headerParts {
 // owns the keys, muted otherwise, the rail the card wears (#176).
 func crumbRail(owns bool) string {
 	if owns {
-		return accentStyle.Render(rail)
+		return theme.Accent.Render(rail)
 	}
-	return mutedStyle.Render(rail)
+	return theme.Muted.Render(rail)
 }
 
 // breadcrumbBranch is the branch piece: what the card's poll last found
