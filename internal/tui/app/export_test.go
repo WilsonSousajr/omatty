@@ -1,6 +1,7 @@
 package app
 
 import (
+	"charm.land/bubbles/v2/key"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"image/color"
 	"time"
@@ -60,6 +61,26 @@ func ColumnKeyTables() map[string][]string {
 	return map[string][]string{
 		"column": keysOf(columnKeys), "diff": keysOf(diffKeys), "tree": keysOf(treeKeys),
 		"gate": keysOf(gateKeys), "tracker": keysOf(trackerKeys),
+	}
+}
+
+// ColumnBindings is every key spelling each face's bindings accept, hidden
+// halves of a row included, by the face whose help documents it (#653).
+func ColumnBindings() map[string][]string {
+	keysOf := func(bs ...key.Binding) []string {
+		var out []string
+		for _, b := range bs {
+			out = append(out, b.Keys()...)
+		}
+		return out
+	}
+	c, d, tr, g, tk := columnBind, diffBind, treeBind, gateBind, trackerBind
+	return map[string][]string{
+		"column":  keysOf(c.Down, c.Up, c.Top, c.Bottom, c.HalfDown, c.HalfUp, c.Left, c.Right, c.Home, c.Back, c.Interrupt),
+		"diff":    keysOf(d.Comment, d.CommentPart, d.Delete, d.Submit, d.Scope, d.Open, d.NextFile, d.PrevFile, d.NextHunk, d.PrevHunk, d.Fold, d.Reload),
+		"tree":    keysOf(tr.Enter, tr.Read, tr.Generated, tr.Filter, tr.Attach, tr.Open, tr.Reload, tr.Changed),
+		"gate":    keysOf(g.Fold, g.Send, g.Rerun, g.Search, g.NextMatch, g.PrevMatch),
+		"tracker": keysOf(tk.Read, tk.Filter, tk.Start, tk.Attach, tk.Browse, tk.Reload),
 	}
 }
 

@@ -114,10 +114,10 @@ func (m *Model) onTrackerKey(key string) tea.Cmd {
 	if m.trackerCursorKey(key) {
 		return nil
 	}
-	switch key {
-	case "r":
+	switch {
+	case is(key, trackerBind.Reload):
 		return m.readTracker(m.review.Tracker.Project)
-	case "enter":
+	case is(key, trackerBind.Read):
 		return m.openItemAtCursor()
 	}
 	return m.trackerDefault(key)
@@ -127,16 +127,16 @@ func (m *Model) onTrackerKey(key string) tea.Cmd {
 // was one. Split off onTrackerKey when the filter pushed it past the statement
 // limit; the four are what the list does without touching the forge.
 func (m *Model) trackerCursorKey(key string) bool {
-	switch key {
-	case "j", "down":
+	switch {
+	case is(key, columnBind.Down):
 		m.moveTrackerCursor(1)
-	case "k", "up":
+	case is(key, columnBind.Up):
 		m.moveTrackerCursor(-1)
-	case "esc":
+	case is(key, columnBind.Back):
 		m.leaveTracker()
-	case "ctrl+c":
+	case is(key, columnBind.Interrupt):
 		m.review.Focused = false
-	case "/":
+	case is(key, trackerBind.Filter):
 		m.review.Filter.Active = true
 	default:
 		return false

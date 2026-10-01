@@ -103,57 +103,22 @@ var claudeKeys = []keyHelp{
 // checks each face's handlers against its table.
 
 // columnKeys work the same on every face.
-var columnKeys = []keyHelp{
-	{"j / k", "move the cursor, or scroll a preview or an item"},
-	{"g / G", "the first row, or the last"},
-	{"ctrl+d / ctrl+u", "half a page down, or up"},
-	{"h / l", "pan sideways"},
-	{"wheel sideways", "pan too - shift+wheel where the terminal sends it"},
-	{"0", "jump back to the left edge"},
-	{"esc", "back a step: a filter, a preview or an item, then the column"},
-}
+var columnKeys = rowsOf(columnBind.Down, columnBind.Up, columnBind.Top, columnBind.Bottom,
+	columnBind.HalfDown, columnBind.HalfUp, columnBind.Left, columnBind.Right, columnBind.Wheel,
+	columnBind.Home, columnBind.Back, columnBind.Interrupt)
 
-var diffKeys = []keyHelp{
-	{"c", "comment on the line under the cursor"},
-	{"C", "comment on part of the line: type the words, then the note"},
-	{"d", "delete the comment under the cursor"},
-	{"S", "submit the queued comments"},
-	{"t", "the whole session, or only this turn"},
-	{"o", "open the file at the line under the cursor"},
-	{"] / [", "the next file, or the one before"},
-	{"n / N", "the next hunk, or the one before"},
-	{"enter", "on a file's header: fold the file to it, or open it"},
-	{"r", "reload the diff"},
-}
+var diffKeys = rowsOf(diffBind.Comment, diffBind.CommentPart, diffBind.Delete, diffBind.Submit,
+	diffBind.Scope, diffBind.Open, diffBind.NextFile, diffBind.PrevFile, diffBind.NextHunk,
+	diffBind.PrevHunk, diffBind.Fold, diffBind.Reload)
 
-var treeKeys = []keyHelp{
-	{"enter", "fold a directory, or preview a file"},
-	{"v", "mark the file read; ✓ stays until its diff changes, then ~"},
-	{".", "show the generated files it folded away, or fold them again"},
-	{"/", "filter the tree as you type; enter keeps it, esc clears it"},
-	{"a", "attach the row or previewed file to the prompt as @path"},
-	{"o", "from a preview, jump to that file in the diff"},
-	{"r", "re-list the tree"},
-	{"c", "only the files the session changed, or all of them again"},
-	{"M A D R", "a file the session modified, added, deleted or renamed; a folder, the strongest beneath it"},
-}
+var treeKeys = rowsOf(treeBind.Enter, treeBind.Read, treeBind.Generated, treeBind.Filter,
+	treeBind.Attach, treeBind.Open, treeBind.Reload, treeBind.Changed, treeBind.Legend)
 
-var gateKeys = []keyHelp{
-	{"enter", "fold a step's output open or shut"},
-	{"S", "send the failures to the session; S twice more resends"},
-	{"r", "run the gate again"},
-	{"/", "search the opened output; enter keeps it, esc clears it"},
-	{"n / N", "the next search match, or the one before"},
-}
+var gateKeys = rowsOf(gateBind.Fold, gateBind.Send, gateBind.Rerun, gateBind.Search,
+	gateBind.NextMatch, gateBind.PrevMatch)
 
-var trackerKeys = []keyHelp{
-	{"enter", "read the issue or pull request in full"},
-	{"/", "filter by number, title or label"},
-	{"n", "start a session named and branched after it"},
-	{"a", "attach its reference to the prompt"},
-	{"b", "open it in the browser"},
-	{"r", "read the list, or the open item, again"},
-}
+var trackerKeys = rowsOf(trackerBind.Read, trackerBind.Filter, trackerBind.Start,
+	trackerBind.Attach, trackerBind.Browse, trackerBind.Reload)
 
 // helpSection is one titled block of the help modal below the leader keys.
 type helpSection struct {

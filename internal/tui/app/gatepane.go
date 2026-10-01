@@ -197,16 +197,16 @@ func (m *Model) onGateKey(key string) tea.Cmd {
 	if m.gateCursorKey(key) {
 		return nil
 	}
-	switch key {
-	case "r", "/", "n", "N", "shift+n", "shift+N":
+	switch {
+	case is(key, gateBind.Rerun) || is(key, gateBind.Search) || is(key, gateBind.NextMatch) || is(key, gateBind.PrevMatch):
 		m.gateSearchKey(key)
-	case "S", "shift+s", "shift+S":
+	case is(key, gateBind.Send):
 		// Three spellings, all of which occur: a terminal reporting the
 		// modifier sends "shift+s", a legacy one the bare "S", and one that
 		// shifts the base key too "shift+S" - the same set modalCommand
 		// already handles.
 		return m.submitGate()
-	case "esc", "ctrl+c":
+	case is(key, columnBind.Back) || is(key, columnBind.Interrupt):
 		// The diff and the tree both hand the keys back rather than close the
 		// column; the gate does the same so esc means one thing everywhere -
 		// after lifting a kept search, as the tree lifts its filter (#429).
@@ -223,12 +223,12 @@ func (m *Model) onGateKey(key string) tea.Cmd {
 // fold one - reporting whether key was one. Split off onGateKey when #429's
 // search keys took it past the statement limit.
 func (m *Model) gateCursorKey(key string) bool {
-	switch key {
-	case "j", "down":
+	switch {
+	case is(key, columnBind.Down):
 		m.moveGateCursor(1)
-	case "k", "up":
+	case is(key, columnBind.Up):
 		m.moveGateCursor(-1)
-	case "enter":
+	case is(key, gateBind.Fold):
 		m.toggleGateStep()
 	default:
 		return false

@@ -77,12 +77,12 @@ func (m *Model) trackerAction(key string) (tea.Cmd, bool) {
 	if !ok {
 		return nil, false
 	}
-	switch key {
-	case "n":
+	switch {
+	case is(key, trackerBind.Start):
 		return m.startSessionOnIssue(row), true
-	case "a":
+	case is(key, trackerBind.Attach):
 		return m.attachItem(row), true
-	case "b":
+	case is(key, trackerBind.Browse):
 		return m.browseItem(row), true
 	}
 	return nil, false

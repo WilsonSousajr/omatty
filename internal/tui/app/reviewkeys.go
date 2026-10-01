@@ -20,12 +20,12 @@ func (m *Model) PendingComments() int { return m.commentsFor(m.review.SessionID)
 // ctrl+c does not quit here, because it is the reflex for interrupting claude
 // and a reviewer's hand is still on it (issue #28).
 func (m *Model) onReviewKey(key string) tea.Cmd {
-	switch key {
-	case "j", "down":
+	switch {
+	case is(key, columnBind.Down):
 		m.moveReviewCursor(1)
-	case "k", "up":
+	case is(key, columnBind.Up):
 		m.moveReviewCursor(-1)
-	case "esc", "ctrl+c":
+	case is(key, columnBind.Back) || is(key, columnBind.Interrupt):
 		m.review.Focused = false
 	default:
 		if m.panKey(key) {
@@ -41,16 +41,16 @@ func (m *Model) reviewAction(key string) tea.Cmd {
 	if m.commentKey(key) || m.diffNavKey(key) {
 		return nil
 	}
-	switch key {
-	case "r":
+	switch {
+	case is(key, diffBind.Reload):
 		return m.loadDiff(m.review.SessionID)
-	case "t":
+	case is(key, diffBind.Scope):
 		return m.toggleScope()
-	case "o":
+	case is(key, diffBind.Open):
 		return m.openPreviewAtCursor()
 	// Two spellings, because a terminal reporting the shift modifier gives
 	// "shift+s" while a legacy one gives the bare "S" (issue #87).
-	case "shift+s", "S":
+	case is(key, diffBind.Submit):
 		return m.submitReview()
 	}
 	return nil
@@ -60,14 +60,14 @@ func (m *Model) reviewAction(key string) tea.Cmd {
 // key was one. A second table because one switch over every review key is past
 // the statement limit, and these three share a subject.
 func (m *Model) commentKey(key string) bool {
-	switch key {
-	case "c":
+	switch {
+	case is(key, diffBind.Comment):
 		m.openNote()
 	// Two spellings, as S has: a terminal reporting the shift modifier gives
 	// "shift+c" and a legacy one the bare "C" (issue #87).
-	case "shift+c", "C":
+	case is(key, diffBind.CommentPart):
 		m.openFragment()
-	case "d":
+	case is(key, diffBind.Delete):
 		m.deleteComment()
 	default:
 		return false

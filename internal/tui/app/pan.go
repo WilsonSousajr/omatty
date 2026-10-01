@@ -50,12 +50,12 @@ func (m *Model) panReview(delta int) {
 // whether it consumed the key. 0 is the way back to the left edge without
 // holding h.
 func (m *Model) panKey(key string) bool {
-	switch key {
-	case "h", "left":
+	switch {
+	case is(key, columnBind.Left):
 		m.panReview(-panStep)
-	case "l", "right":
+	case is(key, columnBind.Right):
 		m.panReview(panStep)
-	case "0":
+	case is(key, columnBind.Home):
 		m.review.ColOffset = 0
 	default:
 		return false

@@ -82,7 +82,8 @@ count after the step.
 | 5.10 | #653 | #690 | merged | 1 |
 | 6.1 | #653 | #691 | merged | 1 |
 | 6.2 | #653 | #692 | merged | 1 |
-| 6.10 | #653 | #693 | open | 0 |
+| 6.10 | #653 | #693 | merged | 0 |
+| Amendment 10 + 6.3a | #653 | #694 | open | 0 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
@@ -233,7 +234,8 @@ net: a logic PR that changes a row says which row and why (rule 4).
 |---|---|---|---|---|---|---|
 | 6.1 | `refactor: ui to tui/app, termwrap to tui/terminal, keys to tui/keys` | three `git mv`s; the bubbletea and bubbleterm fence paths | L (220 files, mechanical) | ADR TUI | 5.10 | revert |
 | 6.2 | `refactor: tui/theme` | the palette and every `lipgloss.NewStyle`, including the strays. The SGR goldens must not move. | L | ADR TUI (theme) | 6.1 | revert |
-| 6.3 | `refactor: the Screen interface and the diff screen` | `tui/screen`; the root routes the review column through it; `screens/diff`. **Adds `charm.land/bubbles/v2`** for `key.Binding` (ADR-approved); the help modal renders from `Bindings()`. | H, **smoke** | P1, P3, P4 | 6.2 | revert; blocks 6.4–6.9 |
+| 6.3a | `refactor: the review column's keys are key.Bindings, and its help is built from them` | *Amendment 10.* **Adds `charm.land/bubbles/v2`** (its `key` package only, ADR-approved). One binding per action, carrying every spelling it accepts; the handlers match on them and the help modal's tables are built from them. The help modal's look is unchanged. | M | P4 | 6.2 | revert |
+| 6.3b | `refactor: the Screen interface and the diff screen` | *Amendment 10: deferred to the backlog.* `tui/screen`; the root routes the review column through it; `screens/diff`. | H, **smoke** | P1, P3 | 6.3a | revert |
 | 6.4 | `refactor: screens/tree and screens/preview` | two faces that share the file list | M | P1, P4 | 6.3 | revert |
 | 6.5 | `refactor: screens/gate` | the gate face | M | P1, P4 | 6.3 | revert |
 | 6.6 | `refactor: screens/tracker and screens/trackeritem` | tracker and item | M | P1, P4 | 6.3 | revert |
@@ -370,6 +372,17 @@ per-project pending state only the TUI holds, and it already runs off
 layer finding there was importing `infra/forge` for vocabulary and error
 types. The maintainer chose to move that vocabulary to `domain/forge` and
 `discover` to `service/discovery`, and to leave the polls where they are.
+
+**Amendment 10** (2026-10-01, #653). Step 6.3 and the screens after it
+(6.4-6.9) would move most of the TUI into one package per face. `ReviewPane`
+carries six views' state, and every face's handlers reach into `*Model` for
+sessions, terminals and services, so each screen needs a host interface back
+to the root: several days of change to mature, heavily tested UI code, and
+the riskiest part of the migration. Pain point 4's drift is the part with a
+cheap, complete answer. The maintainer chose to do that now as 6.3a - key
+bindings, with the help built from them - and to move 6.3b-6.9 to the
+backlog as issues, each done when a feature next reshapes its face. The
+layers, the ports and the enforcement do not depend on them.
 
 ## When the plan is wrong
 

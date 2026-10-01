@@ -15,12 +15,12 @@ import (
 
 // gateSearchKey runs the gate's r, / and n/N.
 func (m *Model) gateSearchKey(key string) {
-	switch key {
-	case "r":
+	switch {
+	case is(key, gateBind.Rerun):
 		m.rerunGate()
-	case "/":
+	case is(key, gateBind.Search):
 		m.review.GateSearch.Active = true
-	case "n":
+	case is(key, gateBind.NextMatch):
 		m.jumpToMatch(1)
 	default:
 		m.jumpToMatch(-1)
