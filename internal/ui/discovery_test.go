@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
@@ -116,7 +117,7 @@ func TestModel_pickerRegistersTheRowUnderTheCursor_issue91(t *testing.T) {
 	m, _ := modelWithDiscover(t, r)
 	openPicker(m)
 
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if len(r.Registered) != 1 || r.Registered[0] != "/p/omatty" {
 		t.Errorf("registered %v, want just /p/omatty", r.Registered)
@@ -136,7 +137,7 @@ func TestModel_pickerRegistersEveryMarkedRepository_issue91(t *testing.T) {
 	press(m, special(tea.KeyTab)) // mark omatty
 	press(m, ctrl('j'))
 	press(m, special(tea.KeyTab)) // mark api-guiaflix
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if len(r.Registered) != 2 {
 		t.Fatalf("registered %v, want two marked repositories", r.Registered)
@@ -161,7 +162,7 @@ func TestModel_pickerCarriesOnPastACollision_issue91(t *testing.T) {
 	press(m, special(tea.KeyTab))
 	press(m, ctrl('j'))
 	press(m, special(tea.KeyTab))
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if len(r.Registered) != 3 {
 		t.Errorf("registered %v, want all three attempted despite the collision", r.Registered)
@@ -264,7 +265,7 @@ func TestModel_pickerUsesTheNameTheRegistryWrote_issue91(t *testing.T) {
 	m, _ := modelWithDiscover(t, r)
 	openPicker(m)
 
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	got := m.View().Content
 	if !strings.Contains(got, "registry-name") {
@@ -284,5 +285,35 @@ func TestModel_ctrlCQuitsWhileThePickerIsOpen_issue28(t *testing.T) {
 
 	if !isQuit(cmd) {
 		t.Error("ctrl+c while the picker is open did not quit")
+	}
+}
+
+// Migration step 5.6c (#653): registering runs git per root and saves
+// state.json, and it ran inside Update. A registration that does not return
+// must not hold the frame: the enter comes back at once, and the projects
+// arrive when it does.
+func TestModel_aSlowRegistrationDoesNotHoldUpdate_issue653(t *testing.T) {
+	r := &recordDiscover{Proposed: threeProposals()}
+	release := make(chan struct{})
+	terms, _ := fakeTerms(t)
+	d := baseDeps(twoProjectState(), terms)
+	d.Discover = r.propose
+	d.AddProject = func(roots []string) []sessions.Registration { <-release; return r.register(roots) }
+	m := ui.NewModel(d)
+	openPicker(m)
+
+	returned := make(chan tea.Cmd, 1)
+	go func() { _, cmd := m.Update(special(tea.KeyEnter)); returned <- cmd }()
+	var cmd tea.Cmd
+	select {
+	case cmd = <-returned:
+	case <-time.After(5 * time.Second):
+		close(release)
+		t.Fatal("Update waited for the registration to finish")
+	}
+	close(release)
+	settle(m, cmd)
+	if len(r.Registered) != 1 || !strings.Contains(m.View().Content, "omatty") {
+		t.Errorf("after the registration landed: registered %v; want /p/omatty shown", r.Registered)
 	}
 }

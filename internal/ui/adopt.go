@@ -184,9 +184,19 @@ func (m *Model) commitAdoption() tea.Cmd {
 		return nil
 	}
 	m.modal, m.lastErr = modal{}, ""
-	project := m.SelectedProject()
-	cmds := make([]tea.Cmd, 0, len(picked))
-	for i, a := range m.adoptCommit(project, picked) {
+	// Adopting runs git per session and saves state.json, so it goes through
+	// the writer, off the Update goroutine (migration step 5.6c, #653).
+	project, adopt := m.SelectedProject(), m.adoptCommit
+	var adopted []sessions.Adoption
+	write := func() error { adopted = adopt(project, picked); return nil }
+	return m.persistCmd("adopting sessions", []any{"project", project}, write,
+		func(m *Model) tea.Cmd { return m.adopted(picked, adopted) })
+}
+
+// adopted starts each session that was written, and says why any was not.
+func (m *Model) adopted(picked []SessionProposal, adopted []sessions.Adoption) tea.Cmd {
+	cmds := make([]tea.Cmd, 0, len(adopted))
+	for i, a := range adopted {
 		if a.Err != nil {
 			slog.Warn("adopting a session", "session", picked[i].ID, "err", a.Err)
 			m.lastErr = a.Err.Error()

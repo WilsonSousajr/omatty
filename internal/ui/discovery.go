@@ -154,7 +154,19 @@ func (m *Model) commitDiscovery() tea.Cmd {
 	// AddProject after RepoRoot's, and where those disagree the sidebar showed
 	// a project name state.json did not have - so ctrl+o n on it failed, and a
 	// restart silently renamed the row (#91).
-	for _, r := range m.registerProjects(roots) {
+	//
+	// Registering runs git per root and saves state.json, so it goes through
+	// the writer, off the Update goroutine (migration step 5.6c, #653).
+	register := m.registerProjects
+	var regs []sessions.Registration
+	write := func() error { regs = register(roots); return nil }
+	return m.persistCmd("registering discovered projects", []any{"roots", roots}, write,
+		func(m *Model) tea.Cmd { m.registered(regs); return nil })
+}
+
+// registered adds each project that was written, and says why any was not.
+func (m *Model) registered(regs []sessions.Registration) {
+	for _, r := range regs {
 		if r.Err != nil {
 			slog.Warn("registering a discovered project", "root", r.Root, "err", r.Err)
 			m.lastErr = r.Err.Error()
@@ -165,7 +177,6 @@ func (m *Model) commitDiscovery() tea.Cmd {
 	// A new project has no sessions yet, so the cursor does not move; the
 	// operator's next act is ctrl+o n.
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
-	return nil
 }
 
 // pickerFooter names the marking key, which is the picker's one difference
