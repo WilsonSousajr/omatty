@@ -71,7 +71,8 @@ count after the step.
 | 5.5b (agentcli) | #653 | #676 | merged | 11 |
 | 5.5c (launcher) | #653 | #677 | merged | 8 |
 | 5.6a | #653 | #678 | merged | 8 |
-| 5.6b | #653 | #679 | open | 8 |
+| 5.6b | #653 | #679 | merged | 8 |
+| Amendment 8 + 5.7 | #653 | #680 | open | 8 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
@@ -208,7 +209,7 @@ net: a logic PR that changes a row says which row and why (rule 4).
 | 5.6a | `refactor: create and start leave Update` | `sessionlife.go:90/44/107` become Cmds; `Event[session.Session]` feeds the sidebar | H, **smoke** | P5, audit leak 5 | 5.5 | revert |
 | 5.6b | `refactor: archive, rename, rebind and fold leave Update` | `archive.go:201`, `rename.go:62`, the rebind and fold writes, `gaterun.go:129` tally | M, **smoke** | P5 | 5.6a | revert |
 | 5.6c | `refactor: discovery and adoption leave Update` | `discovery.go:157` (git rev-parse per root), `adopt.go` | M | P5 | 5.6a, 5.9 | revert |
-| 5.7 | `refactor: the idle sweep and repo stat move to service/sessions` | the sweep and stat tickers publish events; the TUI's `repostat.go` and `sweep.go` ticks are removed | M | ADR event model (timers) | 5.6a | revert |
+| 5.7 | `refactor: the idle sweep's policy moves to domain/status` | *Amendment 8.* `Settled`, `LastActive` and `Sweepable` - which session the idle sweep may stop - become pure functions in `domain/status`, tested there. The sweep and repo-stat timers stay in the TUI: both decide from state only the TUI holds (the selected pane, live terminals, typing, window focus), and the stat read already runs off `Update`. | L | P2 | 5.6a | revert |
 | 5.8 | `refactor: service/review` | `review/source.go`, turn loading, ship, revert, behind `DiffSource`, `DiffParser`, `FileReader` and `Shipper`. *Amendment 3:* also 3.6c: `preview.go`'s read and `generated.go`'s header read move to `infra/fsread` behind `FileReader`, and `ui` stops defaulting to `review.ReadPreview` | M | ADR ports | 3.6b, 3.6c, 5.4 | revert |
 | 5.9 | `refactor: service/tracker and service/discovery` | PR and issue polling (`Event[tracker.Snapshot]`), item, browse; `discover` | M | ADR event model | 3.5, 5.1 | revert |
 | 5.10 | `refactor: cmd is the only composition root` | `ui/run.go`'s wiring goes to `cmd`. `RunDeps` and `modelFor` go. `Deps` shrinks to the services and presentation-only settings. Dependencies are plumbed once. | M, **smoke** | P2, audit leak 2, invariant 10 | 5.2–5.9 | revert |
@@ -340,6 +341,16 @@ up. The step splits in two: 5.2b-i moves `Adapter` and `Entry` to
 `domain/status` (a move), and 5.2b-ii moves `Profile` to `domain/agent` and
 the catalog to `cmd`. The ADR's `Adapter` row is corrected to match. Claude's
 parser stays in `service/status`; only the contract moves.
+
+**Amendment 8** (2026-09-30, #653). Step 5.7 moved the idle sweep and the
+repo-stat tickers into `service/sessions`, publishing events. Both decide
+from state only the TUI holds: the sweep spares the selected pane and needs
+to know which sessions have a live terminal and when the operator last typed;
+the stat poll pauses while the window is unfocused. A service would have to
+be told all of that, which is the coupling the hexagon exists to avoid, and
+the stat read already runs off `Update`. The maintainer chose to move the
+sweep's pure policy to `domain/status` and leave both timers in the TUI as
+presentation timers.
 
 ## When the plan is wrong
 
