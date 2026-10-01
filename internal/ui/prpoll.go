@@ -10,7 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
@@ -19,7 +19,7 @@ import (
 type PRListFunc func(projectRoot string) ([]forge.PR, error)
 
 // noPRs is the Deps.PRs default: with nothing wired there is no gh to ask.
-func noPRs(string) ([]forge.PR, error) { return nil, forge.NoGH() }
+func noPRs(string) ([]forge.PR, error) { return nil, forge.ErrNoForge }
 
 // PRsLoadedMsg carries one project's answer into Update. Exported so tests
 // can send one.

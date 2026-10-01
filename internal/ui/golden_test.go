@@ -3,6 +3,7 @@ package ui_test
 import (
 	"bytes"
 	"flag"
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"path/filepath"
 	"testing"
@@ -53,6 +54,14 @@ func writeGolden(t *testing.T, path string, got []byte) {
 func sceneDeps(st sessions.State, terms map[string]termwrap.Terminal) ui.Deps {
 	d := baseDeps(st, terms)
 	d.Clock = func() time.Time { return fixedNow }
+	// A machine without gh, as every scene has always been drawn: the TUI's
+	// own unwired default became "no forge" in migration step 5.9 (#653),
+	// since it may no longer name a forge's CLI, and the goldens are pinned
+	// on the answer a real machine gives, not on what an unwired model says.
+	d.PRs = func(string) ([]forge.PR, error) { return nil, noGH }
+	d.Issues = func(string) ([]forge.Issue, error) { return nil, noGH }
+	noItem := func(string, int) (forge.Detail, error) { return forge.Detail{}, noGH }
+	d.Item = ui.ForgeItemFuncs{Issue: noItem, PR: noItem}
 	return d
 }
 

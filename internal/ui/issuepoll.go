@@ -22,7 +22,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 )
 
 // IssueListFunc lists a repository's open issues. Injected so ui never runs gh
@@ -31,7 +31,7 @@ type IssueListFunc func(projectRoot string) ([]forge.Issue, error)
 
 // noIssues is the Deps.Issues default: with nothing wired there is no gh to
 // ask.
-func noIssues(string) ([]forge.Issue, error) { return nil, forge.NoGH() }
+func noIssues(string) ([]forge.Issue, error) { return nil, forge.ErrNoForge }
 
 // IssuesLoadedMsg carries one project's answer into Update. Exported so tests
 // can send one.

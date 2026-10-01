@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/fuzzy"
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // trackerRows is the project's open issues, then its open pull requests under a

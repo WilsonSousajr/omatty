@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 )
 
 // A token the forge refused is a note naming the host and the variable - the
