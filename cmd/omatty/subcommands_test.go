@@ -60,3 +60,14 @@ func TestDispatch_KnowsRm_issue159(t *testing.T) {
 		t.Errorf("the unknown-command error %v does not list rm", err)
 	}
 }
+
+// `omatty new` refuses a default_agent this omatty does not know, before it
+// registers a session no launch could start (#524).
+func TestNewSession_RefusesAnUnknownDefaultAgent_issue524(t *testing.T) {
+	cfg := config.Defaults(t.TempDir())
+	cfg.DefaultAgent = "codx"
+	err := newSession(nil, cfg, []string{"p", "title"})
+	if err == nil || !strings.Contains(err.Error(), "codx") {
+		t.Errorf("error = %v, want one naming codx", err)
+	}
+}

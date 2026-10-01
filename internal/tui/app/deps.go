@@ -10,6 +10,7 @@ import (
 	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -21,12 +22,13 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
-// CreateFunc registers a new session in project and returns it.
+// CreateFunc registers the session req describes and returns it.
 //
-// worktree says whether omatty creates one, which since #151 is no longer the
-// same question as whether branch is empty: a worktree session may arrive with
-// no branch named at all, and the registry names it.
-type CreateFunc func(project, title, branch string, worktree bool) (session.Session, error)
+// req.Worktree says whether omatty creates one, which since #151 is no longer
+// the same question as whether the branch is empty: a worktree session may
+// arrive with no branch named at all, and the registry names it. req.Agent is
+// the one chosen on ctrl+o n's agent step, or empty for the project's (#524).
+type CreateFunc func(req sessions.NewSession) (session.Session, error)
 
 // StartFunc launches the embedded terminal for a session at w by h. Injected
 // so the model can start a session created at runtime without knowing how;
@@ -71,7 +73,13 @@ type Deps struct {
 	State  session.State
 	Terms  map[string]terminal.Terminal
 	Create CreateFunc
-	Start  StartFunc
+	// Agents lists every agent with whether it is installed, for ctrl+o n's
+	// agent step; nil, or one installed, skips the step (#524). DefaultAgent
+	// is the config's default_agent, and SetProjectAgent persists ctrl+o c.
+	Agents          func() []AgentOption
+	DefaultAgent    string
+	SetProjectAgent func(project, agent string) error
+	Start           StartFunc
 	// Events is a subscription to the watcher's broker (ADR 0001, step 5.2a,
 	// #653): status reaches the model as one subscriber among any.
 	Events <-chan pubsub.Event[dstatus.Event]
@@ -195,6 +203,9 @@ type Deps struct {
 func (d Deps) withDefaults() Deps {
 	if d.Clock == nil {
 		d.Clock = time.Now
+	}
+	if d.SetProjectAgent == nil {
+		d.SetProjectAgent = noProjectAgent
 	}
 	if d.SpinTick == nil {
 		d.SpinTick = tea.Tick

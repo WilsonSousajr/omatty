@@ -9,7 +9,10 @@
 package main
 
 import (
+	"fmt"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"github.com/WilsonSousajr/omatty/internal/infra/config"
+	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"io"
 	"path/filepath"
 
@@ -93,4 +96,42 @@ func hookParser(args []string) (func(io.Reader) (dstatus.HookPayload, bool), boo
 		return nil, false
 	}
 	return profile.ParseHook, true
+}
+
+// agentOptions lists every agent in the catalog with whether its binary - the
+// configured one, else its default - is installed, asked afresh each time
+// ctrl+o n opens so an agent installed while omatty runs shows up (#524).
+//
+//	deps.Agents = agentOptions(agents, agentcli.Installed)
+func agentOptions(agents agent.Catalog, installed func(string) bool) func() []app.AgentOption {
+	return func() []app.AgentOption {
+		names := agents.Names()
+		out := make([]app.AgentOption, len(names))
+		for i, name := range names {
+			p, _ := agents.Lookup(name)
+			out[i] = app.AgentOption{Name: name, Installed: installed(agents.Bin(p))}
+		}
+		return out
+	}
+}
+
+// checkDefaultAgent refuses a default_agent the catalog lacks: every session
+// it chose would be registered with an agent no launch can start (#524).
+//
+//	if err := checkDefaultAgent(agents, cfg.DefaultAgent); err != nil { ... }
+func checkDefaultAgent(agents agent.Catalog, name string) error {
+	if _, err := agents.Lookup(name); err != nil {
+		return fmt.Errorf("config default_agent: %w", err)
+	}
+	return nil
+}
+
+// knownDefaultAgent is checkDefaultAgent against this omatty's own catalog,
+// for `omatty new`, which builds no catalog of its own (#524).
+func knownDefaultAgent(cfg config.Config) error {
+	agents, err := agentCatalog()
+	if err != nil {
+		return err
+	}
+	return checkDefaultAgent(agents, cfg.DefaultAgent)
 }

@@ -10,6 +10,7 @@
   [38;5;245m▾ api-svc                 [m[38;5;75m│[m  [38;5;75mctrl+o A       [m  [38;5;250madopt a session claude already knows[m                                    
   [38;5;245m○[m [38;5;250mmain              [m [38;5;245m    [m [38;5;75m│[m  [38;5;75mctrl+o R       [m  [38;5;250mrename the selected session[m                                             
                             [38;5;75m│[m  [38;5;75mctrl+o B       [m  [38;5;250mrename a worktree session's branch[m                                      
+                            [38;5;75m│[m  [38;5;75mctrl+o c       [m  [38;5;250mchoose the agent the selected project's new sessions run[m                
                             [38;5;75m│[m  [38;5;75mctrl+o x       [m  [38;5;250marchive the session, or forget an empty project[m                         
                             [38;5;75m│[m  [38;5;75mctrl+o r       [m  [38;5;250mrestart a crashed session[m                                               
                             [38;5;75m│[m  [38;5;75mctrl+o s       [m  [38;5;250mstop the session's process, keeping it; enter resumes it[m                
@@ -25,6 +26,5 @@
                             [38;5;75m│[m  [38;5;75mctrl+o q       [m  [38;5;250mquit[m                                                                    
                             [38;5;75m│[m                                                                                           
                             [38;5;75m│[m[1;38;5;253manywhere in the review column[m                                                              
-                            [38;5;75m│[m  [38;5;75mj / k          [m  [38;5;250mmove the cursor, or scroll a preview or an item[m                         
                             [38;5;75m│[m[38;5;245mj/k scroll  / filter  esc close  ctrl+c quit[m                                               
 [38;5;245m esc close  ctrl+c quit[m                                                                                       [38;5;245m3 sessions[m

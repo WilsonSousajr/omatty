@@ -36,7 +36,11 @@ type Model struct {
 	router  *keys.Router
 	leader  string // the key the router intercepts; DefaultLeader unless configured (#44)
 	create  CreateFunc
-	start   StartFunc
+	// agents, defaultAgent and setProjectAgent choose a session's agent (#524).
+	agents          func() []AgentOption
+	defaultAgent    string
+	setProjectAgent func(project, agent string) error
+	start           StartFunc
 	// starting is every session whose process is being started off the
 	// Update goroutine, so a second enter while one is on its way does not
 	// start another (migration step 5.6a, #653). Nil until the first start.
@@ -267,7 +271,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse, m.labelOf = d.PRs, d.Issues, d.Item, d.Browse, d.Label
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
-	m.rebind = d.Rebind
+	m.rebind, m.agents, m.defaultAgent, m.setProjectAgent = d.Rebind, d.Agents, d.DefaultAgent, d.SetProjectAgent
 	m.renameBranch = d.RenameBranch
 	m.modelNamer = d.ModelName
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop

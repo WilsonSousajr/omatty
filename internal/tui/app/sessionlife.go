@@ -7,6 +7,7 @@ package app
 import (
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
@@ -61,7 +62,7 @@ func (m *Model) submitPrompt() tea.Cmd {
 	// the sidebar so it is visible and focused (issue #32) - each off the
 	// Update goroutine since #653, answered by onSessionCreated and
 	// onSessionStarted.
-	return m.createCmd(project, title, branch, worktree)
+	return m.askAgent(sessions.NewSession{Project: project, Title: title, Branch: branch, Worktree: worktree})
 }
 
 // foldInSession brings a session omatty has just learned about into the running

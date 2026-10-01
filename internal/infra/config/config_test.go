@@ -34,13 +34,14 @@ func TestLoad_MissingFileIsEveryDefault_issue44(t *testing.T) {
 
 func TestLoad_ReadsEveryKey_issue44(t *testing.T) {
 	home := t.TempDir()
-	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\nauto = true\n[sessions]\nlazy_start = false\n[ui]\nicons = \"nerd\"\n[forge.hosts]\n\"git.corp.example\" = \"gitlab\"\n")
+	path := writeConfig(t, home, "leader = \"ctrl+a\"\nclaude_bin = \"/opt/claude\"\nworktree_root = \"/vol/wt\"\nbase_branch = \"develop\"\ndefault_agent = \"codex\"\n[agents.codex]\nbin = \"/opt/codex\"\n[naming]\nmodel = true\n[gate]\nmax_parallel = 3\nauto = true\n[sessions]\nlazy_start = false\n[ui]\nicons = \"nerd\"\n[forge.hosts]\n\"git.corp.example\" = \"gitlab\"\n")
 	got, err := config.Load(path, home)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := config.Config{
 		Leader: "ctrl+a", ClaudeBin: "/opt/claude", WorktreeRoot: "/vol/wt", BaseBranch: "develop",
+		DefaultAgent: "codex", Agents: map[string]config.Agent{"codex": {Bin: "/opt/codex"}},
 		Naming: config.Naming{Model: true}, Gate: config.Gate{MaxParallel: 3, Auto: true},
 		Sessions: config.Sessions{LazyStart: false}, UI: config.UI{Icons: config.IconsNerd},
 		Forge: config.Forge{Hosts: forge.Hosts{"git.corp.example": forge.KindGitLab}},

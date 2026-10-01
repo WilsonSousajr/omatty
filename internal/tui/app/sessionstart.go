@@ -9,6 +9,7 @@ package app
 import (
 	"fmt"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
@@ -19,9 +20,9 @@ import (
 // sessionCreatedMsg is the registry's answer to a new-session prompt: the
 // session it wrote, or why there is none.
 type sessionCreatedMsg struct {
-	sess                   session.Session
-	err                    error
-	project, title, branch string
+	sess session.Session
+	err  error
+	req  sessions.NewSession
 }
 
 // sessionStartedMsg is a session's process, started or not. restart says
@@ -39,17 +40,17 @@ type sessionStartedMsg struct {
 // It is a registry write, so it joins the writer's queue behind every write
 // asked for before it (5.6b, #653): a create racing a rename would otherwise
 // load state.json, and save it, across the rename's own load and save.
-func (m *Model) createCmd(project, title, branch string, worktree bool) tea.Cmd {
+func (m *Model) createCmd(req sessions.NewSession) tea.Cmd {
 	create := m.create
 	var sess session.Session
 	result := m.writes.submit(func() error {
 		var err error
-		sess, err = create(project, title, branch, worktree)
+		sess, err = create(req)
 		return err
 	})
 	return func() tea.Msg {
 		err := <-result
-		return sessionCreatedMsg{sess: sess, err: err, project: project, title: title, branch: branch}
+		return sessionCreatedMsg{sess: sess, err: err, req: req}
 	}
 }
 
@@ -58,7 +59,7 @@ func (m *Model) createCmd(project, title, branch string, worktree bool) tea.Cmd 
 func (m *Model) onSessionCreated(msg sessionCreatedMsg) tea.Cmd {
 	if msg.err != nil {
 		slog.Error("creating session",
-			"project", msg.project, "title", msg.title, "branch", msg.branch, "err", msg.err)
+			"project", msg.req.Project, "title", msg.req.Title, "branch", msg.req.Branch, "agent", msg.req.Agent, "err", msg.err)
 		m.lastErr = msg.err.Error()
 		return nil
 	}

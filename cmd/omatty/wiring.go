@@ -45,6 +45,9 @@ func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
 	if err != nil {
 		return err
 	}
+	if err := checkDefaultAgent(agents, cfg.DefaultAgent); err != nil {
+		return err
+	}
 	hooksFiles, err := hooks.InstallAll(agents, home)
 	if err != nil {
 		return err
@@ -137,7 +140,19 @@ func tuiDeps(env tuiEnv, store sessions.StateStore, state session.State) app.Dep
 		Files:     git.ListFiles,
 		Generated: src.Generated, Ship: shipFuncs(src, git, fg),
 	}
-	return withStoreDeps(withTableDeps(withForgeDeps(deps, fg), env.Cfg), store, home, git, git.Contextual())
+	return withAgentDeps(withStoreDeps(withTableDeps(withForgeDeps(deps, fg), env.Cfg), store, home, git, git.Contextual()), env, store)
+}
+
+// withAgentDeps is ctrl+o n's agent step and ctrl+o c (#524): which agents
+// there are and which are installed, the config's default, and where a
+// project's chosen agent is persisted.
+func withAgentDeps(deps app.Deps, env tuiEnv, store sessions.StateStore) app.Deps {
+	deps.Agents = agentOptions(env.Agents.WithBins(env.Cfg.AgentBins()), agentcli.Installed)
+	deps.DefaultAgent = env.Cfg.DefaultAgent
+	deps.SetProjectAgent = func(project, agent string) error {
+		return sessions.SetProjectAgent(context.Background(), store, project, agent)
+	}
+	return deps
 }
 
 // withForgeDeps points every forge-backed call at one Router: the pull requests
@@ -391,7 +406,8 @@ func sessionNamer(home string, agents agent.Catalog) app.NameFunc {
 // options, so the TUI and `omatty new` cannot disagree about where a
 // worktree goes or what it forks from (#44).
 func creatorOpts(cfg config.Config) sessions.CreatorOpts {
-	return sessions.CreatorOpts{WorktreeRoot: cfg.WorktreeRoot, WorktreeDir: paths.WorktreeDir, BaseBranch: cfg.BaseBranch, Carry: statestore.CarryInto}
+	return sessions.CreatorOpts{WorktreeRoot: cfg.WorktreeRoot, WorktreeDir: paths.WorktreeDir, BaseBranch: cfg.BaseBranch, Carry: statestore.CarryInto,
+		DefaultAgent: cfg.DefaultAgent}
 }
 
 // sessionCreator adapts sessions.AddSession to app.CreateFunc. The project
@@ -402,14 +418,11 @@ func creatorOpts(cfg config.Config) sessions.CreatorOpts {
 // factory inside the running program, which M2 wires up along with status.
 func sessionCreator(cfg config.Config, store sessions.StateStore) app.CreateFunc {
 	c := sessions.NewCreator(vcs.NewCLI().Contextual(), creatorOpts(cfg), uuid.NewString)
-	return func(project, title, branch string, worktree bool) (session.Session, error) {
-		if project == "" {
+	return func(req sessions.NewSession) (session.Session, error) {
+		if req.Project == "" {
 			return session.Session{}, fmt.Errorf("no project selected; run `omatty add <dir>` first")
 		}
-		if worktree {
-			return sessions.AddWorktreeSession(context.Background(), store, c, project, title, branch)
-		}
-		return sessions.AddSession(context.Background(), store, c, project, title, branch)
+		return sessions.AddSessionAs(context.Background(), store, c, req)
 	}
 }
 
