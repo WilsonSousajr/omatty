@@ -1,13 +1,13 @@
 package ui_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 )
 
@@ -16,7 +16,7 @@ import (
 // narrow column truncates it.
 func modelShowingDiff(t *testing.T, raw string) *ui.Model {
 	t.Helper()
-	d, err := review.ParseDiff(strings.NewReader(raw))
+	d, err := gitdiff.ParseDiff(strings.NewReader(raw))
 	if err != nil {
 		t.Fatalf("parsing the fixture: %v", err)
 	}

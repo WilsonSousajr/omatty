@@ -3,7 +3,7 @@ package review
 import (
 	"fmt"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 )
 
 // RevertTurn puts sess's working tree back to where the turn started and
@@ -23,7 +23,7 @@ import (
 // Destructive, and the caller owns the confirming: this function does what it is
 // asked. Telling the session what happened is deliberately not here either -
 // sending anything is S's job and needs a person (#334).
-func (s *Source) RevertTurn(sess sessions.Session) (int, error) {
+func (s *Source) RevertTurn(sess session.Session) (int, error) {
 	base, files, err := s.turnBaseline(sess)
 	if err != nil {
 		return 0, err
@@ -38,14 +38,14 @@ func (s *Source) RevertTurn(sess sessions.Session) (int, error) {
 // would discard, for the confirmation to name. It writes nothing.
 //
 //	n, err := src.TurnFileCount(sess)
-func (s *Source) TurnFileCount(sess sessions.Session) (int, error) {
+func (s *Source) TurnFileCount(sess session.Session) (int, error) {
 	_, files, err := s.turnBaseline(sess)
 	return files, err
 }
 
 // turnBaseline is the session's baseline tree and how many files it differs
 // from the working tree by.
-func (s *Source) turnBaseline(sess sessions.Session) (string, int, error) {
+func (s *Source) turnBaseline(sess session.Session) (string, int, error) {
 	d, err := s.LoadTurn(sess, "")
 	if err != nil {
 		return "", 0, err

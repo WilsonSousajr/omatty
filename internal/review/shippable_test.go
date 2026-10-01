@@ -2,14 +2,15 @@ package review_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
-var shipSession = sessions.Session{ID: "s1", Dir: "/wt/s1", Branch: "feat/a", Base: "develop"}
+var shipSession = session.Session{ID: "s1", Dir: "/wt/s1", Branch: "feat/a", Base: "develop"}
 
 // #331 pushes commits, and the gate verified a working tree. A session with
 // uncommitted work would open a pull request that differs from what was
@@ -17,7 +18,7 @@ var shipSession = sessions.Session{ID: "s1", Dir: "/wt/s1", Branch: "feat/a", Ba
 func TestShippable_CountsUncommittedAndUntrackedTogether_issue331(t *testing.T) {
 	git := &FakeGit{ShortstatOut: vcs.Shortstat{Files: 2}, UntrackedOut: []string{"new.go"}, Commits: 3}
 
-	got, err := review.NewSource(git).Shippable(shipSession, "/p/omatty")
+	got, err := review.NewSource(git, gitdiff.ParseDiff).Shippable(shipSession, "/p/omatty")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +37,7 @@ func TestShippable_CountsUncommittedAndUntrackedTogether_issue331(t *testing.T) 
 func TestShippable_MeasuresAgainstHead_issue331(t *testing.T) {
 	git := &FakeGit{Commits: 1}
 
-	got, err := review.NewSource(git).Shippable(shipSession, "/p/omatty")
+	got, err := review.NewSource(git, gitdiff.ParseDiff).Shippable(shipSession, "/p/omatty")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +62,7 @@ func TestShippable_MeasuresAgainstHead_issue331(t *testing.T) {
 func TestShippable_AMainCheckoutSessionHasNothingToShip_issue331(t *testing.T) {
 	git := &FakeGit{Commits: 7}
 
-	got, err := review.NewSource(git).Shippable(sessions.Session{ID: "s1", Dir: "/p/omatty"}, "/p/omatty")
+	got, err := review.NewSource(git, gitdiff.ParseDiff).Shippable(session.Session{ID: "s1", Dir: "/p/omatty"}, "/p/omatty")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +75,7 @@ func TestShippable_AMainCheckoutSessionHasNothingToShip_issue331(t *testing.T) {
 func TestShippable_ReportsGitFailing_issue331(t *testing.T) {
 	git := &FakeGit{Errs: map[string]error{"Untracked": errors.New("git is unwell")}}
 
-	if _, err := review.NewSource(git).Shippable(shipSession, "/p/omatty"); err == nil {
+	if _, err := review.NewSource(git, gitdiff.ParseDiff).Shippable(shipSession, "/p/omatty"); err == nil {
 		t.Error("a failing git read was swallowed")
 	}
 }

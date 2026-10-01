@@ -2,19 +2,20 @@ package review_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // RevertTurn is LoadTurn's mirror: the same baseline, written back instead of
 // diffed (#334, on #311's ref).
 func TestSourceRevertTurn_RestoresTheTurnBaseline_issue334(t *testing.T) {
 	git := &FakeGit{TurnTree: "abc123", DiffTreesOut: twoFileDiff}
-	sess := sessions.Session{ID: "s1", Dir: "/wt/s1"}
+	sess := session.Session{ID: "s1", Dir: "/wt/s1"}
 
-	files, err := review.NewSource(git).RevertTurn(sess)
+	files, err := review.NewSource(git, gitdiff.ParseDiff).RevertTurn(sess)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +31,7 @@ func TestSourceRevertTurn_RestoresTheTurnBaseline_issue334(t *testing.T) {
 // A session with no baseline has nothing to revert to, and says so with the
 // same error the review column already renders as a notice (#311).
 func TestSourceRevertTurn_SaysWhenThereIsNoBaseline_issue334(t *testing.T) {
-	_, err := review.NewSource(&FakeGit{}).RevertTurn(sessions.Session{ID: "s1", Dir: "/wt/s1"})
+	_, err := review.NewSource(&FakeGit{}, gitdiff.ParseDiff).RevertTurn(session.Session{ID: "s1", Dir: "/wt/s1"})
 
 	if !errors.Is(err, review.ErrNoTurn) {
 		t.Errorf("err = %v, want ErrNoTurn", err)
@@ -42,7 +43,7 @@ func TestSourceRevertTurn_ReportsAFailedRestore_issue334(t *testing.T) {
 	git := &FakeGit{TurnTree: "abc123", DiffTreesOut: twoFileDiff,
 		Errs: map[string]error{"RestoreTree": errors.New("disk full")}}
 
-	if _, err := review.NewSource(git).RevertTurn(sessions.Session{ID: "s1", Dir: "/wt/s1"}); err == nil {
+	if _, err := review.NewSource(git, gitdiff.ParseDiff).RevertTurn(session.Session{ID: "s1", Dir: "/wt/s1"}); err == nil {
 		t.Error("a failed restore was swallowed")
 	}
 }
@@ -52,7 +53,7 @@ func TestSourceRevertTurn_ReportsAFailedRestore_issue334(t *testing.T) {
 func TestSourceTurnFileCount_CountsWhatWouldBeDiscarded_issue334(t *testing.T) {
 	git := &FakeGit{TurnTree: "abc123", DiffTreesOut: twoFileDiff}
 
-	n, err := review.NewSource(git).TurnFileCount(sessions.Session{ID: "s1", Dir: "/wt/s1"})
+	n, err := review.NewSource(git, gitdiff.ParseDiff).TurnFileCount(session.Session{ID: "s1", Dir: "/wt/s1"})
 	if err != nil {
 		t.Fatal(err)
 	}

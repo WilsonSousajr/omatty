@@ -2,20 +2,21 @@ package review_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
-var turnSess = sessions.Session{ID: "s1", Dir: "/wt/s1"}
+var turnSess = session.Session{ID: "s1", Dir: "/wt/s1"}
 
 func TestSource_SnapTurnPointsTheSessionsRefAtItsTree_issue311(t *testing.T) {
 	git := &FakeGit{SnapshotOut: "tree1"}
 
-	if err := review.NewSource(git).SnapTurn(turnSess); err != nil {
+	if err := review.NewSource(git, gitdiff.ParseDiff).SnapTurn(turnSess); err != nil {
 		t.Fatalf("SnapTurn() error = %v", err)
 	}
 
@@ -28,7 +29,7 @@ func TestSource_SnapTurnPointsTheSessionsRefAtItsTree_issue311(t *testing.T) {
 func TestSource_SnapTurnFailureNamesTheSession_issue311(t *testing.T) {
 	git := &FakeGit{Errs: map[string]error{"SnapshotTree": errors.New("disk full")}}
 
-	err := review.NewSource(git).SnapTurn(turnSess)
+	err := review.NewSource(git, gitdiff.ParseDiff).SnapTurn(turnSess)
 
 	if err == nil || !strings.Contains(err.Error(), "s1") || !strings.Contains(err.Error(), "disk full") {
 		t.Errorf("error = %v, want one naming s1 and the cause", err)
@@ -40,7 +41,7 @@ func TestSource_SnapTurnFailureNamesTheSession_issue311(t *testing.T) {
 func TestSource_LoadTurnWithNoBaselineIsErrNoTurn_issue311(t *testing.T) {
 	git := &FakeGit{}
 
-	_, err := review.NewSource(git).LoadTurn(turnSess, "/p")
+	_, err := review.NewSource(git, gitdiff.ParseDiff).LoadTurn(turnSess, "/p")
 
 	if !errors.Is(err, review.ErrNoTurn) {
 		t.Errorf("error = %v, want ErrNoTurn", err)
@@ -53,7 +54,7 @@ func TestSource_LoadTurnWithNoBaselineIsErrNoTurn_issue311(t *testing.T) {
 func TestSource_LoadTurnDiffsTheBaselineAgainstTheTreeNow_issue311(t *testing.T) {
 	git := &FakeGit{TurnTree: "base", SnapshotOut: "now", DiffTreesOut: twoFileDiff}
 
-	d, err := review.NewSource(git).LoadTurn(turnSess, "/p")
+	d, err := review.NewSource(git, gitdiff.ParseDiff).LoadTurn(turnSess, "/p")
 
 	if err != nil {
 		t.Fatalf("LoadTurn() error = %v", err)
@@ -71,7 +72,7 @@ func TestSource_LoadTurnDiffsTheBaselineAgainstTheTreeNow_issue311(t *testing.T)
 func TestSource_DropTurnDeletesFromTheProjectRoot_issue311(t *testing.T) {
 	git := &FakeGit{}
 
-	if err := review.NewSource(git).DropTurn(turnSess, "/p/omatty"); err != nil {
+	if err := review.NewSource(git, gitdiff.ParseDiff).DropTurn(turnSess, "/p/omatty"); err != nil {
 		t.Fatalf("DropTurn() error = %v", err)
 	}
 	if got := strings.Join(git.Calls, " "); got != "DeleteTurnRef(/p/omatty,s1)" {
@@ -85,7 +86,7 @@ func TestSource_StatCarriesTheHeadCommit_issue310(t *testing.T) {
 	g := &FakeGit{Branch: "parser-fix", MergeBaseOut: "abc123", HeadOut: "def456",
 		ShortstatOut: vcs.Shortstat{Files: 1, Added: 2, Removed: 1}}
 
-	st, err := review.NewSource(g).Stat(sessions.Session{ID: "s1", Dir: "/wt/s1", Branch: "parser-fix", Base: "main"}, "/p")
+	st, err := review.NewSource(g, gitdiff.ParseDiff).Stat(session.Session{ID: "s1", Dir: "/wt/s1", Branch: "parser-fix", Base: "main"}, "/p")
 
 	if err != nil || st.Head != "def456" {
 		t.Errorf("Stat() = %+v, %v; want Head def456", st, err)

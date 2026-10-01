@@ -5,16 +5,16 @@ import (
 	"io"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 )
 
 // Source fetches a session's diff through vcs (invariant 4) and parses it.
 //
-//	src := review.NewSource(vcs.NewCLI())
+//	src := review.NewSource(vcs.NewCLI(), gitdiff.ParseDiff)
 //	d, err := src.Load(sess, projectRoot)
 type Source struct {
-	git vcs.Git
+	git   Git
+	parse ParseFunc
 	// head reads the start of a worktree file for the generated-file sniff
 	// (#338). Injected, because opening a file is infra's business (migration
 	// step 5.8, #653); nil reads nothing, so no header says "generated" -
@@ -26,12 +26,12 @@ type Source struct {
 // internal/infra/fsread's Head is the real one.
 type HeadFunc func(dir, rel string, limit int64) ([]byte, error)
 
-// NewSource returns a Source reading through git.
-func NewSource(git vcs.Git) *Source { return &Source{git: git} }
+// NewSource returns a Source reading through git and parsing with parse.
+func NewSource(git Git, parse ParseFunc) *Source { return &Source{git: git, parse: parse} }
 
 // WithHeads returns s reading file heads through head.
 //
-//	src := review.NewSource(vcs.NewCLI()).WithHeads(fsread.Head)
+//	src := review.NewSource(vcs.NewCLI(), gitdiff.ParseDiff).WithHeads(fsread.Head)
 func (s *Source) WithHeads(head HeadFunc) *Source {
 	cp := *s
 	cp.head = head
@@ -43,7 +43,7 @@ func (s *Source) WithHeads(head HeadFunc) *Source {
 // as additions (#21). A main-checkout session has no base branch and diffs
 // against HEAD. projectRoot is the fallback base for worktrees created before
 // the base was recorded.
-func (s *Source) Load(sess sessions.Session, projectRoot string) (Diff, error) {
+func (s *Source) Load(sess session.Session, projectRoot string) (Diff, error) {
 	ref, err := s.baseCommit(sess, projectRoot)
 	if err != nil {
 		return Diff{}, err
@@ -59,13 +59,13 @@ func (s *Source) Load(sess sessions.Session, projectRoot string) (Diff, error) {
 	// Two readers, not raw+extra: the concatenation allocated a second copy
 	// of the whole diff, and a session that touches a lockfile or generated
 	// code makes that copy large. ParseDiff only ever reads forward.
-	return ParseDiff(io.MultiReader(strings.NewReader(raw), strings.NewReader(extra)))
+	return s.parse(io.MultiReader(strings.NewReader(raw), strings.NewReader(extra)))
 }
 
 // baseCommit is HEAD for a main-checkout session, else the merge-base with the
 // recorded base branch, or with the project root's current branch when none
 // was recorded.
-func (s *Source) baseCommit(sess sessions.Session, projectRoot string) (string, error) {
+func (s *Source) baseCommit(sess session.Session, projectRoot string) (string, error) {
 	if sess.Branch == "" {
 		return "HEAD", nil
 	}
@@ -102,7 +102,7 @@ type Stat struct {
 // resolution lives once (#180).
 //
 //	st, err := src.Stat(sess, projectRoot)
-func (s *Source) Stat(sess sessions.Session, projectRoot string) (Stat, error) {
+func (s *Source) Stat(sess session.Session, projectRoot string) (Stat, error) {
 	branch, err := s.git.CurrentBranch(sess.Dir)
 	if err != nil {
 		return Stat{}, fmt.Errorf("review: branch of session %s in %q: %w", sess.ID, sess.Dir, err)

@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 	"time"
@@ -142,7 +143,7 @@ func TestModel_marksSurviveALookAtAnotherSession_issue337(t *testing.T) {
 // parseDiff is sampleDiffParsed for a diff written by the caller.
 func parseDiff(t *testing.T, src string) review.Diff {
 	t.Helper()
-	d, err := review.ParseDiff(strings.NewReader(src))
+	d, err := gitdiff.ParseDiff(strings.NewReader(src))
 	if err != nil {
 		t.Fatal(err)
 	}

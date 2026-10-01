@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
@@ -17,7 +18,7 @@ func benchDiffModel(b *testing.B) *Model {
 	for i := range 100 {
 		fmt.Fprintf(&d, "-\tvalue%d := compute(%d, \"old\")\n+\tvalue%d := compute(%d, \"new\")\n", i, i, i, i)
 	}
-	diff, err := review.ParseDiff(strings.NewReader(d.String()))
+	diff, err := gitdiff.ParseDiff(strings.NewReader(d.String()))
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
+	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
@@ -121,7 +122,7 @@ func newRouter(cfg config.Config, git *vcs.CLI) *forge.Router {
 func tuiDeps(env tuiEnv, store sessions.StateStore, state sessions.State) ui.RunDeps {
 	home, hooksFile, w, h := env.Home, env.HooksFile, env.Width, env.Height
 	git, holder := vcs.NewCLI(), env.Holder
-	src, fg := review.NewSource(git).WithHeads(fsread.Head), newRouter(env.Cfg, git)
+	src, fg := review.NewSource(git, gitdiff.ParseDiff).WithHeads(fsread.Head), newRouter(env.Cfg, git)
 	deps := ui.RunDeps{
 		Home: home, State: state, Width: w, Height: h, OpenTranscript: openTranscript, ListenHooks: listenHooks,
 		RunGate: gateexec.Run, Profiles: fsread.CoverageProfiles{}, Preview: fsread.ReadPreview, Stop: holder.Stop,

@@ -88,3 +88,8 @@ type Position struct{ File, Hunk, Line int }
 func (d Diff) LineAt(p Position) Line {
 	return d.Files[p.File].Hunks[p.Hunk].Lines[p.Line]
 }
+
+// Shortstat is how much a session's working tree differs from a commit: the
+// numbers a sidebar card shows (#180). Here since migration step 5.8 (#653),
+// so the review service's git port names no infra type; infra/vcs aliases it.
+type Shortstat struct{ Files, Added, Removed int }
