@@ -17,7 +17,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 )
 
 // ItemFunc reads one issue or pull request in full. Injected so ui never runs gh
@@ -45,7 +45,7 @@ func (f ForgeItemFuncs) orUnwired() ForgeItemFuncs {
 
 // noItem is the Deps.Item default for either half: with nothing wired there is
 // no gh to ask.
-func noItem(string, int) (forge.Detail, error) { return forge.Detail{}, forge.NoGH() }
+func noItem(string, int) (forge.Detail, error) { return forge.Detail{}, forge.ErrNoForge }
 
 // itemKey identifies one read item. A struct rather than a joined string so the
 // three parts cannot be confused, and so archive's reflection guard skips the

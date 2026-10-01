@@ -60,3 +60,28 @@ var GitHub = dforge.GitHub
 
 // Neutral is dforge.Neutral: the naming used before a forge is known.
 var Neutral = dforge.Neutral
+
+// The refusal vocabulary moved to internal/domain/forge (migration step 5.9,
+// #653). These aliases keep every importer compiling until step 8.1.
+
+// MissingToolError is dforge.MissingToolError.
+type MissingToolError = dforge.MissingToolError
+
+// PlainHTTPError is dforge.PlainHTTPError.
+type PlainHTTPError = dforge.PlainHTTPError
+
+// AuthError is dforge.AuthError.
+type AuthError = dforge.AuthError
+
+// ErrNoForge is dforge.ErrNoForge.
+var ErrNoForge = dforge.ErrNoForge
+
+// ErrNoTracker is dforge.ErrNoTracker.
+var ErrNoTracker = dforge.ErrNoTracker
+
+// NoGH is a missing gh: the answer a caller with no forge wired gives, the way
+// a machine without gh answers, so it need not name the tool itself - only this
+// package may (TestNoGhOutsideForge).
+//
+//	func noPRs(string) ([]forge.PR, error) { return nil, forge.NoGH() }
+func NoGH() error { return &MissingToolError{Tool: "gh"} }

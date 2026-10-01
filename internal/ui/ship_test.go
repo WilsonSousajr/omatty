@@ -7,8 +7,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"

@@ -5,8 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"

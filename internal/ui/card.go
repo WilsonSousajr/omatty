@@ -12,7 +12,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 

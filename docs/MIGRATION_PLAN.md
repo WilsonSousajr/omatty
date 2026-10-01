@@ -75,7 +75,8 @@ count after the step.
 | Amendment 8 + 5.7 | #653 | #680 | merged | 8 |
 | 5.8a (fsread) | #653 | #681 | merged | 7 |
 | 5.8b (ports) | #653 | #683 | merged | 4 |
-| 5.8c (move) | #653 | #685 | open | 4 |
+| 5.8c (move) | #653 | #685 | merged | 4 |
+| Amendment 9 + 5.9a | #653 | this PR | open | 3 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
@@ -214,7 +215,7 @@ net: a logic PR that changes a row says which row and why (rule 4).
 | 5.6c | `refactor: discovery and adoption leave Update` | `discovery.go:157` (git rev-parse per root), `adopt.go` | M | P5 | 5.6a, 5.9 | revert |
 | 5.7 | `refactor: the idle sweep's policy moves to domain/status` | *Amendment 8.* `Settled`, `LastActive` and `Sweepable` - which session the idle sweep may stop - become pure functions in `domain/status`, tested there. The sweep and repo-stat timers stay in the TUI: both decide from state only the TUI holds (the selected pane, live terminals, typing, window focus), and the stat read already runs off `Update`. | L | P2 | 5.6a | revert |
 | 5.8 | `refactor: service/review` | `review/source.go`, turn loading, ship, revert, behind `DiffSource`, `DiffParser`, `FileReader` and `Shipper`. *Amendment 3:* also 3.6c: `preview.go`'s read and `generated.go`'s header read move to `infra/fsread` behind `FileReader`, and `ui` stops defaulting to `review.ReadPreview` | M | ADR ports | 3.6b, 3.6c, 5.4 | revert |
-| 5.9 | `refactor: service/tracker and service/discovery` | PR and issue polling (`Event[tracker.Snapshot]`), item, browse; `discover` | M | ADR event model | 3.5, 5.1 | revert |
+| 5.9 | `refactor: the forge vocabulary reaches the TUI from the domain; discover becomes service/discovery` | *Amendment 9.* 5.9a: the refusal types the TUI reads (`MissingToolError`, `AuthError`, `PlainHTTPError`, `ErrNoForge`, `ErrNoTracker`) and `SameCommit` move to `domain/forge`; the TUI imports only `domain/forge`. The polls stay TUI commands over the injected Router functions. 5.9b: `discover` moves to `service/discovery`. | L | ADR ports | 3.5, 5.1 | revert |
 | 5.10 | `refactor: cmd is the only composition root` | `ui/run.go`'s wiring goes to `cmd`. `RunDeps` and `modelFor` go. `Deps` shrinks to the services and presentation-only settings. Dependencies are plumbed once. | M, **smoke** | P2, audit leak 2, invariant 10 | 5.2–5.9 | revert |
 
 **After 5.10:** M17's code issues may start (the decision above), on
@@ -354,6 +355,15 @@ be told all of that, which is the coupling the hexagon exists to avoid, and
 the stat read already runs off `Update`. The maintainer chose to move the
 sweep's pure policy to `domain/status` and leave both timers in the TUI as
 presentation timers.
+
+**Amendment 9** (2026-10-01, #653). Step 5.9 moved pull-request and issue
+polling into a `service/tracker` publishing `Event[tracker.Snapshot]`. Like
+the sweep in Amendment 8, that polling is gated on window focus and on
+per-project pending state only the TUI holds, and it already runs off
+`Update` as commands over the Router functions `cmd` injects. The TUI's one
+layer finding there was importing `infra/forge` for vocabulary and error
+types. The maintainer chose to move that vocabulary to `domain/forge` and
+`discover` to `service/discovery`, and to leave the polls where they are.
 
 ## When the plan is wrong
 

@@ -1,3 +1,8 @@
+// The ways a forge answers "no" that the TUI turns into a note rather than an
+// outage (#248, #449, #453, #460, #584). Moved here from internal/infra/forge
+// in migration step 5.9 (Amendment 9, #653): they are vocabulary the TUI
+// reads, and the TUI may not import infra.
+
 package forge
 
 import (
@@ -63,13 +68,6 @@ func (e *PlainHTTPError) Error() string {
 //
 //	if errors.Is(err, forge.ErrNoForge) { /* stop polling this project */ }
 var ErrNoForge = errors.New("forge: no repository on a forge omatty reads")
-
-// NoGH is a missing gh: the answer a caller with no forge wired gives, the way
-// a machine without gh answers, so it need not name the tool itself - only this
-// package may (TestNoGhOutsideForge).
-//
-//	func noPRs(string) ([]forge.PR, error) { return nil, forge.NoGH() }
-func NoGH() error { return &MissingToolError{Tool: "gh"} }
 
 // AuthError is a forge that refused the token omatty borrowed from the
 // environment: 401, a 403 that is not a rate limit, or Azure's sign-in page in
