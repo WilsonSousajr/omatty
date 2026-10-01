@@ -3,6 +3,7 @@ package agent_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/domain/status"
@@ -82,5 +83,18 @@ func TestCatalog_BinPrefersTheConfiguredOne_issue521(t *testing.T) {
 	}
 	if got := c.Bin(toy); got != "toy" {
 		t.Errorf("Bin(toy) = %q, want its default", got)
+	}
+}
+
+// An agent whose identity is found by scanning must say how to scan (#523).
+func TestNewCatalog_RefusesScannedIdentityWithoutLocate_issue523(t *testing.T) {
+	p := toyProfile("scanny")
+	p.Caps.Identity = agent.Scanned
+	if _, err := agent.NewCatalog(p); err == nil || !strings.Contains(err.Error(), "scanny") {
+		t.Errorf("error = %v, want one naming scanny", err)
+	}
+	p.Locate = func(string, string, time.Time) []string { return nil }
+	if _, err := agent.NewCatalog(p); err != nil {
+		t.Errorf("with Locate: %v", err)
 	}
 }

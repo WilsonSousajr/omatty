@@ -5,6 +5,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -280,5 +281,21 @@ func TestLauncher_PassesTheSessionsAgentItsOwnHooksFile_issue522(t *testing.T) {
 	got := launch.Argv
 	if strings.Join(got, " ") != "claude --session-id abc --settings /h/hooks.json" {
 		t.Errorf("claude argv = %q, want claude's own hooks.json", got)
+	}
+}
+
+// A Reported identity arrives on a hook that names its pane by
+// OMATTY_SESSION, so every agent is launched with it, not only claude (#523).
+func TestLauncher_EveryAgentGetsItsPanesSessionEnv_issue523(t *testing.T) {
+	agents, err := agent.NewCatalog(claudeProfile(), fakeProfile(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	launch, err := sessions.NewLauncher(agents, t.TempDir(), &detach.Plain{}).Launch(session.Session{ID: "pane-1", Dir: "/w", Agent: "other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(launch.Env, session.SessionEnv+"=pane-1") {
+		t.Errorf("the other agent's env lacks %s=pane-1", session.SessionEnv)
 	}
 }

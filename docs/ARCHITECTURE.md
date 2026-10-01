@@ -284,6 +284,13 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
    with no resume flag cannot be resumed from any file, so for it `state.json`
    suffices to start fresh in `Dir`, and the surface says the conversation is
    lost. Whether an agent resumes is `Caps.Resume`, a fact about the binary.
+   An identity omatty learns - Reported by a startup hook, or Scanned from the
+   agent's store by `service/status`'s binder - arrives as the same
+   `SessionRebound` a `/clear` sends, and is persisted as `Conversation` the
+   same way (#523). The binder binds only on exactly one candidate no other
+   row holds: two sessions started together in one directory stay unbound,
+   with both candidates logged, rather than risk one card showing another's
+   status (invariant 2's bug class).
 
 10. **`cmd/` stays thin.** Logic in `main` is logic without tests: the
     coverage gate measures `./internal/...` only, which is how a

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
@@ -50,6 +51,11 @@ type Watch struct {
 	// adapters is each tailed session's parser, so a hook payload is read by
 	// the agent of the session it names (#521). Guarded by mu.
 	adapters map[string]dstatus.Adapter
+	// binders scan for the conversation of each Scanned session not yet
+	// bound, and sessions is every session added, whose conversations a
+	// binder must not claim (#523). Both guarded by mu.
+	binders  map[string]*binder
+	sessions map[string]session.Session
 }
 
 // Start opens the hook socket and a tailer per session. A socket that cannot
@@ -69,6 +75,8 @@ func Start(d WatchDeps, sessions []session.Session) *Watch {
 		stopPump: stopPump,
 		tailers:  map[string]*Tailer{},
 		adapters: map[string]dstatus.Adapter{},
+		binders:  map[string]*binder{},
+		sessions: map[string]session.Session{},
 	}
 	w.serveHooks()
 	for _, sess := range sessions {
@@ -120,15 +128,47 @@ func (w *Watch) Add(sess session.Session) {
 		w.Remove(sess.ID)
 		return
 	}
+	w.Remove(sess.ID)
+	if profile.Caps.Identity == agent.Scanned && sess.Conversation == "" {
+		w.startBinder(sess, profile)
+		return
+	}
+	w.tail(sess, profile)
+}
+
+// tail follows a session whose transcript is known.
+func (w *Watch) tail(sess session.Session, profile agent.Profile) {
 	conv := sess.ConversationID()
 	tl := Tail(conv, w.deps.OpenTranscript(profile.TranscriptPath(w.deps.Home, sess.Dir, conv)), w.events, w.deps.Clock, pollEvery, profile.Status)
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if old := w.tailers[sess.ID]; old != nil {
-		old.Close()
-	}
 	w.tailers[sess.ID] = tl
 	w.adapters[sess.ID] = profile.Status
+	w.sessions[sess.ID] = sess
+}
+
+// startBinder scans for an unbound Scanned session's conversation. The
+// session is not tailed meanwhile: its transcript is not known yet. Once
+// bound, the TUI re-adds it with its Conversation and it is tailed (#523).
+func (w *Watch) startBinder(sess session.Session, profile agent.Profile) {
+	b := newBinder(sess, profile, w.deps.Home, w.events, w.deps.Clock, func(c string) bool { return w.heldBy(sess.ID, c) })
+	w.mu.Lock()
+	w.binders[sess.ID] = b
+	w.sessions[sess.ID] = sess
+	w.mu.Unlock()
+	go b.run(pollEvery)
+}
+
+// heldBy reports whether a session other than id answers to conversation.
+func (w *Watch) heldBy(id, conversation string) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for other, sess := range w.sessions {
+		if other != id && sess.ConversationID() == conversation {
+			return true
+		}
+	}
+	return false
 }
 
 // Remove stops one session's tailer, for a session archived at runtime (#40).
@@ -139,13 +179,16 @@ func (w *Watch) Add(sess session.Session) {
 func (w *Watch) Remove(sessionID string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	tl := w.tailers[sessionID]
-	if tl == nil {
-		return
+	if tl := w.tailers[sessionID]; tl != nil {
+		tl.Close()
 	}
-	tl.Close()
+	if b := w.binders[sessionID]; b != nil {
+		b.Close()
+	}
 	delete(w.tailers, sessionID)
 	delete(w.adapters, sessionID)
+	delete(w.binders, sessionID)
+	delete(w.sessions, sessionID)
 }
 
 // Close stops the listener and every tailer. Idempotent per tailer; safe to
@@ -159,6 +202,9 @@ func (w *Watch) Close() {
 	defer w.mu.Unlock()
 	for _, tl := range w.tailers {
 		tl.Close()
+	}
+	for _, b := range w.binders {
+		b.Close()
 	}
 }
 

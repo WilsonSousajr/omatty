@@ -18,7 +18,10 @@ Core design:
   the transcript path `~/.claude/projects/<slug>/<uuid>.jsonl` deterministically.
   `/clear` moves claude to a new uuid; the `SessionStart` hook reports it with
   `source: "clear"` and the pane's `OMATTY_SESSION`, and the row records it as
-  `Conversation` while its `ID` stays the key (#316).
+  `Conversation` while its `ID` stays the key (#316). An agent that takes no
+  id is bound the same way: its startup hook reports one, or omatty finds the
+  one transcript in its store that can be the session's, and refuses to guess
+  between two (#523).
 - **Status is read from structured JSONL, never scraped from the screen.** Hooks
   injected via `--settings` give low latency; the JSONL tail gives truth.
 - **A session is a Claude process in a directory.** Worktrees are opt-in.
@@ -309,7 +312,11 @@ not in the gate.
    `Caps.Resume` is set, and a fresh start in the session's directory where it
    is not, with the lost conversation said out loud rather than a resume
    offered that cannot happen. For claude that is the rule as it always read.
-   Any new session field is either derivable or persisted.
+   An identity omatty learns rather than assigns - reported by the agent's
+   startup hook, or found by scanning its store - is persisted as the row's
+   `Conversation` (#523), so it resumes after a crash too; a session not yet
+   bound relaunches fresh. Any new session field is either derivable or
+   persisted.
 10. **`cmd/` stays thin.** Parse flags, construct dependencies, call typed
     library functions. No logic.
 11. **A hook must never block or fail any agent.** `omatty hook [--agent
