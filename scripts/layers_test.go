@@ -99,3 +99,31 @@ func TestCI_runsTheLayerReport_issue620(t *testing.T) {
 		t.Error("AGENTS.md's gate list does not include the layer report")
 	}
 }
+
+// Migration step 8.2 (#653): the migration ended with no findings, and CI and
+// the gate list now run the check with -enforce, so a new import that breaks a
+// layer fails the run instead of adding a line to a report nobody is obliged
+// to read. TestCI_runsTheLayerReport_issue620 only asked that it run.
+func TestCI_enforcesTheLayers_issue653(t *testing.T) {
+	if !strings.Contains(ciWorkflow(t), "./scripts/check-layers.sh -enforce") {
+		t.Error("ci.yml does not run the layer check with -enforce")
+	}
+	agents, err := os.ReadFile(filepath.Join(repoRoot(t), "AGENTS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(agents), "./scripts/check-layers.sh -enforce") {
+		t.Error("AGENTS.md's gate list does not run the layer check with -enforce")
+	}
+}
+
+// The repository itself passes enforced: the claim CI now depends on.
+func TestLayerCheck_theRepositoryPassesEnforced_issue653(t *testing.T) {
+	out, err := runLayerCheck(t, "-enforce")
+	if err != nil {
+		t.Fatalf("check-layers.sh -enforce failed on the repository: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "layer findings: 0") {
+		t.Errorf("output does not report zero findings:\n%s", out)
+	}
+}

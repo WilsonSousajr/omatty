@@ -82,7 +82,7 @@ func TestCheck_everyTodayPackageIsPlaced_issue620(t *testing.T) {
 	}
 	for _, p := range pkgs {
 		if layerOf(p.ImportPath, mod) == Unlayered {
-			t.Errorf("%s has no layer: add it to the transitional table", p.ImportPath)
+			t.Errorf("%s has no layer: add its directory to prefixes", p.ImportPath)
 		}
 	}
 }
@@ -109,5 +109,22 @@ func TestCheck_domainMayParseURLsAndAddresses_issue620(t *testing.T) {
 	findings := check(mod, []golist.Package{pkg("internal/domain/forge", "net/url", "net/netip", "strings")})
 	if len(findings) != 0 {
 		t.Errorf("pure parsing packages gave findings %v", findings)
+	}
+}
+
+// The prefix table places a package by its directory, the package itself
+// included, since the table for packages not yet moved went in migration step
+// 8.2 (#653). A sibling that only starts the same way is not placed with it.
+func TestLayerOf_placesAPackageByItsDirectory_issue653(t *testing.T) {
+	for path, want := range map[string]Layer{
+		mod + "/internal/cli":           CLI,
+		mod + "/internal/pubsub":        Pubsub,
+		mod + "/scripts":                Tools,
+		mod + "/internal/cliffhanger":   Unlayered,
+		mod + "/internal/domain/status": Domain,
+	} {
+		if got := layerOf(path, mod); got != want {
+			t.Errorf("layerOf(%s) = %s, want %s", path, got, want)
+		}
 	}
 }

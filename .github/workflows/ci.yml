@@ -69,9 +69,10 @@ jobs:
       # Same cheapest-first rule: a wc over every tracked .go file (#609).
       - name: file length
         run: ./scripts/check-file-length.sh 500
-      # ADR 0001's layer rule. Report-only until the migration's last PR (#620).
-      - name: layer report
-        run: ./scripts/check-layers.sh
+      # ADR 0001's layer rule, enforced since the migration ended with no
+      # findings (#620, #653).
+      - name: layers
+        run: ./scripts/check-layers.sh -enforce
       - name: install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULN_VERSION }}
       - name: vulnerabilities
