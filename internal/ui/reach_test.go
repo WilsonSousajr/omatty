@@ -56,7 +56,7 @@ func TestModel_theFirstSessionInAnEmptyProjectLandsUnderItsHeader_issue158(t *te
 
 	leader(m, key('n'))
 	press(m, key('z'))
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if c.Project != "wstech" {
 		t.Fatalf("create() got project %q, want wstech", c.Project)
@@ -115,7 +115,7 @@ func TestModel_promptCreatesInTheOnlyProjectWhenNoSessionExists_issue158(t *test
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
 	leader(m, key('n'))
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if c.Project != "solo" {
 		t.Errorf("create() got project %q, want solo", c.Project)
@@ -159,7 +159,7 @@ func TestModel_archivingTheLastSessionThenCreatingThereWorks_issue158(t *testing
 		t.Fatalf("after archiving s3 the cursor is on %q in %q; want api-svc's header", m.Selected(), got)
 	}
 	leader(m, key('n'))
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 	if c.Project != "api-svc" {
 		t.Errorf("create() got project %q, want api-svc", c.Project)
 	}

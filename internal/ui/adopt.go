@@ -224,15 +224,7 @@ func (m *Model) pickedProposals() []SessionProposal {
 // row. Where the two disagreed, the sidebar showed a value state.json did not
 // have, `ctrl+o n` on it failed and a restart silently renamed the row (#91) -
 // and they do disagree now, because AdoptSession fills in the branch.
-func (m *Model) startAdopted(sess sessions.Session) tea.Cmd {
-	cmd, err := m.foldInSession(sess)
-	if err != nil {
-		slog.Error("starting an adopted session", "session", sess.ID, "dir", sess.Dir, "err", err)
-		m.lastErr = err.Error()
-		return nil
-	}
-	return cmd
-}
+func (m *Model) startAdopted(sess sessions.Session) tea.Cmd { return m.startCmd(sess, false) }
 
 // adoptFooter names the marking key, as the project picker's does.
 //

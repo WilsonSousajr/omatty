@@ -118,7 +118,7 @@ func TestModel_promptEnterCallsCreateWithBranchForAWorktree(t *testing.T) {
 	for _, r := range "fix" {
 		press(m, key(r))
 	}
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if c.Title != "fix" || c.Branch != "fix" {
 		t.Errorf("create(%q, %q), want (\"fix\", \"fix\") for a worktree prompt", c.Title, c.Branch)
@@ -137,7 +137,7 @@ func TestModel_promptEnterOnAMainSessionPassesNoBranch(t *testing.T) {
 	for _, r := range "poke" {
 		press(m, key(r))
 	}
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if c.Title != "poke" || c.Branch != "" {
 		t.Errorf("create(%q, %q), want (\"poke\", \"\")", c.Title, c.Branch)
@@ -167,7 +167,7 @@ func TestModel_promptCreateFailureClosesThePromptAndShowsTheError(t *testing.T) 
 	press(m, ctrl('o'))
 	press(m, tea.KeyPressMsg{Code: 'N', Mod: tea.ModShift, Text: "N"})
 	press(m, key('x'))
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if m.Prompt().Active {
 		t.Error("Prompt() still active after a failed create, want closed")
@@ -207,7 +207,7 @@ func TestModel_promptCreatesInTheSelectedProject(t *testing.T) {
 	press(m, ctrl('o'))
 	press(m, key('n'))
 	press(m, key('z'))
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if c.Project != "api-svc" {
 		t.Errorf("create() got project %q, want api-svc", c.Project)

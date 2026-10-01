@@ -197,17 +197,33 @@ func (m *Model) onSessionMsg(msg tea.Msg) tea.Cmd {
 	if cmd, ok := m.onForgeMsg(msg); ok {
 		return cmd
 	}
+	if cmd, ok := m.onLifecycleMsg(msg); ok {
+		return cmd
+	}
 	switch typed := msg.(type) {
 	case ProjectsProposedMsg:
 		return m.onProjectsProposed(typed)
 	case SessionsProposedMsg:
 		return m.onSessionsProposed(typed)
-	case sessionRelaunchMsg:
-		return m.relaunch(typed.Session)
 	case RepoStatMsg:
 		return m.onRepoStat(typed)
 	}
 	return m.onWindowFocus(msg)
+}
+
+// onLifecycleMsg is what creating, starting and restarting a session answer
+// with, off the Update goroutine since migration step 5.6a (#653). Split out
+// of onSessionMsg when the two new answers pushed it past the statement limit.
+func (m *Model) onLifecycleMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case sessionRelaunchMsg:
+		return m.relaunch(typed.Session), true
+	case sessionCreatedMsg:
+		return m.onSessionCreated(typed), true
+	case sessionStartedMsg:
+		return m.onSessionStarted(typed), true
+	}
+	return nil, false
 }
 
 // onForgeMsg is what the three gh-backed reads answer with (#310, #394, #397),

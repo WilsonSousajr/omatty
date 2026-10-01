@@ -154,14 +154,10 @@ func (m *Model) startSessionOnIssue(row trackerRow) tea.Cmd {
 	project := m.review.Tracker.Project
 	title := row.ref() + " " + row.Title
 	branch := sessions.Slug(strconv.Itoa(row.Number) + " " + row.Title)
-	cmd, err := m.addSession(project, title, branch, true)
-	if err != nil {
-		slog.Error("starting a session on an issue", "project", project, "issue", row.Number, "err", err)
-		m.lastErr = err.Error()
-		return nil
-	}
+	// Created off the Update goroutine since #653; a failure lands in the
+	// footer through onSessionCreated, as any new session's does.
 	m.review.Focused = false
-	return cmd
+	return m.createCmd(project, title, branch, true)
 }
 
 // attachItem types the item's reference into the selected session's composer -

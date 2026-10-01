@@ -41,7 +41,7 @@ func TestModel_aWorktreePromptNoLongerDemandsAName_issue151(t *testing.T) {
 
 	press(m, ctrl('o'))
 	press(m, tea.KeyPressMsg{Code: 'N', Mod: tea.ModShift, Text: "N"})
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if c.Calls != 1 {
 		t.Fatalf("create was called %d times on an empty worktree prompt, want 1", c.Calls)
@@ -68,7 +68,7 @@ func TestModel_aTypedWorktreeNameIsStillUsed_issue151(t *testing.T) {
 	for _, r := range "fix" {
 		press(m, key(r))
 	}
-	press(m, special(tea.KeyEnter))
+	pressAndSettle(m, special(tea.KeyEnter))
 
 	if c.Branch != "fix" || c.Title != "fix" {
 		t.Errorf("create(title %q, branch %q), want both %q", c.Title, c.Branch, "fix")
