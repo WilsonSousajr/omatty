@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-09-29, when v0.9.0 promoted `develop` to `main` (#604).
+Last revised 2026-10-01, when v0.10.0 promoted `develop` to `main` (#708).
 Every milestone is built; what is left is under "What is left", and how a
 release reaches `main` is under "Releases".
 
@@ -44,6 +44,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | — | **Released** | **v0.8.2**, 2026-09-27. The one-line install (#517), the cask's hook as `postflight_steps` (#369), the symlinked-transcript fix (#564) and scrollback after a reattach verified (#336), promoted to `main` (#567). See "Releases". |
 | M16 | The Forges | **Done.** All seventeen slices #449-#465, built 2026-09-28/29 as PRs #573-#603, with ten defects the reviews and real runs found (#572, #574, #576, #579, #584, #586, #588, #590, #598, #599). Released in v0.9.0. Three it found stay in Backlog: #585, #594 and #596 (Azure DevOps Server). See the M16 section. |
 | — | **Released** | **v0.9.0**, 2026-09-29. M16, The Forges, promoted to `main` (#604). See "Releases". |
+| — | **Released** | **v0.10.0**, 2026-10-01. The ADR 0001 architecture migration (#615-#653), `sessions --json` and `status --json`, promoted to `main` (#708). See "Releases". |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -1021,6 +1022,7 @@ in a hurry to make it.
 | v0.8.1 | 2026-09-27 | The README's recording re-shot with real Claude Code, showing the whole workspace (#556). Docs and one image; no code changed. (#558) |
 | v0.8.2 | 2026-09-27 | `curl -fsSL https://omatty.com/install.sh \| sh` (#517); the cask's install hook written as `postflight_steps` without waiting on GoReleaser (#369); a project behind a symlink finds its transcript (#564), found by the real Claude Code probe that closed #336 without code. 4 issues. (#567) |
 | v0.9.0 | 2026-09-29 | M16 The Forges: GitLab, Gitea/Forgejo/Codeberg, Bitbucket Cloud and Data Center and Azure DevOps beside GitHub, each through its CLI or its REST API with a token stored nowhere; `ctrl+o p` on every forge, pinned to the green head and the session's own base (#598, #599); the forge probe and the support matrix. 27 issues. (#604) |
+| v0.10.0 | 2026-10-01 | The architecture: the code rebuilt in ADR 0001's shape - domain, services, adapters, pubsub, the TUI and a CLI - with no screen, key, config key or `state.json` key changed (#615, #618, #620, #622, #624, #632, #635, #653); nothing waits on git or the disk inside the frame loop, and every git call has a deadline (#650); `omatty sessions --json` and `status --json`; the 500-line and layer gates (#609). 11 issues, 154 commits. (#708) |
 
 ## M12 - The Field
 

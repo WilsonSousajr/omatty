@@ -74,7 +74,13 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.9.0**, 2026-09-29 — your forge, whichever it is. The card's pull request
+**v0.10.0**, 2026-10-01 — the architecture. The code is rebuilt in the shape
+of [ADR 0001](docs/adr/0001-architecture.md), with nothing you see changed:
+omatty no longer waits on git or the disk while it draws, every git call has
+a deadline, and `omatty sessions --json` and `omatty status --json` hand a
+script what the sidebar shows.
+
+v0.9.0, 2026-09-29 — your forge, whichever it is. The card's pull request
 and CI, the tracker, the browser and `ctrl+o p` work on GitLab, Gitea, Forgejo
 and Codeberg, Bitbucket and Azure DevOps as they did on GitHub, through each
 forge's own CLI or its REST API with a token omatty borrows and never stores.
