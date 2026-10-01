@@ -12,7 +12,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
+	"github.com/WilsonSousajr/omatty/internal/domain/status"
 )
 
 // SweepTickMsg is the idle sweep's heartbeat. Exported so tests can send one.
@@ -81,35 +81,18 @@ func (m *Model) sweep() []tea.Cmd {
 
 // sweepable refuses, in order: a session with no process, since there is
 // nothing to stop; the selected one, whose pane must not go blank under the
-// operator's hands; one whose status is not settled, so neither a turn in
-// flight nor a question waiting on the operator is ever cut off; and one
-// active inside the threshold.
+// operator's hands; and then whatever status.Sweepable refuses - a status not
+// settled, or one active inside the threshold (Amendment 8, #653). The first
+// two are facts only the TUI holds, which is why this half stays here.
 func (m *Model) sweepable(id string) bool {
-	if m.terms[id] == nil || m.isSelected(id) || !settled(m.status[id].Status) {
+	if m.terms[id] == nil || m.isSelected(id) {
 		return false
 	}
-	return m.clock().Sub(m.lastActive(id)) >= m.idleStop
+	return status.Sweepable(m.status[id].Status, m.lastActive(id), m.clock(), m.idleStop)
 }
 
-// settled reports whether a status is one a session may be stopped in.
-func settled(s status.Status) bool {
-	switch s {
-	case status.StatusThinking, status.StatusTool, status.StatusWaiting:
-		return false
-	}
-	return true
-}
-
-// lastActive is the newer of what the transcript last recorded - the entry's
-// own timestamp, which the tailer's first read of the whole file restores on
-// every boot, so nothing is persisted - and activeAt: when omatty started the
-// process or the operator last typed into it. The transcript alone is not
-// enough. A session started two seconds ago has none, and one being typed
-// into is in use whatever its transcript says.
+// lastActive is status.LastActive over this session's transcript record and
+// activeAt.
 func (m *Model) lastActive(id string) time.Time {
-	at := m.status[id].At
-	if active := m.activeAt[id]; active.After(at) {
-		return active
-	}
-	return at
+	return status.LastActive(m.status[id].At, m.activeAt[id])
 }
