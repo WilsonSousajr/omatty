@@ -2,6 +2,7 @@ package sessions_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"strings"
 	"testing"
@@ -11,10 +12,10 @@ import (
 
 func stubID() string { return "fixed-uuid" }
 
-func baseState() *sessions.State {
-	return &sessions.State{
-		Version:  sessions.Version,
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
+func baseState() *session.State {
+	return &session.State{
+		Version:  session.Version,
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}},
 	}
 }
 
@@ -176,8 +177,8 @@ func TestCreator_PlacesTheWorktreeUnderTheConfiguredRoot_issue44(t *testing.T) {
 func TestCreator_ABlankTitleBecomesThePlaceholder_issue127(t *testing.T) {
 	c := sessions.NewCreator(&FakeGit{Branch: "main"}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: "/vol/wt"}, stubID)
 	sess, err := c.Create(t.Context(), baseState(), "omatty", "  ", "")
-	if err != nil || sess.Title != sessions.PlaceholderTitle("fixed-uuid") {
-		t.Fatalf("Title = %q err = %v, want the placeholder %q", sess.Title, err, sessions.PlaceholderTitle("fixed-uuid"))
+	if err != nil || sess.Title != session.PlaceholderTitle("fixed-uuid") {
+		t.Fatalf("Title = %q err = %v, want the placeholder %q", sess.Title, err, session.PlaceholderTitle("fixed-uuid"))
 	}
 }
 

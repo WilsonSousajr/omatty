@@ -1,12 +1,12 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/domain/paste"
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // ReviewCursor is the index of the highlighted row.
@@ -106,9 +106,9 @@ func ScrollOffset(cursor, offset, rows int) int {
 	return offset
 }
 
-func (m *Model) cursorEntry() (review.Entry, bool) {
+func (m *Model) cursorEntry() (dreview.Entry, bool) {
 	if m.review.DiffList.Cursor >= len(m.review.Entries) {
-		return review.Entry{}, false
+		return dreview.Entry{}, false
 	}
 	return m.review.Entries[m.review.DiffList.Cursor], true
 }
@@ -117,7 +117,7 @@ func (m *Model) cursorEntry() (review.Entry, bool) {
 // and text now (invariant 7). Headers and existing comments are not lines.
 func (m *Model) openNote() {
 	e, ok := m.cursorEntry()
-	if !ok || e.Kind != review.EntryLine {
+	if !ok || e.Kind != dreview.EntryLine {
 		return
 	}
 	m.review.Note = noteEditor{
@@ -131,11 +131,11 @@ func (m *Model) openNote() {
 // the same line of the session diff, which Compose locates against: the
 // turn's own hunk header matches nothing there, and falling back to the
 // first line that reads the same told claude the wrong line (#311).
-func (m *Model) anchorAt(p review.Position) review.Anchor {
+func (m *Model) anchorAt(p dreview.Position) dreview.Anchor {
 	if m.review.Scope == scopeTurn {
-		return review.AnchorFor(m.review.Diff, m.review.TurnDiff, p)
+		return dreview.AnchorFor(m.review.Diff, m.review.TurnDiff, p)
 	}
-	return review.AnchorAt(m.review.Diff, p)
+	return dreview.AnchorAt(m.review.Diff, p)
 }
 
 // openFragment starts a note about part of the line under the cursor: the
@@ -196,7 +196,7 @@ func (m *Model) queueNote() {
 		return
 	}
 	n := m.review.Note
-	m.commentsFor(m.review.SessionID).Add(review.Comment{
+	m.commentsFor(m.review.SessionID).Add(dreview.Comment{
 		Anchor: n.Anchor, Quote: n.Quote, Note: note, Fragment: n.Fragment,
 	})
 	m.review.Note = noteEditor{}
@@ -208,7 +208,7 @@ func (m *Model) queueNote() {
 // silently drop a note.
 func (m *Model) deleteComment() {
 	e, ok := m.cursorEntry()
-	if !ok || (e.Kind != review.EntryComment && e.Kind != review.EntryOrphan) {
+	if !ok || (e.Kind != dreview.EntryComment && e.Kind != dreview.EntryOrphan) {
 		return
 	}
 	m.commentsFor(m.review.SessionID).Remove(e.Comment)
@@ -231,7 +231,7 @@ func (m *Model) submitReview() tea.Cmd {
 		m.lastErr = "session " + m.review.SessionID + " has no terminal to send to"
 		return nil
 	}
-	body := review.Compose(m.review.Diff, pending)
+	body := dreview.Compose(m.review.Diff, pending)
 	cs.MarkSent(m.clock())
 	cs.PruneSent(m.review.Diff) // one sent while already moved has nothing left to mark
 	m.review.Focused = false

@@ -1,11 +1,10 @@
 package review_test
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // fragmentDiff is one file, one hunk, with a line worth commenting on part of.
@@ -20,7 +19,7 @@ index 1111111..2222222 100644
  }
 `
 
-func fragmentParsed(t *testing.T) review.Diff {
+func fragmentParsed(t *testing.T) dreview.Diff {
 	t.Helper()
 	d, err := gitdiff.ParseDiff(strings.NewReader(fragmentDiff))
 	if err != nil {
@@ -33,9 +32,9 @@ func fragmentParsed(t *testing.T) review.Diff {
 // is told "this call" rather than "this line".
 func TestCompose_AFragmentIsWhatTheNoteIsAbout_issue339(t *testing.T) {
 	d := fragmentParsed(t)
-	at := review.AnchorAt(d, review.Position{File: 0, Hunk: 0, Line: 2})
+	at := dreview.AnchorAt(d, dreview.Position{File: 0, Hunk: 0, Line: 2})
 
-	body := review.Compose(d, []review.Comment{{
+	body := dreview.Compose(d, []dreview.Comment{{
 		Anchor:   at,
 		Quote:    "	if err := do(ctx, timeout); err != nil { return err }",
 		Fragment: "do(ctx, timeout)",
@@ -57,10 +56,10 @@ func TestCompose_AFragmentIsWhatTheNoteIsAbout_issue339(t *testing.T) {
 // whole line, quoted, and nothing extra.
 func TestCompose_NoFragmentIsUnchanged_issue339(t *testing.T) {
 	d := fragmentParsed(t)
-	at := review.AnchorAt(d, review.Position{File: 0, Hunk: 0, Line: 2})
-	c := review.Comment{Anchor: at, Quote: "	if err := do(ctx, timeout); err != nil { return err }", Note: "why?"}
+	at := dreview.AnchorAt(d, dreview.Position{File: 0, Hunk: 0, Line: 2})
+	c := dreview.Comment{Anchor: at, Quote: "	if err := do(ctx, timeout); err != nil { return err }", Note: "why?"}
 
-	body := review.Compose(d, []review.Comment{c})
+	body := dreview.Compose(d, []dreview.Comment{c})
 
 	if strings.Contains(body, "about") {
 		t.Errorf("a whole-line comment gained a fragment note:\n%s", body)
@@ -76,9 +75,9 @@ func TestCompose_NoFragmentIsUnchanged_issue339(t *testing.T) {
 // there as though it were.
 func TestCompose_AFragmentThatIsNoLongerInTheLineSaysSo_issue339(t *testing.T) {
 	d := fragmentParsed(t)
-	at := review.AnchorAt(d, review.Position{File: 0, Hunk: 0, Line: 2})
+	at := dreview.AnchorAt(d, dreview.Position{File: 0, Hunk: 0, Line: 2})
 
-	body := review.Compose(d, []review.Comment{{
+	body := dreview.Compose(d, []dreview.Comment{{
 		Anchor:   at,
 		Quote:    "	if err := do(ctx, timeout); err != nil { return err }",
 		Fragment: "do(ctx, deadline)", // never in that line
@@ -99,12 +98,12 @@ func TestCompose_AFragmentThatIsNoLongerInTheLineSaysSo_issue339(t *testing.T) {
 // and both place.
 func TestPlace_AFragmentIsNotPartOfTheAnchor_issue339(t *testing.T) {
 	d := fragmentParsed(t)
-	pos := review.Position{File: 0, Hunk: 0, Line: 2}
-	at := review.AnchorAt(d, pos)
-	first := review.Comment{Anchor: at, Fragment: "do(ctx, timeout)", Note: "unit"}
-	second := review.Comment{Anchor: at, Fragment: "return err", Note: "wrap it"}
+	pos := dreview.Position{File: 0, Hunk: 0, Line: 2}
+	at := dreview.AnchorAt(d, pos)
+	first := dreview.Comment{Anchor: at, Fragment: "do(ctx, timeout)", Note: "unit"}
+	second := dreview.Comment{Anchor: at, Fragment: "return err", Note: "wrap it"}
 
-	p := review.Place(d, []review.Comment{first, second})
+	p := dreview.Place(d, []dreview.Comment{first, second})
 
 	if got := p.At[pos]; len(got) != 2 {
 		t.Fatalf("At[%v] = %v, want both comments on the line", pos, got)
@@ -122,9 +121,9 @@ func TestPlace_AFragmentIsNotPartOfTheAnchor_issue339(t *testing.T) {
 // lines) and nothing had asserted end to end.
 func TestCompose_EveryCommentOnOneLineIsSent_issue339(t *testing.T) {
 	d := fragmentParsed(t)
-	at := review.AnchorAt(d, review.Position{File: 0, Hunk: 0, Line: 2})
+	at := dreview.AnchorAt(d, dreview.Position{File: 0, Hunk: 0, Line: 2})
 
-	body := review.Compose(d, []review.Comment{
+	body := dreview.Compose(d, []dreview.Comment{
 		{Anchor: at, Quote: "x", Note: "first thing"},
 		{Anchor: at, Quote: "x", Note: "second thing"},
 	})

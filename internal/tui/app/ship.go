@@ -14,6 +14,7 @@
 package app
 
 import (
+	dsession "github.com/WilsonSousajr/omatty/internal/domain/session"
 	"log/slog"
 	"strconv"
 
@@ -21,7 +22,6 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // ShippedMsg carries the outcome of a ship into Update. Exported so tests can
@@ -60,7 +60,7 @@ func (m *Model) shipSelected() tea.Cmd {
 // The gate verdict and the base branch are checked here, where the answer is
 // already in memory. Whether the worktree is clean is read in the command,
 // because it costs two git calls and is only ever wanted at this moment.
-func (m *Model) openPullRequest(sess sessions.Session) tea.Cmd {
+func (m *Model) openPullRequest(sess dsession.Session) tea.Cmd {
 	if !m.gateGreen(sess.ID) || !m.readyToShip(sess.ID) {
 		m.lastErr = "the gate is not green for " + sess.Title + "; run it with " + m.leader + " g first"
 		return nil
@@ -85,7 +85,7 @@ func (m *Model) openPullRequest(sess sessions.Session) tea.Cmd {
 // request that differs from what was verified. omatty refuses and says to commit
 // it in the session, rather than authoring a commit with a message it guessed:
 // the same line as "omatty never submits a turn on your behalf".
-func (m *Model) pushAndOpen(sess sessions.Session) tea.Cmd {
+func (m *Model) pushAndOpen(sess dsession.Session) tea.Cmd {
 	ship, push, create := m.ship.Shippable, m.ship.Push, m.ship.CreatePR
 	root, id := m.projectRoot(sess.Project), sess.ID
 	return func() tea.Msg {
@@ -105,7 +105,7 @@ func (m *Model) pushAndOpen(sess sessions.Session) tea.Cmd {
 }
 
 // notPushable names why a worktree cannot be shipped, or "" when it can.
-func notPushable(sess sessions.Session, state review.Shippable) string {
+func notPushable(sess dsession.Session, state review.Shippable) string {
 	switch {
 	case state.Uncommitted > 0:
 		return sess.Title + " has " + strconv.Itoa(state.Uncommitted) +
@@ -121,7 +121,7 @@ func notPushable(sess sessions.Session, state review.Shippable) string {
 //
 // Five reasons not to, each its own sentence. The protected-branch check is
 // last because it costs a gh call, and it is the one that fails closed.
-func (m *Model) mergeIfGreen(sess sessions.Session, pr forge.PR) tea.Cmd {
+func (m *Model) mergeIfGreen(sess dsession.Session, pr forge.PR) tea.Cmd {
 	reason := notMergeable(m.gateGreen(sess.ID) && m.readyToShip(sess.ID), pr, onForge(m.label(sess.Project)))
 	if reason == "" {
 		reason = aimedElsewhere(pr, sess.Base)
@@ -162,7 +162,7 @@ func notMergeable(gateGreen bool, pr forge.PR, where string) string {
 
 // mergeUnlessProtected asks the forge whether the base is protected, then
 // merges. Both calls are off the Update goroutine.
-func (m *Model) mergeUnlessProtected(sess sessions.Session, pr forge.PR) tea.Cmd {
+func (m *Model) mergeUnlessProtected(sess dsession.Session, pr forge.PR) tea.Cmd {
 	protected, merge := m.ship.BranchProtected, m.ship.MergePR
 	root, id, number, base, head := m.projectRoot(sess.Project), sess.ID, pr.Number, sess.Base, pr.Head
 	if pr.Base != "" {

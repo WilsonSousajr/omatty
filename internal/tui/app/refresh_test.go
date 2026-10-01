@@ -2,11 +2,11 @@ package app_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -14,19 +14,19 @@ import (
 // liveCreate is a named fake standing in for sessions.AddSession: it returns
 // the session it would have persisted.
 type liveCreate struct {
-	Next    sessions.Session
+	Next    session.Session
 	Err     error
 	Calls   int
 	Project string
 }
 
-func (l *liveCreate) fn(project, title, branch string, worktree bool) (sessions.Session, error) {
+func (l *liveCreate) fn(project, title, branch string, worktree bool) (session.Session, error) {
 	l.Calls++
 	l.Project = project
 	if l.Err != nil {
-		return sessions.Session{}, l.Err
+		return session.Session{}, l.Err
 	}
-	l.Next = sessions.Session{
+	l.Next = session.Session{
 		ID: "new-id", Project: project, Title: title,
 		Branch: branch, Worktree: worktree,
 	}
@@ -42,7 +42,7 @@ type startRecorder struct {
 	Term    *terminal.Fake
 }
 
-func (s *startRecorder) fn(sess sessions.Session, w, h int) (terminal.Terminal, error) {
+func (s *startRecorder) fn(sess session.Session, w, h int) (terminal.Terminal, error) {
 	if s.Err != nil {
 		return nil, s.Err
 	}
@@ -52,8 +52,8 @@ func (s *startRecorder) fn(sess sessions.Session, w, h int) (terminal.Terminal, 
 	return s.Term, nil
 }
 
-func oneProject() sessions.State {
-	return sessions.State{Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}}}
+func oneProject() session.State {
+	return session.State{Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}}}
 }
 
 func newSession(m *app.Model, title string) {

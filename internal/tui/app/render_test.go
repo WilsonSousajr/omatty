@@ -2,20 +2,20 @@ package app_test
 
 import (
 	"charm.land/lipgloss/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
 // fakeTermsFor builds a fake terminal per session in st, for fixtures larger
 // than the three fakeTerms knows.
-func fakeTermsFor(st sessions.State) map[string]terminal.Terminal {
+func fakeTermsFor(st session.State) map[string]terminal.Terminal {
 	terms := make(map[string]terminal.Terminal, len(st.Sessions))
 	for _, sess := range st.Sessions {
 		terms[sess.ID] = terminal.NewFake(sess.ID)
@@ -66,8 +66,8 @@ func TestRenderRow_EveryRowIsExactlySidebarWidth_issue128(t *testing.T) {
 	st.Sessions[2].Title = "t\u202eitle"
 	m := app.NewModel(baseDeps(st, fakeTermsFor(st)))
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	sendStatus(m, "s1", status.PromptSubmitted, time.Now())
-	sendStatus(m, "s3", status.PermissionRequested, time.Now())
+	sendStatus(m, "s1", dstatus.PromptSubmitted, time.Now())
+	sendStatus(m, "s3", dstatus.PermissionRequested, time.Now())
 
 	for i, line := range strings.Split(m.View().Content, "\n") {
 		if w := lipgloss.Width(line); w != 100 {

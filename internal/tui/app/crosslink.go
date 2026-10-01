@@ -6,7 +6,7 @@ package app
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/review"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 // openPreviewAtCursor is o in the diff: the preview of the entry's file with
@@ -19,7 +19,7 @@ func (m *Model) openPreviewAtCursor() tea.Cmd {
 		return nil
 	}
 	f := m.shownDiff().Files[e.Pos.File]
-	if f.Status == review.FileDeleted {
+	if f.Status == dreview.FileDeleted {
 		m.previewDeleted(f.Path)
 		return nil
 	}
@@ -34,8 +34,8 @@ func (m *Model) openPreviewAtCursor() tea.Cmd {
 // the old one for a removed line, clamped the way j is; a header opens at
 // the top. renderPreview clamps again so a line near the end is not the top
 // row - the file simply ends.
-func (m *Model) previewOffsetFor(e review.Entry) int {
-	if e.Kind == review.EntryFile || e.Kind == review.EntryOrphan {
+func (m *Model) previewOffsetFor(e dreview.Entry) int {
+	if e.Kind == dreview.EntryFile || e.Kind == dreview.EntryOrphan {
 		return 0
 	}
 	l := m.shownDiff().LineAt(e.Pos)
@@ -70,10 +70,10 @@ func (m *Model) entryForPreview() (int, bool) {
 		if m.shownDiff().Files[e.Pos.File].Path != m.review.Preview.Path {
 			continue
 		}
-		if e.Kind == review.EntryFile {
+		if e.Kind == dreview.EntryFile {
 			header = i
 		}
-		if e.Kind == review.EntryLine && m.shownDiff().LineAt(e.Pos).NewNo == want {
+		if e.Kind == dreview.EntryLine && m.shownDiff().LineAt(e.Pos).NewNo == want {
 			return i, true
 		}
 	}

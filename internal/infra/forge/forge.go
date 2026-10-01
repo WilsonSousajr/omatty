@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os/exec"
 	"strings"
 	"time"
@@ -64,7 +65,7 @@ const listTimeout = 30 * time.Second
 // repoRoot's remote and uses the operator's own authentication; omatty holds
 // nothing. Both calls share ctx: the promise is an answer inside thirty
 // seconds, not thirty seconds for each half of it (#356).
-func (c ghCLI) listPRs(ctx context.Context, repoRoot string) ([]PR, error) {
+func (c ghCLI) listPRs(ctx context.Context, repoRoot string) ([]dforge.PR, error) {
 	open, err := c.list(ctx, repoRoot, "open", "100", openFields)
 	if err != nil {
 		return nil, err
@@ -80,7 +81,7 @@ func (c ghCLI) listPRs(ctx context.Context, repoRoot string) ([]PR, error) {
 // #358's rule applied to the other list. Closed issues are not read at all -
 // the tracker answers "what is open", and a closed one is history the forge
 // already keeps.
-func (c ghCLI) listIssues(ctx context.Context, repoRoot string) ([]Issue, error) {
+func (c ghCLI) listIssues(ctx context.Context, repoRoot string) ([]dforge.Issue, error) {
 	out, err := c.run(ctx, repoRoot, "issue", "list", "--state", "open", "--limit", issueWindow, "--json", issueFields)
 	if err != nil {
 		return nil, err
@@ -89,7 +90,7 @@ func (c ghCLI) listIssues(ctx context.Context, repoRoot string) ([]Issue, error)
 }
 
 // list is one `gh pr list` in repoRoot. gh's "closed" includes merged.
-func (c ghCLI) list(ctx context.Context, repoRoot, state, limit, fields string) ([]PR, error) {
+func (c ghCLI) list(ctx context.Context, repoRoot, state, limit, fields string) ([]dforge.PR, error) {
 	out, err := c.run(ctx, repoRoot, "pr", "list", "--state", state, "--limit", limit, "--json", fields)
 	if err != nil {
 		return nil, err
@@ -133,7 +134,7 @@ func called(args []string) string {
 func classify(repoRoot, call, stderr string, err error) error {
 	for _, s := range notGitHub {
 		if strings.Contains(stderr, s) {
-			return fmt.Errorf("forge: %s: %w", stderr, ErrNoForge)
+			return fmt.Errorf("forge: %s: %w", stderr, dforge.ErrNoForge)
 		}
 	}
 	return fmt.Errorf("forge: gh %s in %q: %s: %w", call, repoRoot, stderr, err)

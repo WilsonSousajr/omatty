@@ -1,23 +1,23 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
 // foldedState is twoProjectState with omatty folded: two sessions behind one
 // header, then api-svc open beneath it.
-func foldedState() sessions.State {
+func foldedState() session.State {
 	st := twoProjectState()
 	st.Projects[0].Collapsed = true
 	return st
 }
 
 func TestSidebarRows_aFoldedProjectDrawsOnlyItsHeader_issue505(t *testing.T) {
-	rows := app.SidebarRows(foldedState(), map[string]status.Status{"s2": status.StatusWaiting})
+	rows := app.SidebarRows(foldedState(), map[string]dstatus.Status{"s2": dstatus.StatusWaiting})
 
 	if len(rows) != 3 {
 		t.Fatalf("got %d rows, want header omatty, header api-svc, s3: %+v", len(rows), rows)
@@ -29,7 +29,7 @@ func TestSidebarRows_aFoldedProjectDrawsOnlyItsHeader_issue505(t *testing.T) {
 	if len(h.Folded) != 2 || h.Folded[0].ID != "s1" || h.Folded[1].ID != "s2" {
 		t.Errorf("Folded = %+v, want s1 and s2 in order", h.Folded)
 	}
-	if h.Status != status.StatusWaiting {
+	if h.Status != dstatus.StatusWaiting {
 		t.Errorf("folded header status = %q, want the loudest hidden one, waiting", h.Status)
 	}
 	if len(rows[1].Folded) != 0 {
@@ -41,20 +41,20 @@ func TestSidebarRows_aFoldedProjectDrawsOnlyItsHeader_issue505(t *testing.T) {
 // error outranks done outranks work outranks rest.
 func TestFoldStatus_picksTheLoudest_issue505(t *testing.T) {
 	cases := []struct {
-		in   []status.Status
-		want status.Status
+		in   []dstatus.Status
+		want dstatus.Status
 	}{
-		{[]status.Status{status.StatusIdle, status.StatusThinking}, status.StatusThinking},
-		{[]status.Status{status.StatusTool, status.StatusDone}, status.StatusDone},
-		{[]status.Status{status.StatusDone, status.StatusError}, status.StatusError},
-		{[]status.Status{status.StatusError, status.StatusWaiting, status.StatusIdle}, status.StatusWaiting},
-		{[]status.Status{status.StatusExited, status.StatusIdle}, status.StatusIdle},
+		{[]dstatus.Status{dstatus.StatusIdle, dstatus.StatusThinking}, dstatus.StatusThinking},
+		{[]dstatus.Status{dstatus.StatusTool, dstatus.StatusDone}, dstatus.StatusDone},
+		{[]dstatus.Status{dstatus.StatusDone, dstatus.StatusError}, dstatus.StatusError},
+		{[]dstatus.Status{dstatus.StatusError, dstatus.StatusWaiting, dstatus.StatusIdle}, dstatus.StatusWaiting},
+		{[]dstatus.Status{dstatus.StatusExited, dstatus.StatusIdle}, dstatus.StatusIdle},
 	}
 	for _, c := range cases {
 		st := foldedState()
-		statuses := map[string]status.Status{"s1": c.in[0], "s2": c.in[1]}
+		statuses := map[string]dstatus.Status{"s1": c.in[0], "s2": c.in[1]}
 		if len(c.in) > 2 {
-			st.Sessions = append(st.Sessions, sessions.Session{ID: "s4", Project: "omatty"})
+			st.Sessions = append(st.Sessions, session.Session{ID: "s4", Project: "omatty"})
 			statuses["s4"] = c.in[2]
 		}
 		if got := app.SidebarRows(st, statuses)[0].Status; got != c.want {

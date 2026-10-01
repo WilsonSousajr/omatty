@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/url"
 	"slices"
 	"strconv"
@@ -22,7 +23,7 @@ type glBackend struct {
 }
 
 // gitLabLabel is GitLab's words: a merge request, written "!12".
-var gitLabLabel = Label{Forge: "GitLab", Change: "merge request", Short: "MR", Sigil: "!"}
+var gitLabLabel = dforge.Label{Forge: "GitLab", Change: "merge request", Short: "MR", Sigil: "!"}
 
 // glLists is each merge request list ListPRs reads: every open one, newest
 // first, then the recently finished of each kind - #358's windows.
@@ -36,8 +37,8 @@ var glLists = []string{
 // group/sub/project is one segment.
 func (g glBackend) project() string { return "projects/" + url.PathEscape(g.remote.Slug()) }
 
-func (g glBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
-	var all []PR
+func (g glBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
+	var all []dforge.PR
 	for _, list := range glLists {
 		mrs, err := getJSON[[]glMR](ctx, g.f, g.project()+"/merge_requests?"+list)
 		if err != nil {
@@ -50,7 +51,7 @@ func (g glBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
 }
 
 // ciKey names a merge request's head across every project the Router reads.
-func (g glBackend) ciKey(pr PR) string {
+func (g glBackend) ciKey(pr dforge.PR) string {
 	return g.remote.Host + "/" + g.remote.Slug() + "!" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
@@ -59,10 +60,10 @@ func (g glBackend) ciKey(pr PR) string {
 // result, whose SHA is not the head's (found reading gitlab-org/cli) - and not
 // the merge request's pipelines list, which after a push can answer with the
 // previous head's (#454's review). None until the new head has one.
-func (g glBackend) pipelineCI(ctx context.Context, pr PR) (CIState, error) {
+func (g glBackend) pipelineCI(ctx context.Context, pr dforge.PR) (dforge.CIState, error) {
 	mr, err := getJSON[glItem](ctx, g.f, g.mrPath(pr.Number))
 	if err != nil || mr.HeadPipeline == nil {
-		return CINone, err
+		return dforge.CINone, err
 	}
 	return gitlabCI(mr.HeadPipeline.Status), nil
 }
@@ -71,7 +72,7 @@ func (g glBackend) mrPath(number int) string {
 	return g.project() + "/merge_requests/" + strconv.Itoa(number)
 }
 
-func (g glBackend) listIssues(ctx context.Context, _ string) ([]Issue, error) {
+func (g glBackend) listIssues(ctx context.Context, _ string) ([]dforge.Issue, error) {
 	issues, err := getJSON[[]glIssue](ctx, g.f, g.project()+"/issues?state=opened&per_page=100&order_by=created_at&sort=desc")
 	if err != nil {
 		return nil, repoMissing(err)
@@ -79,11 +80,11 @@ func (g glBackend) listIssues(ctx context.Context, _ string) ([]Issue, error) {
 	return foldGLIssues(issues), nil
 }
 
-func (g glBackend) viewIssue(ctx context.Context, _ string, number int) (Detail, error) {
+func (g glBackend) viewIssue(ctx context.Context, _ string, number int) (dforge.Detail, error) {
 	path := g.project() + "/issues/" + strconv.Itoa(number)
 	item, err := getJSON[glItem](ctx, g.f, path)
 	if err != nil {
-		return Detail{}, err
+		return dforge.Detail{}, err
 	}
 	notes, cut := g.notes(ctx, path)
 	d := foldDetail(item.flat(notes, nil))
@@ -91,10 +92,10 @@ func (g glBackend) viewIssue(ctx context.Context, _ string, number int) (Detail,
 	return d, nil
 }
 
-func (g glBackend) viewPR(ctx context.Context, _ string, number int) (Detail, error) {
+func (g glBackend) viewPR(ctx context.Context, _ string, number int) (dforge.Detail, error) {
 	item, err := getJSON[glItem](ctx, g.f, g.mrPath(number))
 	if err != nil {
-		return Detail{}, err
+		return dforge.Detail{}, err
 	}
 	notes, cut := g.notes(ctx, g.mrPath(number))
 	d := foldDetail(item.flat(notes, g.jobs(ctx, item.HeadPipeline)))
@@ -110,7 +111,7 @@ func (g glBackend) viewPR(ctx context.Context, _ string, number int) (Detail, er
 // to say than that the item has no comments to show.
 func (g glBackend) notes(ctx context.Context, itemPath string) ([]glNote, bool) {
 	notes, err := getJSON[[]glNote](ctx, g.f, itemPath+"/notes?sort=desc&per_page=100")
-	var refused *AuthError
+	var refused *dforge.AuthError
 	if err != nil {
 		return nil, !errors.As(err, &refused)
 	}

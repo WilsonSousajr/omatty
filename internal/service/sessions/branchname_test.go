@@ -2,6 +2,7 @@ package sessions_test
 
 import (
 	"context"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"regexp"
 	"strings"
@@ -17,13 +18,13 @@ import (
 // the filesystem.
 func TestPlaceholderBranch_isSlugSafeAndDerivedFromTheID_issue151(t *testing.T) {
 	const id = "A1B2C3D4-5678-4abc-9def-000000000000"
-	got := sessions.PlaceholderBranch(id)
+	got := session.PlaceholderBranch(id)
 
 	if want := "omatty-a1b2c3d4"; got != want {
 		t.Errorf("PlaceholderBranch(%q) = %q, want %q", id, got, want)
 	}
-	if sessions.Slug(got) != got {
-		t.Errorf("PlaceholderBranch is not slug-safe: Slug(%q) = %q", got, sessions.Slug(got))
+	if session.Slug(got) != got {
+		t.Errorf("PlaceholderBranch is not slug-safe: Slug(%q) = %q", got, session.Slug(got))
 	}
 	if !regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,39}$`).MatchString(got) {
 		t.Errorf("PlaceholderBranch(%q) = %q, which is not a legal branch name", id, got)
@@ -36,11 +37,11 @@ func TestPlaceholderBranch_isSlugSafeAndDerivedFromTheID_issue151(t *testing.T) 
 func TestPlaceholderBranch_isRecomputableFromTheSessionAlone_issue151(t *testing.T) {
 	const id = "abc12345-6789-4abc-9def-000000000000"
 
-	first, again := sessions.PlaceholderBranch(id), sessions.PlaceholderBranch(id)
+	first, again := session.PlaceholderBranch(id), session.PlaceholderBranch(id)
 	if first != again {
 		t.Errorf("PlaceholderBranch is not stable for one id: %q then %q", first, again)
 	}
-	if first == sessions.PlaceholderBranch("def67890-6789-4abc-9def-000000000000") {
+	if first == session.PlaceholderBranch("def67890-6789-4abc-9def-000000000000") {
 		t.Error("two sessions share a placeholder branch, so two worktrees would collide")
 	}
 }
@@ -77,7 +78,7 @@ func TestCreate_aWorktreeWithNoTypedBranchTakesThePlaceholder_issue151(t *testin
 		t.Fatalf("CreateWorktree() error = %v, want nil", err)
 	}
 
-	if want := sessions.PlaceholderBranch(id); sess.Branch != want {
+	if want := session.PlaceholderBranch(id); sess.Branch != want {
 		t.Errorf("branch = %q, want the placeholder %q", sess.Branch, want)
 	}
 	if !sess.Worktree {
@@ -89,10 +90,10 @@ func TestCreate_aWorktreeWithNoTypedBranchTakesThePlaceholder_issue151(t *testin
 // running in that directory and the transcript path is derived from it (#60).
 func TestRenameBranch_writesTheBranchAndLeavesTheDirectory_issue151(t *testing.T) {
 	store, _ := newStoreAt(t)
-	st := sessions.State{
-		Version:  sessions.Version,
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []sessions.Session{{
+	st := session.State{
+		Version:  session.Version,
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []session.Session{{
 			ID: "s1", Project: "omatty", Title: "one",
 			Dir: "/home/u/.omatty/wt/omatty/omatty-s1", Branch: "omatty-s1", Worktree: true,
 		}},
@@ -121,9 +122,9 @@ func TestRenameBranch_writesTheBranchAndLeavesTheDirectory_issue151(t *testing.T
 // names the branch when nobody else did, and persists both.
 func TestAddWorktreeSession_namesTheBranchAndPersistsIt_issue151(t *testing.T) {
 	store, _ := newStoreAt(t)
-	if err := store.Save(t.Context(), sessions.State{
-		Version:  sessions.Version,
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
+	if err := store.Save(t.Context(), session.State{
+		Version:  session.Version,
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +137,7 @@ func TestAddWorktreeSession_namesTheBranchAndPersistsIt_issue151(t *testing.T) {
 		t.Fatalf("AddWorktreeSession() error = %v, want nil", err)
 	}
 
-	if want := sessions.PlaceholderBranch(id); sess.Branch != want {
+	if want := session.PlaceholderBranch(id); sess.Branch != want {
 		t.Errorf("branch = %q, want the placeholder %q", sess.Branch, want)
 	}
 	got, err := store.Load(t.Context())
@@ -176,17 +177,17 @@ func (f *fakeBranchGit) RenameBranch(_ context.Context, _, old, name string) err
 	return f.Err
 }
 
-func worktreeSessionStore(t *testing.T) (*statestore.Store, sessions.Session) {
+func worktreeSessionStore(t *testing.T) (*statestore.Store, session.Session) {
 	t.Helper()
 	store, _ := newStoreAt(t)
-	sess := sessions.Session{
+	sess := session.Session{
 		ID: "s1", Project: "omatty", Title: "one",
 		Dir: "/wt/omatty/omatty-s1", Branch: "omatty-s1", Base: "main", Worktree: true,
 	}
-	if err := store.Save(t.Context(), sessions.State{
-		Version:  sessions.Version,
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []sessions.Session{sess},
+	if err := store.Save(t.Context(), session.State{
+		Version:  session.Version,
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []session.Session{sess},
 	}); err != nil {
 		t.Fatal(err)
 	}

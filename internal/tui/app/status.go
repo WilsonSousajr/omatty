@@ -1,15 +1,15 @@
 package app
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"log/slog"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // StatusMsg carries one watcher event into the model's Update loop.
-type StatusMsg status.Event
+type StatusMsg dstatus.Event
 
 // TickMsg is the once-a-second heartbeat that re-renders the frame, so a
 // quiet session's age keeps counting (issue #71). The spinner has its own
@@ -41,9 +41,9 @@ func (m *Model) waitForEvent() tea.Cmd {
 // once, so everything downstream stays keyed as it was before /clear could
 // move a conversation out from under its row (#316).
 func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
-	e := status.Event(ev)
+	e := dstatus.Event(ev)
 	var rebound tea.Cmd
-	if e.Kind == status.SessionRebound {
+	if e.Kind == dstatus.SessionRebound {
 		rebound = m.followClear(e)
 	}
 	id, ok := m.sessionOfConversation(e.SessionID)
@@ -52,7 +52,7 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 	}
 	e.SessionID = id
 	before := m.status[e.SessionID]
-	after := status.Apply(before, e)
+	after := dstatus.Apply(before, e)
 	m.status[e.SessionID] = after
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
 	return tea.Batch(rebound, m.afterStatus(e, before.Status, after.Status))
@@ -61,7 +61,7 @@ func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
 // afterStatus is everything a status event sets in motion off the Update
 // goroutine: the next wait, a notification, a diff refresh, and a name for a
 // session still carrying its placeholder (#127).
-func (m *Model) afterStatus(e status.Event, before, after status.Status) tea.Cmd {
+func (m *Model) afterStatus(e dstatus.Event, before, after dstatus.Status) tea.Cmd {
 	// Not a tea.Cmd: the run happens on the Runner's own goroutines, and its
 	// answer arrives as a GateMsg like any other (#233).
 	m.autoGate(e.SessionID, before, after)
@@ -86,7 +86,7 @@ const notifyCooldown = 5 * time.Second
 // takes tens of milliseconds (issue #69). Suppressed: a repeated state, a
 // transition older than this run (issue #70), and a second notification for
 // the same session within notifyCooldown.
-func (m *Model) maybeNotify(e status.Event, before, after status.Status) tea.Cmd {
+func (m *Model) maybeNotify(e dstatus.Event, before, after dstatus.Status) tea.Cmd {
 	if m.hasFocus || before == after || e.At.Before(m.startedAt) {
 		return nil
 	}
@@ -124,11 +124,11 @@ func (m *Model) sessionTitle(id string) string {
 }
 
 // needsYou returns the notification body for a status that wants attention.
-func needsYou(title string, now status.Status) (string, bool) {
+func needsYou(title string, now dstatus.Status) (string, bool) {
 	switch now {
-	case status.StatusWaiting:
+	case dstatus.StatusWaiting:
 		return title + " needs you", true
-	case status.StatusDone:
+	case dstatus.StatusDone:
 		return title + " finished", true
 	default:
 		return "", false
@@ -137,8 +137,8 @@ func needsYou(title string, now status.Status) (string, bool) {
 
 // statusMap projects the per-session state down to the status the sidebar
 // needs.
-func (m *Model) statusMap() map[string]status.Status {
-	out := make(map[string]status.Status, len(m.status))
+func (m *Model) statusMap() map[string]dstatus.Status {
+	out := make(map[string]dstatus.Status, len(m.status))
 	for id, st := range m.status {
 		out[id] = st.Status
 	}

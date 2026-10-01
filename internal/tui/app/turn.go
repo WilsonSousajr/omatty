@@ -5,13 +5,14 @@ package app
 
 import (
 	"errors"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	dsession "github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // TurnSnappedMsg carries a baseline snapshot's outcome into Update. Exported
@@ -22,7 +23,7 @@ type TurnSnappedMsg struct {
 	// Session and Root are the session and its project root as the snapshot
 	// began. A snapshot that lands after its session was archived has only
 	// these to drop the ref it just made (#350).
-	Session sessions.Session
+	Session dsession.Session
 	Root    string
 }
 
@@ -30,8 +31,8 @@ type TurnSnappedMsg struct {
 // the hook counts: the tailer reports PromptSubmitted for every tool result,
 // and a snapshot taken mid-turn would drop the turn's earlier edits from its
 // own diff. A snapshot already in flight absorbs the prompt.
-func (m *Model) maybeSnapTurn(e status.Event) tea.Cmd {
-	if e.Kind != status.PromptSubmitted || !e.Hook || m.turnPending[e.SessionID] {
+func (m *Model) maybeSnapTurn(e dstatus.Event) tea.Cmd {
+	if e.Kind != dstatus.PromptSubmitted || !e.Hook || m.turnPending[e.SessionID] {
 		return nil
 	}
 	sess, ok := m.session(e.SessionID)
@@ -76,7 +77,7 @@ func (m *Model) reloadTurn(id string) tea.Cmd {
 // dropTurnCmd deletes an archived session's baseline off the Update
 // goroutine. A failure is logged and nothing more: the archive has happened,
 // and a stray ref costs a few objects, not correctness.
-func (m *Model) dropTurnCmd(sess sessions.Session) tea.Cmd {
+func (m *Model) dropTurnCmd(sess dsession.Session) tea.Cmd {
 	return m.dropTurn(sess, m.projectRoot(sess.Project))
 }
 
@@ -94,7 +95,7 @@ func (m *Model) dropLateTurn(msg TurnSnappedMsg) tea.Cmd {
 }
 
 // dropTurn deletes sess's baseline in root off the Update goroutine.
-func (m *Model) dropTurn(sess sessions.Session, root string) tea.Cmd {
+func (m *Model) dropTurn(sess dsession.Session, root string) tea.Cmd {
 	drop := m.turn.Drop
 	return func() tea.Msg {
 		if err := drop(sess, root); err != nil {
@@ -113,7 +114,7 @@ func (m *Model) toggleScope() tea.Cmd {
 		m.review.Scope = scopeTurn
 	}
 	m.review.DiffList.Cursor, m.review.DiffList.Offset, m.review.ColOffset = 0, 0, 0
-	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = review.Diff{}, nil, false
+	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = dreview.Diff{}, nil, false
 	m.rebuildEntries()
 	// Both diffs: the turn view places and anchors comments through the
 	// session diff, so that one must be as fresh as the turn.

@@ -1,6 +1,7 @@
 package forge
 
 import (
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"html"
 	"regexp"
 	"strings"
@@ -86,10 +87,10 @@ type (
 
 // foldAzPRs is Azure's pull requests as omatty's. Azure's list carries no
 // update time, so a closed one's close and an open one's creation stand in.
-func foldAzPRs(in []azPR) []PR {
-	out := make([]PR, len(in))
+func foldAzPRs(in []azPR) []dforge.PR {
+	out := make([]dforge.PR, len(in))
 	for i, p := range in {
-		out[i] = PR{
+		out[i] = dforge.PR{
 			Number: p.PullRequestID, Title: cleanLine(p.Title),
 			Branch: cleanLine(strings.TrimPrefix(p.SourceRefName, "refs/heads/")),
 			Base:   cleanLine(strings.TrimPrefix(p.TargetRefName, "refs/heads/")),
@@ -100,21 +101,21 @@ func foldAzPRs(in []azPR) []PR {
 		if !p.ClosedDate.IsZero() {
 			out[i].Updated = p.ClosedDate
 		}
-		if out[i].State == Merged {
+		if out[i].State == dforge.Merged {
 			out[i].MergedAt = p.ClosedDate
 		}
 	}
 	return out
 }
 
-func azState(s string) PRState {
+func azState(s string) dforge.PRState {
 	switch s {
 	case "completed":
-		return Merged
+		return dforge.Merged
 	case "abandoned":
-		return Closed
+		return dforge.Closed
 	}
-	return Open
+	return dforge.Open
 }
 
 // ciPolicies is the evaluations that are CI: enabled build validation, and
@@ -136,18 +137,18 @@ func ciPolicies(in []azEvaluation) []azEvaluation {
 
 // azureCI is a build policy's status as the card's CI mark; an unknown one is
 // running, never passing.
-func azureCI(status string) CIState {
+func azureCI(status string) dforge.CIState {
 	switch status {
 	case "approved":
-		return CIPassing
+		return dforge.CIPassing
 	case "rejected", "broken":
-		return CIFailing
+		return dforge.CIFailing
 	}
-	return CIRunning
+	return dforge.CIRunning
 }
 
-func (a azBackend) foldItems(in []azWorkItem) []Issue {
-	out := make([]Issue, len(in))
+func (a azBackend) foldItems(in []azWorkItem) []dforge.Issue {
+	out := make([]dforge.Issue, len(in))
 	for i, w := range in {
 		out[i] = issueOf(w.ID, w.Fields.Title, tags(w.Fields.Tags), w.Fields.AssignedTo.DisplayName,
 			w.Fields.CreatedBy.DisplayName, w.Fields.ChangedDate, a.itemURL(w.ID))

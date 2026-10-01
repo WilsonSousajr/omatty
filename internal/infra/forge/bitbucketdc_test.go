@@ -2,6 +2,7 @@ package forge_test
 
 import (
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -119,15 +120,15 @@ func TestBitbucketDC_ListsPullRequests_issue461(t *testing.T) {
 	}
 
 	pr, _ := prNumbered(prs, 42)
-	want := forge.PR{Number: 42, Title: "Add the audit export", Branch: "feature/audit-export", Base: "main", State: forge.Open,
-		CI: forge.CIFailing, Conflict: true, Head: "8d51122def5632836d1cb1026e879069e10a1e13", Updated: pr.Updated}
+	want := dforge.PR{Number: 42, Title: "Add the audit export", Branch: "feature/audit-export", Base: "main", State: dforge.Open,
+		CI: dforge.CIFailing, Conflict: true, Head: "8d51122def5632836d1cb1026e879069e10a1e13", Updated: pr.Updated}
 	if pr != want || pr.Updated.IsZero() {
 		t.Errorf("#42 = %+v\nwant %+v", pr, want)
 	}
 	if fork, _ := prNumbered(prs, 41); !fork.Fork || !fork.Draft {
 		t.Errorf("#41 = %+v, want a draft from a personal fork", fork)
 	}
-	if merged, _ := prNumbered(prs, 40); merged.State != forge.Merged || merged.MergedAt.IsZero() {
+	if merged, _ := prNumbered(prs, 40); merged.State != dforge.Merged || merged.MergedAt.IsZero() {
 		t.Errorf("#40 = %+v, want merged with its close time", merged)
 	}
 }
@@ -147,7 +148,7 @@ func TestBitbucketDC_ReadsAPullRequestInFull_issue461(t *testing.T) {
 func TestBitbucketDC_KeepsNoIssues_issue461(t *testing.T) {
 	r := dcRouter(t, "https://git.corp.example/scm/ops/platform.git", dcToken, &FakeBitbucketDCAPI{})
 
-	if _, err := r.ListIssues(t.TempDir()); !errors.Is(err, forge.ErrNoTracker) {
+	if _, err := r.ListIssues(t.TempDir()); !errors.Is(err, dforge.ErrNoTracker) {
 		t.Errorf("error = %v, want ErrNoTracker", err)
 	}
 }
@@ -156,14 +157,14 @@ func TestBitbucketDC_KeepsNoIssues_issue461(t *testing.T) {
 func TestBitbucketDC_ClassifiesTheAnswer_issue461(t *testing.T) {
 	url := "https://git.corp.example/scm/ops/platform.git"
 	_, err := dcRouter(t, url, dcToken, &FakeBitbucketDCAPI{Status: 401}).ListPRs(t.TempDir())
-	var refused *forge.AuthError
+	var refused *dforge.AuthError
 	if !errors.As(err, &refused) || refused.TokenEnv != "BITBUCKET_DC_TOKEN" {
 		t.Errorf("401: error = %v, want BITBUCKET_DC_TOKEN refused", err)
 	}
-	if _, err := dcRouter(t, url, dcToken, &FakeBitbucketDCAPI{Status: 404}).ListPRs(t.TempDir()); !errors.Is(err, forge.ErrNoForge) {
+	if _, err := dcRouter(t, url, dcToken, &FakeBitbucketDCAPI{Status: 404}).ListPRs(t.TempDir()); !errors.Is(err, dforge.ErrNoForge) {
 		t.Errorf("404: error = %v, want ErrNoForge", err)
 	}
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if _, err := dcRouter(t, url, nil, &FakeBitbucketDCAPI{}).ListPRs(t.TempDir()); !errors.As(err, &missing) {
 		t.Errorf("no token: error = %v, want BITBUCKET_DC_TOKEN unset", err)
 	}
@@ -195,7 +196,7 @@ func TestBitbucketDC_KeepsAContextPathAndRefusesOtherShapes_issue461(t *testing.
 		t.Errorf("sent %+v, want the context path kept", api.Got)
 	}
 	_, err := dcRouter(t, "https://git.corp.example/scm/a/b/c.git", dcToken, &FakeBitbucketDCAPI{}).ListPRs(t.TempDir())
-	if !errors.Is(err, forge.ErrNoForge) {
+	if !errors.Is(err, dforge.ErrNoForge) {
 		t.Errorf("a three-part path: error = %v, want ErrNoForge", err)
 	}
 }
@@ -207,7 +208,7 @@ func TestBitbucketDC_AnHTTPRemoteStopsWithANote_issue584(t *testing.T) {
 	api := &FakeBitbucketDCAPI{}
 	_, err := dcRouter(t, "http://git.corp.example/scm/ops/platform.git", dcToken, api).ListPRs(t.TempDir())
 
-	var plain *forge.PlainHTTPError
+	var plain *dforge.PlainHTTPError
 	if !errors.As(err, &plain) || plain.TokenEnv != "BITBUCKET_DC_TOKEN" || plain.Host != "git.corp.example" {
 		t.Errorf("error = %v, want BITBUCKET_DC_TOKEN refused over http to git.corp.example", err)
 	}

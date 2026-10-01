@@ -2,13 +2,13 @@ package app_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -18,7 +18,7 @@ type recordRebind struct {
 	SessionID, Conversation string
 	Calls                   int
 	Err                     error
-	Tailed                  []sessions.Session
+	Tailed                  []session.Session
 }
 
 func (r *recordRebind) rebind(sessionID, conversation string) error {
@@ -27,7 +27,7 @@ func (r *recordRebind) rebind(sessionID, conversation string) error {
 	return r.Err
 }
 
-func (r *recordRebind) tail(sess sessions.Session) { r.Tailed = append(r.Tailed, sess) }
+func (r *recordRebind) tail(sess session.Session) { r.Tailed = append(r.Tailed, sess) }
 
 func modelWithRebind(t *testing.T, r *recordRebind) *app.Model {
 	t.Helper()
@@ -43,7 +43,7 @@ func modelWithRebind(t *testing.T, r *recordRebind) *app.Model {
 // cleared is the SessionStart a /clear in s1's pane produces: claude's new
 // conversation id, and the pane's registry id from the hook's environment.
 func cleared(owner string) app.StatusMsg {
-	return app.StatusMsg{SessionID: "after-clear", Owner: owner, Kind: status.SessionRebound, At: fixedNow}
+	return app.StatusMsg{SessionID: "after-clear", Owner: owner, Kind: dstatus.SessionRebound, At: fixedNow}
 }
 
 // Regression, issue #316: a /clear left the row on the pre-clear uuid, so
@@ -70,7 +70,7 @@ func TestModel_StatusUnderTheNewConversationReachesTheRow_issue316(t *testing.T)
 	m := modelWithRebind(t, &recordRebind{})
 	settle(m, second(m.Update(cleared("s1"))))
 
-	settle(m, second(m.Update(app.StatusMsg{SessionID: "after-clear", Kind: status.PermissionRequested, At: fixedNow.Add(time.Second)})))
+	settle(m, second(m.Update(app.StatusMsg{SessionID: "after-clear", Kind: dstatus.PermissionRequested, At: fixedNow.Add(time.Second)})))
 
 	if got := rowOf(t, m, "main"); !strings.Contains(got, "●") {
 		t.Errorf("a hook under the post-clear id did not reach s1's row: %q", got)
@@ -97,7 +97,7 @@ func TestModel_ForkedSessionStartDoesNotRebind_issue316(t *testing.T) {
 	r := &recordRebind{}
 	m := modelWithRebind(t, r)
 
-	m.Update(app.StatusMsg{SessionID: "fork", Owner: "s1", Kind: status.SessionStarted, At: fixedNow})
+	m.Update(app.StatusMsg{SessionID: "fork", Owner: "s1", Kind: dstatus.SessionStarted, At: fixedNow})
 
 	if r.Calls != 0 || len(r.Tailed) != 0 {
 		t.Errorf("a forked session re-bound s1: %d rebinds, tails %+v", r.Calls, r.Tailed)

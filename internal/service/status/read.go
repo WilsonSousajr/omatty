@@ -1,6 +1,9 @@
 package status
 
-import "time"
+import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"time"
+)
 
 // Read is a session's state as one read of its whole transcript implies:
 // the tailer's first poll, run once, with no timer and no hook socket (ADR
@@ -9,16 +12,16 @@ import "time"
 // the live card makes, because it is the same code.
 //
 //	st := status.Read(sess.ConversationID(), transcript.NewReader(path), profile.Status, time.Now)
-func Read(sessionID string, src Transcript, adapter Adapter, clock func() time.Time) SessionState {
+func Read(sessionID string, src Transcript, adapter dstatus.Adapter, clock func() time.Time) dstatus.SessionState {
 	// One poll sends at most a status event and a usage event.
-	sink := make(chan Event, 2)
+	sink := make(chan dstatus.Event, 2)
 	tl := &Tailer{sessionID: sessionID, src: src, sink: sink, clock: clock, adapter: adapter,
 		stop: make(chan struct{}), done: make(chan struct{})}
 	tl.Poll()
 	close(sink)
-	var st SessionState
+	var st dstatus.SessionState
 	for ev := range sink {
-		st = Apply(st, ev)
+		st = dstatus.Apply(st, ev)
 	}
 	return st
 }

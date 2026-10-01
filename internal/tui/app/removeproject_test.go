@@ -2,11 +2,11 @@ package app_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -16,9 +16,9 @@ type recordRemoveProject struct {
 	Err     error
 }
 
-func (r *recordRemoveProject) remove(name string) (sessions.Project, error) {
+func (r *recordRemoveProject) remove(name string) (session.Project, error) {
 	r.Removed = append(r.Removed, name)
-	return sessions.Project{Name: name}, r.Err
+	return session.Project{Name: name}, r.Err
 }
 
 // modelWithRemoveProject opens on wstech's header, the one row x can forget.

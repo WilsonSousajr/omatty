@@ -2,14 +2,14 @@ package app_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -22,12 +22,12 @@ type turnReverter struct {
 	Reverted []string
 }
 
-func (r *turnReverter) revert(sess sessions.Session) (int, error) {
+func (r *turnReverter) revert(sess session.Session) (int, error) {
 	r.Reverted = append(r.Reverted, sess.ID)
 	return r.Files, r.Err
 }
 
-func (r *turnReverter) count(_ sessions.Session) (int, error) { return r.Files, r.CountErr }
+func (r *turnReverter) count(_ session.Session) (int, error) { return r.Files, r.CountErr }
 
 func modelWithRevert(t *testing.T, rev *turnReverter) *app.Model {
 	t.Helper()
@@ -37,7 +37,7 @@ func modelWithRevert(t *testing.T, rev *turnReverter) *app.Model {
 	m := app.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	// A turn has to have started for there to be a baseline to go back to.
-	statusDeliver(m, "s1", status.TurnEnded, time.Now())
+	statusDeliver(m, "s1", dstatus.TurnEnded, time.Now())
 	return m
 }
 
@@ -102,7 +102,7 @@ func TestModel_enterDoesNotConfirmARevert_issue334(t *testing.T) {
 func TestModel_uRefusesWhileATurnIsInFlight_issue334(t *testing.T) {
 	rev := &turnReverter{Files: 3}
 	m := modelWithRevert(t, rev)
-	statusDeliver(m, "s1", status.ToolStarted, time.Now())
+	statusDeliver(m, "s1", dstatus.ToolStarted, time.Now())
 
 	leader(m, key('u'))
 

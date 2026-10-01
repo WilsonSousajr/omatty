@@ -8,13 +8,13 @@
 package app
 
 import (
+	dsession "github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // GateMsg carries one finished gate run into the model's Update loop.
@@ -97,13 +97,13 @@ func (m *Model) gateFor(id string) []gate.Step {
 }
 
 // sessionByID is the registered session with that id.
-func (m *Model) sessionByID(id string) (sessions.Session, bool) {
+func (m *Model) sessionByID(id string) (dsession.Session, bool) {
 	for _, sess := range m.state.Sessions {
 		if sess.ID == id {
 			return sess, true
 		}
 	}
-	return sessions.Session{}, false
+	return dsession.Session{}, false
 }
 
 // tallyRun counts a gate run that followed a turn (#332).
@@ -167,7 +167,7 @@ func passedWholly(report gate.Report) bool {
 // Guarded on the transition, not the state: the tailer replays, and gating
 // again on a repeated TurnEnded would cancel a run in flight to start the
 // same one over.
-func (m *Model) autoGate(id string, before, after status.Status) {
+func (m *Model) autoGate(id string, before, after dstatus.Status) {
 	if !m.gateAuto || before == after || !atRest(after) {
 		return
 	}

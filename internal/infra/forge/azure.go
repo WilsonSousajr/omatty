@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/url"
 	"strconv"
 	"strings"
@@ -27,7 +28,7 @@ type azBackend struct {
 
 // azureLabel is Azure's words: pull requests written "!12", since "#12" is a
 // work item there.
-var azureLabel = Label{Forge: "Azure DevOps", Change: "pull request", Short: "PR", Sigil: "!"}
+var azureLabel = dforge.Label{Forge: "Azure DevOps", Change: "pull request", Short: "PR", Sigil: "!"}
 
 // azureVersion pins every call's api-version, as Azure asks.
 const azureVersion = "api-version=7.1"
@@ -41,7 +42,7 @@ const azureVersion = "api-version=7.1"
 func azureCoordinates(r Remote) (base, project, repo string, err error) {
 	prefix, project, repo, ok := azurePath(unescaped(r.Path))
 	if !ok {
-		return "", "", "", fmt.Errorf("forge: %q is not an Azure DevOps repository, want <org>/<project>/_git/<repo>: %w", r.Slug(), ErrNoForge)
+		return "", "", "", fmt.Errorf("forge: %q is not an Azure DevOps repository, want <org>/<project>/_git/<repo>: %w", r.Slug(), dforge.ErrNoForge)
 	}
 	if azureSSH(r.Host) && len(prefix) > 0 && prefix[0] == "v3" {
 		// ssh's own prefix, which parsing leaves on a Host alias unaliased
@@ -51,7 +52,7 @@ func azureCoordinates(r Remote) (base, project, repo string, err error) {
 	switch {
 	case r.Host == "dev.azure.com" || azureSSH(r.Host):
 		if len(prefix) == 0 {
-			return "", "", "", fmt.Errorf("forge: %q names no Azure DevOps organisation: %w", r.Slug(), ErrNoForge)
+			return "", "", "", fmt.Errorf("forge: %q names no Azure DevOps organisation: %w", r.Slug(), dforge.ErrNoForge)
 		}
 		return "https://dev.azure.com/" + url.PathEscape(prefix[0]), project, repo, nil
 	}
@@ -110,8 +111,8 @@ func azGet[T any](ctx context.Context, a azBackend, u string) (T, error) {
 	return out, nil
 }
 
-func (a azBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
-	var all []PR
+func (a azBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
+	var all []dforge.PR
 	for _, q := range []string{"status=active&$top=100", "status=completed&$top=" + finishedWindow, "status=abandoned&$top=" + finishedWindow} {
 		page, err := azGet[azList[azPR]](ctx, a, a.repoAPI("pullrequests?searchCriteria."+q))
 		if err != nil {
@@ -123,18 +124,18 @@ func (a azBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
 	return all, nil
 }
 
-func (a azBackend) ciKey(pr PR) string {
+func (a azBackend) ciKey(pr dforge.PR) string {
 	return a.host + "/" + a.project + "/" + a.repo + "!" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
 // policyCI is the worst of the pull request's build policies: Azure's CI is a
 // build validation policy on the target branch, evaluated per pull request.
-func (a azBackend) policyCI(ctx context.Context, pr PR) (CIState, error) {
+func (a azBackend) policyCI(ctx context.Context, pr dforge.PR) (dforge.CIState, error) {
 	builds, err := a.builds(ctx, pr.Number)
 	if err != nil || len(builds) == 0 {
-		return CINone, err
+		return dforge.CINone, err
 	}
-	worst := CINone
+	worst := dforge.CINone
 	for _, b := range builds {
 		worst = max(worst, azureCI(b.Status))
 	}

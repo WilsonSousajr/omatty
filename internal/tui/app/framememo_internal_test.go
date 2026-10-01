@@ -1,14 +1,14 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
@@ -29,9 +29,9 @@ type unknownMsg struct{}
 
 func memoModel() (*Model, *mutablePane) {
 	pane := &mutablePane{Fake: terminal.NewFake(""), view: "pane one\npane two"}
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "p", Root: "/tmp/p"}},
-		Sessions: []sessions.Session{
+	st := session.State{
+		Projects: []session.Project{{Name: "p", Root: "/tmp/p"}},
+		Sessions: []session.Session{
 			{ID: "s1", Project: "p", Title: "first session", Dir: "/tmp/p"},
 			{ID: "s2", Project: "p", Title: "second session", Dir: "/tmp/p"},
 		},
@@ -69,7 +69,7 @@ func TestFrame_MemoMatchesAFreshFrameAfterEveryMessage(t *testing.T) {
 	}{
 		{"tick", TickMsg(time.Unix(1, 0))},
 		{"stat tick", StatTickMsg(time.Unix(1, 0))},
-		{"status", StatusMsg(status.Event{SessionID: "s1", Kind: status.PermissionRequested, At: time.Unix(2, 0)})},
+		{"status", StatusMsg(dstatus.Event{SessionID: "s1", Kind: dstatus.PermissionRequested, At: time.Unix(2, 0)})},
 		{"repo stat", RepoStatMsg{SessionID: "s1", Stat: review.Stat{Branch: "topic", Added: 9, Removed: 4}}},
 		{"diff loaded", DiffLoadedMsg{SessionID: "s1"}},
 		{"files loaded", FilesLoadedMsg{SessionID: "s1", Paths: []string{"a.go"}}},
@@ -115,7 +115,7 @@ func TestFrame_EmulatorTrafficKeepsTheMemo(t *testing.T) {
 	before := m.frame()
 
 	m.Update(unknownMsg{})
-	m.status["s1"] = status.SessionState{Status: status.StatusWaiting}
+	m.status["s1"] = dstatus.SessionState{Status: dstatus.StatusWaiting}
 
 	if got := m.frame(); got != before {
 		t.Error("emulator traffic dropped the memo; the frame was rebuilt although nothing on it had changed")

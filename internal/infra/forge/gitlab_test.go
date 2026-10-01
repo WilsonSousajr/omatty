@@ -3,6 +3,7 @@ package forge_test
 import (
 	"errors"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -76,13 +77,13 @@ func glabCalls(t *testing.T, calls string) []string {
 	return strings.Split(strings.TrimSpace(string(b)), "\n")
 }
 
-func prNumbered(prs []forge.PR, n int) (forge.PR, bool) {
+func prNumbered(prs []dforge.PR, n int) (dforge.PR, bool) {
 	for _, pr := range prs {
 		if pr.Number == n {
 			return pr, true
 		}
 	}
-	return forge.PR{}, false
+	return dforge.PR{}, false
 }
 
 // A GitLab project's merge requests reach the card as pull requests do: open
@@ -92,15 +93,15 @@ func TestGitLab_ListsMergeRequestsWithTheirCI_issue454(t *testing.T) {
 	prs := gitLabPRs(t)
 
 	mr, _ := prNumbered(prs, 3967)
-	want := forge.PR{Number: 3967, Title: "chore: spec validation added", Branch: "7699-follow-up-validate-spec-for-components", Base: "main",
-		State: forge.Open, CI: forge.CIPassing, Head: "cd159740322d05525356761f62e4f2ceac6228d6", Updated: mr.Updated}
+	want := dforge.PR{Number: 3967, Title: "chore: spec validation added", Branch: "7699-follow-up-validate-spec-for-components", Base: "main",
+		State: dforge.Open, CI: dforge.CIPassing, Head: "cd159740322d05525356761f62e4f2ceac6228d6", Updated: mr.Updated}
 	if !reflect.DeepEqual(mr, want) || mr.Updated.IsZero() {
 		t.Errorf("!3967 = %+v\nwant %+v", mr, want)
 	}
 }
 
 // gitLabPRs is the recorded project's merge requests through the fake glab.
-func gitLabPRs(t *testing.T) []forge.PR {
+func gitLabPRs(t *testing.T) []dforge.PR {
 	t.Helper()
 	r, _ := gitLabRouter(t, "git@gitlab.com:gitlab-org/cli.git", nil)
 	prs, err := r.ListPRs(t.TempDir())
@@ -117,7 +118,7 @@ func TestGitLab_MarksDraftForkAndReview_issue454(t *testing.T) {
 	if draft, _ := prNumbered(prs, 3966); !draft.Draft {
 		t.Errorf("!3966 = %+v, want a draft", draft)
 	}
-	if fork, _ := prNumbered(prs, 3963); !fork.Fork || fork.Review != forge.ReviewChanges {
+	if fork, _ := prNumbered(prs, 3963); !fork.Fork || fork.Review != dforge.ReviewChanges {
 		t.Errorf("!3963 = %+v, want a fork with changes requested", fork)
 	}
 }
@@ -129,7 +130,7 @@ func TestGitLab_ListsTheRecentlyFinished_issue454(t *testing.T) {
 
 	finished := 0
 	for _, pr := range prs {
-		if pr.State == forge.Merged && !pr.MergedAt.IsZero() || pr.State == forge.Closed {
+		if pr.State == dforge.Merged && !pr.MergedAt.IsZero() || pr.State == dforge.Closed {
 			finished++
 		}
 	}
@@ -141,11 +142,11 @@ func TestGitLab_ListsTheRecentlyFinished_issue454(t *testing.T) {
 // A pipeline status maps to the card's CI mark, and one omatty does not know
 // is running - unknown is never shown as passing.
 func TestGitLab_PipelineStatusIsTheCIMark_issue454(t *testing.T) {
-	for status, want := range map[string]forge.CIState{
-		"success": forge.CIPassing, "skipped": forge.CIPassing,
-		"failed": forge.CIFailing, "canceled": forge.CIFailing,
-		"running": forge.CIRunning, "pending": forge.CIRunning, "created": forge.CIRunning,
-		"manual": forge.CIRunning, "scheduled": forge.CIRunning, "something-new": forge.CIRunning,
+	for status, want := range map[string]dforge.CIState{
+		"success": dforge.CIPassing, "skipped": dforge.CIPassing,
+		"failed": dforge.CIFailing, "canceled": dforge.CIFailing,
+		"running": dforge.CIRunning, "pending": dforge.CIRunning, "created": dforge.CIRunning,
+		"manual": dforge.CIRunning, "scheduled": dforge.CIRunning, "something-new": dforge.CIRunning,
 	} {
 		if got := forge.GitLabCI(status); got != want {
 			t.Errorf("pipeline %q = %v, want %v", status, got, want)
@@ -207,7 +208,7 @@ func TestGitLab_ReadsAMergeRequestInFull_issue454(t *testing.T) {
 	if len(d.Comments) != 2 || d.Comments[0].Author != "reviewer-one" {
 		t.Errorf("comments = %+v, want the two that are not system notes", d.Comments)
 	}
-	if len(d.Checks) != 17 || d.Checks[2].Name != "tests:integration" || d.Checks[2].State != forge.CIPassing {
+	if len(d.Checks) != 17 || d.Checks[2].Name != "tests:integration" || d.Checks[2].State != dforge.CIPassing {
 		t.Errorf("checks = %+v, want the pipeline's 17 jobs", d.Checks)
 	}
 }
@@ -252,7 +253,7 @@ func TestGitLab_WithoutGlabIsAMissingTool_issue454(t *testing.T) {
 
 	_, err := r.ListPRs(t.TempDir())
 
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || missing.Tool != "glab" {
 		t.Errorf("error = %v, want glab missing", err)
 	}
@@ -262,8 +263,8 @@ func TestGitLab_WithoutGlabIsAMissingTool_issue454(t *testing.T) {
 // 401 is a login the forge refused.
 func TestGitLab_GlabsHTTPStatusIsClassified_issue454(t *testing.T) {
 	for status, check := range map[int]func(error) bool{
-		404: func(err error) bool { return errors.Is(err, forge.ErrNoForge) },
-		401: func(err error) bool { var a *forge.AuthError; return errors.As(err, &a) && a.Status == 401 },
+		404: func(err error) bool { return errors.Is(err, dforge.ErrNoForge) },
+		401: func(err error) bool { var a *dforge.AuthError; return errors.As(err, &a) && a.Status == 401 },
 	} {
 		bin, _ := fakeGH(t, "", fmt.Sprintf("glab: %d Unauthorized (HTTP %d)", status, status), 1)
 		r := forge.NewTestRouter(forge.TestEnv{
@@ -303,7 +304,7 @@ func TestGitLab_AMissingItemIsNotAMissingForge_issue454(t *testing.T) {
 
 	_, err := r.ViewIssue(t.TempDir(), 1)
 
-	if err == nil || errors.Is(err, forge.ErrNoForge) || !errors.Is(err, forge.ErrNotFound) {
+	if err == nil || errors.Is(err, dforge.ErrNoForge) || !errors.Is(err, forge.ErrNotFound) {
 		t.Errorf("error = %v, want not found and not ErrNoForge", err)
 	}
 }
@@ -338,7 +339,7 @@ func TestGitLab_AnInstanceOnAPortIsNamedToGlabBare_issue454(t *testing.T) {
 func TestGitLab_CIIsEachMergeRequestsHeadPipeline_issue454(t *testing.T) {
 	prs := gitLabPRs(t)
 
-	for n, want := range map[int]forge.CIState{3967: forge.CIPassing, 3966: forge.CIFailing, 3963: forge.CINone} {
+	for n, want := range map[int]dforge.CIState{3967: dforge.CIPassing, 3966: dforge.CIFailing, 3963: dforge.CINone} {
 		if pr, _ := prNumbered(prs, n); pr.CI != want {
 			t.Errorf("!%d CI = %v, want %v", n, pr.CI, want)
 		}

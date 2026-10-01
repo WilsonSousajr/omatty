@@ -3,6 +3,7 @@ package forge_test
 import (
 	"encoding/base64"
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/http"
 	"strings"
 	"testing"
@@ -65,7 +66,7 @@ func TestBitbucket_ASelfHostedHostIsNeverSentToCloud_issue460(t *testing.T) {
 func TestBitbucket_A404WithATokenNamesTheToken_issue460(t *testing.T) {
 	_, err := bitbucketRouter(t, bitbucketToken, &FakeBitbucketAPI{Status: 404}).ListPRs(t.TempDir())
 
-	var refused *forge.AuthError
+	var refused *dforge.AuthError
 	if !errors.As(err, &refused) || refused.TokenEnv != "BITBUCKET_TOKEN" || refused.Status != 404 {
 		t.Errorf("error = %v, want BITBUCKET_TOKEN named with the 404", err)
 	}
@@ -117,7 +118,7 @@ func TestBitbucket_FoldsEveryCase_issue460(t *testing.T) {
 	two, _ := prNumbered(prs, 2)
 	three, _ := prNumbered(prs, 3)
 	four, _ := prNumbered(prs, 4)
-	if err != nil || !one.Draft || one.Fork || !two.Fork || three.State != forge.Merged || three.MergedAt.IsZero() || four.State != forge.Closed {
+	if err != nil || !one.Draft || one.Fork || !two.Fork || three.State != dforge.Merged || three.MergedAt.IsZero() || four.State != dforge.Closed {
 		t.Errorf("ListPRs = %+v, %v; want a draft, a fork, merged with its time and superseded closed", prs, err)
 	}
 }
@@ -138,7 +139,7 @@ func TestBitbucket_CIIsTheWorstStatus_issue460(t *testing.T) {
 
 	prs, err := bitbucketRouter(t, bitbucketToken, api).ListPRs(t.TempDir())
 
-	if pr, _ := prNumbered(prs, 1115); err != nil || pr.CI != forge.CIFailing {
+	if pr, _ := prNumbered(prs, 1115); err != nil || pr.CI != dforge.CIFailing {
 		t.Errorf("#1115 CI = %v, %v; want failing", pr.CI, err)
 	}
 }
@@ -169,7 +170,7 @@ func TestBitbucket_CommentsAreWholeOrMarkedCut_issue460(t *testing.T) {
 
 // Bitbucket keeps no issues, so there is no issue page to open either.
 func TestBitbucket_BrowseHasNoIssuePage_issue460(t *testing.T) {
-	if err := bitbucketRouter(t, bitbucketToken, &FakeBitbucketAPI{}).BrowseIssue(t.TempDir(), 1); !errors.Is(err, forge.ErrNoTracker) {
+	if err := bitbucketRouter(t, bitbucketToken, &FakeBitbucketAPI{}).BrowseIssue(t.TempDir(), 1); !errors.Is(err, dforge.ErrNoTracker) {
 		t.Errorf("BrowseIssue = %v, want ErrNoTracker", err)
 	}
 }

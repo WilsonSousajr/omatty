@@ -2,6 +2,7 @@ package hooks_test
 
 import (
 	"encoding/json"
+	"github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
@@ -48,7 +49,7 @@ func TestReport_ForwardsTheOwningSession_issue316(t *testing.T) {
 
 	select {
 	case line := <-got:
-		var p hooks.Payload
+		var p status.HookPayload
 		if err := json.Unmarshal([]byte(line), &p); err != nil || p.OmattySession != "row-1" || p.Source != "clear" {
 			t.Errorf("forwarded %q (err %v), want omatty_session row-1 and source clear", line, err)
 		}

@@ -2,11 +2,11 @@ package app_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -52,7 +52,7 @@ func TestModel_ctrlOrRestartsTheFocusedSession_issue15(t *testing.T) {
 
 func TestModel_ctrlOrWithNoSessionIsHarmless_issue15(t *testing.T) {
 	s := &startRecorder{}
-	m := app.NewModel(app.Deps{State: sessions.State{}, Terms: map[string]terminal.Terminal{}, Create: noCreate, Start: s.fn})
+	m := app.NewModel(app.Deps{State: session.State{}, Terms: map[string]terminal.Terminal{}, Create: noCreate, Start: s.fn})
 
 	press(m, ctrl('o'))
 	pressAndSettle(m, key('r'))

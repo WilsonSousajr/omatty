@@ -7,7 +7,7 @@ package app
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 )
 
 // openSwitcher lists every session across every project, in sidebar order, so
@@ -33,9 +33,9 @@ func (m *Model) openSwitcher() tea.Cmd {
 
 // rowSessions is what a row offers the switcher: its session, or the sessions
 // a folded header hides (#505). A plain header is a label, never a target.
-func rowSessions(row Row) []*sessions.Session {
+func rowSessions(row Row) []*session.Session {
 	if row.Session != nil {
-		return []*sessions.Session{row.Session}
+		return []*session.Session{row.Session}
 	}
 	return row.Folded
 }

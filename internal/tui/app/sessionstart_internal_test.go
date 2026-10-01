@@ -1,9 +1,9 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
@@ -11,10 +11,10 @@ import (
 // Kept, its terminal would run a claude nobody can see or stop; it is closed
 // instead (#653).
 func TestModel_aRestartLandingAfterArchiveClosesItsTerminal_issue653(t *testing.T) {
-	m := NewModel(Deps{State: sessions.State{}, Terms: map[string]terminal.Terminal{}})
+	m := NewModel(Deps{State: session.State{}, Terms: map[string]terminal.Terminal{}})
 	fake := terminal.NewFake("")
 
-	m.onSessionStarted(sessionStartedMsg{sess: sessions.Session{ID: "gone"}, term: fake, restart: true})
+	m.onSessionStarted(sessionStartedMsg{sess: session.Session{ID: "gone"}, term: fake, restart: true})
 
 	if !fake.Closed {
 		t.Error("the terminal of a session archived mid-restart was left running")

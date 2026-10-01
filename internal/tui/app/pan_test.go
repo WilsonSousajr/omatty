@@ -1,12 +1,12 @@
 package app_test
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -182,7 +182,7 @@ func TestModel_TheTitleMarksAPannedColumn_issue94(t *testing.T) {
 }
 
 // wideDiff is a one-file diff whose added line is far wider than the column.
-func wideDiff(t *testing.T) review.Diff {
+func wideDiff(t *testing.T) dreview.Diff {
 	t.Helper()
 	d, err := gitdiff.ParseDiff(strings.NewReader("diff --git a/w.go b/w.go\n" +
 		"--- a/w.go\n+++ b/w.go\n@@ -1 +1,2 @@\n context\n" +

@@ -3,24 +3,25 @@ package app
 import (
 	"errors"
 	"fmt"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	dsession "github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // DiffFunc loads a session's diff. Injected so ui never touches git
 // (invariant 4); projectRoot is the session's project's main checkout, the
 // fallback base for worktrees that recorded none.
-type DiffFunc func(sess sessions.Session, projectRoot string) (review.Diff, error)
+type DiffFunc func(sess dsession.Session, projectRoot string) (dreview.Diff, error)
 
 // DiffLoadedMsg carries a loaded diff into Update. Exported so tests can send
 // one.
 type DiffLoadedMsg struct {
 	SessionID string
-	Diff      review.Diff
+	Diff      dreview.Diff
 	Err       error
 	Seq       uint64 // the load that asked; only the latest is drawn (#352)
 }
@@ -32,7 +33,7 @@ type ListFilesFunc func(dir string) ([]string, error)
 // GeneratedFunc reports which of paths nobody wrote (#338). Injected like
 // ListFilesFunc, because the detection asks git about .gitattributes and reads
 // file headers, and ui does neither.
-type GeneratedFunc func(sess sessions.Session, paths []string) (map[string]bool, error)
+type GeneratedFunc func(sess dsession.Session, paths []string) (map[string]bool, error)
 
 // TallyFunc records one gate run that followed a turn, and whether it passed
 // (#332). Injected because it writes state.json, which ui may not touch itself
@@ -41,7 +42,7 @@ type TallyFunc func(project string, passed bool) error
 
 // PreviewFunc reads one file for the preview view, so a test never touches
 // the filesystem.
-type PreviewFunc func(dir, rel string) (review.Preview, error)
+type PreviewFunc func(dir, rel string) (dreview.Preview, error)
 
 // FilesLoadedMsg carries a worktree listing into Update. Exported so tests
 // can send one.
@@ -82,14 +83,14 @@ type ReviewPane struct {
 	Focused   bool
 	SessionID string // whose diff is shown
 	View      ReviewView
-	Diff      review.Diff
-	Entries   []review.Entry
+	Diff      dreview.Diff
+	Entries   []dreview.Entry
 	// Scope is the whole session or this turn (#311). TurnDiff is what the
 	// turn scope draws, TurnErr its last load's error (ErrNoTurn is a notice,
 	// not a failure), and TurnReady whether a load has answered since the
 	// scope was entered - until it has, the column says it is reading.
 	Scope     reviewScope
-	TurnDiff  review.Diff
+	TurnDiff  dreview.Diff
 	TurnErr   error
 	TurnReady bool
 	DiffList  listWindow // the cursor over Entries (#424)
@@ -106,7 +107,7 @@ type ReviewPane struct {
 	// which is what the "listing files..." placeholder means. TreeErr is
 	// separate from Err so a failed listing never blanks the diff, and a
 	// failed diff never blanks the tree: the two load independently.
-	Tree    *review.Tree
+	Tree    *dreview.Tree
 	TreeErr string
 	Files   listWindow // the cursor over the tree's visible rows (#424)
 	// The gate view's state (#231). GateOpen is which steps are folded open,
@@ -121,7 +122,7 @@ type ReviewPane struct {
 	Tracker trackerList
 	// The preview view's state: one file at a time, so a new preview
 	// replaces the last rather than accumulating.
-	Preview       review.Preview
+	Preview       dreview.Preview
 	PreviewOffset int
 	// ColOffset is the horizontal counterpart of the three vertical offsets
 	// above: how many display cells every content row is scrolled left, so a
@@ -158,7 +159,7 @@ const (
 // can send one.
 type TurnLoadedMsg struct {
 	SessionID string
-	Diff      review.Diff
+	Diff      dreview.Diff
 	Err       error
 	Seq       uint64 // the load that asked; only the latest is drawn (#352)
 }
@@ -166,7 +167,7 @@ type TurnLoadedMsg struct {
 // shownDiff is the diff the rows are drawn from and indexed into. PruneSent,
 // Compose and the tree's markers keep m.review.Diff, the whole session, on
 // purpose (#311).
-func (m *Model) shownDiff() review.Diff {
+func (m *Model) shownDiff() dreview.Diff {
 	if m.review.Scope == scopeTurn {
 		return m.review.TurnDiff
 	}
@@ -185,7 +186,7 @@ type filterLine struct {
 // leave it pointing past the end of a shorter diff.
 type noteEditor struct {
 	Active bool
-	Anchor review.Anchor
+	Anchor dreview.Anchor
 	Quote  string
 	Buffer string
 	// Fragment is the part of Quote the note is about, and Stage says which of
@@ -209,8 +210,8 @@ const (
 
 // noDiff is the Deps.Diff default: it names the missing wiring rather than
 // showing an empty diff, which would read as "this session changed nothing".
-func noDiff(sess sessions.Session, _ string) (review.Diff, error) {
-	return review.Diff{}, fmt.Errorf("ui: no diff source configured for session %s", sess.ID)
+func noDiff(sess dsession.Session, _ string) (dreview.Diff, error) {
+	return dreview.Diff{}, fmt.Errorf("ui: no diff source configured for session %s", sess.ID)
 }
 
 // noFiles is the Deps.Files default, for the same reason as noDiff: an empty
@@ -373,13 +374,13 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 // cursor on a valid row.
 func (m *Model) rebuildEntries() {
 	d, comments := m.shownDiff(), m.commentsFor(m.review.SessionID).All()
-	placed := review.Place(d, comments)
+	placed := dreview.Place(d, comments)
 	if m.review.Scope == scopeTurn {
 		// Through the session diff, by line rather than first match; what
 		// does not place is elsewhere in the session, not moved (#311).
-		placed = review.PlaceIn(m.review.Diff, d, comments)
+		placed = dreview.PlaceIn(m.review.Diff, d, comments)
 	}
-	m.review.Entries = m.withoutFolded(review.Flatten(d, placed), d)
+	m.review.Entries = m.withoutFolded(dreview.Flatten(d, placed), d)
 	m.review.HunkStyles = nil // the hunks may be another diff's now (#435)
 	m.contentChanged()
 	if m.review.DiffList.Cursor >= len(m.review.Entries) {
@@ -388,9 +389,9 @@ func (m *Model) rebuildEntries() {
 }
 
 // commentsFor returns the session's queue, creating it on first use.
-func (m *Model) commentsFor(id string) *review.Comments {
+func (m *Model) commentsFor(id string) *dreview.Comments {
 	if m.comments[id] == nil {
-		m.comments[id] = review.NewComments()
+		m.comments[id] = dreview.NewComments()
 	}
 	return m.comments[id]
 }
@@ -431,10 +432,10 @@ func keptView(v ReviewView) ReviewView {
 	return v
 }
 
-func (m *Model) session(id string) (sessions.Session, bool) {
+func (m *Model) session(id string) (dsession.Session, bool) {
 	i, ok := m.sessionIndex(id)
 	if !ok {
-		return sessions.Session{}, false
+		return dsession.Session{}, false
 	}
 	return m.state.Sessions[i], true
 }
@@ -468,11 +469,11 @@ func (m *Model) projectRoot(name string) string {
 // stops for a question: that is the moment the operator looks at what changed,
 // and a diff from before the turn would be stale on arrival (#21). The
 // listing goes with it, so a file claude created appears without r (#195).
-func (m *Model) refreshReview(id string, before, after status.Status) tea.Cmd {
+func (m *Model) refreshReview(id string, before, after dstatus.Status) tea.Cmd {
 	if id != m.review.SessionID || before == after {
 		return nil
 	}
-	if after != status.StatusDone && after != status.StatusWaiting {
+	if after != dstatus.StatusDone && after != dstatus.StatusWaiting {
 		return nil
 	}
 	// A closed column keeps its content for the reopen (#124); forking git

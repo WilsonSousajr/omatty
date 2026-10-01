@@ -3,6 +3,7 @@ package sessions
 import (
 	"context"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"path/filepath"
 	"strings"
 )
@@ -42,7 +43,7 @@ type SessionPick struct {
 // Registration. Session is the row that was actually written; Err is why there
 // is none.
 type Adoption struct {
-	Session Session
+	Session session.Session
 	Err     error
 }
 
@@ -67,22 +68,22 @@ func AdoptAll(ctx context.Context, s StateStore, git SessionBrancher, project st
 // the repository's own directory. It is the whole of `omatty add`.
 //
 //	p, err := sessions.AddProject(ctx, store, vcs.NewCLI(), cwd)
-func AddProject(ctx context.Context, s StateStore, git RepoRooter, dir string) (Project, error) {
+func AddProject(ctx context.Context, s StateStore, git RepoRooter, dir string) (session.Project, error) {
 	root, err := git.RepoRoot(ctx, dir)
 	if err != nil {
 		// Deliberately does not assert the cause: the path may be missing, a
 		// file, or a directory that simply is not a repository (issue #29).
-		return Project{}, fmt.Errorf("registry: cannot register %q: %w", dir, err)
+		return session.Project{}, fmt.Errorf("registry: cannot register %q: %w", dir, err)
 	}
 	st, err := s.Load(ctx)
 	if err != nil {
-		return Project{}, err
+		return session.Project{}, err
 	}
-	p := Project{Name: filepath.Base(root), Root: root}
+	p := session.Project{Name: filepath.Base(root), Root: root}
 	// The name is the key sessions look up, so a collision would silently
 	// attach new sessions to the wrong repository.
 	if existing, err := findProject(&st, p.Name); err == nil {
-		return Project{}, fmt.Errorf(
+		return session.Project{}, fmt.Errorf(
 			"registry: project %q is already registered at %q", p.Name, existing.Root)
 	}
 	st.Projects = append(st.Projects, p)
@@ -93,7 +94,7 @@ func AddProject(ctx context.Context, s StateStore, git RepoRooter, dir string) (
 // the row that was actually written, so a caller never has to reconstruct it.
 type Registration struct {
 	Root    string
-	Project Project
+	Project session.Project
 	Err     error
 }
 
@@ -150,10 +151,10 @@ func RenameSession(ctx context.Context, s StateStore, id, title string) error {
 //
 //	err := sessions.RenameBranch(ctx, store, sess.ID, "fix-the-wheel-pan")
 func RenameBranch(ctx context.Context, s StateStore, id, branch string) error {
-	if Slug(branch) != branch || branch == "" {
+	if session.Slug(branch) != branch || branch == "" {
 		return fmt.Errorf(
 			"registry: session %q: branch %q is not a name git and the filesystem both accept, want %q",
-			id, branch, Slug(branch))
+			id, branch, session.Slug(branch))
 	}
 	st, err := s.Load(ctx)
 	if err != nil {
@@ -185,7 +186,7 @@ func RenameBranch(ctx context.Context, s StateStore, id, branch string) error {
 // recoverable and says so.
 //
 //	renamed, err := sessions.RenameSessionBranch(ctx, store, git, sess, "fix-the-pan", true)
-func RenameSessionBranch(ctx context.Context, s StateStore, git BranchRenamer, sess Session, branch string, unstartedOnly bool) (bool, error) {
+func RenameSessionBranch(ctx context.Context, s StateStore, git BranchRenamer, sess session.Session, branch string, unstartedOnly bool) (bool, error) {
 	root, err := git.MainCheckout(ctx, sess.Dir)
 	if err != nil {
 		return false, err
@@ -204,7 +205,7 @@ func RenameSessionBranch(ctx context.Context, s StateStore, git BranchRenamer, s
 
 // branchStarted reports whether a session's branch has anything its base does
 // not. No recorded base means no answer, which counts as started.
-func branchStarted(ctx context.Context, git BranchRenamer, root string, sess Session) (bool, error) {
+func branchStarted(ctx context.Context, git BranchRenamer, root string, sess session.Session) (bool, error) {
 	if sess.Base == "" {
 		return true, nil
 	}
@@ -219,14 +220,14 @@ func branchStarted(ctx context.Context, git BranchRenamer, root string, sess Ses
 //
 //	sess, err := sessions.RemoveSession(ctx, store, id)
 //	if err == nil && sess.Worktree { /* git worktree remove sess.Dir */ }
-func RemoveSession(ctx context.Context, s StateStore, id string) (Session, error) {
+func RemoveSession(ctx context.Context, s StateStore, id string) (session.Session, error) {
 	st, err := s.Load(ctx)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	i, err := indexOfSession(&st, id)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	sess := st.Sessions[i]
 	st.Sessions = append(st.Sessions[:i], st.Sessions[i+1:]...)
@@ -241,17 +242,17 @@ func RemoveSession(ctx context.Context, s StateStore, id string) (Session, error
 // destructive path (#159).
 //
 //	p, err := sessions.RemoveProject(ctx, store, "wstech")
-func RemoveProject(ctx context.Context, s StateStore, name string) (Project, error) {
+func RemoveProject(ctx context.Context, s StateStore, name string) (session.Project, error) {
 	st, err := s.Load(ctx)
 	if err != nil {
-		return Project{}, err
+		return session.Project{}, err
 	}
 	i, err := indexOfProject(&st, name)
 	if err != nil {
-		return Project{}, err
+		return session.Project{}, err
 	}
 	if n := sessionsIn(&st, name); n > 0 {
-		return Project{}, fmt.Errorf(
+		return session.Project{}, fmt.Errorf(
 			"registry: project %q still holds %d %s; archive them first", name, n, plural(n, "session"))
 	}
 	p := st.Projects[i]
@@ -263,7 +264,7 @@ func RemoveProject(ctx context.Context, s StateStore, name string) (Project, err
 // indexOfSession returns an index: the caller edits the slice it is about to
 // save. The miss is -1, not 0, so a dropped error cannot remove the first
 // project by accident.
-func indexOfProject(st *State, name string) (int, error) {
+func indexOfProject(st *session.State, name string) (int, error) {
 	for i := range st.Projects {
 		if st.Projects[i].Name == name {
 			return i, nil
@@ -283,7 +284,7 @@ func plural(n int, noun string) string {
 
 // sessionsIn counts a project's sessions, which is what decides whether it
 // may be removed.
-func sessionsIn(st *State, project string) int {
+func sessionsIn(st *session.State, project string) int {
 	n := 0
 	for _, sess := range st.Sessions {
 		if sess.Project == project {
@@ -301,7 +302,7 @@ func sessionsIn(st *State, project string) int {
 // rename or archive whichever session happens to sit first in state.json, and
 // silent data corruption is worse than the immediate panic an out-of-range
 // index gives (#41).
-func indexOfSession(st *State, id string) (int, error) {
+func indexOfSession(st *session.State, id string) (int, error) {
 	for i := range st.Sessions {
 		if st.Sessions[i].ID == id {
 			return i, nil
@@ -311,7 +312,7 @@ func indexOfSession(st *State, id string) (int, error) {
 		"registry: no session with id %q (known sessions: %v)", id, sessionIDs(st))
 }
 
-func sessionIDs(st *State) []string {
+func sessionIDs(st *session.State) []string {
 	ids := make([]string, 0, len(st.Sessions))
 	for _, sess := range st.Sessions {
 		ids = append(ids, sess.ID)
@@ -327,10 +328,10 @@ func sessionIDs(st *State) []string {
 // its own copy of this loop, against invariant 10 - so a change to what a name
 // means would have had to be made twice, or the CLI and the registry would
 // disagree about which project an argument selects (#122).
-func NamedProject(ctx context.Context, s StateStore, name string) (Project, error) {
+func NamedProject(ctx context.Context, s StateStore, name string) (session.Project, error) {
 	st, err := s.Load(ctx)
 	if err != nil {
-		return Project{}, err
+		return session.Project{}, err
 	}
 	return findProject(&st, name)
 }
@@ -366,18 +367,18 @@ func KnownSessionIDs(ctx context.Context, s StateStore) ([]string, error) {
 //
 // Nothing else is needed to relaunch it (invariant 9): the launcher stats the
 // transcript, finds one, and uses `--resume` (#36).
-func AdoptSession(ctx context.Context, s StateStore, git SessionBrancher, id, project, title, dir string) (Session, error) {
+func AdoptSession(ctx context.Context, s StateStore, git SessionBrancher, id, project, title, dir string) (session.Session, error) {
 	if strings.TrimSpace(title) == "" {
-		return Session{}, fmt.Errorf(
+		return session.Session{}, fmt.Errorf(
 			"registry: session %q: title %q is blank, want a name with a non-space character", id, title)
 	}
 	st, err := s.Load(ctx)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	sess, err := adoptable(ctx, &st, git, id, project, title, dir)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	st.Sessions = append(st.Sessions, sess)
 	return sess, s.Save(ctx, st)
@@ -387,19 +388,19 @@ func AdoptSession(ctx context.Context, s StateStore, git SessionBrancher, id, pr
 // has to exist, the id has to be new, and a worktree session's branch has to be
 // read before anything is saved - so a git call that fails leaves state.json
 // untouched rather than half-written.
-func adoptable(ctx context.Context, st *State, git SessionBrancher, id, project, title, dir string) (Session, error) {
+func adoptable(ctx context.Context, st *session.State, git SessionBrancher, id, project, title, dir string) (session.Session, error) {
 	p, err := findProject(st, project)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	if err := refuseKnownSession(st, id); err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	branch, err := adoptedBranch(ctx, git, p.Root, dir)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
-	return Session{ID: id, Project: project, Title: title, Dir: dir, Branch: branch}, nil
+	return session.Session{ID: id, Project: project, Title: title, Dir: dir, Branch: branch}, nil
 }
 
 // adoptedBranch is the branch to record for a session adopted in dir, and "" for
@@ -428,7 +429,7 @@ func adoptedBranch(ctx context.Context, git SessionBrancher, projectRoot, dir st
 // refuseKnownSession rejects an id the registry already holds. Two sidebar rows
 // sharing one session would share its process, and the second would fight the
 // first for the PTY.
-func refuseKnownSession(st *State, id string) error {
+func refuseKnownSession(st *session.State, id string) error {
 	if _, err := indexOfSession(st, id); err == nil {
 		return fmt.Errorf("registry: session %q is already registered", id)
 	}
@@ -438,14 +439,14 @@ func refuseKnownSession(st *State, id string) error {
 // AddSession creates and persists a session. It is the whole of `omatty new`.
 // State is saved only after the session is fully created, so a failed
 // worktree leaves nothing behind.
-func AddSession(ctx context.Context, s StateStore, c *Creator, project, title, branch string) (Session, error) {
+func AddSession(ctx context.Context, s StateStore, c *Creator, project, title, branch string) (session.Session, error) {
 	st, err := s.Load(ctx)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	sess, err := c.Create(ctx, &st, project, title, branch)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	return sess, s.Save(ctx, st)
 }
@@ -455,14 +456,14 @@ func AddSession(ctx context.Context, s StateStore, c *Creator, project, title, b
 // start without asking for one (#151).
 //
 //	sess, err := sessions.AddWorktreeSession(ctx, store, c, "omatty", "", "")
-func AddWorktreeSession(ctx context.Context, s StateStore, c *Creator, project, title, branch string) (Session, error) {
+func AddWorktreeSession(ctx context.Context, s StateStore, c *Creator, project, title, branch string) (session.Session, error) {
 	st, err := s.Load(ctx)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	sess, err := c.CreateWorktree(ctx, &st, project, title, branch)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	return sess, s.Save(ctx, st)
 }

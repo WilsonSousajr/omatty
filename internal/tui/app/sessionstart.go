@@ -8,18 +8,18 @@ package app
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
 // sessionCreatedMsg is the registry's answer to a new-session prompt: the
 // session it wrote, or why there is none.
 type sessionCreatedMsg struct {
-	sess                   sessions.Session
+	sess                   session.Session
 	err                    error
 	project, title, branch string
 }
@@ -28,7 +28,7 @@ type sessionCreatedMsg struct {
 // whether it replaces a terminal (ctrl+o r, enter on a stopped pane) or brings
 // a session into the app for the first time (creation, adoption).
 type sessionStartedMsg struct {
-	sess    sessions.Session
+	sess    session.Session
 	term    terminal.Terminal
 	err     error
 	restart bool
@@ -41,7 +41,7 @@ type sessionStartedMsg struct {
 // load state.json, and save it, across the rename's own load and save.
 func (m *Model) createCmd(project, title, branch string, worktree bool) tea.Cmd {
 	create := m.create
-	var sess sessions.Session
+	var sess session.Session
 	result := m.writes.submit(func() error {
 		var err error
 		sess, err = create(project, title, branch, worktree)
@@ -68,7 +68,7 @@ func (m *Model) onSessionCreated(msg sessionCreatedMsg) tea.Cmd {
 // startCmd starts a session's process off the Update goroutine, at the pane's
 // live size so no Resize races claude's startup (#73). A session already on
 // its way is left to it.
-func (m *Model) startCmd(sess sessions.Session, restart bool) tea.Cmd {
+func (m *Model) startCmd(sess session.Session, restart bool) tea.Cmd {
 	if m.starting[sess.ID] {
 		return nil
 	}

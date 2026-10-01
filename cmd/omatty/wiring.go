@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"log/slog"
 	"time"
 
@@ -118,7 +119,7 @@ func newRouter(cfg config.Config, git *vcs.CLI) *forge.Router {
 // tuiDeps wires the TUI's dependencies: the launcher, the terminal factory,
 // and the typed functions that reach git and the registry on ui's behalf,
 // because ui may do neither itself (invariants 4 and 10).
-func tuiDeps(env tuiEnv, store sessions.StateStore, state sessions.State) app.Deps {
+func tuiDeps(env tuiEnv, store sessions.StateStore, state session.State) app.Deps {
 	home, git, holder := env.Home, vcs.NewCLI(), env.Holder
 	src, fg := review.NewSource(git, gitdiff.ParseDiff).WithHeads(fsread.Head), newRouter(env.Cfg, git)
 	deps := app.Deps{
@@ -214,7 +215,7 @@ func gateTallier(store sessions.StateStore) app.TallyFunc {
 
 // projectRemover adapts sessions.RemoveProject to app.RemoveProjectFunc (#159).
 func projectRemover(store sessions.StateStore) app.RemoveProjectFunc {
-	return func(name string) (sessions.Project, error) {
+	return func(name string) (session.Project, error) {
 		return sessions.RemoveProject(context.Background(), store, name)
 	}
 }
@@ -326,7 +327,7 @@ func sessionRebinder(store sessions.StateStore) app.RebindFunc {
 // the model can name a worktree's branch without holding the store or git
 // (#151) - the shape sessionRenamer already has.
 func branchRenamer(store sessions.StateStore, git sessions.BranchRenamer) app.BranchRenameFunc {
-	return func(sess sessions.Session, branch string, unstartedOnly bool) (bool, error) {
+	return func(sess session.Session, branch string, unstartedOnly bool) (bool, error) {
 		return sessions.RenameSessionBranch(context.Background(), store, git, sess, branch, unstartedOnly)
 	}
 }
@@ -341,7 +342,7 @@ func branchRenamer(store sessions.StateStore, git sessions.BranchRenamer) app.Br
 // longer marks as a worktree, which is the case this return value exists to
 // prevent (#40).
 func sessionArchiver(store sessions.StateStore) app.ArchiveFunc {
-	return func(sessionID string) (sessions.Session, error) {
+	return func(sessionID string) (session.Session, error) {
 		return sessions.RemoveSession(context.Background(), store, sessionID)
 	}
 }
@@ -372,7 +373,7 @@ func modelNamer(cfg config.Config) (app.ModelNameFunc, func()) {
 // The path is the agent's, not paths.Transcript's: claude files a transcript
 // under its resolved working directory, which differs behind a symlink (#564).
 func sessionNamer(home string, profile agent.Profile) app.NameFunc {
-	return func(sess sessions.Session) (string, error) {
+	return func(sess session.Session) (string, error) {
 		// The conversation, not the ID: after /clear the row's first
 		// transcript is the one it left behind (#316).
 		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()), status.PromptText)
@@ -394,9 +395,9 @@ func creatorOpts(cfg config.Config) sessions.CreatorOpts {
 // factory inside the running program, which M2 wires up along with status.
 func sessionCreator(cfg config.Config, store sessions.StateStore) app.CreateFunc {
 	c := sessions.NewCreator(vcs.NewCLI().Contextual(), creatorOpts(cfg), uuid.NewString)
-	return func(project, title, branch string, worktree bool) (sessions.Session, error) {
+	return func(project, title, branch string, worktree bool) (session.Session, error) {
 		if project == "" {
-			return sessions.Session{}, fmt.Errorf("no project selected; run `omatty add <dir>` first")
+			return session.Session{}, fmt.Errorf("no project selected; run `omatty add <dir>` first")
 		}
 		if worktree {
 			return sessions.AddWorktreeSession(context.Background(), store, c, project, title, branch)

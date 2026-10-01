@@ -2,6 +2,7 @@ package forge_test
 
 import (
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"strings"
 	"testing"
 
@@ -37,7 +38,7 @@ func TestKindOf_NamesEveryBuiltInHost_issue450(t *testing.T) {
 func TestKindOf_AnUnknownHostIsErrNoForgeAndNamesIt_issue450(t *testing.T) {
 	for _, host := range []string{"git.corp.example", "visualstudio.com.evil.example", "evilvisualstudio.com", "notgithub.com", ""} {
 		_, err := forge.KindOf(host)
-		if !errors.Is(err, forge.ErrNoForge) {
+		if !errors.Is(err, dforge.ErrNoForge) {
 			t.Errorf("KindOf(%q) error = %v, want ErrNoForge", host, err)
 			continue
 		}
@@ -97,7 +98,7 @@ func TestHosts_NilIsTheBuiltInTableAndPointsAtTheConfig_issue451(t *testing.T) {
 		t.Errorf("KindOf(gitlab.com) = %q, %v, want gitlab", got, err)
 	}
 	_, err := hosts.KindOf("git.corp.example")
-	if !errors.Is(err, forge.ErrNoForge) || !strings.Contains(err.Error(), "[forge.hosts]") {
+	if !errors.Is(err, dforge.ErrNoForge) || !strings.Contains(err.Error(), "[forge.hosts]") {
 		t.Errorf("KindOf(git.corp.example) error = %v, want ErrNoForge pointing at [forge.hosts]", err)
 	}
 }

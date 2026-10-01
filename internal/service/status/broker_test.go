@@ -3,6 +3,7 @@ package status
 import (
 	"context"
 	"fmt"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"net"
 	"os"
 	"path/filepath"
@@ -33,10 +34,10 @@ func TestWatch_everySubscriberHearsTheSameEvent_issue653(t *testing.T) {
 	_, _ = fmt.Fprintf(c, "%s\n", `{"session_id":"s1","hook_event_name":"PermissionRequest"}`)
 	_ = c.Close()
 
-	for name, ch := range map[string]<-chan pubsub.Event[Event]{"a": a, "b": b} {
+	for name, ch := range map[string]<-chan pubsub.Event[dstatus.Event]{"a": a, "b": b} {
 		select {
 		case ev := <-ch:
-			if ev.Payload.SessionID != "s1" || ev.Payload.Kind != PermissionRequested {
+			if ev.Payload.SessionID != "s1" || ev.Payload.Kind != dstatus.PermissionRequested {
 				t.Errorf("subscriber %s got %+v, want s1 PermissionRequested", name, ev.Payload)
 			}
 		case <-time.After(2 * time.Second):
@@ -73,7 +74,7 @@ func TestWatch_aStatusReportedBeforeAnyoneSubscribedIsNotLost_issue653(t *testin
 		defer cancel()
 		select {
 		case e := <-w.Subscribe(ctx):
-			if e.Payload.Kind != PromptSubmitted {
+			if e.Payload.Kind != dstatus.PromptSubmitted {
 				t.Errorf("got %+v, want the startup PromptSubmitted", e.Payload)
 			}
 		case <-time.After(time.Minute):

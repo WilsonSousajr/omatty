@@ -1,6 +1,7 @@
 package status_test
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,13 +10,13 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
-func loadFixture(t *testing.T, name string) []status.Entry {
+func loadFixture(t *testing.T, name string) []dstatus.Entry {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("testdata", "transcripts", name))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var out []status.Entry
+	var out []dstatus.Entry
 	for _, line := range splitLines(b) {
 		if e, ok := status.ParseEntry(line); ok {
 			out = append(out, e)
@@ -41,7 +42,7 @@ func splitLines(b []byte) [][]byte {
 	return lines
 }
 
-func kindAt(t *testing.T, fixture string) (status.Kind, time.Time, bool) {
+func kindAt(t *testing.T, fixture string) (dstatus.Kind, time.Time, bool) {
 	t.Helper()
 	return status.DeriveKind(loadFixture(t, fixture))
 }
@@ -57,14 +58,14 @@ func at(s string) time.Time {
 func TestDeriveKind_Fixtures_issue19(t *testing.T) {
 	tests := []struct {
 		fixture string
-		want    status.Kind
+		want    dstatus.Kind
 		wantAt  time.Time
 		ok      bool
 	}{
-		{"prompt-sent.jsonl", status.PromptSubmitted, at("2026-09-02T12:00:01Z"), true},
-		{"tool-running.jsonl", status.ToolStarted, at("2026-09-02T12:00:02Z"), true},
-		{"tool-returned.jsonl", status.PromptSubmitted, at("2026-09-02T12:00:03Z"), true},
-		{"turn-ended.jsonl", status.TurnEnded, at("2026-09-02T12:00:04Z"), true},
+		{"prompt-sent.jsonl", dstatus.PromptSubmitted, at("2026-09-02T12:00:01Z"), true},
+		{"tool-running.jsonl", dstatus.ToolStarted, at("2026-09-02T12:00:02Z"), true},
+		{"tool-returned.jsonl", dstatus.PromptSubmitted, at("2026-09-02T12:00:03Z"), true},
+		{"turn-ended.jsonl", dstatus.TurnEnded, at("2026-09-02T12:00:04Z"), true},
 		{"noise-only.jsonl", 0, time.Time{}, false},
 	}
 	for _, tt := range tests {
@@ -83,7 +84,7 @@ func TestDeriveKind_Fixtures_issue19(t *testing.T) {
 func TestDeriveKind_IgnoresInjectedUserEntries_issue61(t *testing.T) {
 	kind, ts, ok := kindAt(t, "injected-after-done.jsonl")
 
-	if !ok || kind != status.TurnEnded || !ts.Equal(at("2026-09-02T12:00:04Z")) {
+	if !ok || kind != dstatus.TurnEnded || !ts.Equal(at("2026-09-02T12:00:04Z")) {
 		t.Errorf("DeriveKind = (%v, %v, %v), want (TurnEnded, 12:00:04, true): injected entries are not prompts", kind, ts, ok)
 	}
 }
@@ -95,7 +96,7 @@ func TestDeriveKind_IgnoresInjectedUserEntries_issue61(t *testing.T) {
 func TestDeriveKind_IgnoresAnInjectedListOfBlocks_issue61(t *testing.T) {
 	kind, ts, ok := kindAt(t, "injected-list-blocks.jsonl")
 
-	if !ok || kind != status.TurnEnded || !ts.Equal(at("2026-09-02T12:00:04Z")) {
+	if !ok || kind != dstatus.TurnEnded || !ts.Equal(at("2026-09-02T12:00:04Z")) {
 		t.Errorf("DeriveKind = (%v, %v, %v), want (TurnEnded, 12:00:04, true): an injected entry is not a prompt in either shape", kind, ts, ok)
 	}
 }
@@ -106,7 +107,7 @@ func TestDeriveKind_IgnoresAnInjectedListOfBlocks_issue61(t *testing.T) {
 func TestDeriveKind_ListOfTextIsAPrompt_issue62(t *testing.T) {
 	kind, ts, ok := kindAt(t, "list-text-prompt.jsonl")
 
-	if !ok || kind != status.PromptSubmitted || !ts.Equal(at("2026-09-02T12:05:00Z")) {
+	if !ok || kind != dstatus.PromptSubmitted || !ts.Equal(at("2026-09-02T12:05:00Z")) {
 		t.Errorf("DeriveKind = (%v, %v, %v), want (PromptSubmitted, 12:05:00, true)", kind, ts, ok)
 	}
 }
@@ -116,7 +117,7 @@ func TestDeriveKind_ListOfTextIsAPrompt_issue62(t *testing.T) {
 func TestDeriveKind_AnyStopReasonButToolUseEndsTheTurn_issue63(t *testing.T) {
 	kind, ts, ok := kindAt(t, "stopped-at-max-tokens.jsonl")
 
-	if !ok || kind != status.TurnEnded || !ts.Equal(at("2026-09-02T12:00:05Z")) {
+	if !ok || kind != dstatus.TurnEnded || !ts.Equal(at("2026-09-02T12:00:05Z")) {
 		t.Errorf("DeriveKind = (%v, %v, %v), want (TurnEnded, 12:00:05, true)", kind, ts, ok)
 	}
 }

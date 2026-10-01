@@ -8,24 +8,24 @@ package app
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // RemoveProjectFunc forgets a project. Injected so ui never reaches the store;
 // cmd/omatty closes it over sessions.RemoveProject.
 //
-//	deps.RemoveProject = func(name string) (sessions.Project, error) {
+//	deps.RemoveProject = func(name string) (session.Project, error) {
 //	        return sessions.RemoveProject(store, name)
 //	}
-type RemoveProjectFunc func(name string) (sessions.Project, error)
+type RemoveProjectFunc func(name string) (session.Project, error)
 
 // noRemoveProject is the Deps.RemoveProject default. It names the missing
 // wiring rather than appearing to succeed, as noArchive does.
-func noRemoveProject(name string) (sessions.Project, error) {
-	return sessions.Project{}, fmt.Errorf("ui: no project remover configured for project %q", name)
+func noRemoveProject(name string) (session.Project, error) {
+	return session.Project{}, fmt.Errorf("ui: no project remover configured for project %q", name)
 }
 
 // openRemoveProject asks before forgetting the empty project under the cursor.
@@ -60,7 +60,7 @@ func (m *Model) removeProjectRow() tea.Cmd {
 // for the reason forgetSession builds one: the sidebar's rows alias the
 // backing arrays of m.state.
 func (m *Model) forgetProject(name string) {
-	kept := make([]sessions.Project, 0, len(m.state.Projects))
+	kept := make([]session.Project, 0, len(m.state.Projects))
 	for _, p := range m.state.Projects {
 		if p.Name != name {
 			kept = append(kept, p)

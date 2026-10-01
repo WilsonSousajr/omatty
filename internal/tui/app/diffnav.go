@@ -8,24 +8,23 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"strconv"
 
 	"charm.land/lipgloss/v2"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // diffNavKey runs ], [, n, N and enter, reporting whether key was one.
 func (m *Model) diffNavKey(key string) bool {
 	switch {
 	case is(key, diffBind.NextFile):
-		m.jumpEntry(1, review.EntryFile)
+		m.jumpEntry(1, dreview.EntryFile)
 	case is(key, diffBind.PrevFile):
-		m.jumpEntry(-1, review.EntryFile)
+		m.jumpEntry(-1, dreview.EntryFile)
 	case is(key, diffBind.NextHunk):
-		m.jumpEntry(1, review.EntryHunk)
+		m.jumpEntry(1, dreview.EntryHunk)
 	case is(key, diffBind.PrevHunk):
-		m.jumpEntry(-1, review.EntryHunk)
+		m.jumpEntry(-1, dreview.EntryHunk)
 	case is(key, diffBind.Fold):
 		m.toggleFileFold()
 	default:
@@ -36,7 +35,7 @@ func (m *Model) diffNavKey(key string) bool {
 
 // jumpEntry moves the cursor to the next entry of kind in dir, staying put
 // when there is none that way.
-func (m *Model) jumpEntry(dir int, kind review.EntryKind) {
+func (m *Model) jumpEntry(dir int, kind dreview.EntryKind) {
 	for i := m.review.DiffList.Cursor + dir; i >= 0 && i < len(m.review.Entries); i += dir {
 		if m.review.Entries[i].Kind == kind {
 			m.moveReviewCursor(i - m.review.DiffList.Cursor)
@@ -49,7 +48,7 @@ func (m *Model) jumpEntry(dir int, kind review.EntryKind) {
 // The header's own entry does not move, so the cursor stays on it.
 func (m *Model) toggleFileFold() {
 	e, ok := m.cursorEntry()
-	if !ok || e.Kind != review.EntryFile {
+	if !ok || e.Kind != dreview.EntryFile {
 		return
 	}
 	path := m.shownDiff().Files[e.Pos.File].Path
@@ -61,13 +60,13 @@ func (m *Model) toggleFileFold() {
 }
 
 // withoutFolded drops every entry under a folded file's header.
-func (m *Model) withoutFolded(entries []review.Entry, d review.Diff) []review.Entry {
+func (m *Model) withoutFolded(entries []dreview.Entry, d dreview.Diff) []dreview.Entry {
 	if len(m.review.FoldedFiles) == 0 {
 		return entries
 	}
 	out := entries[:0]
 	for _, e := range entries {
-		if e.Kind == review.EntryFile || !m.review.FoldedFiles[d.Files[e.Pos.File].Path] {
+		if e.Kind == dreview.EntryFile || !m.review.FoldedFiles[d.Files[e.Pos.File].Path] {
 			out = append(out, e)
 		}
 	}

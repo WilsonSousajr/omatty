@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"io"
 	"os"
 	"strings"
@@ -55,7 +56,7 @@ func gateCommand(store sessions.StateStore, args []string, in io.Reader, prs cli
 }
 
 // proposeGate detects, prints, and writes if it is allowed to.
-func proposeGate(store sessions.StateStore, project sessions.Project, args []string, in io.Reader) error {
+func proposeGate(store sessions.StateStore, project session.Project, args []string, in io.Reader) error {
 	steps := gateexec.Detect(project.Root)
 	if len(steps) == 0 {
 		report("nothing recognised in " + project.Root + "; set a gate by hand in ~/.omatty/state.json")
@@ -108,13 +109,13 @@ func reportGate(heading string, steps []gate.Step) {
 
 // gateProject resolves the project argument, naming this command in the error
 // the way cli's namedProject names adopt.
-func gateProject(store sessions.StateStore, args []string) (sessions.Project, error) {
+func gateProject(store sessions.StateStore, args []string) (session.Project, error) {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		return sessions.Project{}, fmt.Errorf("gate: want <project> [--detect|--set|--clear|--stats], got no project")
+		return session.Project{}, fmt.Errorf("gate: want <project> [--detect|--set|--clear|--stats], got no project")
 	}
 	p, err := sessions.NamedProject(context.Background(), store, args[0])
 	if err != nil {
-		return sessions.Project{}, fmt.Errorf("gate: %w", err)
+		return session.Project{}, fmt.Errorf("gate: %w", err)
 	}
 	return p, nil
 }

@@ -40,7 +40,7 @@ type Git interface {
 	Diff(dir, commit string) (string, error)
 	// Shortstat summarises the working tree against commit: files changed,
 	// lines added and removed. A clean tree is the zero value (#180).
-	Shortstat(dir, commit string) (Shortstat, error)
+	Shortstat(dir, commit string) (review.Shortstat, error)
 	// Untracked lists files git does not track, honouring .gitignore.
 	Untracked(dir string) ([]string, error)
 	// UntrackedDiff renders one untracked file as an all-additions diff.
@@ -317,20 +317,15 @@ func (c *CLI) Diff(dir, commit string) (string, error) {
 	return c.capture(dir, 0, diffArgs(commit, "--")...)
 }
 
-// Shortstat is git's one-line summary of a diff.
-// Shortstat is review.Shortstat, the numbers a sidebar card shows (#180). It
-// moved to internal/domain/review in migration step 5.8 (#653).
-type Shortstat = review.Shortstat
-
 // Shortstat is the numbers a session's sidebar card shows (#180), measured
 // the way Diff measures: the working tree against commit, renames detected.
 // git prints nothing for a clean tree, so the zero value is not an error.
 //
 //	st, err := vcs.NewCLI().Shortstat("/wt/parser-fix", base)
-func (c *CLI) Shortstat(dir, commit string) (Shortstat, error) {
+func (c *CLI) Shortstat(dir, commit string) (review.Shortstat, error) {
 	out, err := c.run(dir, diffArgs("--shortstat", commit, "--")...)
 	if err != nil {
-		return Shortstat{}, err
+		return review.Shortstat{}, err
 	}
 	return parseShortstat(out)
 }
@@ -339,8 +334,8 @@ func (c *CLI) Shortstat(dir, commit string) (Shortstat, error) {
 // Every clause is optional - a pure deletion has no insertions clause and a
 // binary change has neither - and each names itself, so the order is not
 // trusted either.
-func parseShortstat(line string) (Shortstat, error) {
-	var st Shortstat
+func parseShortstat(line string) (review.Shortstat, error) {
+	var st review.Shortstat
 	for _, clause := range strings.Split(strings.TrimSpace(line), ",") {
 		fields := strings.Fields(clause)
 		if len(fields) < 2 {
@@ -348,7 +343,7 @@ func parseShortstat(line string) (Shortstat, error) {
 		}
 		n, err := strconv.Atoi(fields[0])
 		if err != nil {
-			return Shortstat{}, fmt.Errorf("vcs: shortstat clause %q: want a count first: %w", clause, err)
+			return review.Shortstat{}, fmt.Errorf("vcs: shortstat clause %q: want a count first: %w", clause, err)
 		}
 		st = withClause(st, fields[1], n)
 	}
@@ -358,7 +353,7 @@ func parseShortstat(line string) (Shortstat, error) {
 // withClause sets the counter a shortstat clause names: file(s), insertion(s)
 // or deletion(s). A function rather than a method since Shortstat became an
 // alias of a domain type (#653).
-func withClause(st Shortstat, noun string, n int) Shortstat {
+func withClause(st review.Shortstat, noun string, n int) review.Shortstat {
 	switch {
 	case strings.HasPrefix(noun, "file"):
 		st.Files = n

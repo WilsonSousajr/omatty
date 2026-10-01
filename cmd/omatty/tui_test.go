@@ -1,13 +1,13 @@
 package main
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // Step 5.10 (#653): the status service is told where the hook socket is,
@@ -27,7 +27,7 @@ func TestRuntimeFor_TellsTheStatusServiceTheHookSocket_issue653(t *testing.T) {
 func TestTuiDeps_HighlightsThroughChroma_issue653(t *testing.T) {
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
-	hl := tuiDeps(env, nil, sessions.State{}).Highlighter
+	hl := tuiDeps(env, nil, session.State{}).Highlighter
 	if hl == nil {
 		t.Fatal("Highlighter is not wired: every diff and preview would draw uncoloured")
 	}

@@ -1,10 +1,10 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -86,4 +86,4 @@ func TestModel_CreatedSessionsTerminalIsInitialised_issue33(t *testing.T) {
 }
 
 var _ tea.Msg = emulatorMsg{}
-var _ = sessions.State{}
+var _ = session.State{}

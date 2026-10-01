@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"fmt"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -225,7 +225,7 @@ func TestModel_pReportsTheMergeWithTheForgesSigil_issue449(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.SetRepoStat("s1", review.Stat{Branch: "feat/parser", Added: 12, Removed: 3, Head: "abc123"})
 	m.Update(app.PRsLoadedMsg{Project: "omatty", PRs: prs})
-	statusDeliver(m, "s1", status.TurnEnded, time.Now())
+	statusDeliver(m, "s1", dstatus.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 
 	leaderDeliver(m, key('p'))

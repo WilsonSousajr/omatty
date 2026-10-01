@@ -2,6 +2,7 @@ package sessions_test
 
 import (
 	"encoding/json"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,8 +117,8 @@ func TestLoad_aFileWrittenBeforeGatesExisted_loadsWithNoGate(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if st.Version != sessions.Version {
-		t.Errorf("Version = %d, want %d unchanged", st.Version, sessions.Version)
+	if st.Version != session.Version {
+		t.Errorf("Version = %d, want %d unchanged", st.Version, session.Version)
 	}
 	if st.Projects[0].Gate != nil {
 		t.Errorf("Gate = %v, want nil for a file written before gates", st.Projects[0].Gate)
@@ -215,9 +216,9 @@ func storeWithProject(t *testing.T, name string) (*statestore.Store, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "state.json")
 	store := statestore.NewStore(path)
-	st := sessions.State{
-		Version:  sessions.Version,
-		Projects: []sessions.Project{{Name: name, Root: filepath.Join("/tmp", name)}},
+	st := session.State{
+		Version:  session.Version,
+		Projects: []session.Project{{Name: name, Root: filepath.Join("/tmp", name)}},
 	}
 	if err := store.Save(t.Context(), st); err != nil {
 		t.Fatalf("setup: %v", err)

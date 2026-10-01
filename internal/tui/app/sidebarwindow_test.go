@@ -2,19 +2,19 @@ package app_test
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
-func sevenProjectState() sessions.State {
-	var st sessions.State
+func sevenProjectState() session.State {
+	var st session.State
 	for p := range 7 {
 		name := fmt.Sprintf("p%d", p)
-		st.Projects = append(st.Projects, sessions.Project{Name: name})
+		st.Projects = append(st.Projects, session.Project{Name: name})
 		for i := range 2 {
-			st.Sessions = append(st.Sessions, sessions.Session{
+			st.Sessions = append(st.Sessions, session.Session{
 				ID: fmt.Sprintf("%s-s%d", name, i), Project: name, Title: "t"})
 		}
 	}

@@ -3,6 +3,7 @@ package review
 import (
 	"errors"
 	"fmt"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"strings"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
@@ -33,21 +34,21 @@ func (s *Source) SnapTurn(sess session.Session) error {
 // DiffFunc like Load, so the UI loads both the same way.
 //
 //	d, err := src.LoadTurn(sess, projectRoot)
-func (s *Source) LoadTurn(sess session.Session, _ string) (Diff, error) {
+func (s *Source) LoadTurn(sess session.Session, _ string) (dreview.Diff, error) {
 	base, ok, err := s.git.TurnRef(sess.Dir, sess.ID)
 	if err != nil {
-		return Diff{}, fmt.Errorf("review: reading the turn baseline of session %s: %w", sess.ID, err)
+		return dreview.Diff{}, fmt.Errorf("review: reading the turn baseline of session %s: %w", sess.ID, err)
 	}
 	if !ok {
-		return Diff{}, ErrNoTurn
+		return dreview.Diff{}, ErrNoTurn
 	}
 	now, err := s.git.SnapshotTree(sess.Dir)
 	if err != nil {
-		return Diff{}, fmt.Errorf("review: snapshotting session %s in %q: %w", sess.ID, sess.Dir, err)
+		return dreview.Diff{}, fmt.Errorf("review: snapshotting session %s in %q: %w", sess.ID, sess.Dir, err)
 	}
 	raw, err := s.git.DiffTrees(sess.Dir, base, now)
 	if err != nil {
-		return Diff{}, fmt.Errorf("review: diffing session %s's turn: %w", sess.ID, err)
+		return dreview.Diff{}, fmt.Errorf("review: diffing session %s's turn: %w", sess.ID, err)
 	}
 	return s.parse(strings.NewReader(raw))
 }

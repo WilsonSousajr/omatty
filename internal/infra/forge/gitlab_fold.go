@@ -1,6 +1,9 @@
 package forge
 
-import "time"
+import (
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
+	"time"
+)
 
 // The GitLab REST API's answers, as it writes them (#454).
 type (
@@ -60,10 +63,10 @@ type (
 
 // foldMRs is GitLab's merge requests as omatty's pull requests. CI is filled
 // after, from each one's own pipeline.
-func foldMRs(in []glMR) []PR {
-	out := make([]PR, len(in))
+func foldMRs(in []glMR) []dforge.PR {
+	out := make([]dforge.PR, len(in))
 	for i, m := range in {
-		out[i] = PR{
+		out[i] = dforge.PR{
 			Number: m.IID, Title: cleanLine(m.Title), Branch: cleanLine(m.SourceBranch), Base: cleanLine(m.TargetBranch),
 			State: glState(m.State), Head: m.SHA, Draft: m.Draft,
 			Conflict: m.HasConflicts || m.DetailedMergeStatus == "conflict" || m.DetailedMergeStatus == "need_rebase",
@@ -75,43 +78,43 @@ func foldMRs(in []glMR) []PR {
 }
 
 // glState is GitLab's state as a PRState; locked is a closed discussion.
-func glState(s string) PRState {
+func glState(s string) dforge.PRState {
 	switch s {
 	case "merged":
-		return Merged
+		return dforge.Merged
 	case "closed", "locked":
-		return Closed
+		return dforge.Closed
 	}
-	return Open
+	return dforge.Open
 }
 
 // glReview reads what GitLab's merge status says about review: it names
 // changes requested and approval still owed, and nothing else.
-func glReview(status string) Review {
+func glReview(status string) dforge.Review {
 	switch status {
 	case "requested_changes":
-		return ReviewChanges
+		return dforge.ReviewChanges
 	case "not_approved":
-		return ReviewRequired
+		return dforge.ReviewRequired
 	}
-	return ReviewNone
+	return dforge.ReviewNone
 }
 
 // gitlabCI is a pipeline's or a job's status as the card's CI mark. A status
 // omatty does not know is running, never passing: unknown is not shown as a
 // green verdict.
-func gitlabCI(status string) CIState {
+func gitlabCI(status string) dforge.CIState {
 	switch status {
 	case "success", "skipped":
-		return CIPassing
+		return dforge.CIPassing
 	case "failed", "canceled":
-		return CIFailing
+		return dforge.CIFailing
 	}
-	return CIRunning
+	return dforge.CIRunning
 }
 
-func foldGLIssues(in []glIssue) []Issue {
-	out := make([]Issue, len(in))
+func foldGLIssues(in []glIssue) []dforge.Issue {
+	out := make([]dforge.Issue, len(in))
 	for i, is := range in {
 		assignee := ""
 		if len(is.Assignees) > 0 {
@@ -124,8 +127,8 @@ func foldGLIssues(in []glIssue) []Issue {
 
 // issueOf is one issue as omatty's own type, every field an author controls
 // cleaned (#483). Each forge's fold calls it with its own field names.
-func issueOf(number int, title string, labels []string, assignee, author string, updated time.Time, url string) Issue {
-	return Issue{
+func issueOf(number int, title string, labels []string, assignee, author string, updated time.Time, url string) dforge.Issue {
+	return dforge.Issue{
 		Number: number, Title: cleanLine(title), Labels: cleanLabels(labels),
 		Assignee: cleanLine(assignee), Author: cleanLine(author), Updated: updated, URL: cleanLine(url),
 	}
@@ -162,7 +165,7 @@ func (it glItem) flat(notes []glNote, jobs []glJob) ghDetail {
 
 // statusCheck is one check in gh's StatusContext shape, whose state gh's own
 // rollup reads back as the same verdict.
-func statusCheck(name string, state CIState, started, finished time.Time) check {
-	states := map[CIState]string{CIPassing: "SUCCESS", CIFailing: "FAILURE", CIRunning: "PENDING", CINone: "PENDING"}
+func statusCheck(name string, state dforge.CIState, started, finished time.Time) check {
+	states := map[dforge.CIState]string{dforge.CIPassing: "SUCCESS", dforge.CIFailing: "FAILURE", dforge.CIRunning: "PENDING", dforge.CINone: "PENDING"}
 	return check{Typename: "StatusContext", Context: name, State: states[state], StartedAt: started, CompletedAt: finished}
 }

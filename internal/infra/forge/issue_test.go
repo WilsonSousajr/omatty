@@ -2,6 +2,7 @@ package forge_test
 
 import (
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -25,7 +26,7 @@ func label(name string) string { return `{"name":"` + name + `"}` }
 
 func user(login string) string { return `{"login":"` + login + `"}` }
 
-func foldOneIssue(t *testing.T, elem string) forge.Issue {
+func foldOneIssue(t *testing.T, elem string) dforge.Issue {
 	t.Helper()
 	issues, err := forge.FoldIssues([]byte("[" + elem + "]"))
 	if err != nil {
@@ -70,7 +71,7 @@ func TestCLI_ListIssuesRunsOneListInTheRepoRoot_issue393(t *testing.T) {
 func TestFoldIssues_CarriesTheRowsFields_issue393(t *testing.T) {
 	got := foldOneIssue(t, issue(396, "the tracker view", label("feat")+","+label("area:ui"), user("WilsonSousajr")))
 
-	want := forge.Issue{
+	want := dforge.Issue{
 		Number:   396,
 		Title:    "the tracker view",
 		Labels:   []string{"feat", "area:ui"},
@@ -122,7 +123,7 @@ func TestCLI_ListIssuesRecognisesARepoThatIsNotOnGitHub_issue393(t *testing.T) {
 
 	_, err := forge.NewCLIWithBin(bin).ListIssues(t.TempDir())
 
-	if !errors.Is(err, forge.ErrNoForge) {
+	if !errors.Is(err, dforge.ErrNoForge) {
 		t.Errorf("error = %v, want ErrNoForge", err)
 	}
 }

@@ -8,14 +8,14 @@ import (
 
 // kindByEvent maps a hook event name to its status event. Notification is
 // absent here because it depends on notification_type.
-var kindByEvent = map[string]Kind{
-	"SessionStart":      SessionStarted,
-	"UserPromptSubmit":  PromptSubmitted,
-	"PreToolUse":        ToolStarted,
-	"PostToolUse":       ToolFinished,
-	"PermissionRequest": PermissionRequested,
-	"Stop":              TurnEnded,
-	"SessionEnd":        SessionEnded,
+var kindByEvent = map[string]dstatus.Kind{
+	"SessionStart":      dstatus.SessionStarted,
+	"UserPromptSubmit":  dstatus.PromptSubmitted,
+	"PreToolUse":        dstatus.ToolStarted,
+	"PostToolUse":       dstatus.ToolFinished,
+	"PermissionRequest": dstatus.PermissionRequested,
+	"Stop":              dstatus.TurnEnded,
+	"SessionEnd":        dstatus.SessionEnded,
 }
 
 // HookEventNames lists every hook event the listener maps to a Kind, plus
@@ -36,12 +36,12 @@ func HookEventNames() []string {
 
 // KindOf maps a hook payload to the status event it represents. ok is false
 // for events omatty does not track, which the listener drops.
-func KindOf(p dstatus.HookPayload) (Kind, bool) {
+func KindOf(p dstatus.HookPayload) (dstatus.Kind, bool) {
 	if p.HookEventName == "Notification" {
 		return notificationKind(p.NotificationType)
 	}
 	if p.HookEventName == "SessionStart" && startsNewConversation(p.Source) {
-		return SessionRebound, true
+		return dstatus.SessionRebound, true
 	}
 	kind, ok := kindByEvent[p.HookEventName]
 	return kind, ok
@@ -56,12 +56,12 @@ func startsNewConversation(source string) bool {
 	return source == "clear" || source == "compact"
 }
 
-func notificationKind(notifType string) (Kind, bool) {
+func notificationKind(notifType string) (dstatus.Kind, bool) {
 	switch notifType {
 	case "idle_prompt":
-		return Idle, true
+		return dstatus.Idle, true
 	case "permission_prompt":
-		return PermissionRequested, true
+		return dstatus.PermissionRequested, true
 	default:
 		return 0, false
 	}

@@ -2,9 +2,8 @@ package review_test
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 	"strings"
-
-	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
 
 // FakeGit answers the diff surface from canned values and records the calls in
@@ -20,7 +19,7 @@ type FakeGit struct {
 	Branch                 string            // CurrentBranch of any dir
 	MergeBaseOut           string            // MergeBase result
 	DiffOut                string            // Diff result
-	ShortstatOut           vcs.Shortstat     // Shortstat result (#180)
+	ShortstatOut           review.Shortstat  // Shortstat result (#180)
 	UntrackedOut           []string          // Untracked result
 	FileDiffs              map[string]string // UntrackedDiff result per path
 	Files                  []string          // ListFiles result (#24)
@@ -74,7 +73,7 @@ func (f *FakeGit) Diff(dir, commit string) (string, error) {
 	return f.DiffOut, f.record("Diff", dir, commit)
 }
 
-func (f *FakeGit) Shortstat(dir, commit string) (vcs.Shortstat, error) {
+func (f *FakeGit) Shortstat(dir, commit string) (review.Shortstat, error) {
 	return f.ShortstatOut, f.record("Shortstat", dir, commit)
 }
 

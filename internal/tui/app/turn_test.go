@@ -1,15 +1,15 @@
 package app_test
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -17,7 +17,7 @@ import (
 type turnRecorder struct {
 	Snapped   []string
 	SnapErr   error
-	Diff      review.Diff
+	Diff      dreview.Diff
 	DiffErr   error
 	DiffCalls int
 	Dropped   [][2]string // id, projectRoot
@@ -26,16 +26,16 @@ type turnRecorder struct {
 
 func (r *turnRecorder) funcs() app.TurnFuncs {
 	return app.TurnFuncs{
-		Snap: func(s sessions.Session) error {
+		Snap: func(s session.Session) error {
 			r.Snapped = append(r.Snapped, s.ID)
 			r.Events = append(r.Events, "snap "+s.ID)
 			return r.SnapErr
 		},
-		Diff: func(sessions.Session, string) (review.Diff, error) {
+		Diff: func(session.Session, string) (dreview.Diff, error) {
 			r.DiffCalls++
 			return r.Diff, r.DiffErr
 		},
-		Drop: func(s sessions.Session, root string) error {
+		Drop: func(s session.Session, root string) error {
 			r.Dropped = append(r.Dropped, [2]string{s.ID, root})
 			r.Events = append(r.Events, "drop "+s.ID)
 			return nil
@@ -44,7 +44,7 @@ func (r *turnRecorder) funcs() app.TurnFuncs {
 }
 
 func hookPrompt(id string) app.StatusMsg {
-	return app.StatusMsg{SessionID: id, Kind: status.PromptSubmitted, At: time.Now(), Hook: true}
+	return app.StatusMsg{SessionID: id, Kind: dstatus.PromptSubmitted, At: time.Now(), Hook: true}
 }
 
 func modelWithTurn(t *testing.T, tr *turnRecorder) *app.Model {

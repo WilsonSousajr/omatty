@@ -3,6 +3,7 @@ package forge_test
 import (
 	"encoding/json"
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -167,7 +168,7 @@ func TestGiteaREST_AnAnonymousRefusalAsksForAToken_issue459(t *testing.T) {
 	for _, status := range []int{401, 403, 404} {
 		_, err := restGitea(t, nil, &FakeGiteaAPI{Status: status}).ListPRs(t.TempDir())
 
-		var missing *forge.MissingToolError
+		var missing *dforge.MissingToolError
 		if !errors.As(err, &missing) || !strings.HasPrefix(missing.TokenEnv, "GITEA_TOKEN") {
 			t.Errorf("%d: error = %v, want a note naming GITEA_TOKEN", status, err)
 		}
@@ -178,11 +179,11 @@ func TestGiteaREST_AnAnonymousRefusalAsksForAToken_issue459(t *testing.T) {
 func TestGiteaREST_WithATokenTheUsualRulesHold_issue459(t *testing.T) {
 	env := codebergToken
 	_, err := restGitea(t, env, &FakeGiteaAPI{Status: 401}).ListIssues(t.TempDir())
-	var refused *forge.AuthError
+	var refused *dforge.AuthError
 	if !errors.As(err, &refused) || refused.TokenEnv != "GITEA_TOKEN" {
 		t.Errorf("401: error = %v, want GITEA_TOKEN refused", err)
 	}
-	if _, err := restGitea(t, env, &FakeGiteaAPI{Status: 404}).ListIssues(t.TempDir()); !errors.Is(err, forge.ErrNoForge) {
+	if _, err := restGitea(t, env, &FakeGiteaAPI{Status: 404}).ListIssues(t.TempDir()); !errors.Is(err, dforge.ErrNoForge) {
 		t.Errorf("404: error = %v, want ErrNoForge", err)
 	}
 }
@@ -199,7 +200,7 @@ func TestGiteaREST_PagesToAHundred_issue459(t *testing.T) {
 	}
 	open, pages := 0, 0
 	for _, pr := range prs {
-		if pr.State == forge.Open {
+		if pr.State == dforge.Open {
 			open++
 		}
 	}
@@ -250,7 +251,7 @@ func TestGiteaREST_AnHTTPRemoteNeverCarriesTheToken_issue584(t *testing.T) {
 		t.Errorf("ListIssues = %v, sent %+v; want an anonymous read", err, api.Got)
 	}
 	_, err := giteaAt(t, "http://git.corp.example/o/r.git", nil, env, &FakeGiteaAPI{Status: 401}).ListIssues(t.TempDir())
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || missing.Tool != "tea" || missing.TokenEnv != "" {
 		t.Errorf("401: error = %v, want tea missing and no token named", err)
 	}
@@ -281,7 +282,7 @@ func TestGiteaREST_ARefusalNamesTeasMissingLogin_issue586(t *testing.T) {
 	_, cli := forced.ListPRs(t.TempDir())
 
 	for name, err := range map[string]error{"anonymous 404": anon, "CLI forced": cli} {
-		var missing *forge.MissingToolError
+		var missing *dforge.MissingToolError
 		if !errors.As(err, &missing) || missing.NoLoginFor == "" || !strings.HasPrefix(missing.TokenEnv, "GITEA_TOKEN") {
 			t.Errorf("%s: error = %v, want tea's missing login and GITEA_TOKEN named", name, err)
 		}
@@ -290,9 +291,9 @@ func TestGiteaREST_ARefusalNamesTeasMissingLogin_issue586(t *testing.T) {
 
 // stops is whether err is one the UI stops a project on for the run.
 func stops(err error) bool {
-	var missing *forge.MissingToolError
-	var refused *forge.AuthError
-	return errors.As(err, &missing) || errors.As(err, &refused) || errors.Is(err, forge.ErrNoForge)
+	var missing *dforge.MissingToolError
+	var refused *dforge.AuthError
+	return errors.As(err, &missing) || errors.As(err, &refused) || errors.Is(err, dforge.ErrNoForge)
 }
 
 // tea's env login binds GITEA_TOKEN to the instance GITEA_INSTANCE_URL names,
@@ -335,7 +336,7 @@ func TestGiteaREST_AnonymousIssuesTurnedOffAreElsewhere_issue459(t *testing.T) {
 		{match: "/repos/forgejo/forgejo?", status: 200, body: `{"id": 73144}`},
 	}}
 
-	if issues, err := restGitea(t, nil, api).ListIssues(t.TempDir()); !errors.Is(err, forge.ErrNoTracker) || len(issues) != 0 {
+	if issues, err := restGitea(t, nil, api).ListIssues(t.TempDir()); !errors.Is(err, dforge.ErrNoTracker) || len(issues) != 0 {
 		t.Errorf("ListIssues = %v, %v; want ErrNoTracker", issues, err)
 	}
 }

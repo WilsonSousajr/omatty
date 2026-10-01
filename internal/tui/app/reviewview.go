@@ -1,12 +1,11 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // tabWidth is what a tab becomes before a row is measured. Tabs are expanded
@@ -94,15 +93,15 @@ func (m *Model) renderEntries(w, rows int) []string {
 }
 
 // renderEntry draws one row; the cursor row is reversed.
-func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []review.Comment) string {
+func (m *Model) renderEntry(e dreview.Entry, cursor bool, w int, comments []dreview.Comment) string {
 	text := m.fitRow(e, comments, w)
 	if cursor {
 		return theme.Cursor.Render(text)
 	}
-	if e.Kind == review.EntryComment && !comments[e.Comment].Sent.IsZero() {
+	if e.Kind == dreview.EntryComment && !comments[e.Comment].Sent.IsZero() {
 		return theme.Muted.Render(text) // sent: context for this turn, not a to-do (#335)
 	}
-	if e.Kind == review.EntryLine {
+	if e.Kind == dreview.EntryLine {
 		return m.styledLine(e, w) // syntax and changed words (#435)
 	}
 	return entryStyle(e, m.shownDiff()).Render(text)
@@ -115,8 +114,8 @@ func (m *Model) renderEntry(e review.Entry, cursor bool, w int, comments []revie
 // keep a plain fitLine, and a header that slides sideways with the body reads
 // as a broken frame. Once it fits itself there is nothing behind it to reveal,
 // and panning would slide the count off the left instead of the right.
-func (m *Model) fitRow(e review.Entry, comments []review.Comment, w int) string {
-	if e.Kind == review.EntryFile {
+func (m *Model) fitRow(e dreview.Entry, comments []dreview.Comment, w int) string {
+	if e.Kind == dreview.EntryFile {
 		return fitLine(m.headerWithPlace(e.Pos.File, w), w)
 	}
 	return m.fitContent(m.entryText(e, comments), w)
@@ -127,16 +126,16 @@ func (m *Model) fitRow(e review.Entry, comments []review.Comment, w int) string 
 //
 // A method since #255: what a row says now depends on the coverage overlay the
 // session's last gate loaded, and the overlay is the model's.
-func (m *Model) entryText(e review.Entry, comments []review.Comment) string {
+func (m *Model) entryText(e dreview.Entry, comments []dreview.Comment) string {
 	switch e.Kind {
-	case review.EntryHunk:
+	case dreview.EntryHunk:
 		return expandTabs(e.Text)
-	case review.EntryComment:
+	case dreview.EntryComment:
 		if c := comments[e.Comment]; !c.Sent.IsZero() {
 			return "  >> (sent " + c.Sent.Format("15:04") + ") " + c.Note
 		}
 		return "  >> " + comments[e.Comment].Note
-	case review.EntryOrphan:
+	case dreview.EntryOrphan:
 		return "  >> (moved) " + comments[e.Comment].Note
 	}
 	return m.linePrefix(e) + expandTabs(e.Text)
@@ -150,7 +149,7 @@ func (m *Model) entryText(e review.Entry, comments []review.Comment) string {
 // including the files a profile says nothing about, and an overlay is a remark
 // on the diff rather than a redesign of it. The line keeps its added colour, so
 // the row still reads as an addition - one nothing exercised.
-func (m *Model) linePrefix(e review.Entry) string {
+func (m *Model) linePrefix(e dreview.Entry) string {
 	if m.uncovered(e) {
 		return uncoveredMark
 	}
@@ -161,11 +160,11 @@ func expandTabs(s string) string {
 	return strings.ReplaceAll(s, "\t", strings.Repeat(" ", tabWidth))
 }
 
-func signPrefix(k review.LineKind) string {
+func signPrefix(k dreview.LineKind) string {
 	switch k {
-	case review.LineAdded:
+	case dreview.LineAdded:
 		return "+"
-	case review.LineRemoved:
+	case dreview.LineRemoved:
 		return "-"
 	}
 	return " "

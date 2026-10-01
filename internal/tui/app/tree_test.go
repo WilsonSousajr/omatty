@@ -2,11 +2,11 @@ package app_test
 
 import (
 	"errors"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -34,12 +34,12 @@ type previewReader struct {
 	Read  []string
 }
 
-func (p *previewReader) fn(_ string, rel string) (review.Preview, error) {
+func (p *previewReader) fn(_ string, rel string) (dreview.Preview, error) {
 	p.Read = append(p.Read, rel)
 	if p.Err != nil {
-		return review.Preview{}, p.Err
+		return dreview.Preview{}, p.Err
 	}
-	return review.Preview{Path: rel, Lines: strings.Split(p.Files[rel], "\n")}, nil
+	return dreview.Preview{Path: rel, Lines: strings.Split(p.Files[rel], "\n")}, nil
 }
 
 func modelWithTree(t *testing.T) (*app.Model, map[string]*terminal.Fake, *fileLister, *previewReader) {

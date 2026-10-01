@@ -3,6 +3,7 @@ package gate
 import (
 	"context"
 	"fmt"
+	dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -22,7 +23,7 @@ func TestRunner_neverExceedsItsParallelismBound(t *testing.T) {
 	release := make(chan struct{})
 	var current, peak int32
 
-	work := func(context.Context, string, []Step) ([]StepResult, error) {
+	work := func(context.Context, string, []dgate.Step) ([]dgate.StepResult, error) {
 		raise(&peak, atomic.AddInt32(&current, 1))
 		entered <- struct{}{}
 		<-release
@@ -68,11 +69,11 @@ func raise(peak *int32, n int32) {
 // Invariant 6: one session's panic must not take the app, or any other
 // session, with it.
 func TestRunner_aPanickingRun_marksOnlyItsOwnSession(t *testing.T) {
-	work := func(_ context.Context, dir string, _ []Step) ([]StepResult, error) {
+	work := func(_ context.Context, dir string, _ []dgate.Step) ([]dgate.StepResult, error) {
 		if strings.HasSuffix(dir, "boom") {
 			panic("deliberate, from a test")
 		}
-		return []StepResult{{Step: Step{Name: "ok"}, Verdict: Pass}}, nil
+		return []dgate.StepResult{{Step: dgate.Step{Name: "ok"}, Verdict: dgate.Pass}}, nil
 	}
 
 	r := NewRunner(2, work)
@@ -81,7 +82,7 @@ func TestRunner_aPanickingRun_marksOnlyItsOwnSession(t *testing.T) {
 	r.Start("panics", "/tmp/boom", nil)
 	r.Start("fine", "/tmp/fine", nil)
 
-	got := map[string]Report{}
+	got := map[string]dgate.Report{}
 	for range 2 {
 		rep := (<-reports).Payload
 		got[rep.ID] = rep

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,10 +59,10 @@ func TestClaude_StatusDerivesAPromptFromATypedLine_issue46(t *testing.T) {
 	if !ok || !e.UserIsPrompt {
 		t.Fatalf("ParseEntry = %+v ok=%v, want a typed prompt", e, ok)
 	}
-	if k, _, ok := s.DeriveKind([]status.Entry{e}); !ok || k != status.PromptSubmitted {
+	if k, _, ok := s.DeriveKind([]dstatus.Entry{e}); !ok || k != dstatus.PromptSubmitted {
 		t.Errorf("DeriveKind = %v ok=%v, want PromptSubmitted", k, ok)
 	}
-	if k, ok := s.KindOf(dstatus.HookPayload{SessionID: "s", HookEventName: "Stop"}); !ok || k != status.TurnEnded {
+	if k, ok := s.KindOf(dstatus.HookPayload{SessionID: "s", HookEventName: "Stop"}); !ok || k != dstatus.TurnEnded {
 		t.Errorf("KindOf(Stop) = %v ok=%v, want TurnEnded", k, ok)
 	}
 	if len(claudeProfile().HookEvents()) != len(status.HookEventNames()) {
@@ -121,7 +122,7 @@ func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
 	}
 	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", home, &detach.Plain{})
 
-	cmd, err := l.Launch(sessions.Session{ID: "abc-123", Dir: dir})
+	cmd, err := l.Launch(session.Session{ID: "abc-123", Dir: dir})
 	if err != nil {
 		t.Fatalf("Command error = %v, want nil", err)
 	}

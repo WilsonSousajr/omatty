@@ -1,11 +1,11 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // renderTree draws the worktree listing with the cursor row reversed. The
@@ -49,7 +49,7 @@ func (m *Model) withFilterLine(lines []string, w, rows int) []string {
 }
 
 // treeLines draws the window of rows around the cursor.
-func (m *Model) treeLines(nodes []review.TreeNode, w, rows int) []string {
+func (m *Model) treeLines(nodes []dreview.TreeNode, w, rows int) []string {
 	off := ScrollOffset(m.review.Files.Cursor, m.review.Files.Offset, rows)
 	out := make([]string, 0, rows)
 	for i := off; i < min(off+rows, len(nodes)); i++ {
@@ -73,7 +73,7 @@ func (m *Model) treeLines(nodes []review.TreeNode, w, rows int) []string {
 //
 // icon is the row's file-type glyph and a space, or "" - the plain tree, drawn
 // exactly as before #431.
-func treeText(n review.TreeNode, collapsed bool, review, icon string) string {
+func treeText(n dreview.TreeNode, collapsed bool, review, icon string) string {
 	mark := review + changeLetter(n.Change)
 	indent := strings.Repeat("  ", n.Depth)
 	if !n.IsDir {
@@ -88,15 +88,15 @@ func treeText(n review.TreeNode, collapsed bool, review, icon string) string {
 
 // changeLetter is the one-cell mark column: nvim-tree, yazi and lazygit all
 // show the kind of change, not just that there was one.
-func changeLetter(c review.Change) string {
+func changeLetter(c dreview.Change) string {
 	switch c {
-	case review.ChangeModified:
+	case dreview.ChangeModified:
 		return "M"
-	case review.ChangeAdded:
+	case dreview.ChangeAdded:
 		return "A"
-	case review.ChangeDeleted:
+	case dreview.ChangeDeleted:
 		return "D"
-	case review.ChangeRenamed:
+	case dreview.ChangeRenamed:
 		return "R"
 	}
 	return " "
@@ -107,7 +107,7 @@ func changeLetter(c review.Change) string {
 // renamed file, the operator's-attention hue; that is what keeps style.go's
 // one-hue-one-meaning rule with no new colour (#196). The cursor's reverse
 // wins over all of them so the row is found at a glance.
-func treeStyle(n review.TreeNode, cursor bool, mark string) lipgloss.Style {
+func treeStyle(n dreview.TreeNode, cursor bool, mark string) lipgloss.Style {
 	switch {
 	case cursor:
 		return theme.Cursor
@@ -117,11 +117,11 @@ func treeStyle(n review.TreeNode, cursor bool, mark string) lipgloss.Style {
 	// it wants attention again (#337).
 	case mark == reviewedMark:
 		return theme.Muted
-	case n.Change == review.ChangeAdded:
+	case n.Change == dreview.ChangeAdded:
 		return theme.Added
-	case n.Change == review.ChangeDeleted:
+	case n.Change == dreview.ChangeDeleted:
 		return theme.Removed
-	case n.Change != review.ChangeNone:
+	case n.Change != dreview.ChangeNone:
 		return theme.Comment
 	case n.IsDir:
 		return theme.Header
@@ -167,12 +167,12 @@ func (m *Model) renderPreview(w, rows int) []string {
 // shows the last line and, under it, the notes about what the view is not
 // showing. Without the notes in the count the last offset put them past the
 // pane's bottom, where fitBlock cut them off unseen (#197).
-func previewLast(p review.Preview, rows int) int {
+func previewLast(p dreview.Preview, rows int) int {
 	return max(len(p.Lines)+previewNotes(p)-rows, 0)
 }
 
 // previewNotes counts the muted lines renderPreview appends after the file.
-func previewNotes(p review.Preview) int {
+func previewNotes(p dreview.Preview) int {
 	n := 0
 	if p.Truncated {
 		n++
@@ -186,7 +186,7 @@ func previewNotes(p review.Preview) int {
 // previewLine draws one row: the styled line through the ANSI-aware cut when
 // the file was highlighted, the plain one through the cell cut otherwise. The
 // gutter is prepended after highlighting so a number is never coloured (#197).
-func (m *Model) previewLine(p review.Preview, i, w int) string {
+func (m *Model) previewLine(p dreview.Preview, i, w int) string {
 	if p.Styled == nil {
 		return m.fitContent(previewRow(i, p.Lines[i]), w)
 	}

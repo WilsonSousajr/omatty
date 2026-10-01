@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"strconv"
 )
 
@@ -17,15 +18,15 @@ type gtBackend struct {
 	open   func(url string) error
 	// needsToken is what an anonymous REST read's refusal says is missing
 	// (#459): nil when a token or tea reads.
-	needsToken *MissingToolError
+	needsToken *dforge.MissingToolError
 }
 
 // codebergLabel and giteaLabel are the words: pull requests, "#12", and the
 // forge named as the operator knows it. Forgejo is Gitea's kind (#451), so a
 // self-hosted Forgejo is called Gitea; Codeberg, by host, is called Codeberg.
 var (
-	codebergLabel = Label{Forge: "Codeberg", Change: "pull request", Short: "PR", Sigil: "#"}
-	giteaLabel    = Label{Forge: "Gitea", Change: "pull request", Short: "PR", Sigil: "#"}
+	codebergLabel = dforge.Label{Forge: "Codeberg", Change: "pull request", Short: "PR", Sigil: "#"}
+	giteaLabel    = dforge.Label{Forge: "Gitea", Change: "pull request", Short: "PR", Sigil: "#"}
 )
 
 func (g gtBackend) repo() string { return "repos/" + g.remote.Slug() }
@@ -55,7 +56,7 @@ func (g gtBackend) listErr(ctx context.Context, err error) error {
 // that passes, returned as the outage it is.
 func (g gtBackend) unitOff(ctx context.Context) (bool, error) {
 	_, err := g.f.get(ctx, g.repo())
-	var refused *AuthError
+	var refused *dforge.AuthError
 	switch {
 	case err == nil:
 		return true, nil
@@ -68,11 +69,11 @@ func (g gtBackend) unitOff(ctx context.Context) (bool, error) {
 // refusedAnonymously is a 404, a 401 or a 403 - how Gitea turns a stranger
 // away. A page where JSON was expected is not one: no token was refused.
 func refusedAnonymously(err error) bool {
-	var refused *AuthError
+	var refused *dforge.AuthError
 	return errors.Is(err, errNotFound) || errors.As(err, &refused) && (refused.Status == 401 || refused.Status == 403)
 }
 
-func (g gtBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
+func (g gtBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 	var finished []gtPR
 	var finishedErr error
 	done := make(chan struct{})
@@ -90,21 +91,21 @@ func (g gtBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
 	return prs, nil
 }
 
-func (g gtBackend) ciKey(pr PR) string {
+func (g gtBackend) ciKey(pr dforge.PR) string {
 	return g.remote.Host + "/" + g.remote.Slug() + "#" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
 // statusCI is the head commit's combined status, which Gitea and Forgejo
 // Actions and any external CI all report to.
-func (g gtBackend) statusCI(ctx context.Context, pr PR) (CIState, error) {
+func (g gtBackend) statusCI(ctx context.Context, pr dforge.PR) (dforge.CIState, error) {
 	st, err := getJSON[gtStatus](ctx, g.f, g.statusPath(pr.Head))
 	if err != nil || st.TotalCount == 0 {
-		return CINone, err
+		return dforge.CINone, err
 	}
 	return giteaCI(st.State), nil
 }
 
-func (g gtBackend) listIssues(ctx context.Context, _ string) ([]Issue, error) {
+func (g gtBackend) listIssues(ctx context.Context, _ string) ([]dforge.Issue, error) {
 	issues, err := pages(ctx, 100, gtPage[gtIssue](g.f, g.repo()+"/issues?state=open&type=issues"))
 	if err == nil {
 		return foldGTIssues(issues), nil
@@ -112,23 +113,23 @@ func (g gtBackend) listIssues(ctx context.Context, _ string) ([]Issue, error) {
 	if err = g.listErr(ctx, err); err == nil {
 		// The issues unit is off: a mirror's, or an outside tracker's, so the
 		// issues are elsewhere, as Bitbucket's are (#458, #460).
-		return nil, ErrNoTracker
+		return nil, dforge.ErrNoTracker
 	}
 	return nil, err
 }
 
-func (g gtBackend) viewIssue(ctx context.Context, _ string, number int) (Detail, error) {
+func (g gtBackend) viewIssue(ctx context.Context, _ string, number int) (dforge.Detail, error) {
 	item, err := getJSON[gtItem](ctx, g.f, g.repo()+"/issues/"+strconv.Itoa(number))
 	if err != nil {
-		return Detail{}, err
+		return dforge.Detail{}, err
 	}
 	return g.detail(ctx, item, number, nil), nil
 }
 
-func (g gtBackend) viewPR(ctx context.Context, _ string, number int) (Detail, error) {
+func (g gtBackend) viewPR(ctx context.Context, _ string, number int) (dforge.Detail, error) {
 	item, err := getJSON[gtItem](ctx, g.f, g.repo()+"/pulls/"+strconv.Itoa(number))
 	if err != nil {
-		return Detail{}, err
+		return dforge.Detail{}, err
 	}
 	st, _ := getJSON[gtStatus](ctx, g.f, g.statusPath(item.Head.SHA))
 	return g.detail(ctx, item, number, st.Statuses), nil
@@ -142,7 +143,7 @@ func (g gtBackend) statusPath(sha string) string {
 
 // detail folds an item with its comments; comments that cannot be read leave
 // it marked as not whole, never as an item nobody discussed (#397).
-func (g gtBackend) detail(ctx context.Context, item gtItem, number int, checks []gtCommitCheck) Detail {
+func (g gtBackend) detail(ctx context.Context, item gtItem, number int, checks []gtCommitCheck) dforge.Detail {
 	comments, err := getJSON[[]gtComment](ctx, g.f, g.repo()+"/issues/"+strconv.Itoa(number)+"/comments")
 	d := foldDetail(item.flat(comments, checks))
 	d.Truncated = d.Truncated || err != nil

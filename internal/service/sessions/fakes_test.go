@@ -3,8 +3,7 @@ package sessions_test
 import (
 	"context"
 	"fmt"
-
-	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 )
 
 // FakeGit records worktree calls and returns canned results. A named type,
@@ -50,7 +49,7 @@ func (f *FakeGit) MergeBase(_, ref string) (string, error) { return ref, nil }
 
 func (f *FakeGit) Diff(string, string) (string, error) { return "", nil }
 
-func (f *FakeGit) Shortstat(string, string) (vcs.Shortstat, error) { return vcs.Shortstat{}, nil }
+func (f *FakeGit) Shortstat(string, string) (review.Shortstat, error) { return review.Shortstat{}, nil }
 
 func (f *FakeGit) Untracked(string) ([]string, error) { return nil, nil }
 

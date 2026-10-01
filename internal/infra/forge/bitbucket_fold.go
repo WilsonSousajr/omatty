@@ -1,6 +1,9 @@
 package forge
 
-import "time"
+import (
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
+	"time"
+)
 
 // Bitbucket Cloud's REST answers, as it writes them (#460).
 type (
@@ -59,46 +62,46 @@ type (
 // foldBBPRs is Bitbucket's pull requests as omatty's. Bitbucket keeps no
 // merge time, so a merged one's last update stands in for it (#332's lead
 // time); its list says nothing of conflicts, so none is claimed.
-func foldBBPRs(in []bbPR) []PR {
-	out := make([]PR, len(in))
+func foldBBPRs(in []bbPR) []dforge.PR {
+	out := make([]dforge.PR, len(in))
 	for i, p := range in {
-		out[i] = PR{
+		out[i] = dforge.PR{
 			Number: p.ID, Title: cleanLine(p.Title), Branch: cleanLine(p.Source.Branch.Name), Base: cleanLine(p.Destination.Branch.Name),
 			State: bbState(p.State), Head: p.Source.Commit.Hash, Draft: p.Draft,
 			Fork:    p.Source.Repository.FullName != p.Destination.Repository.FullName,
 			Updated: p.UpdatedOn,
 		}
-		if out[i].State == Merged {
+		if out[i].State == dforge.Merged {
 			out[i].MergedAt = p.UpdatedOn
 		}
 	}
 	return out
 }
 
-func bbState(s string) PRState {
+func bbState(s string) dforge.PRState {
 	switch s {
 	case "MERGED":
-		return Merged
+		return dforge.Merged
 	case "DECLINED", "SUPERSEDED":
-		return Closed
+		return dforge.Closed
 	}
-	return Open
+	return dforge.Open
 }
 
 // bitbucketCI is a commit status as the card's CI mark; an unknown one is
 // running, never passing.
-func bitbucketCI(state string) CIState {
+func bitbucketCI(state string) dforge.CIState {
 	switch state {
 	case "SUCCESSFUL":
-		return CIPassing
+		return dforge.CIPassing
 	// STOPPED is a run someone halted, and CANCELLED Data Center's STOPPED:
 	// neither passed.
 	case "FAILED", "STOPPED", "CANCELLED":
-		return CIFailing
+		return dforge.CIFailing
 	case "UNKNOWN": // Data Center's no result - never running forever (#461's review)
-		return CINone
+		return dforge.CINone
 	}
-	return CIRunning
+	return dforge.CIRunning
 }
 
 // name is who a Bitbucket user is to a reader: the nickname, else the name.

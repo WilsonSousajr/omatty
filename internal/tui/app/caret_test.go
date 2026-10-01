@@ -1,10 +1,10 @@
 package app_test
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -147,7 +147,7 @@ func TestView_DrawsTheCursorOnThePanesLastCell_issue106(t *testing.T) {
 // nobody is reading.
 func TestView_DrawsNoCursorForAnExitedSession_issue106(t *testing.T) {
 	m := caretModel(t, terminal.Caret{X: 7, Y: 3, Visible: true})
-	m.Update(app.StatusMsg{SessionID: m.Selected(), Kind: status.SessionEnded})
+	m.Update(app.StatusMsg{SessionID: m.Selected(), Kind: dstatus.SessionEnded})
 
 	if got := m.View().Cursor; got != nil {
 		t.Errorf("View().Cursor = %+v for an exited session, want nil", got)

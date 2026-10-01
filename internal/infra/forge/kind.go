@@ -2,6 +2,7 @@ package forge
 
 import (
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"strings"
 )
 
@@ -65,7 +66,7 @@ func KindOf(host string) (Kind, error) {
 	if strings.HasSuffix(host, ".visualstudio.com") {
 		return KindAzure, nil
 	}
-	return "", fmt.Errorf("forge: host %q is not a forge omatty knows; name it in [forge.hosts]: %w", host, ErrNoForge)
+	return "", fmt.Errorf("forge: host %q is not a forge omatty knows; name it in [forge.hosts]: %w", host, dforge.ErrNoForge)
 }
 
 // kindNames is every spelling a config may use, in the order an error lists

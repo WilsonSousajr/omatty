@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -27,7 +28,7 @@ func (r *Router) pickAzure(remote Remote) (backend, error) {
 	if !azureServices(remote.Host) {
 		// az's token is an Entra token for Azure DevOps Services. A Server
 		// neither takes it nor should see it (#456's review).
-		return nil, fmt.Errorf("forge: %s is an Azure DevOps Server, which omatty does not read yet (#596): %w", remote.Host, ErrNoForge)
+		return nil, fmt.Errorf("forge: %s is an Azure DevOps Server, which omatty does not read yet (#596): %w", remote.Host, dforge.ErrNoForge)
 	}
 	base, project, repo, err := azureCoordinates(remote)
 	if err != nil {
@@ -52,7 +53,7 @@ func (r *Router) azureAuth() (auth, string, error) {
 	}
 	bin, ok := r.cli(KindAzure)
 	if !ok {
-		return nil, "", withPAT(&MissingToolError{Tool: "az"})
+		return nil, "", withPAT(&dforge.MissingToolError{Tool: "az"})
 	}
 	tok, err := azToken(bin, r.azWait)
 	if err != nil {
@@ -64,11 +65,11 @@ func (r *Router) azureAuth() (auth, string, error) {
 // withPAT is a missing az's note with the PAT beside it: either half fixes it.
 // An az that gave no answer in time stays the outage it is.
 func withPAT(err error) error {
-	var missing *MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) {
 		return err
 	}
-	return &MissingToolError{Tool: missing.Tool, NoLoginFor: missing.NoLoginFor, TokenEnv: "AZURE_DEVOPS_EXT_PAT"}
+	return &dforge.MissingToolError{Tool: missing.Tool, NoLoginFor: missing.NoLoginFor, TokenEnv: "AZURE_DEVOPS_EXT_PAT"}
 }
 
 // noSignIn asks Azure to answer a refused credential with a 401 rather than a
@@ -106,7 +107,7 @@ func azToken(bin string, wait time.Duration) (string, error) {
 		AccessToken string `json:"accessToken"`
 	}
 	if err != nil || json.Unmarshal(out, &got) != nil || got.AccessToken == "" {
-		return "", &MissingToolError{Tool: "az", NoLoginFor: "Azure DevOps"}
+		return "", &dforge.MissingToolError{Tool: "az", NoLoginFor: "Azure DevOps"}
 	}
 	return got.AccessToken, nil
 }

@@ -58,8 +58,8 @@ func TestOmattyHook_DeliversToARealListener(t *testing.T) {
 		// The hook server hands over the payload; the watcher's adapter says
 		// what it means (step 5.2d, #653). Both halves are real here.
 		kind, _ := status.KindOf(p)
-		ev := status.Event{SessionID: p.SessionID, Kind: kind}
-		if ev.SessionID != "abc" || ev.Kind != status.PermissionRequested {
+		ev := dstatus.Event{SessionID: p.SessionID, Kind: kind}
+		if ev.SessionID != "abc" || ev.Kind != dstatus.PermissionRequested {
 			t.Errorf("received %+v, want session abc PermissionRequested", ev)
 		}
 	case <-time.After(3 * time.Second):

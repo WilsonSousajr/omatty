@@ -7,7 +7,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/domain/status"
 )
 
@@ -22,24 +21,12 @@ const maxPayload = 4 << 20
 // this is not one claude wrote.
 const maxField = 1024
 
-// SessionEnv is session.SessionEnv, the variable the launcher sets and the
-// hook reads (#316). It moved to internal/domain/session in migration step 5.5
-// (#653); this alias keeps callers compiling until step 8.1 deletes it.
-const SessionEnv = session.SessionEnv
-
-// Payload is status.HookPayload, the slice of a hook's stdin that status
-// needs. It moved to internal/domain/status (migration step 3.2); this alias
-// keeps callers compiling until step 8.1 deletes it.
-//
-//	p, ok := hooks.ParsePayload(os.Stdin)
-type Payload = status.HookPayload
-
 // Report reads a hook payload from stdin and forwards it to omatty's socket as
 // one JSON line, stamped with omattySession - the value of SessionEnv in the
 // hook's environment, empty for a claude omatty did not launch. It is the
 // whole of `omatty hook`.
 //
-//	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second, os.Getenv(hooks.SessionEnv))
+//	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second, os.Getenv(session.SessionEnv))
 //
 // Invariant 11: a hook must never block or fail claude. Every failure — no
 // socket (omatty closed), refused connection, malformed input — returns nil so
@@ -68,7 +55,7 @@ func Report(stdin io.Reader, socketPath string, dialTimeout time.Duration, omatt
 // extracted from Report so the parked-peer case can be tested over an
 // unbuffered net.Pipe — a real socket's kernel buffer swallows a payload this
 // small, so the deadline never engages there and the guard would be untestable.
-func sendLine(conn net.Conn, p Payload, timeout time.Duration) {
+func sendLine(conn net.Conn, p status.HookPayload, timeout time.Duration) {
 	_ = conn.SetWriteDeadline(time.Now().Add(timeout))
 	line, err := json.Marshal(p)
 	if err != nil {
@@ -84,14 +71,14 @@ func sendLine(conn net.Conn, p Payload, timeout time.Duration) {
 // (invariant 11).
 //
 //	p, ok := hooks.ParsePayload(os.Stdin)
-func ParsePayload(stdin io.Reader) (Payload, bool) {
+func ParsePayload(stdin io.Reader) (status.HookPayload, bool) {
 	dec := json.NewDecoder(io.LimitReader(stdin, maxPayload))
 	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
-		return Payload{}, false
+		return status.HookPayload{}, false
 	}
-	var p Payload
+	var p status.HookPayload
 	if !scanFields(dec, &p) {
-		return Payload{}, false
+		return status.HookPayload{}, false
 	}
 	return p, p.SessionID != "" && p.HookEventName != ""
 }
@@ -99,7 +86,7 @@ func ParsePayload(stdin io.Reader) (Payload, bool) {
 // scanFields walks the top-level object. It stops quietly where the cap cut
 // the input - the routable fields come first in claude's payloads - and
 // reports false only for a routable field that is not a sane string.
-func scanFields(dec *json.Decoder, p *Payload) bool {
+func scanFields(dec *json.Decoder, p *status.HookPayload) bool {
 	for dec.More() {
 		key, err := dec.Token()
 		if err != nil {
@@ -119,7 +106,7 @@ func scanFields(dec *json.Decoder, p *Payload) bool {
 	return true
 }
 
-func routableField(name string, p *Payload) *string {
+func routableField(name string, p *status.HookPayload) *string {
 	switch name {
 	case "session_id":
 		return &p.SessionID

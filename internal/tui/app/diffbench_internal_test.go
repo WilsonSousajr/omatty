@@ -2,11 +2,10 @@ package app
 
 import (
 	"fmt"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // benchDiffModel is a model showing one 200-line Go hunk of paired edits in
@@ -24,7 +23,7 @@ func benchDiffModel(b *testing.B) *Model {
 	}
 	m := benchModel(b)
 	m.review = ReviewPane{Open: true, View: ViewDiff, Diff: diff}
-	m.review.Entries = review.Flatten(diff, review.Placed{})
+	m.review.Entries = dreview.Flatten(diff, dreview.Placed{})
 	return m
 }
 

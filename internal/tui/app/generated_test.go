@@ -1,11 +1,11 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -17,7 +17,7 @@ type generatedDetector struct {
 	Asked [][]string
 }
 
-func (g *generatedDetector) fn(_ sessions.Session, paths []string) (map[string]bool, error) {
+func (g *generatedDetector) fn(_ session.Session, paths []string) (map[string]bool, error) {
 	g.Asked = append(g.Asked, paths)
 	return g.Gen, g.Err
 }

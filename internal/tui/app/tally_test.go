@@ -1,13 +1,13 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -25,9 +25,9 @@ func (r *tallyRecorder) fn(project string, passed bool) error {
 
 func modelWithTally(t *testing.T, rec *tallyRecorder, auto bool) *app.Model {
 	t.Helper()
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty", Gate: []gate.Step{{Name: "test", Run: "go test ./..."}}}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty", Gate: []gate.Step{{Name: "test", Run: "go test ./..."}}}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
 	d := baseDeps(st, fakeTermsFor(st))
 	d.Tally, d.GateAuto = rec.fn, auto
@@ -42,7 +42,7 @@ func TestModel_aTurnFollowedByAGreenGateCountsAsFirstPass_issue332(t *testing.T)
 	rec := &tallyRecorder{}
 	m := modelWithTally(t, rec, true)
 
-	statusDeliver(m, "s1", status.TurnEnded, time.Now())
+	statusDeliver(m, "s1", dstatus.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 
 	if len(rec.Runs) != 1 || rec.Runs[0] != "omatty" {
@@ -59,7 +59,7 @@ func TestModel_aFailingGateStillCountsAsARun_issue332(t *testing.T) {
 	rec := &tallyRecorder{}
 	m := modelWithTally(t, rec, true)
 
-	statusDeliver(m, "s1", status.TurnEnded, time.Now())
+	statusDeliver(m, "s1", dstatus.TurnEnded, time.Now())
 	deliver(m, second(m.Update(app.GateMsg(failingReport()))))
 
 	if len(rec.Passed) != 1 {
@@ -91,7 +91,7 @@ func TestModel_aTallyThatWillNotSaveDoesNotDisturbTheReport_issue332(t *testing.
 	rec := &tallyRecorder{Err: errListing}
 	m := modelWithTally(t, rec, true)
 
-	statusDeliver(m, "s1", status.TurnEnded, time.Now())
+	statusDeliver(m, "s1", dstatus.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 
 	if got := m.View().Content; got == "" {

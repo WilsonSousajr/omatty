@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/status"
 	"net"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ func TestSendLine_ReturnsWhenThePeerNeverReads_issue57(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		sendLine(client, Payload{SessionID: "abc", HookEventName: "Stop"}, 50*time.Millisecond)
+		sendLine(client, status.HookPayload{SessionID: "abc", HookEventName: "Stop"}, 50*time.Millisecond)
 	}()
 
 	select {
@@ -51,7 +52,7 @@ func TestSendLine_WritesTheLineWhenThePeerReads_issue57(t *testing.T) {
 		got <- string(buf[:n])
 	}()
 
-	sendLine(client, Payload{SessionID: "abc", HookEventName: "Stop"}, time.Second)
+	sendLine(client, status.HookPayload{SessionID: "abc", HookEventName: "Stop"}, time.Second)
 
 	select {
 	case line := <-got:

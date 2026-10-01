@@ -1,13 +1,12 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"testing"
-
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
-func threeSessions() sessions.State {
-	return sessions.State{Sessions: []sessions.Session{{ID: "s1"}, {ID: "s2"}, {ID: "s3"}}}
+func threeSessions() session.State {
+	return session.State{Sessions: []session.Session{{ID: "s1"}, {ID: "s2"}, {ID: "s3"}}}
 }
 
 // Regression, issue #317: boot spawned a claude for every row - 11 of them,

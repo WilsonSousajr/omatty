@@ -2,6 +2,7 @@ package forge
 
 import (
 	"encoding/json"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/url"
 	"strings"
 )
@@ -12,7 +13,7 @@ import (
 // named as such in any note, since it is installed (#586).
 func (r *Router) pickGitea(repoRoot string, remote Remote) (backend, error) {
 	// The token is only ever this instance's, so the note says which (#589).
-	missing := &MissingToolError{Tool: "tea", TokenEnv: "GITEA_TOKEN for " + webBase(remote)}
+	missing := &dforge.MissingToolError{Tool: "tea", TokenEnv: "GITEA_TOKEN for " + webBase(remote)}
 	if bin, installed := r.cli(KindGitea); installed {
 		if b := r.teaBackend(bin, repoRoot, remote, missing); b != nil {
 			return b, nil
@@ -27,7 +28,7 @@ func (r *Router) pickGitea(repoRoot string, remote Remote) (backend, error) {
 // teaBackend is tea reading remote through its login, or nil with missing
 // saying why not: no login for the host (#586), or a tea older than 0.12,
 // which has no `tea api` (#458).
-func (r *Router) teaBackend(bin, repoRoot string, remote Remote, missing *MissingToolError) backend {
+func (r *Router) teaBackend(bin, repoRoot string, remote Remote, missing *dforge.MissingToolError) backend {
 	login := r.teaLogin(bin, remote)
 	switch {
 	case login == "":
@@ -46,7 +47,7 @@ func (r *Router) teaBackend(bin, repoRoot string, remote Remote, missing *Missin
 // Codeberg; missing is what an anonymous refusal says. A token never crosses
 // plain http (#584), so an http remote is read anonymously whatever is set,
 // and its note names tea alone, since no token could help.
-func (r *Router) giteaREST(remote Remote, missing *MissingToolError) (backend, error) {
+func (r *Router) giteaREST(remote Remote, missing *dforge.MissingToolError) (backend, error) {
 	tok := r.giteaToken(remote)
 	if remote.Scheme == "http" {
 		tok, missing.TokenEnv = "", ""

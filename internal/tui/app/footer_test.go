@@ -1,13 +1,13 @@
 package app_test
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -22,7 +22,7 @@ func footerOf(m *app.Model) string {
 func TestFooter_CarriesTheSessionCountAndTheWaitingCountOnTheRight_issue178(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
-	sendStatus(m, "s3", status.PermissionRequested, time.Now())
+	sendStatus(m, "s3", dstatus.PermissionRequested, time.Now())
 
 	got := footerOf(m)
 

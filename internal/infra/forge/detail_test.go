@@ -1,6 +1,7 @@
 package forge_test
 
 import (
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,15 +87,15 @@ func TestFoldDetail_CarriesBodyAndComments_issue397(t *testing.T) {
 // Bounded, for the reason the preview is (#24): an item is someone else's text
 // and can be any size, and the pane must not hold megabytes of it.
 func TestFoldDetail_BoundsAnEnormousItem_issue397(t *testing.T) {
-	huge := strings.Repeat("a", forge.DetailMax+1)
+	huge := strings.Repeat("a", dforge.DetailMax+1)
 
 	got, err := forge.FoldDetail([]byte(detailJSON(huge, commentJSON("someone", "dropped"))))
 
 	if err != nil {
 		t.Fatalf("FoldDetail() error = %v", err)
 	}
-	if len(got.Body) > forge.DetailMax {
-		t.Errorf("Body is %d bytes, want it bounded at %d", len(got.Body), forge.DetailMax)
+	if len(got.Body) > dforge.DetailMax {
+		t.Errorf("Body is %d bytes, want it bounded at %d", len(got.Body), dforge.DetailMax)
 	}
 	if !got.Truncated {
 		t.Error("Truncated = false after cutting; a short body must not read as the whole one")
@@ -106,7 +107,7 @@ func TestFoldDetail_BoundsAnEnormousItem_issue397(t *testing.T) {
 
 // A comment past the bound is dropped, and the item says so.
 func TestFoldDetail_DropsCommentsPastTheBound_issue397(t *testing.T) {
-	big := strings.Repeat("b", forge.DetailMax/2)
+	big := strings.Repeat("b", dforge.DetailMax/2)
 
 	got, err := forge.FoldDetail([]byte(detailJSON("small body", commentJSON("a", big), commentJSON("b", big), commentJSON("c", big))))
 
@@ -167,10 +168,10 @@ func TestFoldDetail_ReadsAPullRequestsChecks_issue433(t *testing.T) {
 	if err != nil || len(got.Checks) != 3 {
 		t.Fatalf("FoldDetail() = %+v, %v; want three checks", got.Checks, err)
 	}
-	want := []forge.Check{
-		{Name: "test", State: forge.CIFailing, Took: 102 * time.Second},
-		{Name: "lint", State: forge.CIPassing, Took: 3 * time.Second},
-		{Name: "ci/e2e", State: forge.CIRunning},
+	want := []dforge.Check{
+		{Name: "test", State: dforge.CIFailing, Took: 102 * time.Second},
+		{Name: "lint", State: dforge.CIPassing, Took: 3 * time.Second},
+		{Name: "ci/e2e", State: dforge.CIRunning},
 	}
 	for i, w := range want {
 		if got.Checks[i] != w {

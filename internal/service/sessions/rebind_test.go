@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"slices"
 	"strings"
 	"testing"
@@ -14,9 +15,9 @@ import (
 func seedReboundPair(t *testing.T) *statestore.Store {
 	t.Helper()
 	store, _ := newStoreAt(t)
-	st := sessions.State{Version: sessions.Version,
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []sessions.Session{
+	st := session.State{Version: session.Version,
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []session.Session{
 			{ID: "row-1", Project: "omatty", Title: "one", Dir: "/p/omatty"},
 			{ID: "row-2", Project: "omatty", Title: "two", Dir: "/p/omatty", Conversation: "conv-2"},
 		}}
@@ -27,8 +28,8 @@ func seedReboundPair(t *testing.T) *statestore.Store {
 }
 
 func TestSession_ConversationIDIsIDUntilRebound_issue316(t *testing.T) {
-	fresh := sessions.Session{ID: "row-1"}
-	cleared := sessions.Session{ID: "row-1", Conversation: "after-clear"}
+	fresh := session.Session{ID: "row-1"}
+	cleared := session.Session{ID: "row-1", Conversation: "after-clear"}
 
 	if fresh.ConversationID() != "row-1" || cleared.ConversationID() != "after-clear" {
 		t.Errorf("ConversationID = %q and %q, want row-1 and after-clear",

@@ -5,10 +5,10 @@ package app
 
 import (
 	"fmt"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // FoldFunc persists whether a project is folded. Injected so ui never reaches
@@ -28,7 +28,7 @@ func noFold(project string, collapsed bool) error {
 // foldedHeader is the one row a folded project draws: its header, carrying
 // the sessions it hides and the loudest of their statuses.
 func foldedHeader(project string, sessions []Row) Row {
-	h := Row{Project: project, Status: status.StatusIdle}
+	h := Row{Project: project, Status: dstatus.StatusIdle}
 	for _, r := range sessions {
 		h.Folded = append(h.Folded, r.Session)
 		if loudness(r.Status) > loudness(h.Status) {
@@ -40,15 +40,15 @@ func foldedHeader(project string, sessions []Row) Row {
 
 // loudness ranks a status by how much it wants the operator: a question
 // first, then a failure, then a finished turn, then work in flight, then rest.
-func loudness(s status.Status) int {
+func loudness(s dstatus.Status) int {
 	switch s {
-	case status.StatusWaiting:
+	case dstatus.StatusWaiting:
 		return 4
-	case status.StatusError:
+	case dstatus.StatusError:
 		return 3
-	case status.StatusDone:
+	case dstatus.StatusDone:
 		return 2
-	case status.StatusThinking, status.StatusTool:
+	case dstatus.StatusThinking, dstatus.StatusTool:
 		return 1
 	}
 	return 0

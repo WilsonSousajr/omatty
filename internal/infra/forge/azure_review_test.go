@@ -3,6 +3,7 @@ package forge_test
 import (
 	"encoding/base64"
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,7 +47,7 @@ func TestAzure_AzsTokenGoesOnlyToServices_issue456(t *testing.T) {
 func TestAzure_AnAzWithoutATokenSaysWhy_issue456(t *testing.T) {
 	notLoggedIn, _ := fakeGH(t, "", "ERROR: Please run 'az login' to setup account.", 1)
 	_, err := azureRouter(t, notLoggedIn, nil, &FakeAzureAPI{}).ListPRs(t.TempDir())
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || missing.Tool != "az" || missing.NoLoginFor == "" {
 		t.Errorf("not logged in: %v, want az's missing login named", err)
 	}
@@ -68,10 +69,10 @@ func TestAzure_AnAzWithoutATokenSaysWhy_issue456(t *testing.T) {
 // a disabled one is not CI either, and a broken one failed.
 func TestAzure_OnlyAPolicyThatAppliesIsCI_issue456(t *testing.T) {
 	az, _ := fakeAz(t, secret)
-	for want, policies := range map[forge.CIState][]string{
-		forge.CINone:    {azEvaluation("Build", "notApplicable"), azEvaluation("Status", "notApplicable")},
-		forge.CIPassing: {azEvaluation("Build", "approved"), strings.Replace(azEvaluation("Build", "rejected"), `"isEnabled": true`, `"isEnabled": false`, 1)},
-		forge.CIFailing: {azEvaluation("Build", "broken")},
+	for want, policies := range map[dforge.CIState][]string{
+		dforge.CINone:    {azEvaluation("Build", "notApplicable"), azEvaluation("Status", "notApplicable")},
+		dforge.CIPassing: {azEvaluation("Build", "approved"), strings.Replace(azEvaluation("Build", "rejected"), `"isEnabled": true`, `"isEnabled": false`, 1)},
+		dforge.CIFailing: {azEvaluation("Build", "broken")},
 	} {
 		api := &FakeAzureAPI{Policy: `{"value": [` + strings.Join(policies, ",") + `]}`}
 		prs, err := azureRouter(t, az, nil, api).ListPRs(t.TempDir())
@@ -154,7 +155,7 @@ func TestAzure_AnAbandonedPullRequestIsClosed_issue456(t *testing.T) {
 
 	prs, err := azureRouter(t, az, nil, api).ListPRs(t.TempDir())
 
-	if pr, ok := prNumbered(prs, 3); err != nil || !ok || pr.State != forge.Closed {
+	if pr, ok := prNumbered(prs, 3); err != nil || !ok || pr.State != dforge.Closed {
 		t.Errorf("!3 = %+v, %v; want closed", pr, err)
 	}
 }
@@ -194,7 +195,7 @@ func TestAzureREST_ThePATStaysWithServicesAndOffTheCLI_issue457(t *testing.T) {
 		Options: forge.Options{Remote: (&FakeRemote{URL: azureRemote}).url, Transport: forge.TransportCLI},
 		Env:     azurePAT, API: api.serve(t),
 	})
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if _, err := cli.ListPRs(t.TempDir()); !errors.As(err, &missing) || len(api.Got) != 0 {
 		t.Errorf("CLI forced: %v after %+v, want az missing and nothing sent", err, api.Got)
 	}
@@ -219,7 +220,7 @@ func TestAzureREST_A203AndAnHTMLPageAreEachARefusal_issue457(t *testing.T) {
 		"200 of HTML":          {First: []giteaAnswer{{match: "pullrequests", status: 200, contentType: "text/html", body: "<html>sign in</html>"}}},
 	} {
 		_, err := azureRouter(t, "", azurePAT, api).ListPRs(t.TempDir())
-		var refused *forge.AuthError
+		var refused *dforge.AuthError
 		if !errors.As(err, &refused) {
 			t.Errorf("%s: error = %v, want the PAT refused", name, err)
 		}

@@ -2,11 +2,11 @@ package app_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -23,17 +23,17 @@ type recordArchive struct {
 	// state.json and returns the row it found there, so this fake reads from
 	// its own copy - which a test can make disagree with the model's, since
 	// that divergence is the whole reason the row is returned (#40).
-	State sessions.State
+	State session.State
 }
 
-func (r *recordArchive) archive(sessionID string) (sessions.Session, error) {
+func (r *recordArchive) archive(sessionID string) (session.Session, error) {
 	r.Archived = append(r.Archived, sessionID)
 	for _, sess := range r.State.Sessions {
 		if sess.ID == sessionID {
 			return sess, r.ArchiveErr
 		}
 	}
-	return sessions.Session{}, r.ArchiveErr
+	return session.Session{}, r.ArchiveErr
 }
 
 func (r *recordArchive) stopTail(sessionID string) { r.Stopped = append(r.Stopped, sessionID) }
@@ -45,7 +45,7 @@ func (r *recordArchive) removeWorktree(repoRoot, dir string) error {
 
 // worktreeState gives s2 a worktree, so the three-answer confirmation and the
 // removal path are both reachable.
-func worktreeState() sessions.State {
+func worktreeState() session.State {
 	st := twoProjectState()
 	for i := range st.Sessions {
 		if st.Sessions[i].ID == "s2" {

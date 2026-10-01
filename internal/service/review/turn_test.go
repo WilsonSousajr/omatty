@@ -2,12 +2,12 @@ package review_test
 
 import (
 	"errors"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
-	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
@@ -84,7 +84,7 @@ func TestSource_DropTurnDeletesFromTheProjectRoot_issue311(t *testing.T) {
 // commit, so the stat it already polls carries HEAD (#310 final review).
 func TestSource_StatCarriesTheHeadCommit_issue310(t *testing.T) {
 	g := &FakeGit{Branch: "parser-fix", MergeBaseOut: "abc123", HeadOut: "def456",
-		ShortstatOut: vcs.Shortstat{Files: 1, Added: 2, Removed: 1}}
+		ShortstatOut: dreview.Shortstat{Files: 1, Added: 2, Removed: 1}}
 
 	st, err := review.NewSource(g, gitdiff.ParseDiff).Stat(session.Session{ID: "s1", Dir: "/wt/s1", Branch: "parser-fix", Base: "main"}, "/p")
 

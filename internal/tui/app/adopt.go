@@ -12,6 +12,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"log/slog"
 	"time"
 
@@ -234,7 +235,7 @@ func (m *Model) pickedProposals() []SessionProposal {
 // row. Where the two disagreed, the sidebar showed a value state.json did not
 // have, `ctrl+o n` on it failed and a restart silently renamed the row (#91) -
 // and they do disagree now, because AdoptSession fills in the branch.
-func (m *Model) startAdopted(sess sessions.Session) tea.Cmd { return m.startCmd(sess, false) }
+func (m *Model) startAdopted(sess session.Session) tea.Cmd { return m.startCmd(sess, false) }
 
 // adoptFooter names the marking key, as the project picker's does.
 //

@@ -2,7 +2,9 @@
 
 package app
 
-import "github.com/WilsonSousajr/omatty/internal/service/review"
+import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+)
 
 // The review gutter's three states. One cell, left of the change letter, so
 // every row a session did not touch still reads exactly as it did: the change
@@ -78,7 +80,7 @@ func (m *Model) reviewMark(path string, isDir bool) string {
 func (m *Model) diffDigest(path string) (string, bool) {
 	for _, f := range m.shownDiff().Files {
 		if f.Path == path {
-			return review.FileDigest(f), true
+			return dreview.FileDigest(f), true
 		}
 	}
 	return "", false

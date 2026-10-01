@@ -31,13 +31,13 @@ const pollEvery = time.Second
 //	model := ui.NewModel(ui.Deps{Events: w.Subscribe(ctx), TailStart: w.Add, /* ... */})
 type Watch struct {
 	deps   WatchDeps
-	events chan Event
+	events chan dstatus.Event
 	// broker fans events out to every subscriber (ADR 0001, step 5.2a, #653).
 	// The pump that feeds it starts on the first Subscribe: tailers report a
 	// session's current status the moment Start adds them, and published to
 	// nobody those would be lost. Until someone subscribes they wait in events,
 	// as they waited for the TUI to start reading before.
-	broker   *pubsub.Broker[Event]
+	broker   *pubsub.Broker[dstatus.Event]
 	pumpOnce sync.Once
 	stopPump context.CancelFunc
 	pumpCtx  context.Context
@@ -61,8 +61,8 @@ func Start(d WatchDeps, sessions []session.Session) *Watch {
 	pumpCtx, stopPump := context.WithCancel(context.Background())
 	w := &Watch{
 		deps:     d,
-		events:   make(chan Event, eventBuffer),
-		broker:   pubsub.NewBroker[Event](eventBuffer),
+		events:   make(chan dstatus.Event, eventBuffer),
+		broker:   pubsub.NewBroker[dstatus.Event](eventBuffer),
 		pumpCtx:  pumpCtx,
 		stopPump: stopPump,
 		tailers:  map[string]*Tailer{},
@@ -83,7 +83,7 @@ func (w *Watch) HooksLive() bool { return w.listener != nil }
 // call starts the pump, so nothing reported before anyone listened is lost.
 //
 //	events := w.Subscribe(ctx)
-func (w *Watch) Subscribe(ctx context.Context) <-chan pubsub.Event[Event] {
+func (w *Watch) Subscribe(ctx context.Context) <-chan pubsub.Event[dstatus.Event] {
 	ch := w.broker.Subscribe(ctx)
 	w.pumpOnce.Do(func() { go w.pump() })
 	return ch
@@ -96,7 +96,7 @@ func (w *Watch) pump() {
 	for {
 		select {
 		case ev := <-w.events:
-			_ = w.broker.Publish(w.pumpCtx, pubsub.Event[Event]{Kind: pubsub.Updated, Payload: ev})
+			_ = w.broker.Publish(w.pumpCtx, pubsub.Event[dstatus.Event]{Kind: pubsub.Updated, Payload: ev})
 		case <-w.pumpCtx.Done():
 			return
 		}
@@ -187,7 +187,7 @@ func (w *Watch) offerHook(p dstatus.HookPayload) {
 	if !ok {
 		return
 	}
-	ev := Event{SessionID: p.SessionID, Kind: kind, At: w.deps.Clock(), Owner: p.OmattySession, Hook: true}
+	ev := dstatus.Event{SessionID: p.SessionID, Kind: kind, At: w.deps.Clock(), Owner: p.OmattySession, Hook: true}
 	select {
 	case w.events <- ev:
 	default:

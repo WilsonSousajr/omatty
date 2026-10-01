@@ -3,6 +3,7 @@ package app_test
 import (
 	"bytes"
 	"errors"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"log/slog"
 	"strings"
 	"testing"
@@ -11,7 +12,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -66,12 +66,12 @@ func TestModel_APollInFlightIsNotRepeated_issue180(t *testing.T) {
 // Done and waiting are the moments the numbers change; a tool start is not.
 func TestModel_DoneAndWaitingPollAtOnce_issue180(t *testing.T) {
 	m, stat := modelWithStat(t)
-	statusDeliver(m, "s1", status.ToolStarted, fixedNow)
+	statusDeliver(m, "s1", dstatus.ToolStarted, fixedNow)
 	if len(stat.Asked) != 0 {
 		t.Fatalf("a tool start polled %v", stat.Asked)
 	}
-	statusDeliver(m, "s1", status.TurnEnded, fixedNow.Add(time.Second))
-	statusDeliver(m, "s2", status.PermissionRequested, fixedNow.Add(2*time.Second))
+	statusDeliver(m, "s1", dstatus.TurnEnded, fixedNow.Add(time.Second))
+	statusDeliver(m, "s2", dstatus.PermissionRequested, fixedNow.Add(2*time.Second))
 	if strings.Join(stat.Asked, " ") != "s1 s2" {
 		t.Errorf("asked %v, want s1 on done then s2 on waiting", stat.Asked)
 	}

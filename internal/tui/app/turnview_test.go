@@ -3,6 +3,7 @@ package app_test
 import (
 	"errors"
 	"fmt"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
@@ -31,7 +32,7 @@ index 3333333..2222222 100644
  }
 `
 
-func turnDiffParsed(t *testing.T) review.Diff {
+func turnDiffParsed(t *testing.T) dreview.Diff {
 	t.Helper()
 	d, err := gitdiff.ParseDiff(strings.NewReader(turnDiffText))
 	if err != nil {
@@ -88,7 +89,7 @@ func TestModel_thisTurnStaysInTheTitleAtANarrowWidth_issue311(t *testing.T) {
 func TestModel_noBaselineSaysSo_issue311(t *testing.T) {
 	tr := &turnRecorder{}
 	m, _ := modelWithTurnDiff(t, tr)
-	tr.Diff, tr.DiffErr = review.Diff{}, review.ErrNoTurn
+	tr.Diff, tr.DiffErr = dreview.Diff{}, review.ErrNoTurn
 
 	pressAndSettle(m, key('t'))
 

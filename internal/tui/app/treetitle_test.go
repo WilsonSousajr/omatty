@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
@@ -8,7 +9,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -16,9 +16,9 @@ import (
 // long enough that the column has to do something about it.
 func modelWithNamedTree(t *testing.T, title string) *app.Model {
 	t.Helper()
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: title, Dir: "/p/omatty", Branch: "work"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: title, Dir: "/p/omatty", Branch: "work"}},
 	}
 	deps := baseDeps(st, fakeTermsFor(st))
 	deps.Files = (&fileLister{Paths: []string{"go.mod", "internal/gate/run.go", "internal/ui/render.go"}}).fn

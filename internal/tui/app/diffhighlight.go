@@ -9,13 +9,12 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"unicode"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // hunkStyle is a hunk drawn: each line's text finished - syntax-coloured, its
@@ -36,15 +35,15 @@ type hunkKey struct{ file, hunk int }
 // emphasisStyle is a pair's changed words: the line's own hue on a darker
 // ground of the same meaning - 22 a green, 52 a red - so the emphasis says
 // "this part" without saying anything new.
-func emphasisStyle(k review.LineKind) lipgloss.Style {
-	if k == review.LineRemoved {
+func emphasisStyle(k dreview.LineKind) lipgloss.Style {
+	if k == dreview.LineRemoved {
 		return theme.RemovedEmphasis
 	}
 	return theme.AddedEmphasis
 }
 
 // hunkStyleAt is p's hunk, drawn once and remembered.
-func (m *Model) hunkStyleAt(p review.Position) hunkStyle {
+func (m *Model) hunkStyleAt(p dreview.Position) hunkStyle {
 	key := hunkKey{p.File, p.Hunk}
 	if hs, ok := m.review.HunkStyles[key]; ok {
 		return hs
@@ -60,7 +59,7 @@ func (m *Model) hunkStyleAt(p review.Position) hunkStyle {
 
 // drawHunk finishes every line of a hunk once: syntax colours from chroma,
 // the line's one colour where chroma had none, and a pair's changed words.
-func drawHunk(hl Highlighter, path string, lines []review.Line) hunkStyle {
+func drawHunk(hl Highlighter, path string, lines []dreview.Line) hunkStyle {
 	plain := make([]string, len(lines))
 	for i, l := range lines {
 		plain[i] = expandTabs(l.Text)
@@ -75,7 +74,7 @@ func drawHunk(hl Highlighter, path string, lines []review.Line) hunkStyle {
 
 // drawLine is one line's text as drawn: its changed words on the emphasis
 // ground, the rest in the syntax's colours or, with none, the line's own.
-func drawLine(styled, plain string, sp wordSpan, kind review.LineKind) string {
+func drawLine(styled, plain string, sp wordSpan, kind dreview.LineKind) string {
 	if styled == plain {
 		styled = lineStyle(kind).Render(plain)
 	}
@@ -89,7 +88,7 @@ func drawLine(styled, plain string, sp wordSpan, kind review.LineKind) string {
 // styledLine is a diff line off the cursor: its sign in the line's colour -
 // the diff's meaning, kept where the syntax cannot overwrite it - then its
 // finished text, panned.
-func (m *Model) styledLine(e review.Entry, w int) string {
+func (m *Model) styledLine(e dreview.Entry, w int) string {
 	kind := m.shownDiff().LineAt(e.Pos).Kind
 	text := m.hunkStyleAt(e.Pos).drawn[e.Pos.Line]
 	return m.fitStyled(lineStyle(kind).Render(m.linePrefix(e))+text, w)
@@ -97,11 +96,11 @@ func (m *Model) styledLine(e review.Entry, w int) string {
 
 // wordSpans pairs each run of removed lines with the run of added lines after
 // it, line by line, and finds what changed in each pair.
-func wordSpans(lines []review.Line, plain []string) []wordSpan {
+func wordSpans(lines []dreview.Line, plain []string) []wordSpan {
 	spans := make([]wordSpan, len(lines))
 	for i := 0; i < len(lines); {
-		removed := runOf(lines, i, review.LineRemoved)
-		added := runOf(lines, i+removed, review.LineAdded)
+		removed := runOf(lines, i, dreview.LineRemoved)
+		added := runOf(lines, i+removed, dreview.LineAdded)
 		for k := range min(removed, added) {
 			spans[i+k], spans[i+removed+k] = changedWords(plain[i+k], plain[i+removed+k])
 		}
@@ -111,7 +110,7 @@ func wordSpans(lines []review.Line, plain []string) []wordSpan {
 }
 
 // runOf is how many lines from i are of kind.
-func runOf(lines []review.Line, i int, kind review.LineKind) int {
+func runOf(lines []dreview.Line, i int, kind dreview.LineKind) int {
 	n := 0
 	for i+n < len(lines) && lines[i+n].Kind == kind {
 		n++

@@ -1,6 +1,7 @@
 package status_test
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"testing"
 	"time"
 
@@ -28,7 +29,7 @@ func TestRead_isWhatTheTailersFirstPollSays_issue653(t *testing.T) {
 
 	st := status.Read("s1", src, status.ClaudeAdapter(), func() time.Time { return time.Unix(0, 0) })
 
-	if st.Status != status.StatusThinking {
+	if st.Status != dstatus.StatusThinking {
 		t.Errorf("Status = %q, want thinking: the last line is a prompt not yet answered", st.Status)
 	}
 	if st.Tokens.In != 10 || st.Tokens.Out != 5 {

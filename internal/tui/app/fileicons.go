@@ -8,10 +8,9 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"path"
 	"strings"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // Folder and fallback glyphs, Font Awesome's as every Nerd Font patches them.
@@ -37,7 +36,7 @@ var iconsByExt = map[string]string{
 }
 
 // treeIcon is n's glyph and a space, or "" unless Nerd Font icons are on.
-func (m *Model) treeIcon(n review.TreeNode, collapsed bool) string {
+func (m *Model) treeIcon(n dreview.TreeNode, collapsed bool) string {
 	if !m.nerdIcons {
 		return ""
 	}
@@ -46,7 +45,7 @@ func (m *Model) treeIcon(n review.TreeNode, collapsed bool) string {
 
 // fileIcon is the glyph for a row: a folder open or shut, a file by its name,
 // then by its extension, then the fallback.
-func fileIcon(n review.TreeNode, collapsed bool) string {
+func fileIcon(n dreview.TreeNode, collapsed bool) string {
 	if n.IsDir && collapsed {
 		return iconFolderShut
 	}

@@ -6,7 +6,7 @@ package app
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
@@ -40,7 +40,7 @@ func (m *Model) paneCursor() *tea.Cursor {
 // nothing panicked - so Guard.Panicked is false too. The registry's status is
 // the only thing that knows, and the sidebar already draws it (#106).
 func (m *Model) sessionExited() bool {
-	return m.status[m.Selected()].Status == status.StatusExited
+	return m.status[m.Selected()].Status == dstatus.StatusExited
 }
 
 // applyShape copies the emulator's cursor style over, unless it is reporting

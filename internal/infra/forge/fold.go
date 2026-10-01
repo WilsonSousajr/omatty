@@ -17,20 +17,21 @@ package forge
 import (
 	"encoding/json"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"time"
 )
 
 // reviewOf is gh's reviewDecision as a Review.
-func reviewOf(s string) Review {
+func reviewOf(s string) dforge.Review {
 	switch s {
 	case "REVIEW_REQUIRED":
-		return ReviewRequired
+		return dforge.ReviewRequired
 	case "APPROVED":
-		return ReviewApproved
+		return dforge.ReviewApproved
 	case "CHANGES_REQUESTED":
-		return ReviewChanges
+		return dforge.ReviewChanges
 	}
-	return ReviewNone
+	return dforge.ReviewNone
 }
 
 // ghPR is one element of `gh pr list --json` with the fields ListPRs asks for.
@@ -68,7 +69,7 @@ type check struct {
 // Fold turns `gh pr list --json` output into PRs.
 //
 //	prs, err := forge.Fold(out)
-func Fold(raw []byte) ([]PR, error) {
+func Fold(raw []byte) ([]dforge.PR, error) {
 	var in []ghPR
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return nil, fmt.Errorf("forge: reading gh's pull request list: %w", err)
@@ -78,8 +79,8 @@ func Fold(raw []byte) ([]PR, error) {
 
 // foldPRs is Fold past the decoding, shared with the HTTP path, which decodes
 // GitHub's GraphQL answer into the same ghPR gh itself answers with (#462).
-func foldPRs(in []ghPR) []PR {
-	out := make([]PR, len(in))
+func foldPRs(in []ghPR) []dforge.PR {
+	out := make([]dforge.PR, len(in))
 	for i, p := range in {
 		out[i] = foldOne(p)
 	}
@@ -88,8 +89,8 @@ func foldPRs(in []ghPR) []PR {
 
 // foldOne is one element of gh's list as omatty's own type. Split from Fold when
 // #332's mergedAt took the loop past the length limit.
-func foldOne(p ghPR) PR {
-	return PR{
+func foldOne(p ghPR) dforge.PR {
+	return dforge.PR{
 		Number:   p.Number,
 		Title:    cleanLine(p.Title), // #483
 		Branch:   cleanLine(p.HeadRefName),
@@ -106,34 +107,34 @@ func foldOne(p ghPR) PR {
 	}
 }
 
-func stateOf(s string) PRState {
+func stateOf(s string) dforge.PRState {
 	switch s {
 	case "MERGED":
-		return Merged
+		return dforge.Merged
 	case "CLOSED":
-		return Closed
+		return dforge.Closed
 	}
-	return Open
+	return dforge.Open
 }
 
 // rollup is a precedence, because the card has one cell: anything failing
 // wins, then anything still running, then passing. UNKNOWN is never passing:
 // a check that has not said is running, not green (Orca #18484).
-func rollup(checks []check) CIState {
+func rollup(checks []check) dforge.CIState {
 	if len(checks) == 0 {
-		return CINone
+		return dforge.CINone
 	}
 	for _, c := range checks {
 		if failed(c) {
-			return CIFailing
+			return dforge.CIFailing
 		}
 	}
 	for _, c := range checks {
 		if running(c) {
-			return CIRunning
+			return dforge.CIRunning
 		}
 	}
-	return CIPassing
+	return dforge.CIPassing
 }
 
 var failingConclusion = map[string]bool{

@@ -7,9 +7,9 @@ package app
 
 import (
 	"fmt"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // RebindFunc persists the conversation a session's claude now runs. Injected
@@ -37,7 +37,7 @@ func noRebind(sessionID, conversation string) error {
 // takes, an event naming the new conversation maps to no row and is dropped;
 // the tailer, started once the save lands, re-derives the status from the
 // transcript.
-func (m *Model) followClear(e status.Event) tea.Cmd {
+func (m *Model) followClear(e dstatus.Event) tea.Cmd {
 	i, ok := m.sessionIndex(e.Owner)
 	if !ok || m.state.Sessions[i].ConversationID() == e.SessionID {
 		return nil

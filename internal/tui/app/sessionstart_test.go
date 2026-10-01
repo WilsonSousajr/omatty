@@ -1,11 +1,11 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -17,9 +17,9 @@ import (
 func TestModel_aSlowCreateDoesNotHoldUpdate_issue653(t *testing.T) {
 	release := make(chan struct{})
 	s := &startRecorder{}
-	create := func(project, title, _ string, _ bool) (sessions.Session, error) {
+	create := func(project, title, _ string, _ bool) (session.Session, error) {
 		<-release
-		return sessions.Session{ID: "new-id", Project: project, Title: title}, nil
+		return session.Session{ID: "new-id", Project: project, Title: title}, nil
 	}
 	m := app.NewModel(app.Deps{State: oneProject(), Terms: map[string]terminal.Terminal{}, Create: create, Start: s.fn})
 	m.Update(ctrl('o'))

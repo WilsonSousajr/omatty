@@ -1,6 +1,7 @@
 package vcs_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/review"
 	"strings"
 	"testing"
 
@@ -11,14 +12,14 @@ import (
 func TestParseShortstat_Table_issue180(t *testing.T) {
 	for _, tt := range []struct {
 		line string
-		want vcs.Shortstat
+		want review.Shortstat
 	}{
-		{"", vcs.Shortstat{}},
-		{" 1 file changed", vcs.Shortstat{Files: 1}},
-		{" 3 files changed, 12 insertions(+), 4 deletions(-)", vcs.Shortstat{Files: 3, Added: 12, Removed: 4}},
-		{" 1 file changed, 2 deletions(-)", vcs.Shortstat{Files: 1, Removed: 2}},
-		{" 1 file changed, 1 insertion(+)", vcs.Shortstat{Files: 1, Added: 1}},
-		{" 2 files changed, 1 insertion(+), 1 deletion(-)\n", vcs.Shortstat{Files: 2, Added: 1, Removed: 1}},
+		{"", review.Shortstat{}},
+		{" 1 file changed", review.Shortstat{Files: 1}},
+		{" 3 files changed, 12 insertions(+), 4 deletions(-)", review.Shortstat{Files: 3, Added: 12, Removed: 4}},
+		{" 1 file changed, 2 deletions(-)", review.Shortstat{Files: 1, Removed: 2}},
+		{" 1 file changed, 1 insertion(+)", review.Shortstat{Files: 1, Added: 1}},
+		{" 2 files changed, 1 insertion(+), 1 deletion(-)\n", review.Shortstat{Files: 2, Added: 1, Removed: 1}},
 	} {
 		got, err := vcs.ParseShortstat(tt.line)
 		if err != nil || got != tt.want {
@@ -56,14 +57,14 @@ func TestCLI_ShortstatCountsCommittedAndUncommittedTogether_issue180(t *testing.
 	if err != nil {
 		t.Fatalf("Shortstat() error = %v", err)
 	}
-	if want := (vcs.Shortstat{Files: 1, Added: 3, Removed: 1}); got != want {
+	if want := (review.Shortstat{Files: 1, Added: 3, Removed: 1}); got != want {
 		t.Errorf("Shortstat() = %+v, want %+v", got, want)
 	}
 }
 
 func TestCLI_ShortstatOfACleanTreeIsZero_issue180(t *testing.T) {
 	got, err := vcs.NewCLI().Shortstat(newRepo(t), "HEAD")
-	if err != nil || got != (vcs.Shortstat{}) {
+	if err != nil || got != (review.Shortstat{}) {
 		t.Errorf("Shortstat() = %+v, %v; want the zero value and no error", got, err)
 	}
 }

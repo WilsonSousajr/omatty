@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,7 +38,7 @@ func dcCoordinates(r Remote) (contextPath, key, slug string, err error) {
 		}
 	}
 	if len(path) != 2 {
-		return "", "", "", fmt.Errorf("forge: %q is not a Bitbucket Data Center repository, want [<context>/scm/]<KEY>/<slug>: %w", r.Slug(), ErrNoForge)
+		return "", "", "", fmt.Errorf("forge: %q is not a Bitbucket Data Center repository, want [<context>/scm/]<KEY>/<slug>: %w", r.Slug(), dforge.ErrNoForge)
 	}
 	return contextPath, path[0], path[1], nil
 }
@@ -46,8 +47,8 @@ func (b bdcBackend) repo() string {
 	return "api/1.0/projects/" + b.key + "/repos/" + b.slug
 }
 
-func (b bdcBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
-	var all []PR
+func (b bdcBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
+	var all []dforge.PR
 	for _, q := range []string{"state=OPEN&limit=100", "state=MERGED&limit=" + finishedWindow, "state=DECLINED&limit=" + finishedWindow} {
 		page, err := getJSON[bbPage[dcPR]](ctx, b.f, b.repo()+"/pull-requests?"+q+"&order=NEWEST")
 		if err != nil {
@@ -59,18 +60,18 @@ func (b bdcBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
 	return all, nil
 }
 
-func (b bdcBackend) ciKey(pr PR) string {
+func (b bdcBackend) ciKey(pr dforge.PR) string {
 	return b.remote.Host + "/" + b.key + "/" + b.slug + "#" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
 // buildCI is the worst of the head commit's builds, from the build-status API
 // every CI server reports to.
-func (b bdcBackend) buildCI(ctx context.Context, pr PR) (CIState, error) {
+func (b bdcBackend) buildCI(ctx context.Context, pr dforge.PR) (dforge.CIState, error) {
 	builds, err := b.builds(ctx, pr.Head)
 	if err != nil || len(builds) == 0 {
-		return CINone, err
+		return dforge.CINone, err
 	}
-	worst := CINone
+	worst := dforge.CINone
 	for _, s := range builds {
 		worst = max(worst, bitbucketCI(s.State))
 	}
@@ -86,17 +87,19 @@ func (b bdcBackend) builds(ctx context.Context, head string) ([]dcBuild, error) 
 	return page.Values, err
 }
 
-func (b bdcBackend) listIssues(context.Context, string) ([]Issue, error) { return nil, ErrNoTracker }
-
-func (b bdcBackend) viewIssue(context.Context, string, int) (Detail, error) {
-	return Detail{}, ErrNoTracker
+func (b bdcBackend) listIssues(context.Context, string) ([]dforge.Issue, error) {
+	return nil, dforge.ErrNoTracker
 }
 
-func (b bdcBackend) viewPR(ctx context.Context, _ string, number int) (Detail, error) {
+func (b bdcBackend) viewIssue(context.Context, string, int) (dforge.Detail, error) {
+	return dforge.Detail{}, dforge.ErrNoTracker
+}
+
+func (b bdcBackend) viewPR(ctx context.Context, _ string, number int) (dforge.Detail, error) {
 	path := b.repo() + "/pull-requests/" + strconv.Itoa(number)
 	pr, err := getJSON[dcPR](ctx, b.f, path)
 	if err != nil {
-		return Detail{}, err
+		return dforge.Detail{}, err
 	}
 	activity, err := getJSON[dcActivities](ctx, b.f, path+"/activities?limit=100")
 	builds, _ := b.builds(ctx, pr.FromRef.LatestCommit)
@@ -109,7 +112,7 @@ func (b bdcBackend) viewPR(ctx context.Context, _ string, number int) (Detail, e
 
 func (b bdcBackend) browse(_ context.Context, _ string, number int, pr bool) error {
 	if !pr {
-		return ErrNoTracker
+		return dforge.ErrNoTracker
 	}
 	return b.open(b.web + "/projects/" + b.key + "/repos/" + b.slug + "/pull-requests/" + strconv.Itoa(number))
 }
@@ -185,17 +188,17 @@ func millis(ms int64) time.Time {
 	return time.UnixMilli(ms)
 }
 
-func foldDCPRs(in []dcPR) []PR {
-	out := make([]PR, len(in))
+func foldDCPRs(in []dcPR) []dforge.PR {
+	out := make([]dforge.PR, len(in))
 	for i, p := range in {
-		out[i] = PR{
+		out[i] = dforge.PR{
 			Number: p.ID, Title: cleanLine(p.Title), Branch: cleanLine(p.FromRef.DisplayID), Base: cleanLine(p.ToRef.DisplayID),
 			State: bbState(p.State), Head: p.FromRef.LatestCommit, Draft: p.Draft,
 			Conflict: p.Properties.MergeResult.Outcome == "CONFLICTED",
 			Fork:     p.FromRef.Repository.Project.Key+"/"+p.FromRef.Repository.Slug != p.ToRef.Repository.Project.Key+"/"+p.ToRef.Repository.Slug,
 			Updated:  millis(p.UpdatedDate),
 		}
-		if out[i].State == Merged {
+		if out[i].State == dforge.Merged {
 			out[i].MergedAt = millis(p.ClosedDate)
 		}
 	}

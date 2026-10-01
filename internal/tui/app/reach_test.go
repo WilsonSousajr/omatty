@@ -1,24 +1,24 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
 // emptyProjectState is the report in #158: one project with a session and a
 // freshly discovered one with none.
-func emptyProjectState() sessions.State {
-	return sessions.State{
-		Projects: []sessions.Project{
+func emptyProjectState() session.State {
+	return session.State{
+		Projects: []session.Project{
 			{Name: "omatty", Root: "/p/omatty"},
 			{Name: "wstech", Root: "/p/wstech"},
 		},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "main"}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "main"}},
 	}
 }
 
@@ -108,7 +108,7 @@ func TestModel_sessionKeysOnAHeaderDoNothing_issue158(t *testing.T) {
 // The no-sessions-anywhere case still creates in the first project.
 func TestModel_promptCreatesInTheOnlyProjectWhenNoSessionExists_issue158(t *testing.T) {
 	c := &recordCreate{}
-	st := sessions.State{Projects: []sessions.Project{{Name: "solo", Root: "/p/solo"}}}
+	st := session.State{Projects: []session.Project{{Name: "solo", Root: "/p/solo"}}}
 	d := baseDeps(st, fakeTermsFor(st))
 	d.Create = c.fn
 	m := app.NewModel(d)

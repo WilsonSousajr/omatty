@@ -2,11 +2,10 @@ package app
 
 import (
 	"fmt"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"strings"
 
 	"charm.land/lipgloss/v2"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // reviewTitle names what the column is showing, so a glance at the top row
@@ -260,8 +259,8 @@ func dropWeakest(parts []titlePart) []titlePart {
 //
 // Computed per frame rather than cached: Pair reads paths, and only a Rust
 // file's hunks, so it costs less than laying out the rows underneath it.
-func pairingNote(d review.Diff) string {
-	if review.Pair(d) != review.PairingUnpaired {
+func pairingNote(d dreview.Diff) string {
+	if dreview.Pair(d) != dreview.PairingUnpaired {
 		return ""
 	}
 	return "⚠ no tests"

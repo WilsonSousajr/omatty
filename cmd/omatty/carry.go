@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,7 +84,7 @@ func warnMissing(root string, paths []string) {
 // reportCarry prints the list, or says there is none. "Not set" and "set to
 // nothing" are the same state here, and saying which files would be copied is
 // the question the plain form answers.
-func reportCarry(p sessions.Project) {
+func reportCarry(p session.Project) {
 	if len(p.Carry) == 0 {
 		report("no carry list for " + p.Name + "; set one with `omatty carry " + p.Name + " <path>...`")
 		return
@@ -96,13 +97,13 @@ func reportCarry(p sessions.Project) {
 
 // carryProject resolves the project argument, naming this command in the error
 // the way gateProject does.
-func carryProject(store sessions.StateStore, args []string) (sessions.Project, error) {
+func carryProject(store sessions.StateStore, args []string) (session.Project, error) {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		return sessions.Project{}, fmt.Errorf("carry: want <project> [<path>...|--clear], got no project")
+		return session.Project{}, fmt.Errorf("carry: want <project> [<path>...|--clear], got no project")
 	}
 	p, err := sessions.NamedProject(context.Background(), store, args[0])
 	if err != nil {
-		return sessions.Project{}, fmt.Errorf("carry: %w", err)
+		return session.Project{}, fmt.Errorf("carry: %w", err)
 	}
 	return p, nil
 }

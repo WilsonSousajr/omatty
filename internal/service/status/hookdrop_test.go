@@ -14,7 +14,7 @@ import (
 func TestWatch_aHookEventIsDroppedNotWaitedOnWhenEventsAreFull_issue653(t *testing.T) {
 	w := &Watch{
 		deps:   WatchDeps{Adapter: ClaudeAdapter(), Clock: time.Now},
-		events: make(chan Event), // unbuffered, never read: always full
+		events: make(chan dstatus.Event), // unbuffered, never read: always full
 	}
 	done := make(chan struct{})
 	go func() {

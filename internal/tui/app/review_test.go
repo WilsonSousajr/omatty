@@ -2,14 +2,14 @@ package app_test
 
 import (
 	"errors"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -39,19 +39,19 @@ index 0000000..3333333
 // diffRecorder is a named DiffFunc fake: it serves one diff and records the
 // sessions it was asked about.
 type diffRecorder struct {
-	Diff  review.Diff
+	Diff  dreview.Diff
 	Err   error
 	Asked []string
 	Roots []string
 }
 
-func (r *diffRecorder) fn(sess sessions.Session, root string) (review.Diff, error) {
+func (r *diffRecorder) fn(sess session.Session, root string) (dreview.Diff, error) {
 	r.Asked = append(r.Asked, sess.ID)
 	r.Roots = append(r.Roots, root)
 	return r.Diff, r.Err
 }
 
-func sampleDiffParsed(t *testing.T) review.Diff {
+func sampleDiffParsed(t *testing.T) dreview.Diff {
 	t.Helper()
 	d, err := gitdiff.ParseDiff(strings.NewReader(sampleDiff))
 	if err != nil {
@@ -231,9 +231,9 @@ func TestModel_OpenReviewReloadsWhenItsSessionStops_issue21(t *testing.T) {
 	leader(m, key('d'))
 
 	for _, ev := range []app.StatusMsg{
-		{SessionID: "s1", Kind: status.TurnEnded, At: fixedNow},
-		{SessionID: "s2", Kind: status.TurnEnded, At: fixedNow},
-		{SessionID: "s1", Kind: status.UsageUpdated, At: fixedNow},
+		{SessionID: "s1", Kind: dstatus.TurnEnded, At: fixedNow},
+		{SessionID: "s2", Kind: dstatus.TurnEnded, At: fixedNow},
+		{SessionID: "s1", Kind: dstatus.UsageUpdated, At: fixedNow},
 	} {
 		_, cmd := m.Update(ev)
 		deliver(m, cmd)
@@ -313,8 +313,8 @@ func TestModel_ATurnEndingWhileClosedReloadsOnReopen_issue124(t *testing.T) {
 	leader(m, key('d'))
 
 	for _, ev := range []app.StatusMsg{
-		{SessionID: "s1", Kind: status.PromptSubmitted, At: fixedNow},
-		{SessionID: "s1", Kind: status.TurnEnded, At: fixedNow},
+		{SessionID: "s1", Kind: dstatus.PromptSubmitted, At: fixedNow},
+		{SessionID: "s1", Kind: dstatus.TurnEnded, At: fixedNow},
 	} {
 		_, cmd := m.Update(ev)
 		deliver(m, cmd)

@@ -5,13 +5,13 @@
 package app
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"log/slog"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // PRListFunc lists a repository's pull requests. Injected so ui never runs gh
@@ -110,8 +110,8 @@ func (m *Model) mayAsk(pending map[string]bool, asked map[string]time.Time, proj
 // refreshPRs polls a session's project when a turn finishes, the moment a
 // push - and so a new CI run - is likeliest. Not on waiting: a permission
 // prompt changes nothing on GitHub, and there can be many (final review).
-func (m *Model) refreshPRs(id string, before, after status.Status) tea.Cmd {
-	if !m.hasFocus || before == after || after != status.StatusDone {
+func (m *Model) refreshPRs(id string, before, after dstatus.Status) tea.Cmd {
+	if !m.hasFocus || before == after || after != dstatus.StatusDone {
 		return nil
 	}
 	sess, ok := m.session(id)
