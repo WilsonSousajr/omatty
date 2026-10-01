@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
+	"github.com/WilsonSousajr/omatty/internal/infra/highlight"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
@@ -36,7 +37,7 @@ func fakeTerms(t *testing.T) (map[string]terminal.Terminal, map[string]*terminal
 // optional fields they exercise.
 func baseDeps(st sessions.State, terms map[string]terminal.Terminal) app.Deps {
 	return app.Deps{State: st, Terms: terms, Create: noCreate, Start: noStart, SpinTick: instantTick,
-		Profiles: fsread.CoverageProfiles{}, Preview: fsread.ReadPreview}
+		Profiles: fsread.CoverageProfiles{}, Preview: fsread.ReadPreview, Highlighter: highlight.Chroma{}}
 }
 
 // instantTick is a app.TickFunc that answers at once, at fixedNow. The helpers

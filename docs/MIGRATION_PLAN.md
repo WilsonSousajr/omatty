@@ -81,7 +81,8 @@ count after the step.
 | 5.6c | #653 | #689 | merged | 3 |
 | 5.10 | #653 | #690 | merged | 1 |
 | 6.1 | #653 | #691 | merged | 1 |
-| 6.2 | #653 | #692 | open | 1 |
+| 6.2 | #653 | #692 | merged | 1 |
+| 6.10 | #653 | this PR | open | 0 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
@@ -253,7 +254,7 @@ net: a logic PR that changes a row says which row and why (rule 4).
 | # | PR | Scope | Risk | Serves | Needs | Rollback |
 |---|---|---|---|---|---|---|
 | 8.1 | `refactor: delete the migration aliases` | every alias rule 3 left; importers use the domain types | L | ADR Consequences | 7.2 | revert |
-| 8.2 | `ci: enforce ADR 0001's layers` | `-enforce` in CI and AGENTS.md. `TestLayerCheck_enforceFailsOnFindings` is rewritten against a fixture with findings, since the repository has none now; the commit says why (AGENTS.md: a regression test is never quietly weakened). The transitional table is deleted. | L | ADR Enforcement | 8.1, and 0 findings | revert |
+| 8.2 | `ci: enforce ADR 0001's layers` | `-enforce` in CI and AGENTS.md. `TestLayerCheck_enforceFailsOnFindings` was rewritten against a fixture module in 6.10, the step that left the repository with no findings; the commit says why (AGENTS.md: a regression test is never quietly weakened). The transitional table is deleted. | L | ADR Enforcement | 8.1, and 0 findings | revert |
 | 8.3 | `docs: ARCHITECTURE.md for the new shape` | the data-flow and package sections rewritten; the audit and plan marked done | L | — | 8.2 | revert |
 
 ## Also carried, from #620's review
