@@ -13,6 +13,7 @@ package app
 
 import (
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"log/slog"
 	"strconv"
 
@@ -157,7 +158,7 @@ func (m *Model) startSessionOnIssue(row trackerRow) tea.Cmd {
 	// Created off the Update goroutine since #653; a failure lands in the
 	// footer through onSessionCreated, as any new session's does.
 	m.review.Focused = false
-	return m.createCmd(project, title, branch, true)
+	return m.createCmd(sessions.NewSession{Project: project, Title: title, Branch: branch, Worktree: true})
 }
 
 // attachItem types the item's reference into the selected session's composer -

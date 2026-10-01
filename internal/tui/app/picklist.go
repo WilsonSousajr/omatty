@@ -90,6 +90,17 @@ func (l *pickList) Move(delta int) {
 	l.Cursor = min(max(l.Cursor+delta, 0), len(l.matches)-1)
 }
 
+// Point puts the cursor on the item whose ID is id, if the query keeps it,
+// so a list can open on the current choice (#524).
+func (l *pickList) Point(id string) {
+	for i, idx := range l.matches {
+		if l.Items[idx].ID == id {
+			l.Cursor = i
+			return
+		}
+	}
+}
+
 // Current is the item under the cursor, if the query matched anything.
 func (l *pickList) Current() (pickItem, bool) {
 	if l.Cursor >= len(l.matches) {

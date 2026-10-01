@@ -31,6 +31,36 @@ type CreatorOpts struct {
 	// Injected, because copying files is infra's business (ADR 0001, migration
 	// step 5.4, #653): cmd passes internal/infra/store's CarryInto.
 	Carry func(dir, root string, paths []string) error
+	// DefaultAgent is the agent a session runs when neither it nor its
+	// project names one: the config's default_agent (#524).
+	DefaultAgent string
+}
+
+// NewSession is one request for a session. Agent is the one chosen for it on
+// ctrl+o n's agent step; empty takes the project's, then DefaultAgent.
+type NewSession struct {
+	Project, Title, Branch, Agent string
+	// Worktree asks for a fresh worktree whether or not Branch is named (#151).
+	Worktree bool
+}
+
+// CreateAs registers the session req describes on st and returns it, as
+// Create and CreateWorktree do, with the agent resolved (#524).
+//
+//	sess, err := c.CreateAs(ctx, st, sessions.NewSession{Project: "omatty", Agent: "codex"})
+func (c *Creator) CreateAs(ctx context.Context, st *session.State, req NewSession) (session.Session, error) {
+	return c.create(ctx, st, req)
+}
+
+// agentFor is the agent a new session in p runs: the one chosen, else the
+// project's, else the config's default, recorded as a Session spells it.
+func (c *Creator) agentFor(chosen string, p session.Project) string {
+	for _, name := range []string{chosen, p.Agent, c.opts.DefaultAgent} {
+		if name != "" {
+			return session.StoredAgent(name)
+		}
+	}
+	return ""
 }
 
 // Creator turns a request for a session into a registered Session, creating
@@ -53,7 +83,7 @@ func NewCreator(git Worktrees, opts CreatorOpts, newID func() string) *Creator {
 // session in the project's main checkout; otherwise omatty creates a worktree
 // at CreatorOpts.WorktreeDir. On any failure st is left untouched.
 func (c *Creator) Create(ctx context.Context, st *session.State, project, title, branch string) (session.Session, error) {
-	return c.create(ctx, st, project, title, branch, branch != "")
+	return c.create(ctx, st, NewSession{Project: project, Title: title, Branch: branch, Worktree: branch != ""})
 }
 
 // CreateWorktree registers a session on a fresh worktree whether or not a
@@ -61,22 +91,22 @@ func (c *Creator) Create(ctx context.Context, st *session.State, project, title,
 // first prompt renames (#151) - so ctrl+o N no longer has one string it must
 // have before it can start anything.
 func (c *Creator) CreateWorktree(ctx context.Context, st *session.State, project, title, branch string) (session.Session, error) {
-	return c.create(ctx, st, project, title, branch, true)
+	return c.create(ctx, st, NewSession{Project: project, Title: title, Branch: branch, Worktree: true})
 }
 
 // create is the one registration path both entry points take. worktree is a
 // parameter rather than "branch != \"\"" because since #151 those are different
 // questions: a worktree session may arrive with no branch named at all.
-func (c *Creator) create(ctx context.Context, st *session.State, project, title, branch string, worktree bool) (session.Session, error) {
-	p, err := findProject(st, project)
+func (c *Creator) create(ctx context.Context, st *session.State, req NewSession) (session.Session, error) {
+	p, err := findProject(st, req.Project)
 	if err != nil {
 		return session.Session{}, err
 	}
 	id := c.newID()
-	sess := session.Session{ID: id, Project: project, Title: titleOr(title, id), Dir: p.Root,
-		Started: c.now()}
-	if worktree {
-		sess.Branch = branchOr(branch, id)
+	sess := session.Session{ID: id, Project: req.Project, Title: titleOr(req.Title, id), Dir: p.Root,
+		Started: c.now(), Agent: c.agentFor(req.Agent, p)}
+	if req.Worktree {
+		sess.Branch = branchOr(req.Branch, id)
 		if err := c.addWorktree(ctx, &sess, p); err != nil {
 			return session.Session{}, err
 		}

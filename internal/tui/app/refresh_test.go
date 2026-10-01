@@ -3,6 +3,7 @@ package app_test
 import (
 	"errors"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"strings"
 	"testing"
 
@@ -20,15 +21,15 @@ type liveCreate struct {
 	Project string
 }
 
-func (l *liveCreate) fn(project, title, branch string, worktree bool) (session.Session, error) {
+func (l *liveCreate) fn(req sessions.NewSession) (session.Session, error) {
 	l.Calls++
-	l.Project = project
+	l.Project = req.Project
 	if l.Err != nil {
 		return session.Session{}, l.Err
 	}
 	l.Next = session.Session{
-		ID: "new-id", Project: project, Title: title,
-		Branch: branch, Worktree: worktree,
+		ID: "new-id", Project: req.Project, Title: req.Title,
+		Branch: req.Branch, Worktree: req.Worktree,
 	}
 	return l.Next, nil
 }

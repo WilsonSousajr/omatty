@@ -155,6 +155,9 @@ func newSession(store sessions.StateStore, cfg config.Config, args []string) err
 	if len(args) > 2 {
 		branch = args[2]
 	}
+	if err := knownDefaultAgent(cfg); err != nil {
+		return err
+	}
 	c := sessions.NewCreator(vcs.NewCLI().Contextual(), creatorOpts(cfg), uuid.NewString)
 	sess, err := sessions.AddSession(context.Background(), store, c, args[0], args[1], branch)
 	if err != nil {

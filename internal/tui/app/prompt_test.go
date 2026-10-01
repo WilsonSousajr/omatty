@@ -3,6 +3,7 @@ package app_test
 import (
 	"errors"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"strings"
 	"testing"
 
@@ -17,17 +18,18 @@ type recordCreate struct {
 	Title    string
 	Branch   string
 	Worktree bool
+	Agent    string
 	Calls    int
 	Err      error
 }
 
-func (r *recordCreate) fn(project, title, branch string, worktree bool) (session.Session, error) {
+func (r *recordCreate) fn(req sessions.NewSession) (session.Session, error) {
 	r.Calls++
-	r.Project, r.Title, r.Branch, r.Worktree = project, title, branch, worktree
+	r.Project, r.Title, r.Branch, r.Worktree, r.Agent = req.Project, req.Title, req.Branch, req.Worktree, req.Agent
 	if r.Err != nil {
 		return session.Session{}, r.Err
 	}
-	return session.Session{ID: "created", Project: project, Title: title, Branch: branch}, nil
+	return session.Session{ID: "created", Project: req.Project, Title: req.Title, Branch: req.Branch}, nil
 }
 
 func modelWithCreate(t *testing.T, c *recordCreate) (*app.Model, map[string]*terminal.Fake) {

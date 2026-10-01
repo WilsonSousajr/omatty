@@ -26,6 +26,7 @@ func everyFieldSet() session.State {
 			GateRuns:      7,
 			GateFirstPass: 5,
 			Collapsed:     true,
+			Agent:         "codex",
 		}},
 		Sessions: []session.Session{{
 			ID:           "11111111-2222-4333-8444-555555555555",

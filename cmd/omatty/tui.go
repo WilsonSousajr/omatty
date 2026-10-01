@@ -36,7 +36,7 @@ type tuiRuntime struct {
 // runtimeFor builds the lifecycle's half of the wiring from env.
 func runtimeFor(env tuiEnv) tuiRuntime {
 	return tuiRuntime{
-		Launch:  sessions.NewLauncher(env.Agents.WithBins(map[string]string{"claude": env.Cfg.ClaudeBin}).WithHooksFiles(env.HooksFiles), env.Home, env.Holder),
+		Launch:  sessions.NewLauncher(env.Agents.WithBins(env.Cfg.AgentBins()).WithHooksFiles(env.HooksFiles), env.Home, env.Holder),
 		Factory: terminal.Start,
 		Watch: status.WatchDeps{Home: env.Home, HookSocket: paths.HookSocket(env.Home), Clock: time.Now, OpenTranscript: openTranscript, ListenHooks: listenHooks,
 			Agents: env.Agents},

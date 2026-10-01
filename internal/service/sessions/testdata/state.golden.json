@@ -17,7 +17,8 @@
       ],
       "gate_runs": 7,
       "gate_first_pass": 5,
-      "collapsed": true
+      "collapsed": true,
+      "agent": "codex"
     }
   ],
   "sessions": [

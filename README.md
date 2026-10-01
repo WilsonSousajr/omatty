@@ -283,7 +283,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o j` / `ctrl+o k` | move between sessions |
 | `ctrl+o ]` / `ctrl+o [` | move between projects, including one with no sessions yet |
 | `ctrl+o tab` | fold or unfold the project the cursor is in; a click on its header does the same |
-| `ctrl+o n` | new session on the main checkout |
+| `ctrl+o n` | new session on the main checkout; with two or more agents installed, it then asks which one runs it |
 | `ctrl+o N` | new session on a fresh worktree |
 | `ctrl+o d` | open or close the diff pane |
 | `ctrl+o f` | open or close the file tree |
@@ -297,6 +297,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o p` | ship a green session: push and open its pull request, or merge one already green |
 | `ctrl+o B` | rename a worktree session's branch |
 | `ctrl+o R` | rename the selected session |
+| `ctrl+o c` | choose the agent the selected project's new sessions run |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
 | `ctrl+o /` | jump to a session by typing part of its name |
 | `ctrl+o a` | register a project claude already knows you use |
@@ -407,8 +408,12 @@ no file at all these are the values in force:
 ```toml
 leader = "ctrl+o"          # the one key omatty intercepts; bubbletea spelling ("ctrl+a", not "C-a")
 claude_bin = "claude"      # the binary each session runs, resolved on PATH or absolute
+default_agent = "claude"   # the agent a new session runs unless its project or ctrl+o n says otherwise
 worktree_root = "~/.omatty/wt"   # where `omatty new ... <branch>` and ctrl+o N put worktrees
 base_branch = ""           # fork worktrees from this branch; empty means the checkout's current one
+
+[agents.claude]             # one table per agent; bin is its binary, and here wins over claude_bin
+bin = "claude"
 
 [naming]
 model = false              # let a headless claude call improve auto-derived session titles

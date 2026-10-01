@@ -193,3 +193,32 @@ func TestHookParser_ResolvesTheAgentsPayloadShape_issue522(t *testing.T) {
 		}
 	}
 }
+
+// ctrl+o n's agent step lists every agent in the catalog, each with whether
+// its configured binary is installed (#524).
+func TestAgentOptions_ListsEveryAgentWithItsInstalledBin_issue524(t *testing.T) {
+	agents := mustAgents(t).WithBins(map[string]string{"claude": "/opt/claude"})
+	var asked []string
+	options := agentOptions(agents, func(bin string) bool {
+		asked = append(asked, bin)
+		return true
+	})()
+	if len(options) != 1 || options[0].Name != "claude" || !options[0].Installed {
+		t.Errorf("options = %+v, want claude, installed", options)
+	}
+	if len(asked) != 1 || asked[0] != "/opt/claude" {
+		t.Errorf("asked about %v, want the configured /opt/claude", asked)
+	}
+}
+
+// A default_agent the catalog lacks would register sessions no launch can
+// start; omatty refuses to start on it and names it (#524).
+func TestCheckDefaultAgent_RefusesAnUnknownOne_issue524(t *testing.T) {
+	if err := checkDefaultAgent(mustAgents(t), "claude"); err != nil {
+		t.Errorf("claude: %v", err)
+	}
+	err := checkDefaultAgent(mustAgents(t), "codx")
+	if err == nil || !strings.Contains(err.Error(), "codx") || !strings.Contains(err.Error(), "default_agent") {
+		t.Errorf("error = %v, want one naming default_agent and codx", err)
+	}
+}

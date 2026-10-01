@@ -86,6 +86,10 @@ func (m *Model) commitList() tea.Cmd {
 		return m.commitDiscovery()
 	case modalAdopt:
 		return m.commitAdoption()
+	case modalAgent:
+		return m.commitAgentStep()
+	case modalProjectAgent:
+		return m.commitProjectAgent()
 	}
 	return m.commitJump()
 }

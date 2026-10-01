@@ -10,6 +10,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -52,6 +53,12 @@ const (
 	// modalHelp lists every leader key, opened with ? (#103). It takes no text:
 	// esc closes it, and the leader closes it and arms the next key.
 	modalHelp
+	// modalAgent asks which agent a new session runs, after the prompt, when
+	// two or more are installed (#524).
+	modalAgent
+	// modalProjectAgent sets the agent a project's sessions run, opened with c
+	// (#524).
+	modalProjectAgent
 )
 
 // modal is the open surface's state. Only the member matching Kind is live;
@@ -68,6 +75,9 @@ type modal struct {
 	// and HelpFiltering says it is being typed (#438).
 	HelpQuery     string
 	HelpFiltering bool
+	// Pending is the session the agent step will create, or, for ctrl+o c,
+	// names the project being set (#524).
+	Pending sessions.NewSession
 	// Scan identifies the discovery scan this picker is waiting for, so a
 	// slower earlier scan cannot overwrite it (#91).
 	Scan int
@@ -132,7 +142,7 @@ func (m *Model) onModalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.onEditorKey(msg)
 	case modalConfirm, modalRevert:
 		return m.onConfirmKey(msg.Keystroke())
-	case modalList, modalPicker, modalAdopt:
+	case modalList, modalPicker, modalAdopt, modalAgent, modalProjectAgent:
 		return m.onListKey(msg)
 	case modalHelp:
 		return m.onHelpKey(msg)
