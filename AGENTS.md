@@ -52,7 +52,7 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 ```
 cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
-├── domain/         [ADR 0001] entities and pure logic, stdlib only; moving here one step at a time.
+├── domain/         [ADR 0001] entities and pure logic, stdlib only.
 │   ├── agent/      the agent seam (#46): Profile, a command template plus a status Adapter. The catalog is cmd's.
 │   ├── coverage/   [M10] a coverage profile -> per-line verdicts and raw blocks.
 │   ├── crap/       [M11] per-function complexity x coverage -> a C.R.A.P. score.
@@ -65,13 +65,13 @@ internal/
 │   ├── session/    Project, Session, State - what state.json holds (invariant 9) - and placeholder names.
 │   ├── status/     a session's status vocabulary: Kind, Status, Event, Tokens, the hook payload, Apply, the Adapter port.
 │   └── tally/      [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
-├── service/        [ADR 0001] use cases, each declaring the ports it consumes; moving here one step at a time.
+├── service/        [ADR 0001] use cases, each declaring the ports it consumes.
 │   ├── discovery/  proposes repositories and sessions to register, from claude's transcript store (#91, #122).
 │   ├── gate/       [M9] the Runner: gates many sessions, bounded, reports published through pubsub; infra/gateexec runs the steps.
 │   ├── review/     [M3] a session's diff, stat, turn baseline, revert and ship check; the model is domain/review.
 │   ├── sessions/   the commands that edit projects and sessions, over a StateStore, and a session's Launch.
 │   └── status/     [M2] transcript lines + hook payloads -> typed status events, published through pubsub.
-├── infra/          [ADR 0001] driven adapters, moving here one step at a time (docs/MIGRATION_PLAN.md).
+├── infra/          [ADR 0001] driven adapters, each the only route to what it wraps.
 │   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
 │   ├── agentcli/   [ADR 0001] the agent's binary run headless for a one-shot answer: a session's name (#127).
 │   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).
@@ -90,7 +90,8 @@ internal/
 │   ├── store/      [ADR 0001] state.json, written atomically (invariant 9), and carry's file copy (#309).
 │   ├── transcript/ [ADR 0001] reads an agent's JSONL as it grows: new complete lines, truncation.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
-├── cli/            [ADR 0001] the second driving adapter: `sessions --json`, `status --json`. No UI library beneath it.
+├── cli/            [ADR 0001] the second driving adapter: `sessions --json`, `status --json`,
+│                   adopt, rm, gate --stats. No UI library beneath it.
 ├── pubsub/          [ADR 0001] Broker[T]: services publish (Publish waits, Offer drops), the TUI subscribes.
 └── tui/          [ADR 0001] the TUI: driving adapter 1.
     ├── app/        bubbletea model, panes, rendering.
@@ -99,7 +100,7 @@ internal/
     └── theme/      [ADR 0001] the one palette and every style; app builds none of its own (#653).
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
-tools/              gate tools with a main: crapcheck, depcheck. Inside ./... so gofmt,
+tools/              gate tools with a main: crapcheck, depcheck, layercheck. Inside ./... so gofmt,
                     vet, lint and build cover them; outside ./internal/... so an
                     untestable main does not pull the coverage gate down.
 testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-claude.
@@ -110,6 +111,12 @@ One responsibility per package, typed APIs, no circular dependencies.
 bubbletea. tui/terminal is a real exception, not an oversight: bubbleterm is itself
 a bubbletea component, so `terminal.Terminal` returns `tea.Cmd` and cannot avoid
 the import. Enforced by `depguard`, not asked for (#260).
+
+The layers are ADR 0001's: domain imports only domain; service imports domain
+and pubsub; infra imports domain; the TUI and the CLI import domain, service
+and pubsub; `cmd` alone imports everything and plugs infra into the services'
+ports. `./scripts/check-layers.sh -enforce` holds that in CI (#620, #653), and
+`docs/ARCHITECTURE.md` has the table and the reasons.
 
 ## Build and test commands
 
@@ -517,8 +524,8 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
   is a rule, and the seams. The one page to read before the code (#156).
 - `docs/ARCHITECTURE_AUDIT.md` and `docs/adr/` — the 2026-09-29 audit (#615)
   and the architecture decisions it led to. `0001-architecture.md` (#618) is
-  the target layout: `domain/`, `service/`, `infra/`, `pubsub`, `tui/`, `cli`.
-  Until the migration lands, the layout above describes the code.
+  the layout: `domain/`, `service/`, `infra/`, `pubsub`, `tui/`, `cli`.
+  `docs/MIGRATION_PLAN.md` is how the code got there (#653, done 2026-10-01).
 - `internal/domain/agent` package doc — the agent seam (#46): an agent is a
   command template plus a status adapter; the catalog of profiles is composed
   in `cmd/omatty/agents.go`, and the adapter interface lives in
