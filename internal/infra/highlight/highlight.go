@@ -62,3 +62,13 @@ func splitLines(styled string, endsEmpty bool) []string {
 	}
 	return out
 }
+
+// Chroma is Lines behind the TUI's Highlighter port (ADR 0001, Amendment 1;
+// migration step 6.10, #653): the TUI colours code while it renders, and may
+// not import this package.
+//
+//	deps.Highlighter = highlight.Chroma{}
+type Chroma struct{}
+
+// Lines is the package's Lines.
+func (Chroma) Lines(path string, lines []string) []string { return Lines(path, lines) }

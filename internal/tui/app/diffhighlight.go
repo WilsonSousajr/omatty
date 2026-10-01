@@ -15,7 +15,6 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/WilsonSousajr/omatty/internal/infra/highlight"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
@@ -51,7 +50,7 @@ func (m *Model) hunkStyleAt(p review.Position) hunkStyle {
 		return hs
 	}
 	f := m.shownDiff().Files[p.File]
-	hs := drawHunk(f.Path, f.Hunks[p.Hunk].Lines)
+	hs := drawHunk(m.highlighter, f.Path, f.Hunks[p.Hunk].Lines)
 	if m.review.HunkStyles == nil {
 		m.review.HunkStyles = map[hunkKey]hunkStyle{}
 	}
@@ -61,12 +60,12 @@ func (m *Model) hunkStyleAt(p review.Position) hunkStyle {
 
 // drawHunk finishes every line of a hunk once: syntax colours from chroma,
 // the line's one colour where chroma had none, and a pair's changed words.
-func drawHunk(path string, lines []review.Line) hunkStyle {
+func drawHunk(hl Highlighter, path string, lines []review.Line) hunkStyle {
 	plain := make([]string, len(lines))
 	for i, l := range lines {
 		plain[i] = expandTabs(l.Text)
 	}
-	styled, spans := highlight.Lines(path, plain), wordSpans(lines, plain)
+	styled, spans := hl.Lines(path, plain), wordSpans(lines, plain)
 	drawn := make([]string, len(lines))
 	for i, l := range lines {
 		drawn[i] = drawLine(styled[i], plain[i], spans[i], l.Kind)

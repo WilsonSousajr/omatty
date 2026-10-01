@@ -31,17 +31,60 @@ func TestLayerCheck_reportsButPassesByDefault_issue620(t *testing.T) {
 	}
 }
 
-// -enforce is the switch the migration's last PR flips; with today's findings
-// it must fail, or flipping it would prove nothing.
+// -enforce is the switch the migration's last PR flips; on findings it must
+// fail, or flipping it would prove nothing.
+//
+// It ran against this repository's own findings until migration step 6.10
+// (#653) cleared the last of them, which left the test asserting that a
+// clean tree fails. The claim is unchanged; the findings now come from a
+// fixture module whose domain package imports os, so it no longer depends on
+// the repository being unfinished.
 func TestLayerCheck_enforceFailsOnFindings_issue620(t *testing.T) {
-	out, err := runLayerCheck(t, "-enforce")
+	out, err := runLayerCheckIn(t, layerFixture(t), "-enforce")
 
 	if err == nil {
-		t.Fatalf("check-layers.sh -enforce passed with findings present:\n%s", out)
+		t.Fatalf("layercheck -enforce passed with findings present:\n%s", out)
 	}
-	if !strings.Contains(out, "enforced") {
-		t.Errorf("output does not say the run was enforced:\n%s", out)
+	if !strings.Contains(out, "enforced") || !strings.Contains(out, "domain may not import os") {
+		t.Errorf("output does not say the run was enforced and name the finding:\n%s", out)
 	}
+}
+
+// layerFixture is a module of one domain package that imports os: exactly one
+// finding under ADR 0001's table.
+func layerFixture(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	pkg := filepath.Join(dir, "internal", "domain", "leaky")
+	if err := os.MkdirAll(pkg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	files := map[string]string{
+		filepath.Join(dir, "go.mod"):   "module example.com/fixture\n\ngo 1.26\n",
+		filepath.Join(pkg, "leaky.go"): "package leaky\n\nimport \"os\"\n\nvar _ = os.Getenv\n",
+	}
+	for path, body := range files {
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+// runLayerCheckIn builds layercheck from this repository and runs it in dir,
+// a module of its own.
+func runLayerCheckIn(t *testing.T, dir string, args ...string) (string, error) {
+	t.Helper()
+	bin := filepath.Join(t.TempDir(), "layercheck")
+	build := exec.Command("go", "build", "-o", bin, "./tools/layercheck")
+	build.Dir = repoRoot(t)
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("building layercheck: %v\n%s", err, out)
+	}
+	cmd := exec.Command(bin, args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
 func TestCI_runsTheLayerReport_issue620(t *testing.T) {

@@ -20,6 +20,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
+	"github.com/WilsonSousajr/omatty/internal/infra/highlight"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
@@ -121,7 +122,7 @@ func tuiDeps(env tuiEnv, store sessions.StateStore, state sessions.State) app.De
 	home, git, holder := env.Home, vcs.NewCLI(), env.Holder
 	src, fg := review.NewSource(git, gitdiff.ParseDiff).WithHeads(fsread.Head), newRouter(env.Cfg, git)
 	deps := app.Deps{
-		State: state, Profiles: fsread.CoverageProfiles{}, Preview: fsread.ReadPreview, Stop: holder.Stop,
+		State: state, Profiles: fsread.CoverageProfiles{}, Preview: fsread.ReadPreview, Highlighter: highlight.Chroma{}, Stop: holder.Stop,
 		Notice:    holder.Notice(),
 		Create:    sessionCreator(env.Cfg, store),
 		Leader:    env.Cfg.Leader,

@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/infra/highlight"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
@@ -193,7 +192,7 @@ func (m *Model) previewFile(rel string) {
 		m.lastErr = err.Error()
 		return
 	}
-	stylePreview(&p)
+	stylePreview(m.highlighter, &p)
 	m.review.Preview, m.review.PreviewOffset, m.review.View = p, 0, ViewPreview
 	m.contentChanged()
 	m.review.ColOffset = 0 // a new file opens at its left edge, not mid-line (#94)
@@ -212,7 +211,7 @@ const highlightBudget = 64 << 10
 // file with no lexer leaves Styled nil and says nothing; only a file over
 // the budget is noted, because that is the one the operator might expect
 // coloured.
-func stylePreview(p *review.Preview) {
+func stylePreview(hl Highlighter, p *review.Preview) {
 	if p.Binary || p.Deleted || len(p.Lines) == 0 {
 		return
 	}
@@ -224,7 +223,7 @@ func stylePreview(p *review.Preview) {
 	for i, line := range p.Lines {
 		plain[i] = expandTabs(line)
 	}
-	if styled := highlight.Lines(p.Path, plain); !sameLines(styled, plain) {
+	if styled := hl.Lines(p.Path, plain); !sameLines(styled, plain) {
 		p.Styled = styled
 	}
 }

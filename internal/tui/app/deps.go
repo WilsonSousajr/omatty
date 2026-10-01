@@ -94,9 +94,13 @@ type Deps struct {
 	// SpinTick schedules the spinner's next frame (#412). Nil is tea.Tick; a
 	// test passes one that answers at once, since test helpers run every
 	// command they are handed and a real tick is a real 100 ms wait.
-	SpinTick  TickFunc
-	Notifier  Notifier
-	TailStart func(sessions.Session)
+	SpinTick TickFunc
+	Notifier Notifier
+	// Highlighter colours code for the diff and the preview (#197); cmd
+	// passes internal/infra/highlight's (Amendment 1, step 6.10, #653).
+	// Nil draws code uncoloured.
+	Highlighter Highlighter
+	TailStart   func(sessions.Session)
 	// Diff loads a session's changes for the review column (#21).
 	Diff DiffFunc
 	// Files lists a session's worktree and Preview reads one of its files,
@@ -193,6 +197,9 @@ func (d Deps) withDefaults() Deps {
 	}
 	if d.SpinTick == nil {
 		d.SpinTick = tea.Tick
+	}
+	if d.Highlighter == nil {
+		d.Highlighter = plainHighlighter{}
 	}
 	if d.Notifier == nil {
 		d.Notifier = silentNotifier{}
@@ -431,3 +438,17 @@ type Notifier interface {
 type silentNotifier struct{}
 
 func (silentNotifier) Notify(string, string) error { return nil }
+
+// Highlighter colours source lines for display, one string per line, the
+// same count it was given (ADR 0001's port, declared in tui/app by Amendment
+// 1; migration step 6.10, #653). internal/infra/highlight implements it.
+//
+//	styled := m.highlighter.Lines("main.go", plain)
+type Highlighter interface {
+	Lines(path string, lines []string) []string
+}
+
+// plainHighlighter is the Deps.Highlighter default: the lines as given.
+type plainHighlighter struct{}
+
+func (plainHighlighter) Lines(_ string, lines []string) []string { return lines }

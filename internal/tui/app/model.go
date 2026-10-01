@@ -52,6 +52,8 @@ type Model struct {
 	clock     func() time.Time
 	tailStart func(sessions.Session)
 	notifier  Notifier
+	// highlighter colours code for the diff and the preview (#197, #653).
+	highlighter Highlighter
 	// notified is when each session last posted a notification (issue #69).
 	notified map[string]time.Time
 	// startedAt gates notifications to transitions newer than this run: the
@@ -259,7 +261,7 @@ func NewModel(deps Deps) *Model {
 // withSources attaches the injected functions that reach outside ui: the
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
-	m.diff, m.files, m.preview = d.Diff, d.Files, d.Preview
+	m.diff, m.files, m.preview, m.highlighter = d.Diff, d.Files, d.Preview, d.Highlighter
 	m.generatedFn, m.ship, m.tally = d.Generated, d.Ship, d.Tally
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse, m.labelOf = d.PRs, d.Issues, d.Item, d.Browse, d.Label
