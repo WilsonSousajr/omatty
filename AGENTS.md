@@ -76,7 +76,7 @@ internal/
 │   ├── forge/      OUR interface over every forge's CLI - gh, glab, az, tea - behind
 │   │            one Router: pull requests, CI and issues, read on a timer;
 │   │            written only on a keypress (#310, #331, #452).
-│   ├── fsread/     [ADR 0001] files omatty only reads: a coverage profile and the go.mod beside it.
+│   ├── fsread/     [ADR 0001] files omatty only reads: a coverage profile, a file's preview, a generated-file header.
 │   ├── gateexec/   [M9] runs a gate's steps under sh; verdicts from exit status only (invariant 12).
 │   ├── gitdiff/    [ADR 0001] the only go-gitdiff importer: git's unified diff -> domain/review.Diff.
 │   ├── golist/     [M11] OUR interface over `go list` (invariant 4 in spirit).

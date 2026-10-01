@@ -1,4 +1,4 @@
-package review_test
+package fsread_test
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
 )
 
 func TestReadPreview_SplitsTextIntoLines_issue24(t *testing.T) {
@@ -15,7 +15,7 @@ func TestReadPreview_SplitsTextIntoLines_issue24(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, err := review.ReadPreview(dir, "a.go")
+	p, err := fsread.ReadPreview(dir, "a.go")
 
 	if err != nil {
 		t.Fatal(err)
@@ -33,7 +33,7 @@ func TestReadPreview_FlagsBinaries_issue24(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "img"), []byte("PNG\x00\x01"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	p, err := review.ReadPreview(dir, "img")
+	p, err := fsread.ReadPreview(dir, "img")
 	if err != nil || !p.Binary || len(p.Lines) != 0 {
 		t.Errorf("Preview = %+v, %v; want Binary with no lines", p, err)
 	}
@@ -45,7 +45,7 @@ func TestReadPreview_TruncatesLargeFiles_issue24(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "big"), []byte(big), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	p, err := review.ReadPreview(dir, "big")
+	p, err := fsread.ReadPreview(dir, "big")
 	if err != nil || !p.Truncated || len(p.Lines) >= 20000 {
 		t.Errorf("Preview truncated=%v lines=%d err=%v; want a truncated, shorter preview", p.Truncated, len(p.Lines), err)
 	}
@@ -56,14 +56,14 @@ func TestReadPreview_TruncatesLargeFiles_issue24(t *testing.T) {
 
 func TestReadPreview_RefusesToLeaveTheDirectory_issue24(t *testing.T) {
 	for _, rel := range []string{"../etc/passwd", "/etc/passwd", ".."} {
-		if _, err := review.ReadPreview(t.TempDir(), rel); err == nil || !strings.Contains(err.Error(), rel) {
+		if _, err := fsread.ReadPreview(t.TempDir(), rel); err == nil || !strings.Contains(err.Error(), rel) {
 			t.Errorf("ReadPreview(%q) error = %v, want a refusal naming the path", rel, err)
 		}
 	}
 }
 
 func TestReadPreview_MissingFileNamesIt(t *testing.T) {
-	_, err := review.ReadPreview(t.TempDir(), "nope.txt")
+	_, err := fsread.ReadPreview(t.TempDir(), "nope.txt")
 	if err == nil || !strings.Contains(err.Error(), "nope.txt") {
 		t.Errorf("error = %v, want one naming nope.txt", err)
 	}
@@ -74,7 +74,7 @@ func TestReadPreview_EmptyFileIsOneEmptyLine(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "empty"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	p, err := review.ReadPreview(dir, "empty")
+	p, err := fsread.ReadPreview(dir, "empty")
 	if err != nil || p.Binary || p.Truncated {
 		t.Errorf("Preview = %+v, %v; want a plain empty preview", p, err)
 	}

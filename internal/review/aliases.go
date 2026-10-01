@@ -64,6 +64,9 @@ type Position = dreview.Position
 // TreeNode is dreview.TreeNode.
 type TreeNode = dreview.TreeNode
 
+// Preview is dreview.Preview (migration step 5.8, #653).
+type Preview = dreview.Preview
+
 // Tree is dreview.Tree.
 type Tree = dreview.Tree
 
