@@ -210,7 +210,7 @@ func TestSource_DeletedBaseFallsBackToTheRootsBranch_issue684(t *testing.T) {
 // back too (#684).
 func TestSource_StatSurvivesADeletedBase_issue684(t *testing.T) {
 	g := &FakeGit{Branch: "parser-fix", MergeBaseOut: "def",
-		ShortstatOut: vcs.Shortstat{Added: 4, Removed: 1}, GoneRefs: map[string]bool{"develop": true}}
+		ShortstatOut: dreview.Shortstat{Added: 4, Removed: 1}, GoneRefs: map[string]bool{"develop": true}}
 
 	st, err := review.NewSource(g, gitdiff.ParseDiff).Stat(worktreeSession, "/p/omatty")
 
