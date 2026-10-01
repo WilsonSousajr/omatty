@@ -182,3 +182,68 @@ func TestSource_UntrackedListingFailureNamesTheDirectory(t *testing.T) {
 		t.Errorf("error %q does not name the offending directory", err)
 	}
 }
+
+// A worktree's recorded base is a branch name, and the branch is normally
+// deleted once its pull request merges. git then fails merge-base with "Not a
+// valid object name", and the session's review could never load again (#684):
+// a base that is gone counts as none recorded, so the root's branch stands in.
+func TestSource_DeletedBaseFallsBackToTheRootsBranch_issue684(t *testing.T) {
+	g := &FakeGit{Branch: "main", MergeBaseOut: "def", DiffOut: twoFileDiff,
+		GoneRefs: map[string]bool{"develop": true}}
+
+	d, err := review.NewSource(g, gitdiff.ParseDiff).Load(worktreeSession, "/p/omatty")
+
+	if err != nil {
+		t.Fatalf("Load() with a deleted base = %v, want the root's branch to stand in", err)
+	}
+	want := "MergeBase(/wt/parser-fix,develop) CommitExists(/wt/parser-fix,develop) " +
+		"CurrentBranch(/p/omatty) MergeBase(/wt/parser-fix,main) Diff(/wt/parser-fix,def)"
+	if !strings.HasPrefix(calls(g), want) {
+		t.Errorf("calls = %s\nwant  %s ...", calls(g), want)
+	}
+	if len(d.Files) != 2 {
+		t.Errorf("parsed %d files, want 2", len(d.Files))
+	}
+}
+
+// The card's diffstat resolves its base through the same path, so it comes
+// back too (#684).
+func TestSource_StatSurvivesADeletedBase_issue684(t *testing.T) {
+	g := &FakeGit{Branch: "parser-fix", MergeBaseOut: "def",
+		ShortstatOut: vcs.Shortstat{Added: 4, Removed: 1}, GoneRefs: map[string]bool{"develop": true}}
+
+	st, err := review.NewSource(g, gitdiff.ParseDiff).Stat(worktreeSession, "/p/omatty")
+
+	if err != nil || st.Added != 4 || st.Removed != 1 {
+		t.Errorf("Stat() with a deleted base = %+v, %v; want +4 -1, nil", st, err)
+	}
+}
+
+// Only a base that no longer resolves falls back. A merge-base that fails on a
+// base that still exists is a real failure, and must say so rather than
+// quietly diffing against some other branch (#684).
+func TestSource_MergeBaseFailureOnALiveBaseStillFails_issue684(t *testing.T) {
+	g := &FakeGit{Branch: "main", Errs: map[string]error{"MergeBase": errors.New("no merge base")}}
+
+	_, err := review.NewSource(g, gitdiff.ParseDiff).Load(worktreeSession, "/p/omatty")
+
+	if err == nil || !strings.Contains(err.Error(), "develop") {
+		t.Errorf("error = %v, want the merge-base failure naming develop", err)
+	}
+	if strings.Contains(calls(g), "CurrentBranch") {
+		t.Errorf("calls = %s, want no fallback to the root's branch", calls(g))
+	}
+}
+
+// When git cannot even say whether the base exists, the merge-base failure is
+// the one reported: guessing would hide what went wrong (#684).
+func TestSource_UnanswerableBaseCheckReportsTheMergeBaseFailure_issue684(t *testing.T) {
+	g := &FakeGit{Branch: "main", GoneRefs: map[string]bool{"develop": true},
+		Errs: map[string]error{"CommitExists": errors.New("not a repository")}}
+
+	_, err := review.NewSource(g, gitdiff.ParseDiff).Load(worktreeSession, "/p/omatty")
+
+	if err == nil || !strings.Contains(err.Error(), "Not a valid object name develop") {
+		t.Errorf("error = %v, want the merge-base failure", err)
+	}
+}
