@@ -24,8 +24,10 @@ import (
 //	l := sessions.NewLauncher(claudeProfile(), cfg.ClaudeBin, hooksFile, home, holder)
 func claudeProfile() agent.Profile {
 	return agent.Profile{
-		Name:           "claude",
-		DefaultBin:     "claude",
+		Name:       "claude",
+		DefaultBin: "claude",
+		Caps: agent.Caps{Identity: agent.Assigned, Status: agent.StatusHooks,
+			Waiting: true, Resume: true, TurnBoundary: true},
 		Command:        agent.ClaudeCommand,
 		TranscriptPath: claudeTranscript,
 		HookEvents:     status.HookEventNames,

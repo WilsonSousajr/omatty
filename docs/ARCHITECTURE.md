@@ -275,6 +275,10 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
    everything a relaunch needs is either persisted or derivable. A new
    session field is one or the other - `Agent` is empty for claude precisely
    so pre-#46 files stay at schema version 1.
+   M17 (#520) amended the rule to *everything the agent allows*: an agent
+   with no resume flag cannot be resumed from any file, so for it `state.json`
+   suffices to start fresh in `Dir`, and the surface says the conversation is
+   lost. Whether an agent resumes is `Caps.Resume`, a fact about the binary.
 
 10. **`cmd/` stays thin.** Logic in `main` is logic without tests: the
     coverage gate measures `./internal/...` only, which is how a

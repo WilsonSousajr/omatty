@@ -298,8 +298,12 @@ not in the gate.
    attach feedback to the wrong code.
 8. **Review submission uses bracketed paste** (`ESC[200~ … ESC[201~`) then one
    `\r`. Writing a multi-line prompt raw sends N premature messages.
-9. **`state.json` must always suffice to relaunch every session** with
-   `--resume <uuid>`. Any new session field is either derivable or persisted.
+9. **`state.json` must always suffice to do everything the session's agent
+   allows** (#520): relaunch with `--resume <uuid>` where the agent's
+   `Caps.Resume` is set, and a fresh start in the session's directory where it
+   is not, with the lost conversation said out loud rather than a resume
+   offered that cannot happen. For claude that is the rule as it always read.
+   Any new session field is either derivable or persisted.
 10. **`cmd/` stays thin.** Parse flags, construct dependencies, call typed
     library functions. No logic.
 11. **A hook must never block or fail claude.** `omatty hook` reads bounded
