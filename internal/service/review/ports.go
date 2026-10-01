@@ -17,6 +17,7 @@ type Git interface {
 	CurrentBranch(dir string) (string, error)
 	CommitsOnBranch(repoRoot, base, branch string) (int, error)
 	MergeBase(dir, ref string) (string, error)
+	CommitExists(dir, ref string) (bool, error)
 	Diff(dir, commit string) (string, error)
 	Shortstat(dir, commit string) (dreview.Shortstat, error)
 	Untracked(dir string) ([]string, error)

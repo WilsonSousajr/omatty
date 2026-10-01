@@ -64,23 +64,47 @@ func (s *Source) Load(sess session.Session, projectRoot string) (Diff, error) {
 
 // baseCommit is HEAD for a main-checkout session, else the merge-base with the
 // recorded base branch, or with the project root's current branch when none
-// was recorded.
+// was recorded or the recorded one has since been deleted (#684).
 func (s *Source) baseCommit(sess session.Session, projectRoot string) (string, error) {
 	if sess.Branch == "" {
 		return "HEAD", nil
 	}
-	base := sess.Base
-	if base == "" {
-		cur, err := s.git.CurrentBranch(projectRoot)
-		if err != nil {
-			return "", fmt.Errorf("review: session %s has no base branch and %q reports none: %w",
-				sess.ID, projectRoot, err)
-		}
-		base = cur
+	if sess.Base == "" {
+		return s.rootBranchBase(sess, projectRoot)
 	}
-	commit, err := s.git.MergeBase(sess.Dir, base)
+	commit, err := s.mergeBase(sess, sess.Base)
+	if err == nil || !s.baseGone(sess) {
+		return commit, err
+	}
+	return s.rootBranchBase(sess, projectRoot)
+}
+
+// baseGone reports whether sess's recorded base no longer resolves: the usual
+// end of a branch whose pull request merged, after which merge-base fails on
+// it for good (#684). Asked only once merge-base has failed, so the card's
+// poll pays nothing for it. A check git cannot answer is not "gone": the
+// caller keeps the failure it already has rather than guess.
+func (s *Source) baseGone(sess session.Session) bool {
+	exists, err := s.git.CommitExists(sess.Dir, sess.Base)
+	return err == nil && !exists
+}
+
+// rootBranchBase is the merge-base with the project root's current branch,
+// the stand-in for a base that was never recorded or no longer exists.
+func (s *Source) rootBranchBase(sess session.Session, projectRoot string) (string, error) {
+	cur, err := s.git.CurrentBranch(projectRoot)
 	if err != nil {
-		return "", fmt.Errorf("review: merge-base of session %s with %q: %w", sess.ID, base, err)
+		return "", fmt.Errorf("review: session %s has no base branch and %q reports none: %w",
+			sess.ID, projectRoot, err)
+	}
+	return s.mergeBase(sess, cur)
+}
+
+// mergeBase is where ref and sess's HEAD diverged.
+func (s *Source) mergeBase(sess session.Session, ref string) (string, error) {
+	commit, err := s.git.MergeBase(sess.Dir, ref)
+	if err != nil {
+		return "", fmt.Errorf("review: merge-base of session %s with %q: %w", sess.ID, ref, err)
 	}
 	return commit, nil
 }
