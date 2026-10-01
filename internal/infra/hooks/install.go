@@ -18,9 +18,8 @@ import (
 //
 //	hooksFile, err := hooks.Install(profile, home)
 //
-// The events and the settings schema are the profile's (#46). One file for
-// the whole app: a second agent whose schema differs will need a file per
-// profile, which is noted here rather than built.
+// The events and the settings schema are the profile's (#46), and so is the
+// file: paths.HooksFile names one per agent (#522).
 func Install(profile agent.Profile, home string) (string, error) {
 	bin, err := os.Executable()
 	if err != nil {
@@ -30,7 +29,7 @@ func Install(profile agent.Profile, home string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("supervisor: rendering hooks for %q: %w", bin, err)
 	}
-	path := paths.HooksFile(home)
+	path := paths.HooksFile(home, profile.Name)
 	if err := WriteSettings(path, content); err != nil {
 		return "", err
 	}
@@ -45,7 +44,7 @@ func Install(profile agent.Profile, home string) (string, error) {
 // invariant 3 is about the user's ~/.claude/settings.json, which is untouched.
 //
 //	content, _ := hooks.Render(binPath)
-//	hooks.WriteSettings(paths.HooksFile(home), content)
+//	hooks.WriteSettings(paths.HooksFile(home, ""), content)
 func WriteSettings(path string, content []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -95,4 +94,26 @@ func replaceAtomically(path string, content []byte) error {
 		return fmt.Errorf("supervisor: renaming %q to %q: %w", f.Name(), path, err)
 	}
 	return nil
+}
+
+// InstallAll installs the settings file of every agent in the catalog that
+// takes hooks, and returns each one's path by agent name. An agent without
+// hooks gets no file and no entry: it reports through its transcript or not
+// at all (#522).
+//
+//	files, err := hooks.InstallAll(agents, home)
+func InstallAll(agents agent.Catalog, home string) (map[string]string, error) {
+	files := map[string]string{}
+	for _, name := range agents.Names() {
+		profile, _ := agents.Lookup(name)
+		if profile.Caps.Status != agent.StatusHooks {
+			continue
+		}
+		path, err := Install(profile, home)
+		if err != nil {
+			return nil, err
+		}
+		files[name] = path
+	}
+	return files, nil
 }

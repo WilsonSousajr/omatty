@@ -45,7 +45,7 @@ func main() {
 	// missing HOME or an unwritable log directory must not reach claude as a
 	// non-zero exit or a byte of output (issue #54).
 	if len(os.Args) > 1 && os.Args[1] == "hook" {
-		runHook()
+		runHook(os.Args[2:])
 		return
 	}
 	// Ahead of run() because run() loads the config, and a config omatty
@@ -67,18 +67,23 @@ func main() {
 // runHook is the whole of `omatty hook`. Every error and panic is swallowed
 // here rather than logged: the log file is the one thing this path must not
 // depend on.
-// runHook is agent-blind on purpose: adding a profile lookup here would add
-// a config read and an error path to the one code path that may have neither
-// (invariant 11, #46).
-func runHook() {
+// It was agent-blind until M17 (#46), so that no config read or error path
+// reached it. `--agent <name>` adds neither: the parser comes from the
+// in-memory catalog, and an agent it cannot resolve is a hook that sends
+// nothing (invariant 11, #522).
+func runHook(args []string) {
 	defer func() { _ = recover() }()
+	parse, ok := hookParser(args)
+	if !ok {
+		return
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return
 	}
-	// The launcher set SessionEnv on claude and the hook inherited it; it is
-	// what ties a /clear's new conversation to its pane (#316).
-	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second, os.Getenv(session.SessionEnv))
+	// The launcher set SessionEnv on the agent and the hook inherited it; it
+	// is what ties a /clear's new conversation to its pane (#316).
+	_ = hooks.ReportAs(os.Stdin, parse, paths.HookSocket(home), time.Second, os.Getenv(session.SessionEnv))
 }
 
 func run() error {

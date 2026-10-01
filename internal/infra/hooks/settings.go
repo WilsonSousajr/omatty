@@ -54,8 +54,21 @@ func Render(binPath string, eventNames []string) ([]byte, error) {
 // nothing to stdout or stderr in every case - socket missing, connection
 // refused, malformed JSON - so there is no diagnostic here to lose. claude's
 // stdin payload simply goes unread, which is the same as it was when sh failed.
-func hookLine(binPath string) string {
-	return shellQuote(binPath) + " hook 2>/dev/null || true"
+func hookLine(binPath string) string { return HookCommand(binPath, "") }
+
+// HookCommand is the shell command an agent's settings run for one event:
+// `omatty hook`, naming the agent so the hook reads that agent's payload
+// shape (#522). claude's is the line every hooks.json before M17 held, with
+// no flag, so a session started then still reports as claude. The tail is
+// hookLine's, for hookLine's reason (#380).
+//
+//	hooks.HookCommand("/b/omatty", "codex") // "'/b/omatty' hook --agent codex 2>/dev/null || true"
+func HookCommand(binPath, agentName string) string {
+	flag := ""
+	if agentName != "" && agentName != "claude" {
+		flag = " --agent " + shellQuote(agentName)
+	}
+	return shellQuote(binPath) + " hook" + flag + " 2>/dev/null || true"
 }
 
 // shellQuote wraps s in single quotes for a POSIX shell, escaping any single

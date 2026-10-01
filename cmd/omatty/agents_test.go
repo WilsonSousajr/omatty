@@ -144,7 +144,7 @@ func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
 	if err := os.WriteFile(transcript, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", home, &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), home, &detach.Plain{})
 
 	cmd, err := l.Launch(session.Session{ID: "abc-123", Dir: dir})
 	if err != nil {
@@ -155,14 +155,15 @@ func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
 	}
 }
 
-// catalogFor is a one-profile catalog running bin, for a launcher test (#521).
-func catalogFor(t *testing.T, p agent.Profile, bin string) agent.Catalog {
+// catalogFor is a one-profile catalog running bin with hooksFile as its
+// settings, for a launcher test (#521, #522).
+func catalogFor(t *testing.T, p agent.Profile, bin, hooksFile string) agent.Catalog {
 	t.Helper()
 	c, err := agent.NewCatalog(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return c.WithBins(map[string]string{p.Name: bin})
+	return c.WithBins(map[string]string{p.Name: bin}).WithHooksFiles(map[string]string{p.Name: hooksFile})
 }
 
 // mustAgents is cmd's own catalog, which building must not fail (#521).
@@ -173,4 +174,22 @@ func mustAgents(t *testing.T) agent.Catalog {
 		t.Fatalf("agentCatalog: %v", err)
 	}
 	return agents
+}
+
+// `omatty hook` with no flag is claude, which is every hooks.json written
+// before M17; `--agent <name>` reads that agent's shape; anything else -
+// an unknown agent, an agent without hooks, a malformed flag - yields no
+// parser, and the hook exits 0 having sent nothing (invariant 11, #522).
+func TestHookParser_ResolvesTheAgentsPayloadShape_issue522(t *testing.T) {
+	if _, ok := hookParser(nil); !ok {
+		t.Error("no flag: want claude's parser")
+	}
+	if _, ok := hookParser([]string{"--agent", "claude"}); !ok {
+		t.Error("--agent claude: want claude's parser")
+	}
+	for _, args := range [][]string{{"--agent", "nope"}, {"--agent"}, {"--bogus"}, {"--agent", ""}} {
+		if _, ok := hookParser(args); ok {
+			t.Errorf("hookParser(%q) = ok, want no parser", args)
+		}
+	}
 }

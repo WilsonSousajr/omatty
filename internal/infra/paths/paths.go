@@ -16,9 +16,19 @@ func Root(home string) string { return filepath.Join(home, ".omatty") }
 // StateFile returns the session registry file.
 func StateFile(home string) string { return filepath.Join(Root(home), "state.json") }
 
-// HooksFile returns the settings file omatty passes to `claude --settings`.
-// Invariant 3: omatty never writes the user's own settings.
-func HooksFile(home string) string { return filepath.Join(Root(home), "hooks.json") }
+// HooksFile returns the settings file omatty hands an agent, never the
+// user's own (invariant 3). claude's, and an empty name's, stays hooks.json:
+// a session dtach holds across quit carries that path in its argv, and moving
+// it would silently cut that session's hooks. Every other agent gets its own
+// file beside it (#522).
+//
+//	paths.HooksFile("/home/u", "codex") // "/home/u/.omatty/hooks-codex.json"
+func HooksFile(home, agentName string) string {
+	if agentName == "" || agentName == "claude" {
+		return filepath.Join(Root(home), "hooks.json")
+	}
+	return filepath.Join(Root(home), "hooks-"+agentName+".json")
+}
 
 // HookSocket returns the unix socket the injected hooks report to.
 func HookSocket(home string) string { return filepath.Join(Root(home), "sock") }

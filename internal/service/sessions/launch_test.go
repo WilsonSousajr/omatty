@@ -19,7 +19,7 @@ import (
 // Invariant 3: --settings points at omatty's own file, so the user's
 // ~/.claude/settings.json is never read or written.
 func TestLauncher_CommandPassesSessionIDAndOwnSettings(t *testing.T) {
-	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/home/u/.omatty/hooks.json", t.TempDir(), &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/home/u/.omatty/hooks.json"), t.TempDir(), &detach.Plain{})
 
 	cmd, err := l.Launch(session.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
@@ -52,7 +52,7 @@ func commandArgs(t *testing.T, l *sessions.Launcher, sessionID, dir string) stri
 // Invariant 3, stated as a property: nothing on the command line points at
 // the user's own settings file.
 func TestLauncher_CommandNeverReferencesTheUserSettings(t *testing.T) {
-	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/home/u/.omatty/hooks.json", t.TempDir(), &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/home/u/.omatty/hooks.json"), t.TempDir(), &detach.Plain{})
 
 	for _, arg := range strings.Fields(commandArgs(t, l, "abc-123", "/w")) {
 		if strings.Contains(arg, ".claude/settings") {
@@ -67,7 +67,7 @@ func TestLauncher_CommandNeverReferencesTheUserSettings(t *testing.T) {
 // transcript is the claim - and `--resume` is the documented way back in.
 func TestLauncher_UsesSessionIDForAFreshSession_issue36(t *testing.T) {
 	home := t.TempDir()
-	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", home, &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), home, &detach.Plain{})
 
 	args := commandArgs(t, l, "abc-123", "/w/parser-fix")
 
@@ -88,7 +88,7 @@ func TestLauncher_UsesResumeWhenTheTranscriptExists_issue36(t *testing.T) {
 	if err := os.WriteFile(transcript, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", home, &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), home, &detach.Plain{})
 
 	args := commandArgs(t, l, "abc-123", "/w/parser-fix")
 
@@ -109,7 +109,7 @@ func TestLauncher_SettingsIsPassedOnBothPaths_issue36(t *testing.T) {
 			_ = os.MkdirAll(filepath.Dir(p), 0o700)
 			_ = os.WriteFile(p, []byte("{}\n"), 0o600)
 		}
-		args := commandArgs(t, sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", home, &detach.Plain{}), "abc-123", "/w")
+		args := commandArgs(t, sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), home, &detach.Plain{}), "abc-123", "/w")
 		if !strings.Contains(args, "--settings /h.json") {
 			t.Errorf("transcript=%v: args %q lack --settings", withTranscript, args)
 		}
@@ -140,7 +140,7 @@ func TestHasTranscript_issue36(t *testing.T) {
 // handed, so the --session-id / --resume decision above is untouched (#43).
 func TestLauncher_CommandWrapsThroughTheHolder_issue43(t *testing.T) {
 	h := &fakeHolder{Wrapped: []string{"dtach", "-A", "/s.sock"}}
-	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), h)
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), t.TempDir(), h)
 
 	cmd, err := l.Launch(session.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
@@ -162,7 +162,7 @@ func TestLauncher_CommandWrapsThroughTheHolder_issue43(t *testing.T) {
 // rather than launching a claude the holder cannot later stop (#43).
 func TestLauncher_CommandSurfacesAHolderFailure_issue43(t *testing.T) {
 	h := &fakeHolder{WrapErr: errors.New("socket path is 130 bytes, over the 104-byte limit")}
-	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), h)
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), t.TempDir(), h)
 
 	_, err := l.Launch(session.Session{ID: "abc-123", Dir: "/w"})
 
@@ -196,7 +196,7 @@ func fakeProfile(home string) agent.Profile {
 // The test that proves the hardcoding is gone: the launcher builds exactly
 // the profile's template and adds nothing of its own.
 func TestLauncher_UsesTheProfilesCommandTemplate_issue46(t *testing.T) {
-	l := sessions.NewLauncher(catalogFor(t, fakeProfile(t.TempDir()), "other-agent"), "/h.json", "/home", &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, fakeProfile(t.TempDir()), "other-agent", "/h.json"), "/home", &detach.Plain{})
 	if got := commandArgs(t, l, "abc", "/w"); got != "other-agent --go abc" {
 		t.Errorf("args = %q, want exactly the profile's template", got)
 	}
@@ -211,7 +211,7 @@ func TestLauncher_ResumesWhenTheProfilesTranscriptExists_issue46(t *testing.T) {
 	if err := os.WriteFile(p.TranscriptPath(home, "/w", "abc"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	l := sessions.NewLauncher(catalogFor(t, p, "other-agent"), "/h.json", home, &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, p, "other-agent", "/h.json"), home, &detach.Plain{})
 	if got := commandArgs(t, l, "abc", "/w"); got != "other-agent --resumed abc" {
 		t.Errorf("args = %q, want the profile's resume form once its transcript exists", got)
 	}
@@ -221,7 +221,7 @@ func TestLauncher_ResumesWhenTheProfilesTranscriptExists_issue46(t *testing.T) {
 // pane that needs a repaint nudge from one that will paint itself (#191).
 func TestLauncher_ReattachingAsksTheHolder_issue191(t *testing.T) {
 	h := &fakeHolder{HeldIDs: map[string]bool{"abc-123": true}}
-	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), h)
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), t.TempDir(), h)
 
 	held, err := l.Reattaching("abc-123")
 	if err != nil || !held {
@@ -241,7 +241,7 @@ func TestLauncher_SessionAgentChoosesItsOwnArgv_issue521(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	l := sessions.NewLauncher(agents.WithBins(map[string]string{"other": "/opt/other"}), "/h.json", t.TempDir(), &detach.Plain{})
+	l := sessions.NewLauncher(agents.WithBins(map[string]string{"other": "/opt/other"}), t.TempDir(), &detach.Plain{})
 	launch, err := l.Launch(session.Session{ID: "abc", Dir: "/w", Agent: "other"})
 	if err != nil {
 		t.Fatal(err)
@@ -254,12 +254,31 @@ func TestLauncher_SessionAgentChoosesItsOwnArgv_issue521(t *testing.T) {
 // An agent the catalog lacks starts nothing and says which (invariant 6, #521).
 func TestLauncher_UnknownAgentStartsNothing_issue521(t *testing.T) {
 	h := &fakeHolder{}
-	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", t.TempDir(), h)
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), t.TempDir(), h)
 	_, err := l.Launch(session.Session{ID: "abc", Dir: "/w", Agent: "codex"})
 	if err == nil || !strings.Contains(err.Error(), `"codex"`) {
 		t.Errorf("Launch error = %v, want one naming codex", err)
 	}
 	if h.GotArgs != nil {
 		t.Errorf("the holder wrapped %q for an unknown agent, want nothing started", h.GotArgs)
+	}
+}
+
+// Each agent is handed its own settings file, never another's: claude's
+// hooks.json names claude's events and payload shape (#522).
+func TestLauncher_PassesTheSessionsAgentItsOwnHooksFile_issue522(t *testing.T) {
+	agents, err := agent.NewCatalog(claudeProfile(), fakeProfile(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	agents = agents.WithHooksFiles(map[string]string{"claude": "/h/hooks.json", "other": "/h/hooks-other.json"})
+	l := sessions.NewLauncher(agents, t.TempDir(), &detach.Plain{})
+	launch, err := l.Launch(session.Session{ID: "abc", Dir: "/w"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := launch.Argv
+	if strings.Join(got, " ") != "claude --session-id abc --settings /h/hooks.json" {
+		t.Errorf("claude argv = %q, want claude's own hooks.json", got)
 	}
 }

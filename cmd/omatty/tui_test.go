@@ -14,7 +14,7 @@ import (
 // because where omatty keeps files is infra's knowledge. Unwired, the hook
 // server would listen on "" and no hook would ever reach a card.
 func TestRuntimeFor_TellsTheStatusServiceTheHookSocket_issue653(t *testing.T) {
-	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFiles: map[string]string{"claude": "/h/hooks.json"}, Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	if got, want := runtimeFor(env).Watch.HookSocket, paths.HookSocket("/h"); got != want {
 		t.Errorf("Watch.HookSocket = %q, want %q", got, want)
@@ -25,7 +25,7 @@ func TestRuntimeFor_TellsTheStatusServiceTheHookSocket_issue653(t *testing.T) {
 // Unwired, every diff and preview would draw uncoloured, silently, so the
 // real wiring is pinned: Go source comes back carrying colour.
 func TestTuiDeps_HighlightsThroughChroma_issue653(t *testing.T) {
-	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFiles: map[string]string{"claude": "/h/hooks.json"}, Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	hl := tuiDeps(env, nil, session.State{}).Highlighter
 	if hl == nil {

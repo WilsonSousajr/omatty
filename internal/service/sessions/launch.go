@@ -15,7 +15,7 @@ import (
 
 // Launcher builds and starts the agent process for a session.
 //
-//	l := sessions.NewLauncher(agents, paths.HooksFile(home), home, detach.New(home))
+//	l := sessions.NewLauncher(agents, home, detach.New(home))
 //	launch, err := l.Launch(sess)
 //
 // The session's own agent is resolved through the injected catalog on every
@@ -23,9 +23,8 @@ import (
 // profile per Launcher until M17; the change stayed local to this file, which
 // is what the seam bought (#46).
 type Launcher struct {
-	agents    agent.Catalog
-	hooksFile string
-	home      string
+	agents agent.Catalog
+	home   string
 	// holder keeps the process alive across omatty's own exit. It is a port,
 	// not the dtach type, because invariant 4 keeps the binary inside
 	// internal/infra/detach and because a machine without dtach gets the
@@ -34,12 +33,12 @@ type Launcher struct {
 }
 
 // NewLauncher returns a Launcher running each session's agent from agents,
-// as the binary the catalog names for it, with hooksFile as its settings.
+// as the binary and with the settings file the catalog names for it.
 // home is where the agent keeps transcripts; it decides between a fresh start
 // and a resume. holder decides whether the
 // process survives quitting omatty.
-func NewLauncher(agents agent.Catalog, hooksFile, home string, holder Holder) *Launcher {
-	return &Launcher{agents: agents, hooksFile: hooksFile, home: home, holder: holder}
+func NewLauncher(agents agent.Catalog, home string, holder Holder) *Launcher {
+	return &Launcher{agents: agents, home: home, holder: holder}
 }
 
 // Launch returns what omatty starts for a session, built from the profile's
@@ -66,7 +65,7 @@ func (l *Launcher) Launch(sess session.Session) (session.Launch, error) {
 	}
 	conv := sess.ConversationID()
 	resume := HasTranscript(profile, l.home, sess.Dir, conv)
-	argv, err := l.holder.Wrap(sess.ID, profile.Command(l.agents.Bin(profile), conv, sess.Dir, resume, l.hooksFile))
+	argv, err := l.holder.Wrap(sess.ID, profile.Command(l.agents.Bin(profile), conv, sess.Dir, resume, l.agents.HooksFile(profile)))
 	if err != nil {
 		return session.Launch{}, err
 	}

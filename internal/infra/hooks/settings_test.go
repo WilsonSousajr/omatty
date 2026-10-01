@@ -100,3 +100,15 @@ func TestRender_QuotesTheBinaryPathForTheShell_issue56(t *testing.T) {
 		t.Errorf("command = %q, want %q", got, want)
 	}
 }
+
+// claude's hook line is byte-for-byte what every hooks.json before M17 held;
+// any other agent's names itself, quoted as the binary is (#56), so `omatty
+// hook` reads its shape (#522).
+func TestHookCommand_NamesTheAgentUnlessItIsClaude_issue522(t *testing.T) {
+	if got := hooks.HookCommand("/b/omatty", ""); got != "'/b/omatty' hook 2>/dev/null || true" {
+		t.Errorf("claude's line = %q", got)
+	}
+	if got := hooks.HookCommand("/b/omatty", "toy"); got != "'/b/omatty' hook --agent 'toy' 2>/dev/null || true" {
+		t.Errorf("toy's line = %q", got)
+	}
+}

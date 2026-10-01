@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"github.com/WilsonSousajr/omatty/internal/domain/status"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -160,5 +161,25 @@ func TestReport_ForwardsAPostToolUseWithAHugeResponse_issue55(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("the big PostToolUse never reached the socket")
+	}
+}
+
+// The agent's own parser reads its payload shape at the edge; the socket
+// gets the typed payload either way (#522).
+func TestReportAs_ParsesThroughTheAgentsParser_issue522(t *testing.T) {
+	path, got := listen(t)
+	parse := func(io.Reader) (status.HookPayload, bool) {
+		return status.HookPayload{SessionID: "toy-1", HookEventName: "Stop"}, true
+	}
+
+	_ = hooks.ReportAs(strings.NewReader("whatever toy writes"), parse, path, time.Second, "own")
+
+	select {
+	case line := <-got:
+		if !strings.Contains(line, `"toy-1"`) || !strings.Contains(line, `"own"`) {
+			t.Errorf("forwarded %q, want the toy parser's payload stamped with its owner", line)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("listener never received the payload")
 	}
 }

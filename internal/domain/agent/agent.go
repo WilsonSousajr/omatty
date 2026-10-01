@@ -21,7 +21,11 @@
 // a Profile has no field a terminal could be handed through (invariant 2).
 package agent
 
-import "github.com/WilsonSousajr/omatty/internal/domain/status"
+import (
+	"io"
+
+	"github.com/WilsonSousajr/omatty/internal/domain/status"
+)
 
 // Profile is one agent. Every field is a pure function or a value, so a
 // Profile is safe to copy and carries no lifecycle.
@@ -46,6 +50,8 @@ type Profile struct {
 	// RenderSettings is the settings-file content that makes the agent
 	// report to `omatty hook`.
 	RenderSettings func(binPath string, eventNames []string) ([]byte, error)
+	// ParseHook reads this agent's hook payload from the hook's stdin.
+	ParseHook func(stdin io.Reader) (status.HookPayload, bool)
 	// Status reads this agent's transcript lines and hook payloads into
 	// omatty's neutral vocabulary. It is the half of a Profile the watcher
 	// holds; the command template is the half only the launcher needs.

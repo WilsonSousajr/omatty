@@ -33,7 +33,17 @@ const maxField = 1024
 // the command exits 0. The error return exists only so tests can assert the
 // forwarding path; cmd discards it.
 func Report(stdin io.Reader, socketPath string, dialTimeout time.Duration, omattySession string) error {
-	p, ok := ParsePayload(stdin)
+	return ReportAs(stdin, ParsePayload, socketPath, dialTimeout, omattySession)
+}
+
+// ReportAs is Report with the agent's own payload parser, for `omatty hook
+// --agent <name>`: each agent's shape becomes the typed payload here, at the
+// edge, and the socket only ever sees that (#522). Invariant 11 holds exactly
+// as for Report: every failure returns nil.
+//
+//	_ = hooks.ReportAs(os.Stdin, profile.ParseHook, socket, time.Second, owner)
+func ReportAs(stdin io.Reader, parse func(io.Reader) (status.HookPayload, bool), socketPath string, dialTimeout time.Duration, omattySession string) error {
+	p, ok := parse(stdin)
 	if !ok {
 		return nil
 	}
