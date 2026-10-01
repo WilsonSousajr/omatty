@@ -11,6 +11,52 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.10.0] — 2026-10-01
+
+The architecture. omatty's code is rebuilt into the shape of ADR 0001 — a
+pure domain, use cases that declare the ports they need, adapters that are
+the only route to git, a forge, the hook socket or a file, and the TUI as
+one driver among two — and nothing you see changed on the way. The screens,
+the key table, `config.toml` and `state.json` are exactly as v0.9.0 left
+them; golden frames of thirteen screens, every key in every context and
+every `state.json` key held them still through the move (#620). What you can
+feel is that omatty no longer waits on git or the disk while it draws.
+
+### Added
+
+- **`omatty sessions --json` and `omatty status --json`** (#653): every
+  registered session, and each one's status and token usage as its
+  transcript says, for a script. The status is derived by the same code the
+  sidebar card uses, read once with no timer and no socket. The JSON shape is
+  not frozen below 1.0, like `state.json`.
+
+### Changed
+
+- **omatty no longer freezes on a slow git or disk** (#650, #653). Creating a
+  worktree session, starting or restarting one, archiving, renaming, the
+  auto-namer's titles, folding a project, a `/clear`'s rebind, registering
+  projects and adopting sessions all ran inside the frame loop; they now run
+  beside it, in the order you asked, one `state.json` write at a time. And
+  every git call has a deadline — 30 s, or 60 s for `git worktree add` — so a
+  git hung on a network filesystem, a lock or a credential prompt is reported
+  rather than holding the window.
+- **The architecture is ADR 0001's** (#615, #618, #622, #624, #632, #635,
+  #653): `internal/domain`, `internal/service`, `internal/infra`,
+  `internal/pubsub`, `internal/tui` and `internal/cli`, with `cmd/omatty` the
+  only place they are put together. `docs/ARCHITECTURE.md` is rewritten for
+  it. The help screen is built from the same key bindings the review column
+  answers, so a key cannot be handled and left undocumented (#422, #653).
+- **The gate grew three checks** that hold that shape: every tracked `.go`
+  file under 500 lines (#609), ADR 0001's layers, enforced (#620, #653), and
+  the characterization goldens above (#620).
+- The documentation caught up with M16 (#607).
+
+### Not in this release
+
+- A worktree session whose base branch was deleted after merging cannot load
+  its diff (#684; the fix, #686, is open).
+- The per-face screen packages ADR 0001 drew for the TUI were deferred (#695–#701).
+
 ## [v0.9.0] — 2026-09-29
 
 M16, The Forges. The card's pull request and CI, the tracker's issues and
@@ -823,7 +869,9 @@ after its issue:
 - The agent seam has one profile, claude. Codex is a follow-up. (#152)
 - Scrollback is not preserved across a detach and reattach.
 
-[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.10.0...HEAD
+[v0.10.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.10.0
+[v0.9.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.9.0
 [v0.8.2]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.8.2
 [v0.8.1]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.8.1
 [v0.8.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.8.0
