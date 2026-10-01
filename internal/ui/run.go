@@ -1,21 +1,12 @@
 package ui
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/domain/agent"
-	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
-	"github.com/WilsonSousajr/omatty/internal/infra/notify"
-	"github.com/WilsonSousajr/omatty/internal/pubsub"
-	"github.com/WilsonSousajr/omatty/internal/service/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"io"
 )
 
 // StartTerminals launches an embedded terminal for each session in want,
@@ -23,7 +14,7 @@ import (
 // pane size, so claude paints at the right width from its first frame instead
 // of racing a later resize (issue #51).
 //
-//	terms := ui.StartTerminals(st, sessionsToStart(d, held), l, termwrap.Start, w, h, leader)
+//	terms := ui.StartTerminals(st, ui.SessionsToStart(lazy, st, held), l, termwrap.Start, w, h, leader)
 //
 // A session left out - not wanted, or failing to start - has no terminal,
 // which its pane shows as stopped with enter to start it (#318). One failed
@@ -52,7 +43,7 @@ func StartTerminals(
 	return terms
 }
 
-// sessionsToStart is the boot policy in one place (#317). Under lazy start it
+// SessionsToStart is the boot policy in one place (#317). Under lazy start it
 // is exactly the sessions a holder is already keeping alive: attaching one
 // costs a dtach client and a PTY, while not attaching frees nothing - its
 // claude runs on either way - and would leave #191's repaint nudge with no
@@ -60,12 +51,14 @@ func StartTerminals(
 // nothing is held, so a lazy boot starts none, which is right: nothing
 // survived the quit, so each was going to cold-start anyway, and now does so
 // on demand. lazy_start = false starts every session, as before.
-func sessionsToStart(d RunDeps, held map[string]bool) map[string]bool {
-	if d.LazyStart {
+//
+//	want := ui.SessionsToStart(cfg.Sessions.LazyStart, st, held)
+func SessionsToStart(lazy bool, st sessions.State, held map[string]bool) map[string]bool {
+	if lazy {
 		return held
 	}
-	all := make(map[string]bool, len(d.State.Sessions))
-	for _, sess := range d.State.Sessions {
+	all := make(map[string]bool, len(st.Sessions))
+	for _, sess := range st.Sessions {
 		all[sess.ID] = true
 	}
 	return all
@@ -92,179 +85,17 @@ func HeldSessions(l *sessions.Launcher, st sessions.State) map[string]bool {
 	return held
 }
 
-// RunDeps is everything Run needs: the runtime plumbing, plus the functions
-// injected so ui never reaches git or the registry store itself (invariant 4).
+// LeaderOr is the configured leader, or DefaultLeader for an empty one (#44).
 //
-// A struct rather than a parameter list because M4 adds one injected function
-// per feature - rename here (#41), archive and discovery after it - and the
-// list was already at eight (#41).
-//
-//	ui.Run(ui.RunDeps{Home: home, State: st, Launch: l, Factory: termwrap.Start,
-//	        Width: w, Height: h, Create: create, Diff: diff, Files: files, Rename: rename})
-type RunDeps struct {
-	Home string
-	// OpenTranscript reads a session's transcript for the watcher. cmd wires
-	// internal/infra/transcript's reader in (ADR 0001, step 5.2c, #653).
-	OpenTranscript func(path string) status.Transcript
-	// ListenHooks serves the hook socket for the watcher. cmd wires
-	// internal/infra/hookserver in (ADR 0001, step 5.2d, #653).
-	ListenHooks func(path string, sink chan<- dstatus.HookPayload) (io.Closer, error)
-	State       sessions.State
-	Launch      *sessions.Launcher
-	Factory     termwrap.Factory
-	Width       int
-	Height      int
-	// Create is called when the operator finishes a new-session prompt; the
-	// model starts that session's terminal itself through the same launcher.
-	Create CreateFunc
-	// Diff loads a session's changes for the review column and Files lists its
-	// worktree for the tree (#21, #24).
-	Diff  DiffFunc
-	Files ListFilesFunc
-	// Generated reports which of a session's files nobody wrote (#338).
-	Generated GeneratedFunc
-	// Ship is #331's push, open and merge.
-	Ship ShipFuncs
-	// Tally records one gate run that followed a turn (#332).
-	Tally TallyFunc
-	// Stat reads a session's branch and diffstat for its card (#180).
-	Stat RepoStatFunc
-	// Turn reaches a session's turn baseline (#311).
-	Turn TurnFuncs
-	// PRs lists a project's pull requests for its cards (#310) and Issues its
-	// open issues for the tracker (#394).
-	PRs    PRListFunc
-	Issues IssueListFunc
-	// Item reads one issue or pull request in full (#397), and Browse opens one
-	// in the operator's browser (#398).
-	Item   ForgeItemFuncs
-	Browse ForgeBrowseFuncs
-	// Label names each project's forge for the copy (#449).
-	Label LabelFunc
-	// Rename persists a session's new title (#41); Name reads the first prompt
-	// that titles a session created without one (#127).
-	Rename RenameFunc
-	// Rebind persists the conversation a /clear moved a session to (#316).
-	Rebind RebindFunc
-	// RenameBranch names a worktree's branch from its first prompt (#151).
-	RenameBranch BranchRenameFunc
-	Name         NameFunc
-	// ModelName is the opt-in headless naming call, nil when off (#127).
-	ModelName ModelNameFunc
-	// Archive drops a session from the registry and RemoveWorktree deletes its
-	// worktree (#40). The tailer is stopped through the Watch this owns.
-	Archive        ArchiveFunc
-	RemoveWorktree RemoveWorktreeFunc
-	RemoveProject  RemoveProjectFunc
-	// Fold persists a project's sidebar fold (#505).
-	Fold FoldFunc
-	// Discover proposes repositories to register and AddProject registers one
-	// (#91).
-	Discover   DiscoverFunc
-	AddProject AddProjectFunc
-	// AdoptPropose lists a project's adoptable claude sessions and AdoptCommit
-	// registers the chosen ones (#122).
-	AdoptPropose AdoptFunc
-	AdoptCommit  AdoptCommitFunc
-	// Stop ends an archived session's held claude, and Notice says once at
-	// startup when no holder is keeping them (#43).
-	Stop   StopFunc
-	Notice string
-	// Leader is the configured leader key; empty means DefaultLeader (#44).
-	Leader string
-	// Agent is the profile every session runs: its status adapter and its
-	// transcript location feed the watcher (#46). cmd sets it from its
-	// catalog; there is no default here (#653).
-	Agent agent.Profile
-	// GateParallel bounds how many gates run at once (#229). Zero is raised
-	// to one by the Runner, so an unset config is a working default.
-	GateParallel int
-	// RunGate runs one gate. It is injected, because running a step is infra's
-	// business (ADR 0001, migration step 5.3, #653): cmd passes
-	// internal/infra/gateexec's Run.
-	RunGate gate.RunFunc
-	// Profiles reads a gate's coverage profile; cmd passes
-	// internal/infra/fsread's (ADR 0001, migration step 5.3, #653).
-	Profiles gate.ProfileReader
-	// Preview reads a file for the tree's preview; cmd passes
-	// internal/infra/fsread's (ADR 0001, migration step 5.8, #653).
-	Preview PreviewFunc
-	// IdleStop stops a session quiet this long; zero is off (#319).
-	IdleStop time.Duration
-	// LazyStart boots only the sessions a holder already keeps alive; the
-	// rest wait for enter. On unless [sessions] lazy_start = false (#317).
-	LazyStart bool
-	// GateAuto runs a session's gate when its turn ends (#233). Off unless
-	// the config asks for it.
-	GateAuto bool
-	// NerdIcons is [ui] icons = "nerd" (#425).
-	NerdIcons bool
-}
-
-// Run starts every session's terminal, the status watcher, and the TUI, and
-// runs until the user quits.
-func Run(d RunDeps) error {
-	d.Leader = leaderOr(d.Leader)
-	// Asked before the terminals start: once a client is attached the socket
-	// exists whether or not a claude was already behind it (#191).
-	held := HeldSessions(d.Launch, d.State)
-	terms := StartTerminals(d.State, sessionsToStart(d, held), d.Launch, d.Factory, d.Width, d.Height, d.Leader)
-	defer closeTerminals(terms)
-	watch := status.Start(watchDeps(d), d.State.Sessions)
-	defer watch.Close()
-	// The model's subscriptions live as long as the program: cancelled on
-	// return, so the brokers let go of them (#653).
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	// One Runner for the whole app, bounded: four concurrent `go test -race`
-	// would make the machine unusable, and a laggy TUI is the one thing that
-	// would make the gate worse than running it by hand (#229).
-	gates := gate.NewRunner(d.GateParallel, d.RunGate)
-	defer gates.Close()
-	return runProgram(modelFor(d, terms, held, watch.Subscribe(ctx), watch, gates.Subscribe(ctx), gates), len(terms))
-}
-
-// modelFor assembles the root model's dependencies. Split out of Run because
-// the assembly is one long literal and Run is the lifecycle around it - the
-// terminals, the watcher and the gate Runner, each with its own defer.
-func modelFor(
-	d RunDeps, terms map[string]termwrap.Terminal, held map[string]bool,
-	events <-chan pubsub.Event[status.Event], watch *status.Watch,
-	reports <-chan pubsub.Event[gate.Report], gates *gate.Runner,
-) *Model {
-	return NewModel(Deps{
-		State: d.State, Terms: terms, Create: d.Create, Start: guardedStarter(d.Launch, d.Factory, d.Leader),
-		Diff: d.Diff, Files: d.Files, Preview: d.Preview, Generated: d.Generated, Ship: d.Ship, Tally: d.Tally, Stat: d.Stat, Turn: d.Turn, PRs: d.PRs, Issues: d.Issues, Item: d.Item, Browse: d.Browse, Label: d.Label, Rename: d.Rename, Rebind: d.Rebind, RenameBranch: d.RenameBranch, Name: d.Name, ModelName: d.ModelName,
-		Archive: d.Archive, RemoveWorktree: d.RemoveWorktree, RemoveProject: d.RemoveProject, Fold: d.Fold,
-		Discover: d.Discover, AddProject: d.AddProject,
-		AdoptPropose: d.AdoptPropose, AdoptCommit: d.AdoptCommit,
-		Stop: d.Stop, Notice: d.Notice, Leader: d.Leader, Reattached: held,
-		Events: events, HooksDown: !watch.HooksLive(), Clock: time.Now, Notifier: notify.New(),
-		TailStart: watch.Add, TailStop: watch.Remove,
-		GateReports: reports, GateRun: gates.Start, GateAuto: d.GateAuto, Profiles: d.Profiles,
-		IdleStop: d.IdleStop, NerdIcons: d.NerdIcons,
-	})
-}
-
-// watchDeps is the watcher's slice of the agent profile: its status adapter
-// and its transcript location. cmd sets the profile: the catalog that could
-// supply a default is composed there, out of this package's reach (ADR 0001,
-// migration step 5.2b, #653).
-func watchDeps(d RunDeps) status.WatchDeps {
-	profile := d.Agent
-	return status.WatchDeps{Home: d.Home, Clock: time.Now, OpenTranscript: d.OpenTranscript, ListenHooks: d.ListenHooks,
-		Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}
-}
-
-// leaderOr is the configured leader, or DefaultLeader for an empty one (#44).
-func leaderOr(leader string) string {
+//	leader := ui.LeaderOr(cfg.Leader)
+func LeaderOr(leader string) string {
 	if leader == "" {
 		return DefaultLeader
 	}
 	return leader
 }
 
-// closeTerminals closes every PTY on the way out (issue #72). The map is the
+// CloseTerminals closes every PTY on the way out (issue #72). The map is the
 // one the model adds runtime sessions to, so those close too. Until #72 the OS
 // closed the masters at exit, which is neither a guarantee nor omatty's
 // decision.
@@ -275,7 +106,9 @@ func leaderOr(leader string) string {
 // the dtach *client*, and the master and its claude go on running. Archiving is
 // the one place omatty ends a claude on purpose, and dropSession is where that
 // is written (#43).
-func closeTerminals(terms map[string]termwrap.Terminal) {
+//
+//	defer ui.CloseTerminals(terms)
+func CloseTerminals(terms map[string]termwrap.Terminal) {
 	for id, t := range terms {
 		if err := t.Close(); err != nil {
 			slog.Warn("closing a terminal on exit", "session", id, "err", err)
@@ -283,17 +116,23 @@ func closeTerminals(terms map[string]termwrap.Terminal) {
 	}
 }
 
-// runProgram runs the bubbletea program to completion.
-func runProgram(model *Model, sessions int) error {
+// RunProgram runs the bubbletea program to completion. cmd/omatty, the one
+// composition root since migration step 5.10 (#653), builds the model and
+// owns everything that lives as long as it.
+//
+//	err := ui.RunProgram(ui.NewModel(deps), len(terms))
+func RunProgram(model *Model, sessions int) error {
 	if _, err := tea.NewProgram(model).Run(); err != nil {
 		return fmt.Errorf("ui: running the program with %d sessions: %w", sessions, err)
 	}
 	return nil
 }
 
-// guardedStarter starts a session's terminal wrapped in a panic guard
+// GuardedStarter starts a session's terminal wrapped in a panic guard
 // (invariant 6). The model passes the live pane size on every call.
-func guardedStarter(l *sessions.Launcher, f termwrap.Factory, leader string) StartFunc {
+//
+//	deps.Start = ui.GuardedStarter(launcher, termwrap.Start, leader)
+func GuardedStarter(l *sessions.Launcher, f termwrap.Factory, leader string) StartFunc {
 	return func(sess sessions.Session, w, h int) (termwrap.Terminal, error) {
 		term, err := startSession(l, f, sess, w, h)
 		if err != nil {

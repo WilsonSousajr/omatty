@@ -94,7 +94,7 @@ a        -> paste.BracketedText("issue #399 ") -> PTY -> claude's composer, unse
 
 **Wiring.** `cmd/omatty` parses flags, builds every dependency - the launcher,
 the terminal factory, the registry store, the typed functions that reach git
-and the store on `ui`'s behalf - and calls `ui.Run`. It holds no logic
+and the store on `ui`'s behalf - starts the terminals, the status service and the gate Runner, and runs the model (`cmd/omatty/tui.go`, the one composition root since migration step 5.10). It holds no logic
 (invariant 10). Subcommands (`add`, `rm`, `new`, `discover`, `adopt`, `gate`,
 `carry`) call
 `registry` and `discover` directly and print plain text; the TUI is the only

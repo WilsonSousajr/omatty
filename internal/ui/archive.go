@@ -284,7 +284,7 @@ func (m *Model) forgetSession(id string) {
 // TestForgetSession_ClearsEveryPerSessionMap, which finds the fields by
 // reflection rather than trusting this list to stay complete.
 func (m *Model) forgetSessionMaps(id string) {
-	// The terms map is the one ui.Run's deferred closeTerminals holds, so
+	// The terms map is the one cmd's runProgram closes on exit (CloseTerminals), so
 	// deleting here is also what stops it being closed twice at exit (#72).
 	delete(m.terms, id)
 	delete(m.status, id)

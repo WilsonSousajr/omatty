@@ -28,7 +28,7 @@ func TestTuiDeps_PassesLazyStart_issue317(t *testing.T) {
 		env.Cfg = config.Defaults("/h")
 		env.Cfg.Sessions.LazyStart = lazy
 
-		if got := tuiDeps(env, nil, sessions.State{}).LazyStart; got != lazy {
+		if got := runtimeFor(env).LazyStart; got != lazy {
 			t.Errorf("config lazy_start = %v reached the boot as %v", lazy, got)
 		}
 	}
@@ -57,7 +57,7 @@ func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T)
 
 	deps := tuiDeps(env, nil, sessions.State{})
 
-	launch, err := deps.Launch.Launch(sessions.Session{ID: "id", Dir: home})
+	launch, err := runtimeFor(env).Launch.Launch(sessions.Session{ID: "id", Dir: home})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T)
 		t.Errorf("launcher runs %q, want /opt/claude", launch.Argv[0])
 	}
 	if deps.Leader != "ctrl+a" {
-		t.Errorf("RunDeps.Leader = %q, want the configured ctrl+a", deps.Leader)
+		t.Errorf("Deps.Leader = %q, want the configured ctrl+a", deps.Leader)
 	}
 }
 
@@ -232,7 +232,7 @@ func TestProjectProposer_SurfacesAnUnreadableStore_issue91(t *testing.T) {
 // parameter: every picker dependency is now reachable without a repository.
 func TestWithPickerDeps_BuildsEveryPickerDependency_issue122(t *testing.T) {
 	g := &FakeGit{}
-	deps := withPickerDeps(ui.RunDeps{}, storeIn(t), t.TempDir(), g, g)
+	deps := withPickerDeps(ui.Deps{}, storeIn(t), t.TempDir(), g, g)
 
 	for name, built := range map[string]bool{
 		"Discover":     deps.Discover != nil,
@@ -378,11 +378,10 @@ func TestTuiDeps_OpensTranscriptsThroughTheReader_issue653(t *testing.T) {
 	}
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
-	deps := tuiDeps(env, nil, sessions.State{})
-	if deps.OpenTranscript == nil {
+	if runtimeFor(env).Watch.OpenTranscript == nil {
 		t.Fatal("OpenTranscript is not wired: every tailer would call a nil opener")
 	}
-	lines, _, ok := deps.OpenTranscript(path).Poll()
+	lines, _, ok := runtimeFor(env).Watch.OpenTranscript(path).Poll()
 	if !ok || len(lines) != 1 || string(lines[0]) != "line" {
 		t.Errorf("the wired opener read %q, %v; want [line], true", lines, ok)
 	}
@@ -400,13 +399,12 @@ func TestTuiDeps_ServesTheHookSocket_issue653(t *testing.T) {
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
-	deps := tuiDeps(env, nil, sessions.State{})
-	if deps.ListenHooks == nil {
+	if runtimeFor(env).Watch.ListenHooks == nil {
 		t.Fatal("ListenHooks is not wired: the watcher would call a nil server")
 	}
 	sink := make(chan dstatus.HookPayload, 1)
 	sock := filepath.Join(dir, "s")
-	l, err := deps.ListenHooks(sock, sink)
+	l, err := runtimeFor(env).Watch.ListenHooks(sock, sink)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,11 +428,10 @@ func TestTuiDeps_ServesTheHookSocket_issue653(t *testing.T) {
 func TestTuiDeps_RunsGatesThroughGateexec_issue653(t *testing.T) {
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
-	deps := tuiDeps(env, nil, sessions.State{})
-	if deps.RunGate == nil {
+	if runtimeFor(env).RunGate == nil {
 		t.Fatal("RunGate is not wired: the first gate would call a nil runner")
 	}
-	results, err := deps.RunGate(context.Background(), t.TempDir(), []gate.Step{{Name: "ok", Run: "true"}})
+	results, err := runtimeFor(env).RunGate(context.Background(), t.TempDir(), []gate.Step{{Name: "ok", Run: "true"}})
 	if err != nil || len(results) != 1 || results[0].Verdict != gate.Pass {
 		t.Errorf("the wired runner returned %+v, %v; want one Pass", results, err)
 	}

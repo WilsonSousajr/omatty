@@ -9,7 +9,6 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
-	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 )
 
@@ -22,7 +21,7 @@ const eventBuffer = 64
 const pollEvery = time.Second
 
 // Watch owns the status subsystem's goroutines: one hook listener and one
-// tailer per session, feeding one channel. ui.Run holds a Watch; it no longer
+// tailer per session, feeding one channel. cmd/omatty holds a Watch; it no longer
 // knows the socket path, the transcript path, the poll interval, or the
 // buffer size (issue #77).
 //
@@ -157,7 +156,7 @@ func (w *Watch) Close() {
 // then comes from the transcript alone (issue #49).
 func (w *Watch) serveHooks() {
 	payloads := make(chan dstatus.HookPayload, eventBuffer)
-	l, err := w.deps.ListenHooks(paths.HookSocket(w.deps.Home), payloads)
+	l, err := w.deps.ListenHooks(w.deps.HookSocket, payloads)
 	if err != nil {
 		slog.Warn("hook socket unavailable; status comes from the transcript only", "err", err)
 		return

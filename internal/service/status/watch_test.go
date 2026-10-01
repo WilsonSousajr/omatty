@@ -35,7 +35,7 @@ func shortHome(t *testing.T) string {
 // claudeDeps is Start's dependencies for claude, so the tests written before
 // the seam (#46) read as they did.
 func claudeDeps(home string) WatchDeps {
-	return WatchDeps{Home: home, Clock: time.Now, Adapter: ClaudeAdapter(), TranscriptPath: paths.Transcript,
+	return WatchDeps{Home: home, HookSocket: paths.HookSocket(home), Clock: time.Now, Adapter: ClaudeAdapter(), TranscriptPath: paths.Transcript,
 		OpenTranscript: func(p string) Transcript { return transcript.NewReader(p) },
 		ListenHooks:    listenHooks}
 }
