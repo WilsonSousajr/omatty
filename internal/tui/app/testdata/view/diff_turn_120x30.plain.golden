@@ -1,0 +1,30 @@
+ projects · 2               │ omatty ▎ main                                         │ diff · this turn · ⚠ no tests     
+────────────────────────────┼───────────────────────────────────────────────────────┼─ diff ───────────────────────────×
+  ▾ omatty                  │session one                                            │ internal/ui/model.go +1 -0 1/1    
+▎ ○ main                    │                                                       │ @@ -10,4 +10,5 @@ func (m *Model) 
+▎                           │                                                       │      a := 1                       
+▎                           │                                                       │      b := 3                       
+  ○ parser-fix              │                                                       │ +    c := 4                       
+                            │                                                       │      return                       
+                            │                                                       │  }                                
+  ▾ api-svc                 │                                                       │                                   
+  ○ main                    │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+ j/k move  c comment  d delete  o open  S submit  esc back  ctrl+o ? keys                                     3 sessions

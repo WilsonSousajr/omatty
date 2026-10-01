@@ -22,7 +22,7 @@ Concretely, and these are the claims worth checking first:
 - **A project carries its gate**: its own `fmt`/`vet`/`lint`/`test`/coverage
   line. omatty runs it in each session's own worktree, puts a verdict per step
   on that session's card, and sends the failures back into the session that
-  caused them with one keystroke (`internal/gate`, `internal/coverage`).
+  caused them with one keystroke (`internal/gate`, `internal/domain/coverage`).
   **As of 2026-09-27, no session manager or agent workspace above about a
   hundred stars does this.** The larger tools show the *remote* verdict, the
   pull request's CI, and so does `claude agents`. Four small tools each do part
@@ -84,7 +84,7 @@ See "Is this just lazygit?" below, because it is the right question.
   `ctrl+o` leader (`internal/keys/router.go`, invariant 1). `claude agents`
   attaches to one background session at a time.
 - **Status from hooks and the transcript, never from the screen**
-  (`internal/hooks`, `internal/watcher`, invariant 2). fleet is hook-driven
+  (`internal/infra/hooks`, `internal/service/status`, invariant 2). fleet is hook-driven
   too, with pane heuristics as a fallback for states no hook reports.
   claude-squad matches English UI strings in a captured tmux pane, ccmanager
   regex-matches Claude's drawn prompt box, and herdr runs a regex manifest
@@ -95,7 +95,7 @@ See "Is this just lazygit?" below, because it is the right question.
   its command line (invariant 3). herdr's Claude integration writes
   `~/.claude/settings.json`.
 - **Sessions outlive the app.** With `dtach`, quitting detaches rather than
-  ends (`internal/detach`). ccmanager restores the session *records* and starts
+  ends (`internal/infra/detach`). ccmanager restores the session *records* and starts
   fresh processes; omatty keeps the process. Keeping the process keeps its
   history: after a reattach `pgup` still reaches the whole conversation in
   Claude Code's own pager, a turn that finished while omatty was closed
@@ -105,7 +105,7 @@ See "Is this just lazygit?" below, because it is the right question.
   no agent-to-agent messaging, no unattended queues, no cloud. Each of those is
   refused with a stated reason in "Not on the roadmap".
 
-Several repositories in one window (`internal/registry`, `internal/discover`)
+Several repositories in one window (`internal/service/sessions`, `internal/service/discovery`)
 and working over SSH are facts about omatty, not distinctions: `claude agents`,
 herdr, ccmanager and fleet span repositories, and herdr, Orca and emdash reach
 remote machines.
@@ -113,7 +113,7 @@ remote machines.
 Several forges are the same kind of fact (M16). omatty reads a project's pull
 requests, CI, issues and items on GitHub, GitLab, Azure DevOps,
 Gitea/Forgejo/Codeberg and Bitbucket Cloud and Data Center, through each
-forge's own CLI or its REST API (`internal/forge`), and ships to each with
+forge's own CLI or its REST API (`internal/infra/forge`), and ships to each with
 `ctrl+o p`. The README's Forges table says which of those a real run has
 shown and which are still untested. Others got there first on the forges most
 teams use: Orca's cards carry GitLab merge requests and their CI

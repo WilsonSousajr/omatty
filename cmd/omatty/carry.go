@@ -1,15 +1,17 @@
 // `omatty carry`: the gitignored files copied into each new worktree of a
-// project. Thin over internal/registry (invariant 10).
+// project. Thin over internal/service/sessions (invariant 10).
 
 package main
 
 import (
+	"context"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // carryCommand shows, sets or clears a project's carry list.
@@ -21,7 +23,7 @@ import (
 // Setting replaces rather than appends, which is what `gate` does and the same
 // reason: a list you can only add to needs a remove command to be usable, and
 // re-typing two paths is cheaper than that.
-func carryCommand(store *registry.Store, args []string) error {
+func carryCommand(store sessions.StateStore, args []string) error {
 	project, err := carryProject(store, args)
 	if err != nil {
 		return err
@@ -35,7 +37,7 @@ func carryCommand(store *registry.Store, args []string) error {
 		return nil
 	}
 	warnMissing(project.Root, paths)
-	if err := registry.SetCarry(store, project.Name, paths); err != nil {
+	if err := sessions.SetCarry(context.Background(), store, project.Name, paths); err != nil {
 		return err
 	}
 	report(fmt.Sprintf("carry list set for %s: %s", project.Name, strings.Join(paths, " ")))
@@ -45,8 +47,8 @@ func carryCommand(store *registry.Store, args []string) error {
 // clearCarry forgets the list and says so. Silence would be
 // indistinguishable from a command that did nothing, which is the argument
 // gateCommand's own --clear arm makes.
-func clearCarry(store *registry.Store, project string) error {
-	if err := registry.ClearCarry(store, project); err != nil {
+func clearCarry(store sessions.StateStore, project string) error {
+	if err := sessions.ClearCarry(context.Background(), store, project); err != nil {
 		return err
 	}
 	report("carry list cleared for " + project)
@@ -82,7 +84,7 @@ func warnMissing(root string, paths []string) {
 // reportCarry prints the list, or says there is none. "Not set" and "set to
 // nothing" are the same state here, and saying which files would be copied is
 // the question the plain form answers.
-func reportCarry(p registry.Project) {
+func reportCarry(p session.Project) {
 	if len(p.Carry) == 0 {
 		report("no carry list for " + p.Name + "; set one with `omatty carry " + p.Name + " <path>...`")
 		return
@@ -95,13 +97,13 @@ func reportCarry(p registry.Project) {
 
 // carryProject resolves the project argument, naming this command in the error
 // the way gateProject does.
-func carryProject(store *registry.Store, args []string) (registry.Project, error) {
+func carryProject(store sessions.StateStore, args []string) (session.Project, error) {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		return registry.Project{}, fmt.Errorf("carry: want <project> [<path>...|--clear], got no project")
+		return session.Project{}, fmt.Errorf("carry: want <project> [<path>...|--clear], got no project")
 	}
-	p, err := registry.NamedProject(store, args[0])
+	p, err := sessions.NamedProject(context.Background(), store, args[0])
 	if err != nil {
-		return registry.Project{}, fmt.Errorf("carry: %w", err)
+		return session.Project{}, fmt.Errorf("carry: %w", err)
 	}
 	return p, nil
 }

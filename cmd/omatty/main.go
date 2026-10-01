@@ -25,21 +25,19 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"io"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/config"
-	"github.com/WilsonSousajr/omatty/internal/hooks"
-	"github.com/WilsonSousajr/omatty/internal/paths"
-	"github.com/WilsonSousajr/omatty/internal/registry"
-	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/infra/config"
+	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
+	"github.com/WilsonSousajr/omatty/internal/infra/paths"
+	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
+	"github.com/WilsonSousajr/omatty/internal/tui/app"
+	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
 func main() {
@@ -80,7 +78,7 @@ func runHook() {
 	}
 	// The launcher set SessionEnv on claude and the hook inherited it; it is
 	// what ties a /clear's new conversation to its pane (#316).
-	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second, os.Getenv(hooks.SessionEnv))
+	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second, os.Getenv(session.SessionEnv))
 }
 
 func run() error {
@@ -99,7 +97,7 @@ func run() error {
 		return err
 	}
 	slog.Info("config", "leader", cfg.Leader, "claude_bin", cfg.ClaudeBin, "worktree_root", cfg.WorktreeRoot)
-	store := registry.NewStore(paths.StateFile(home))
+	store := statestore.NewStore(paths.StateFile(home))
 	if len(os.Args) < 2 {
 		// After the TUI has stopped, so the profile describes a settled
 		// heap rather than one mid-frame.
@@ -107,14 +105,6 @@ func run() error {
 		return runTUI(home, cfg, store)
 	}
 	return dispatch(os.Args[1], os.Args[2:], home, cfg, store)
-}
-
-// readLine reads the operator's answer. An unreadable stdin means no answer,
-// which is the same as choosing nothing - and so does a blank line, so the
-// error needs no branch of its own: TrimSpace gives "" for both.
-func readLine(in io.Reader) string {
-	line, _ := bufio.NewReader(in).ReadString('\n')
-	return strings.TrimSpace(line)
 }
 
 func argOrCwd(args []string) (string, error) {
@@ -136,11 +126,11 @@ func report(line string) {
 // logged and used, and onResize ignores the 0x0 bubbletea then reports
 // (issue #74).
 func windowSize() (int, int) {
-	w, h, err := termwrap.WindowSize(os.Stdout)
+	w, h, err := terminal.WindowSize(os.Stdout)
 	if err != nil {
 		slog.Warn("terminal size unavailable; sessions start at the default",
-			"err", err, "width", ui.DefaultWidth, "height", ui.DefaultHeight)
-		return ui.DefaultWidth, ui.DefaultHeight
+			"err", err, "width", app.DefaultWidth, "height", app.DefaultHeight)
+		return app.DefaultWidth, app.DefaultHeight
 	}
 	return w, h
 }

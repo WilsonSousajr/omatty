@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "name": "omatty",
+      "root": "/src/omatty",
+      "gate": [
+        {
+          "name": "test",
+          "run": "go test ./...",
+          "kind": "coverage",
+          "profile": "cover.out"
+        }
+      ],
+      "carry": [
+        ".env"
+      ],
+      "gate_runs": 7,
+      "gate_first_pass": 5,
+      "collapsed": true
+    }
+  ],
+  "sessions": [
+    {
+      "id": "11111111-2222-4333-8444-555555555555",
+      "project": "omatty",
+      "title": "fix the parser",
+      "dir": "/src/omatty-wt/fix-parser",
+      "branch": "fix/parser",
+      "base": "develop",
+      "worktree": true,
+      "agent": "claude",
+      "conversation": "66666666-7777-4888-9999-000000000000",
+      "started": "2026-09-29T12:00:00Z"
+    }
+  ]
+}

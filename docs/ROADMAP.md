@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-09-29, when v0.9.0 promoted `develop` to `main` (#604).
+Last revised 2026-10-01, when v0.10.0 promoted `develop` to `main` (#708).
 Every milestone is built; what is left is under "What is left", and how a
 release reaches `main` is under "Releases".
 
@@ -44,6 +44,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | — | **Released** | **v0.8.2**, 2026-09-27. The one-line install (#517), the cask's hook as `postflight_steps` (#369), the symlinked-transcript fix (#564) and scrollback after a reattach verified (#336), promoted to `main` (#567). See "Releases". |
 | M16 | The Forges | **Done.** All seventeen slices #449-#465, built 2026-09-28/29 as PRs #573-#603, with ten defects the reviews and real runs found (#572, #574, #576, #579, #584, #586, #588, #590, #598, #599). Released in v0.9.0. Three it found stay in Backlog: #585, #594 and #596 (Azure DevOps Server). See the M16 section. |
 | — | **Released** | **v0.9.0**, 2026-09-29. M16, The Forges, promoted to `main` (#604). See "Releases". |
+| — | **Released** | **v0.10.0**, 2026-10-01. The ADR 0001 architecture migration (#615-#653), `sessions --json` and `status --json`, promoted to `main` (#708). See "Releases". |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -607,7 +608,7 @@ what M7 left.
   agree. A typed branch now passes `registry.Slug` too, which it never did.
 - **#152 - a second agent profile, Codex first.** #46 built the seam with
   claude as its only entry; the roadmap's original promise was Codex and
-  opencode. Each is one file in `internal/agent`: a command template, a
+  opencode. Each is a profile in `cmd/omatty/agents.go` over `internal/domain/agent`: a command template, a
   transcript location, hook events (or none, degrading to transcript-only
   status), and a `watcher.Adapter` for its transcript shape. Two known costs,
   written down in #46's PR: `paths.HooksFile` is one file for the whole app,
@@ -1021,6 +1022,7 @@ in a hurry to make it.
 | v0.8.1 | 2026-09-27 | The README's recording re-shot with real Claude Code, showing the whole workspace (#556). Docs and one image; no code changed. (#558) |
 | v0.8.2 | 2026-09-27 | `curl -fsSL https://omatty.com/install.sh \| sh` (#517); the cask's install hook written as `postflight_steps` without waiting on GoReleaser (#369); a project behind a symlink finds its transcript (#564), found by the real Claude Code probe that closed #336 without code. 4 issues. (#567) |
 | v0.9.0 | 2026-09-29 | M16 The Forges: GitLab, Gitea/Forgejo/Codeberg, Bitbucket Cloud and Data Center and Azure DevOps beside GitHub, each through its CLI or its REST API with a token stored nowhere; `ctrl+o p` on every forge, pinned to the green head and the session's own base (#598, #599); the forge probe and the support matrix. 27 issues. (#604) |
+| v0.10.0 | 2026-10-01 | The architecture: the code rebuilt in ADR 0001's shape - domain, services, adapters, pubsub, the TUI and a CLI - with no screen, key, config key or `state.json` key changed (#615, #618, #620, #622, #624, #632, #635, #653); nothing waits on git or the disk inside the frame loop, and every git call has a deadline (#650); `omatty sessions --json` and `status --json`; the 500-line and layer gates (#609). 11 issues, 154 commits. (#708) |
 
 ## M12 - The Field
 
@@ -1505,11 +1507,9 @@ UI.
   with a token read from the environment per call and never stored. Bitbucket
   has no official CLI, so it is REST only.
 - **Boards are out**, GitHub Projects included. M16 is issues and PRs.
-- **Every slice sits in Backlog.** M16 is designed, not scheduled.
-
-*Built 2026-09-28/29 and released in v0.9.0 (#604).* Every slice shipped;
-Azure DevOps Server did not, since Services' tokens are not a Server's (#596).
-The README's Forges table says which forge a real run has shown.
+- **Every slice sits in Backlog.** M16 is designed, not scheduled. *(Built
+  2026-09-28/29 and released in v0.9.0 - see "Built" at the end of this
+  section.)*
 
 **The foundation** comes first, and GitHub is the first backend:
 
@@ -1550,6 +1550,39 @@ not probed is named as untested, not claimed.
 **Deliberately out:** boards on every forge; Jira; forge writes beyond #331;
 OAuth, device flow, or any login or token store in omatty; several remotes per
 project; per-check CI detail; SourceHut, Gerrit, Phabricator and CodeCommit.
+
+**Built** 2026-09-28/29 as PRs #573-#603, one per slice, each reviewed before
+it merged; **released in v0.9.0** (#604). Where the build departed from the
+design above, and why:
+
+- **A token goes only to the instance it is for.** The design borrowed each
+  forge's variable per call; review found three sending it to the wrong
+  server - a corporate Gitea token to Codeberg, one Bitbucket token to Cloud
+  and every Data Center host, az's token to an Azure DevOps Server. So
+  `GITEA_TOKEN` is bound by `GITEA_INSTANCE_URL`, as tea's own env login binds
+  it; Data Center has its own `BITBUCKET_DC_TOKEN`, bound by `BITBUCKET_DC_URL`;
+  Azure's credentials go to Services alone, and `AZURE_DEVOPS_EXT_PAT` wins over
+  az's login, which may be another tenant's.
+- **Azure DevOps Server is not read** (#596). The Delivers line above names it,
+  but Services' tokens are not a Server's, and a Server gets a token of its own
+  there.
+- **`ctrl+o p` merges only into the session's own base, at the head that was
+  green** (#598, #599). Both were shipped with #331 on gh and found in #464's
+  review: protection was read on the session's base rather than the pull
+  request's target, and the merge named the pull request, not the commit.
+- **Bitbucket Cloud has no issues to read.** Its issue API answers 410 Gone on
+  every repository (CHANGE-3071), so the tracker shows its pull requests under
+  "PRs · issues elsewhere", as for Data Center, whose issues are in Jira.
+
+**What the real runs showed** (#463's runbook, in #602): GitHub over `gh` and
+REST, GitLab through `glab`, Codeberg over REST, and Azure DevOps over `az` and
+a PAT - the last including open, protection and merge on a scratch repository.
+**Untested, and said so** in the README's Forges table: GitLab over REST, `tea`,
+both Bitbucket backends, and open and merge on every forge but Azure DevOps.
+
+**What it left**, each in Backlog with the `M16` label: #585, a self-managed
+forge under a relative URL root; #594, Bitbucket Cloud's hourly request limit,
+reachable by two projects polled with no CI; #596, Azure DevOps Server.
 
 ## Not on the roadmap
 

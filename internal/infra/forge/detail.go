@@ -1,0 +1,142 @@
+// One item in full (#397): an issue's or a pull request's body and comments,
+// read only when the operator opens it.
+//
+// Never part of a list poll. #358's lesson is that a per-item call inside a
+// list is what trips GitHub's secondary rate limit, so this is one call for one
+// item, made on a keypress and cached by whoever asked.
+
+package forge
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
+	"strconv"
+	"time"
+)
+
+// detailFields is everything FoldDetail reads. One field set for both kinds: an
+// issue and a pull request answer to the same names, so one fold serves both.
+const detailFields = "number,title,body,author,createdAt,comments,url"
+
+// prDetailFields adds a pull request's checks, which the item lists (#433). Not
+// in detailFields: gh refuses statusCheckRollup on an issue.
+const prDetailFields = detailFields + ",statusCheckRollup"
+
+// ghDetail is `gh <kind> view --json` with the fields detailFields asks for.
+type ghDetail struct {
+	Number    int         `json:"number"`
+	Title     string      `json:"title"`
+	Body      string      `json:"body"`
+	Author    ghUser      `json:"author"`
+	CreatedAt time.Time   `json:"createdAt"`
+	Comments  []ghComment `json:"comments"`
+	URL       string      `json:"url"`
+	Checks    []check     `json:"statusCheckRollup"`
+}
+
+type ghComment struct {
+	Author    ghUser    `json:"author"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// viewIssue is one issue in full.
+func (c ghCLI) viewIssue(ctx context.Context, repoRoot string, number int) (dforge.Detail, error) {
+	return c.view(ctx, repoRoot, "issue", number, detailFields)
+}
+
+// viewPR is one pull request in full. A separate call rather than a guess: gh
+// has two subcommands, and the tracker knows which list its row came from.
+func (c ghCLI) viewPR(ctx context.Context, repoRoot string, number int) (dforge.Detail, error) {
+	return c.view(ctx, repoRoot, "pr", number, prDetailFields)
+}
+
+func (c ghCLI) view(ctx context.Context, repoRoot, kind string, number int, fields string) (dforge.Detail, error) {
+	out, err := c.run(ctx, repoRoot, kind, "view", strconv.Itoa(number), "--json", fields)
+	if err != nil {
+		return dforge.Detail{}, err
+	}
+	return FoldDetail(out)
+}
+
+// FoldDetail turns `gh <kind> view --json` output into a Detail, bounded at
+// DetailMax.
+//
+//	item, err := forge.FoldDetail(out)
+func FoldDetail(raw []byte) (dforge.Detail, error) {
+	var in ghDetail
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return dforge.Detail{}, fmt.Errorf("forge: reading gh's view of an item: %w", err)
+	}
+	return foldDetail(in), nil
+}
+
+// foldDetail is FoldDetail past the decoding, shared with the HTTP path (#462).
+func foldDetail(in ghDetail) dforge.Detail {
+	body, left := bound(clean(in.Body), dforge.DetailMax)
+	comments, dropped := foldComments(in.Comments, left)
+	return dforge.Detail{
+		Number: in.Number, Title: cleanLine(in.Title), Author: cleanLine(in.Author.Login),
+		Body: body, Comments: comments, URL: cleanLine(in.URL), Created: in.CreatedAt,
+		Truncated: dropped || len(body) < len(clean(in.Body)),
+		Checks:    foldChecks(in.Checks),
+	}
+}
+
+// foldChecks is each check as omatty's own type: its name - a CheckRun's, or a
+// StatusContext's context - cleaned as every forge string is (#483), its state
+// by the card's own rules, and how long it ran when it has finished.
+func foldChecks(in []check) []dforge.Check {
+	out := make([]dforge.Check, 0, len(in))
+	for _, c := range in {
+		name := c.Name
+		if name == "" {
+			name = c.Context
+		}
+		var took time.Duration
+		if !c.StartedAt.IsZero() && c.CompletedAt.After(c.StartedAt) {
+			took = c.CompletedAt.Sub(c.StartedAt)
+		}
+		out = append(out, dforge.Check{Name: cleanLine(name), State: rollup([]check{c}), Took: took})
+	}
+	return out
+}
+
+// foldComments takes comments while budget lasts, and says whether any was
+// dropped. Whole comments rather than a cut one: half a comment attributed to
+// its author is worse than a missing one the view admits to.
+func foldComments(in []ghComment, budget int) ([]dforge.Comment, bool) {
+	out := make([]dforge.Comment, 0, len(in))
+	for _, c := range in {
+		body := clean(c.Body) // #483
+		if len(body) > budget {
+			return out, true
+		}
+		budget -= len(body)
+		out = append(out, dforge.Comment{Author: cleanLine(c.Author.Login), Body: body, At: c.CreatedAt})
+	}
+	return out, false
+}
+
+// bound cuts s to budget bytes and returns what is left of it.
+func bound(s string, budget int) (string, int) {
+	if len(s) <= budget {
+		return s, budget - len(s)
+	}
+	return s[:budget], 0
+}
+
+// Browse opens one issue or pull request in the operator's own browser, through
+// their own gh: `gh browse <number>` in repoRoot, which resolves either kind.
+//
+// Read-only on the forge - it writes nothing and opens a page the operator asked
+// for - and it is here rather than behind an `open`/`xdg-open` of its own because
+// gh is already this package's business (invariant 4 in spirit).
+//
+// gh resolves either kind from the number alone, so pr is not needed here.
+func (c ghCLI) browse(ctx context.Context, repoRoot string, number int, _ bool) error {
+	_, err := c.run(ctx, repoRoot, "browse", strconv.Itoa(number))
+	return err
+}

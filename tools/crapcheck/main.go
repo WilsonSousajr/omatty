@@ -6,7 +6,7 @@
 // It lives in tools/ rather than internal/ because it is a main: inside ./...
 // so gofmt, vet, lint and build all cover it, outside ./internal/... so that an
 // untestable entry point does not pull the 90% coverage gate down. Everything
-// worth testing is in internal/crap; this is wiring.
+// worth testing is in internal/domain/crap; this is wiring.
 package main
 
 import (
@@ -15,9 +15,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/WilsonSousajr/omatty/internal/coverage"
-	"github.com/WilsonSousajr/omatty/internal/crap"
-	"github.com/WilsonSousajr/omatty/internal/golist"
+	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
+	"github.com/WilsonSousajr/omatty/internal/domain/crap"
+	"github.com/WilsonSousajr/omatty/internal/infra/golist"
 )
 
 func main() {
@@ -53,7 +53,7 @@ func run(out io.Writer, threshold float64, profilePath, pattern string) (int, er
 	if err != nil {
 		return 0, err
 	}
-	scores, err := crap.Scores(module, pkgs, blocks)
+	scores, err := crap.Scores(module, forCrap(pkgs), blocks, diskFiles())
 	if err != nil {
 		return 0, err
 	}
@@ -88,7 +88,7 @@ func refuseStale(path string, pkgs []golist.Package) error {
 	if err != nil {
 		return fmt.Errorf("crapcheck: %w\nrun ./scripts/check-coverage.sh first", err)
 	}
-	newer, stale, err := crap.NewerSource(pkgs, info.ModTime())
+	newer, stale, err := crap.NewerSource(forCrap(pkgs), info.ModTime(), diskFiles())
 	if err != nil {
 		return err
 	}

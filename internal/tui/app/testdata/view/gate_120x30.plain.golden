@@ -1,0 +1,30 @@
+ projects · 2               │ omatty ▎ main                                         │ gate · 1 failing · 2 passed · 1/4 
+────────────────────────────┼───────────────────────────────────────────────────────┼─ gate ───────────────────────────×
+  ▾ omatty                  │session one                                            │   ✓ fmt           $ fmt ./...     
+▎ ○ main                    │                                                       │   ✓ vet           $ vet ./...     
+▎                           │                                                       │   ✗ test          $ test ./...    
+▎   ✓✓✗·  test              │                                                       │   · cov           $ cov ./...     
+  ○ parser-fix              │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+  ▾ api-svc                 │                                                       │                                   
+  ○ main                    │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+ j/k move  enter output  S send  r rerun  / search  esc back  ctrl+o ? keys                                   3 sessions

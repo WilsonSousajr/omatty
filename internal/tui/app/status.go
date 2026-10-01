@@ -1,0 +1,146 @@
+package app
+
+import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"log/slog"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+)
+
+// StatusMsg carries one watcher event into the model's Update loop.
+type StatusMsg dstatus.Event
+
+// TickMsg is the once-a-second heartbeat that re-renders the frame, so a
+// quiet session's age keeps counting (issue #71). The spinner has its own
+// tick, SpinTickMsg (#412). Exported so tests can send one.
+type TickMsg time.Time
+
+// tickEvery is the age column's resolution; finer buys nothing.
+const tickEvery = time.Second
+
+func scheduleTick() tea.Cmd {
+	return tea.Tick(tickEvery, func(t time.Time) tea.Msg { return TickMsg(t) })
+}
+
+// waitForEvent blocks on the next status event and delivers it as a StatusMsg.
+// nil events (a model built without a watcher) simply never fires.
+func (m *Model) waitForEvent() tea.Cmd {
+	if m.events == nil {
+		return nil
+	}
+	return func() tea.Msg { return StatusMsg((<-m.events).Payload) }
+}
+
+// onStatus folds a watcher event into the session's state and re-arms the
+// wait. Newer-wins lives in status.Apply; the model just stores the result.
+// A hook can name any session id; only registered ones may grow the status
+// map or reach the operator's notifications (issue #69).
+//
+// An event names a conversation, which is translated to its row's ID here,
+// once, so everything downstream stays keyed as it was before /clear could
+// move a conversation out from under its row (#316).
+func (m *Model) onStatus(ev StatusMsg) tea.Cmd {
+	e := dstatus.Event(ev)
+	var rebound tea.Cmd
+	if e.Kind == dstatus.SessionRebound {
+		rebound = m.followClear(e)
+	}
+	id, ok := m.sessionOfConversation(e.SessionID)
+	if !ok {
+		return tea.Batch(rebound, m.waitForEvent())
+	}
+	e.SessionID = id
+	before := m.status[e.SessionID]
+	after := dstatus.Apply(before, e)
+	m.status[e.SessionID] = after
+	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
+	return tea.Batch(rebound, m.afterStatus(e, before.Status, after.Status))
+}
+
+// afterStatus is everything a status event sets in motion off the Update
+// goroutine: the next wait, a notification, a diff refresh, and a name for a
+// session still carrying its placeholder (#127).
+func (m *Model) afterStatus(e dstatus.Event, before, after dstatus.Status) tea.Cmd {
+	// Not a tea.Cmd: the run happens on the Runner's own goroutines, and its
+	// answer arrives as a GateMsg like any other (#233).
+	m.autoGate(e.SessionID, before, after)
+	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after),
+		m.refreshReview(e.SessionID, before, after), m.maybeName(e.SessionID),
+		m.refreshStat(e.SessionID, before, after), m.maybeSnapTurn(e),
+		m.refreshPRs(e.SessionID, before, after))
+}
+
+func (m *Model) knownSession(id string) bool {
+	_, ok := m.sessionIndex(id)
+	return ok
+}
+
+// notifyCooldown is the least time between two notifications for one
+// session, so a permission loop cannot storm the desktop (issue #69).
+const notifyCooldown = 5 * time.Second
+
+// maybeNotify returns a command that posts a desktop notification when a
+// session enters a state that needs the operator while omatty is
+// backgrounded. It is a command, off the Update goroutine, because osascript
+// takes tens of milliseconds (issue #69). Suppressed: a repeated state, a
+// transition older than this run (issue #70), and a second notification for
+// the same session within notifyCooldown.
+func (m *Model) maybeNotify(e dstatus.Event, before, after dstatus.Status) tea.Cmd {
+	if m.hasFocus || before == after || e.At.Before(m.startedAt) {
+		return nil
+	}
+	body, ok := needsYou(m.sessionTitle(e.SessionID), after)
+	if !ok || !m.cooldownElapsed(e.SessionID) {
+		return nil
+	}
+	return notifyCmd(m.notifier, body)
+}
+
+func (m *Model) cooldownElapsed(id string) bool {
+	now := m.clock()
+	if last, ok := m.notified[id]; ok && now.Sub(last) < notifyCooldown {
+		return false
+	}
+	m.notified[id] = now
+	return true
+}
+
+func notifyCmd(n Notifier, body string) tea.Cmd {
+	return func() tea.Msg {
+		if err := n.Notify("omatty", body); err != nil {
+			slog.Warn("desktop notification failed", "body", body, "err", err)
+		}
+		return nil
+	}
+}
+
+func (m *Model) sessionTitle(id string) string {
+	i, ok := m.sessionIndex(id)
+	if !ok {
+		return id
+	}
+	return m.state.Sessions[i].Title
+}
+
+// needsYou returns the notification body for a status that wants attention.
+func needsYou(title string, now dstatus.Status) (string, bool) {
+	switch now {
+	case dstatus.StatusWaiting:
+		return title + " needs you", true
+	case dstatus.StatusDone:
+		return title + " finished", true
+	default:
+		return "", false
+	}
+}
+
+// statusMap projects the per-session state down to the status the sidebar
+// needs.
+func (m *Model) statusMap() map[string]dstatus.Status {
+	out := make(map[string]dstatus.Status, len(m.status))
+	for id, st := range m.status {
+		out[id] = st.Status
+	}
+	return out
+}

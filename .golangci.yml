@@ -39,61 +39,62 @@ linters:
         # termwrap is what owns the PTY.
         bubbleterm:
           files:
-            - "!**/internal/termwrap/**"
+            - "!**/internal/tui/terminal/**"
           deny:
             - pkg: github.com/taigrr/bubbleterm
-              desc: "invariant 4 - reach bubbleterm only through internal/termwrap"
+              desc: "invariant 4 - reach bubbleterm only through internal/tui/terminal"
             - pkg: github.com/creack/pty
-              desc: "invariant 4 - internal/termwrap owns the PTY"
+              desc: "invariant 4 - internal/tui/terminal owns the PTY"
 
-        # internal/ui is where the TUI lives. internal/termwrap is the one
+        # internal/tui/app is where the TUI lives. internal/tui/terminal is the one
         # exception and a real one: bubbleterm is itself a bubbletea component,
         # so termwrap.Terminal returns tea.Cmd and cannot avoid the import.
         bubbletea:
           files:
-            - "!**/internal/ui/**"
-            - "!**/internal/termwrap/**"
+            - "!**/internal/tui/app/**"
+            - "!**/internal/tui/terminal/**"
+            - "!**/internal/tui/theme/**"
           deny:
             - pkg: charm.land/bubbletea/v2
-              desc: "the TUI lives in internal/ui; internal/termwrap is the wrapper exception"
+              desc: "the TUI lives in internal/tui/app; internal/tui/terminal is the wrapper exception"
             - pkg: charm.land/bubbles/v2
-              desc: "the TUI lives in internal/ui"
+              desc: "the TUI lives in internal/tui/app"
             - pkg: charm.land/lipgloss/v2
-              desc: "rendering lives in internal/ui"
+              desc: "rendering lives in internal/tui/app"
 
         # The rest of the seams named in docs/ARCHITECTURE.md: one package per
         # third-party surface, so a breaking upgrade has one blast radius.
         wrappers:
           files:
-            - "!**/internal/highlight/**"
-            - "!**/internal/review/**"
+            - "!**/internal/infra/highlight/**"
+            - "!**/internal/infra/gitdiff/**"
           deny:
             - pkg: github.com/alecthomas/chroma/v2
-              desc: "invariant 4 in spirit - internal/highlight owns chroma"
+              desc: "invariant 4 in spirit - internal/infra/highlight owns chroma"
             - pkg: github.com/bluekeyes/go-gitdiff
-              desc: "internal/review owns diff parsing"
+              desc: "internal/infra/gitdiff owns diff parsing"
 
         # Shelling out is a capability, not a convenience. These six are the
         # packages that do it today; scripts/depguard_test.go asserts the list
         # still matches the code, which is the half depguard cannot check.
-        # Tests are exempt: internal/ui, internal/watcher/e2e and scripts all
+        # Tests are exempt: internal/ui, internal/service/status/e2e and scripts all
         # drive subprocesses to build fixtures.
         subprocess:
           files:
             - "$all"
             - "!$test"
-            - "!**/internal/detach/**"
-            - "!**/internal/forge/**"
-            - "!**/internal/gate/**"
-            - "!**/internal/golist/**"
-            - "!**/internal/notify/**"
-            - "!**/internal/supervisor/**"
-            - "!**/internal/termwrap/**"
-            - "!**/internal/vcs/**"
+            - "!**/internal/infra/agentcli/**"
+            - "!**/internal/infra/detach/**"
+            - "!**/internal/infra/forge/**"
+            - "!**/internal/infra/gateexec/**"
+            - "!**/internal/infra/golist/**"
+            - "!**/internal/infra/notify/**"
+            - "!**/internal/tui/terminal/**"
+            - "!**/internal/infra/vcs/**"
           deny:
             - pkg: os/exec
-              desc: "shelling out belongs to detach, forge, gate, golist, notify, supervisor, termwrap and vcs"
-        # The network is a capability for the same reason (#453): internal/forge's
+              desc: "shelling out belongs to infra/agentcli, infra/detach, infra/forge, infra/gateexec, infra/golist, infra/notify, tui/terminal and infra/vcs"
+        # The network is a capability for the same reason (#453): internal/infra/forge's
         # REST fallback carries a token borrowed from the environment, and a
         # second HTTP client elsewhere is a second place it could go.
         # scripts/network_test.go asserts the list still matches the code.
@@ -102,10 +103,10 @@ linters:
           files:
             - "$all"
             - "!$test"
-            - "!**/internal/forge/**"
+            - "!**/internal/infra/forge/**"
           deny:
             - pkg: net/http
-              desc: "the network belongs to internal/forge (#453)"
+              desc: "the network belongs to internal/infra/forge (#453)"
     forbidigo:
       forbid:
         # Invariant 5: stdout belongs to the TUI.

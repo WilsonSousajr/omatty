@@ -1,0 +1,24 @@
+ projects · 2               │ omatty ▎ main             │ diff · ⚠ no tests     
+────────────────────────────┼───────────────────────────┼─ diff ───────────────×
+  ▾ omatty                  │session one                │ …/ui/model.go +2 -1   
+▎ ○ main                    │                           │ @@ -10,4 +10,5 @@ func
+▎                           │                           │      a := 1           
+▎                           │                           │ -    b := 2           
+  ○ parser-fix              │                           │ +    b := 3           
+                            │                           │ +    c := 4           
+                            │                           │      return           
+  ▾ api-svc                 │                           │  }                    
+  ○ main                    │                           │ new.txt +2 -0 2/2     
+                            │                           │ @@ -0,0 +1,2 @@       
+                            │                           │ +fresh                
+                            │                           │ +file                 
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+ j/k move  c comment  d delete  o open  S submit  esc back  ctrl+o ? keys       

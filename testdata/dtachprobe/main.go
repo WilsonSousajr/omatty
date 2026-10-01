@@ -1,5 +1,5 @@
 // Command dtachprobe proves the one thing M6 cannot prove with a unit test:
-// that a process wrapped by internal/detach really does survive its client
+// that a process wrapped by internal/infra/detach really does survive its client
 // going away, and that reattaching finds the same process rather than starting
 // a second one.
 //
@@ -25,7 +25,7 @@ import (
 
 	"github.com/creack/pty"
 
-	"github.com/WilsonSousajr/omatty/internal/detach"
+	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 )
 
 // silent stands in for a claude that painted once and is waiting: it writes
@@ -43,10 +43,11 @@ func main() {
 	holder := detach.NewFor(home, "dtach")
 	fmt.Println("persists:", holder.Persists())
 
-	cmd, err := holder.Wrap("probe-session", exec.Command("sh", "-c", silent))
+	argv, err := holder.Wrap("probe-session", []string{"sh", "-c", silent})
 	if err != nil {
 		exit("wrap: " + err.Error())
 	}
+	cmd := exec.Command(argv[0], argv[1:]...)
 	fmt.Println("command:", strings.Join(cmd.Args, " "))
 
 	fmt.Println("\n--- first attach (creates the master) ---")

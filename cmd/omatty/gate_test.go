@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/gate"
-	"github.com/WilsonSousajr/omatty/internal/registry"
+	"github.com/WilsonSousajr/omatty/internal/domain/gate"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // gateFixture is a registered Go project, which is the shape Detect
 // recognises, plus a store to put its gate in.
-func gateFixture(t *testing.T) (*registry.Store, string) {
+func gateFixture(t *testing.T) (sessions.StateStore, string) {
 	t.Helper()
 	home := t.TempDir()
 	repo := filepath.Join(home, "omatty")
@@ -25,15 +25,15 @@ func gateFixture(t *testing.T) (*registry.Store, string) {
 	}
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{repo: repo}}
-	if _, err := registry.AddProject(store, git, repo); err != nil {
+	if _, err := sessions.AddProject(t.Context(), store, git, repo); err != nil {
 		t.Fatal(err)
 	}
 	return store, repo
 }
 
-func configuredGate(t *testing.T, store *registry.Store) []gate.Step {
+func configuredGate(t *testing.T, store sessions.StateStore) []gate.Step {
 	t.Helper()
-	st, err := store.Load()
+	st, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestGateCommand_clearForgetsTheGate(t *testing.T) {
 // the common case is "what is this checked by?", not "replace it".
 func TestGateCommand_aConfiguredProjectIsShownItsGate(t *testing.T) {
 	store, _ := gateFixture(t)
-	if err := registry.SetGate(store, "omatty", []gate.Step{{Name: "only", Run: "make check"}}); err != nil {
+	if err := sessions.SetGate(t.Context(), store, "omatty", []gate.Step{{Name: "only", Run: "make check"}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -142,7 +142,7 @@ func TestGateCommand_theListingNamesTheProfileACoverageStepWrites(t *testing.T) 
 		{Name: "test", Run: "go test ./..."},
 		{Name: "cov", Run: "./scripts/check-coverage.sh", Kind: gate.KindCoverage, Profile: "cover.out"},
 	}
-	if err := registry.SetGate(store, "omatty", steps); err != nil {
+	if err := sessions.SetGate(t.Context(), store, "omatty", steps); err != nil {
 		t.Fatal(err)
 	}
 
@@ -203,7 +203,7 @@ func TestGateCommand_nothingRecognised_saysSoAndSucceeds(t *testing.T) {
 	}
 	store := storeIn(t)
 	git := &FakeGit{Roots: map[string]string{repo: repo}}
-	if _, err := registry.AddProject(store, git, repo); err != nil {
+	if _, err := sessions.AddProject(t.Context(), store, git, repo); err != nil {
 		t.Fatal(err)
 	}
 

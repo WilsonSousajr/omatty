@@ -1,0 +1,24 @@
+ projects · 2               │ omatty ▎ main             │ gate · 1 failing · 1/4
+────────────────────────────┼───────────────────────────┼─ gate ───────────────×
+  ▾ omatty                  │session one                │   ✓ fmt           $ fm
+▎ ○ main                    │                           │   ✓ vet           $ ve
+▎                           │                           │   ✗ test          $ te
+▎   ✓✓✗·  test              │                           │   · cov           $ co
+  ○ parser-fix              │                           │                       
+                            │                           │                       
+                            │                           │                       
+  ▾ api-svc                 │                           │                       
+  ○ main                    │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+ j/k move  enter output  S send  r rerun  / search  esc back  ctrl+o ? keys     

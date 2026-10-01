@@ -1,0 +1,118 @@
+package gate_test
+
+import (
+	dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
+	"testing"
+	"time"
+
+	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
+	"github.com/WilsonSousajr/omatty/internal/pubsub"
+	"github.com/WilsonSousajr/omatty/internal/service/gate"
+)
+
+// waitReport reads one report, failing rather than hanging the suite.
+func waitReport(t *testing.T, reports <-chan pubsub.Event[dgate.Report]) dgate.Report {
+	t.Helper()
+	select {
+	case e := <-reports:
+		return e.Payload
+	case <-time.After(30 * time.Second):
+		t.Fatal("no report arrived")
+		return dgate.Report{}
+	}
+}
+
+func TestRunner_reportsTheRunItWasGiven(t *testing.T) {
+	r := gate.NewRunner(2, gateexec.Run)
+	defer r.Close()
+	reports := r.Subscribe(t.Context())
+
+	r.Start("s1", t.TempDir(), []dgate.Step{{Name: "ok", Run: "true"}})
+
+	rep := waitReport(t, reports)
+	if rep.ID != "s1" {
+		t.Errorf("Report.ID = %q, want s1", rep.ID)
+	}
+	if len(rep.Results) != 1 || rep.Results[0].Verdict != dgate.Pass {
+		t.Errorf("Report.Results = %+v, want one Pass", rep.Results)
+	}
+}
+
+// A working directory that is gone is the caller's error, and it has to reach
+// the caller rather than vanish into the goroutine.
+func TestRunner_surfacesAnUnusableDirectory(t *testing.T) {
+	r := gate.NewRunner(1, gateexec.Run)
+	defer r.Close()
+	reports := r.Subscribe(t.Context())
+
+	r.Start("s1", "/no/such/directory/anywhere", []dgate.Step{{Name: "ok", Run: "true"}})
+
+	if rep := waitReport(t, reports); rep.Err == nil {
+		t.Error("Report.Err = nil, want the directory failure surfaced")
+	}
+}
+
+// Re-gating a session while its gate is still running must leave exactly one
+// answer - the new one. A superseded run reporting late would overwrite the
+// card with a verdict about code that has since changed.
+func TestRunner_restartingASession_reportsOnlyTheNewRun(t *testing.T) {
+	r := gate.NewRunner(2, gateexec.Run)
+	defer r.Close()
+	reports := r.Subscribe(t.Context())
+	dir := t.TempDir()
+
+	r.Start("s1", dir, []dgate.Step{{Name: "slow", Run: "sleep 30"}})
+	r.Start("s1", dir, []dgate.Step{{Name: "quick", Run: "true"}})
+
+	rep := waitReport(t, reports)
+	if rep.Results[0].Step.Name != "quick" {
+		t.Errorf("first report is from %q, want the superseding run", rep.Results[0].Step.Name)
+	}
+	select {
+	case extra := <-reports:
+		t.Errorf("a superseded run reported anyway: %+v", extra)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+func TestRunner_cancelStopsAnInFlightRun(t *testing.T) {
+	r := gate.NewRunner(1, gateexec.Run)
+	defer r.Close()
+	reports := r.Subscribe(t.Context())
+
+	r.Start("s1", t.TempDir(), []dgate.Step{{Name: "slow", Run: "sleep 30"}})
+	r.Cancel("s1")
+
+	select {
+	case rep := <-reports:
+		t.Errorf("a cancelled run reported anyway: %+v", rep)
+	case <-time.After(500 * time.Millisecond):
+	}
+}
+
+// Close must not leave a goroutine writing into a channel nobody reads, and
+// must not panic on a second call - quitting can race a shutdown already
+// under way.
+func TestRunner_closeIsSafeTwiceAndStopsWork(t *testing.T) {
+	r := gate.NewRunner(2, gateexec.Run)
+	reports := r.Subscribe(t.Context())
+	r.Start("s1", t.TempDir(), []dgate.Step{{Name: "slow", Run: "sleep 30"}})
+
+	r.Close()
+	r.Close()
+
+	select {
+	case e := <-reports:
+		t.Errorf("a report was delivered after Close(): %+v", e.Payload)
+	default:
+	}
+}
+
+// Starting after Close is a no-op rather than a panic: the UI can queue a gate
+// on the same tick a quit is processed.
+func TestRunner_startAfterCloseIsIgnored(t *testing.T) {
+	r := gate.NewRunner(1, gateexec.Run)
+	r.Close()
+
+	r.Start("s1", t.TempDir(), []dgate.Step{{Name: "ok", Run: "true"}})
+}

@@ -1,0 +1,30 @@
+ projects · 2               │ keys                                                                                      
+────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────
+  ▾ omatty                  │  ctrl+o j / k     next / previous session, wrapping                                       
+▎ ○ main                    │  ctrl+o ] / [     next / previous project                                                 
+▎                           │  ctrl+o tab       fold or unfold the project, keeping its sessions                        
+▎                           │  ctrl+o /         jump to a session by name or project                                    
+  ○ parser-fix              │  ctrl+o n         new session on the main checkout                                        
+                            │  ctrl+o N         new session on a fresh worktree                                         
+                            │  ctrl+o a         register a project claude already knows                                 
+  ▾ api-svc                 │  ctrl+o A         adopt a session claude already knows                                    
+  ○ main                    │  ctrl+o R         rename the selected session                                             
+                            │  ctrl+o B         rename a worktree session's branch                                      
+                            │  ctrl+o x         archive the session, or forget an empty project                         
+                            │  ctrl+o r         restart a crashed session                                               
+                            │  ctrl+o s         stop the session's process, keeping it; enter resumes it                
+                            │  ctrl+o u         put the session's worktree back to the start of its last turn           
+                            │  ctrl+o p         ship a green session: push and open its pull request, or merge a green o
+                            │  ctrl+o d         open or close the diff pane                                             
+                            │  ctrl+o f         open or close the file tree                                             
+                            │  ctrl+o g         open or close the gate pane                                             
+                            │  ctrl+o i         open or close this project's issues and pull requests                   
+                            │  ctrl+o z         zoom the review column over the session, or back                        
+                            │  ctrl+o m         hand the mouse back to your terminal, or take it back                   
+                            │  ctrl+o ?         this list                                                               
+                            │  ctrl+o q         quit                                                                    
+                            │                                                                                           
+                            │anywhere in the review column                                                              
+                            │  j / k            move the cursor, or scroll a preview or an item                         
+                            │j/k scroll  / filter  esc close  ctrl+c quit                                               
+ esc close  ctrl+c quit                                                                                       3 sessions

@@ -1,0 +1,30 @@
+ projects · 2               │ new session                                                                               
+────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────
+  ▾ omatty                  │                                                                                           
+▎ ○ main                    │new session title (blank: named by its first prompt): _                                    
+▎                           │                                                                                           
+▎                           │enter to confirm, esc to cancel                                                            
+  ○ parser-fix              │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+  ▾ api-svc                 │                                                                                           
+  ○ main                    │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+ enter confirm  esc cancel  ctrl+c quit                                                                       3 sessions

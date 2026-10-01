@@ -1,0 +1,69 @@
+package status_test
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
+	"io"
+)
+
+// The tailer parses every line through the adapter it was given and emits
+// the kind the adapter derived, never calling claude's own parser (#46).
+func TestTail_ParsesThroughTheAdapter_issue46(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "x.jsonl")
+	if err := os.WriteFile(path, []byte("not json at all\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	a := &fakeAdapter{Kind: dstatus.ToolStarted, At: at, Entry: dstatus.Entry{Type: "user", At: at}}
+	sink := make(chan dstatus.Event, 4)
+
+	tl := status.Tail("s1", transcript.NewReader(path), sink, time.Now, time.Hour, a)
+	defer tl.Close()
+	tl.Poll()
+
+	select {
+	case ev := <-sink:
+		if ev.Kind != dstatus.ToolStarted || a.Parsed != 1 {
+			t.Errorf("event %+v after %d parses; want the adapter's ToolStarted from one parse", ev, a.Parsed)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no event: the line was not parsed through the adapter")
+	}
+}
+
+// Start tails the path the profile names, not ~/.claude (#46).
+func TestStart_TailsThePathTheProfileNames_issue46(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, "elsewhere.jsonl")
+	if err := os.WriteFile(path, []byte("x\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a := &fakeAdapter{Kind: dstatus.TurnEnded, At: time.Now()}
+	w := status.Start(status.WatchDeps{
+		Home: home, Clock: time.Now, Adapter: a,
+		TranscriptPath: func(_, _, _ string) string { return path },
+		OpenTranscript: func(p string) status.Transcript { return transcript.NewReader(p) },
+		ListenHooks: func(string, chan<- dstatus.HookPayload) (io.Closer, error) {
+			return nil, errors.New("no hook socket in this test")
+		},
+	}, []session.Session{{ID: "s1", Dir: "/w"}})
+	defer w.Close()
+
+	select {
+	case e := <-w.Subscribe(t.Context()):
+		ev := e.Payload
+		if ev.SessionID != "s1" || ev.Kind != dstatus.TurnEnded {
+			t.Errorf("event %+v, want s1 TurnEnded from the profile's path", ev)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("no event: the watcher did not tail the profile's path")
+	}
+}

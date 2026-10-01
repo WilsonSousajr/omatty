@@ -1,0 +1,24 @@
+ projects · 2               │ switch                                            
+────────────────────────────┼───────────────────────────────────────────────────
+  ▾ omatty                  │jump to session: _                                 
+▎ ○ main                    │                                                   
+▎                           │  main  omatty                                     
+▎                           │  parser-fix  omatty                               
+  ○ parser-fix              │  main  api-svc                                    
+                            │                                                   
+                            │3 of 3                                             
+  ▾ api-svc                 │                                                   
+  ○ main                    │                                                   
+                            │                                                   
+                            │                                                   
+                            │                                                   
+                            │                                                   
+                            │                                                   
+                            │                                                   
+                            │                                                   
+                            │                                                   
+                            │                                                   
+                            │                                                   
+                            │                                                   
+                            │                                                   
+ type to filter  ctrl+j/ctrl+k move  enter jump  esc cancel           3 sessions

@@ -26,7 +26,7 @@ Core design:
   turn, not the conversation.
 - **[M6] dtach holds a session while omatty is not attached**, so quitting
   detaches rather than killing. It is optional: without the binary
-  `internal/detach` returns a Plain holder and omatty behaves as it did
+  `internal/infra/detach` returns a Plain holder and omatty behaves as it did
   before, with a footer notice saying so (#43).
 
 Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
@@ -40,11 +40,11 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 - **TUI:** `charm.land/bubbletea/v2`, `lipgloss/v2`, `bubbles/v2`.
 - **Embedded terminal:** `github.com/taigrr/bubbleterm` (pre-1.0 — invariant 4),
   `github.com/creack/pty`.
-- **Git:** the `git` CLI via `os/exec`, wrapped by `internal/vcs`. Not go-git:
+- **Git:** the `git` CLI via `os/exec`, wrapped by `internal/infra/vcs`. Not go-git:
   linked-worktree support is v6-experimental and incomplete.
 - **Diff parsing (M3):** `github.com/bluekeyes/go-gitdiff`.
 - **Syntax highlighting (M5):** `github.com/alecthomas/chroma/v2`, behind
-  `internal/highlight`.
+  `internal/infra/highlight`.
 - **Tests:** stdlib `testing`, `charmbracelet/x/exp/teatest`.
 
 ## Repository layout
@@ -52,46 +52,71 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 ```
 cmd/omatty/         binary entry point. Thin: parse flags, build deps, run.
 internal/
-├── paths/          every filesystem location omatty reads or writes. Pure.
-├── config/         ~/.omatty/config.toml; every key optional. The only TOML importer.
-├── registry/       projects + sessions + state.json.
-├── agent/          the agent seam (#46): a command template plus a status adapter.
-├── vcs/            OUR interface over the git CLI (invariant 4).
-├── forge/          OUR interface over every forge's CLI - gh, glab, az, tea - behind
-│                one Router: pull requests, CI and issues, read on a timer;
-│                written only on a keypress (#310, #331, #452).
-├── termwrap/       OUR interface over bubbleterm (invariant 4).
-├── supervisor/     process lifecycle: builds the claude command, owns the PTY.
-├── detach/         [M6] OUR interface over the dtach CLI (invariant 4).
-├── keys/           modal key router. Pure state machine (invariant 1).
-├── hooks/          the --settings hooks file, and the `omatty hook` command (invariant 11).
-├── watcher/        [M2] JSONL tailer + hook socket -> typed status events.
-├── notify/         desktop notifications for a session needing attention.
-├── discover/       proposes repositories to register, from claude's transcript store (#91).
-├── fuzzy/          subsequence ranking for the session switcher and project picker. Pure.
-├── review/         [M3] diff -> hunks -> comment store -> prompt composer.
-├── paste/          bracketed-paste envelopes for text sent to a PTY (invariant 8).
-├── highlight/      [M5] OUR interface over chroma (invariant 4 in spirit).
-├── gate/           [M9] a project's own verification commands -> per-step verdicts.
-├── coverage/       [M10] a coverage profile -> per-line verdicts and raw blocks.
-├── golist/         [M11] OUR interface over `go list` (invariant 4 in spirit).
-├── crap/           [M11] per-function complexity x coverage -> a C.R.A.P. score.
-├── depgraph/       [M11] the internal import graph -> Ca, Ce, instability, SDP.
-├── tally/          [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
-└── ui/             bubbletea model, panes, rendering.
+├── domain/         [ADR 0001] entities and pure logic, stdlib only.
+│   ├── agent/      the agent seam (#46): Profile, a command template plus a status Adapter. The catalog is cmd's.
+│   ├── coverage/   [M10] a coverage profile -> per-line verdicts and raw blocks.
+│   ├── crap/       [M11] per-function complexity x coverage -> a C.R.A.P. score.
+│   ├── depgraph/   [M11] the internal import graph -> Ca, Ce, instability, SDP.
+│   ├── forge/      a forge's work, forge-independent: PR, Issue, Detail, CI and review state, Label, the refusals.
+│   ├── fuzzy/      subsequence ranking for the session switcher and project picker. Pure.
+│   ├── gate/       [M9] Step, Verdict, Report, the output caps and the prompt: pure.
+│   ├── paste/      bracketed-paste envelopes for text sent to a PTY (invariant 8).
+│   ├── review/     the review model: files, hunks, lines, content anchors (invariant 7), the tree, Compose.
+│   ├── session/    Project, Session, State - what state.json holds (invariant 9) - and placeholder names.
+│   ├── status/     a session's status vocabulary: Kind, Status, Event, Tokens, the hook payload, Apply, the Adapter port.
+│   └── tally/      [M12] gate counters + pull requests -> lead time, first-pass rate (#332).
+├── service/        [ADR 0001] use cases, each declaring the ports it consumes.
+│   ├── discovery/  proposes repositories and sessions to register, from claude's transcript store (#91, #122).
+│   ├── gate/       [M9] the Runner: gates many sessions, bounded, reports published through pubsub; infra/gateexec runs the steps.
+│   ├── review/     [M3] a session's diff, stat, turn baseline, revert and ship check; the model is domain/review.
+│   ├── sessions/   the commands that edit projects and sessions, over a StateStore, and a session's Launch.
+│   └── status/     [M2] transcript lines + hook payloads -> typed status events, published through pubsub.
+├── infra/          [ADR 0001] driven adapters, each the only route to what it wraps.
+│   ├── config/     ~/.omatty/config.toml; every key optional. The only TOML importer.
+│   ├── agentcli/   [ADR 0001] the agent's binary run headless for a one-shot answer: a session's name (#127).
+│   ├── detach/     [M6] OUR interface over the dtach CLI (invariant 4).
+│   ├── forge/      OUR interface over every forge's CLI - gh, glab, az, tea - behind
+│   │            one Router: pull requests, CI and issues, read on a timer;
+│   │            written only on a keypress (#310, #331, #452).
+│   ├── fsread/     [ADR 0001] files omatty only reads: a coverage profile, a file's preview, a generated-file header.
+│   ├── gateexec/   [M9] runs a gate's steps under sh; verdicts from exit status only (invariant 12).
+│   ├── gitdiff/    [ADR 0001] the only go-gitdiff importer: git's unified diff -> domain/review.Diff.
+│   ├── golist/     [M11] OUR interface over `go list` (invariant 4 in spirit).
+│   ├── highlight/  [M5] OUR interface over chroma (invariant 4 in spirit).
+│   ├── hookserver/ [ADR 0001] the hook socket: bounded, user-only, offers each payload and never waits.
+│   ├── hooks/      the --settings hooks file, installed at start, and the `omatty hook` command (invariant 11).
+│   ├── notify/     desktop notifications for a session needing attention.
+│   ├── paths/      every filesystem location omatty reads or writes. Pure.
+│   ├── store/      [ADR 0001] state.json, written atomically (invariant 9), and carry's file copy (#309).
+│   ├── transcript/ [ADR 0001] reads an agent's JSONL as it grows: new complete lines, truncation.
+│   └── vcs/        OUR interface over the git CLI (invariant 4).
+├── cli/            [ADR 0001] the second driving adapter: `sessions --json`, `status --json`,
+│                   adopt, rm, gate --stats. No UI library beneath it.
+├── pubsub/          [ADR 0001] Broker[T]: services publish (Publish waits, Offer drops), the TUI subscribes.
+└── tui/          [ADR 0001] the TUI: driving adapter 1.
+    ├── app/        bubbletea model, panes, rendering.
+    ├── keys/       modal key router. Pure state machine (invariant 1).
+    ├── terminal/   OUR interface over bubbleterm (invariant 4).
+    └── theme/      [ADR 0001] the one palette and every style; app builds none of its own (#653).
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
-tools/              gate tools with a main: crapcheck, depcheck. Inside ./... so gofmt,
+tools/              gate tools with a main: crapcheck, depcheck, layercheck. Inside ./... so gofmt,
                     vet, lint and build cover them; outside ./internal/... so an
                     untestable main does not pull the coverage gate down.
 testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-claude.
 ```
 
 One responsibility per package, typed APIs, no circular dependencies.
-`internal/ui` and `internal/termwrap` are the only packages that import
-bubbletea. termwrap is a real exception, not an oversight: bubbleterm is itself
-a bubbletea component, so `termwrap.Terminal` returns `tea.Cmd` and cannot avoid
+`internal/tui/app` and `internal/tui/terminal` are the only packages that import
+bubbletea. tui/terminal is a real exception, not an oversight: bubbleterm is itself
+a bubbletea component, so `terminal.Terminal` returns `tea.Cmd` and cannot avoid
 the import. Enforced by `depguard`, not asked for (#260).
+
+The layers are ADR 0001's: domain imports only domain; service imports domain
+and pubsub; infra imports domain; the TUI and the CLI import domain, service
+and pubsub; `cmd` alone imports everything and plugs infra into the services'
+ports. `./scripts/check-layers.sh -enforce` holds that in CI (#620, #653), and
+`docs/ARCHITECTURE.md` has the table and the reasons.
 
 ## Build and test commands
 
@@ -104,6 +129,8 @@ go mod tidy -diff                             # go.mod and go.sum are tidy
 golangci-lint run                             # + depguard: invariant 4, enforced
 govulncheck ./...                             # no reachable known vulnerability
 ./scripts/check-deps.sh                       # package coupling; test-graph cycles
+./scripts/check-file-length.sh 500            # every tracked .go file, tests included (#609)
+./scripts/check-layers.sh -enforce            # ADR 0001's layers (#620, #653)
 shellcheck scripts/*.sh                       # POSIX sh; install.sh is piped into sh (#517)
 go test ./... -race
 ./scripts/check-coverage.sh 90
@@ -133,11 +160,11 @@ go run ./testdata/dtachprobe /tmp/probehome                  # [M6] detach and r
 go run ./testdata/gateprobe                                 # [M9] a real gate, bound and supersede
 ```
 
-`dtachprobe` is the same argument for `internal/detach`: its unit tests assert
+`dtachprobe` is the same argument for `internal/infra/detach`: its unit tests assert
 the command line dtach is given, which is why a missing `~/.omatty/s` shipped
 green and broke every session start (#43). The probe runs the line.
 
-`gateprobe` is that argument again for `internal/gate` (#229). Its unit tests
+`gateprobe` is that argument again for `internal/service/gate` and `internal/infra/gateexec` (#229). Its unit tests
 say what a step's verdict is; only the probe shows a real gate failing in the
 middle with the steps after it `pending` rather than `pass`, a tool that is
 absent reported `missing` against this machine's actual `PATH`, the Runner's
@@ -150,6 +177,8 @@ not in the gate.
 
 - **Functions 4–20 lines.** Longer means it does more than one thing — split it.
 - **Files under 500 lines.** Longer means the package boundary is wrong.
+  `./scripts/check-file-length.sh 500` checks every tracked `.go` file, tests
+  included (#609); the limit, like C.R.A.P.'s, only moves down.
 - One thing per function, one responsibility per package (SRP).
 - **Names must be specific and unique** — a good name returns fewer than 5 grep
   hits in this repo. Banned: `data`, `handler`, `manager`, `util`, `helper`,
@@ -191,19 +220,21 @@ not in the gate.
 - **Inject through constructor or parameter.** No package-level mutable state,
   no global singletons, no `init()` side effects.
 - **Wrap third-party libraries behind a thin interface this project owns.**
-  `internal/termwrap` owns bubbleterm and the PTY, `internal/vcs` owns the git
-  CLI, `internal/forge` owns every forge CLI (gh, glab, az, tea),
-  `internal/highlight` owns chroma,
-  `internal/review` owns go-gitdiff. No other package may import them.
+  `internal/tui/terminal` owns bubbleterm and the PTY, `internal/infra/vcs` owns the git
+  CLI, `internal/infra/forge` owns every forge CLI (gh, glab, az, tea),
+  `internal/infra/highlight` owns chroma,
+  `internal/infra/gitdiff` owns go-gitdiff. No other package may import them.
   Enforced by `depguard` in `.golangci.yml`, and for the two CLIs - named by a
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
-  from `detach`, `forge`, `gate`, `golist`, `notify`, `supervisor`,
-  `termwrap` and `vcs`, and nowhere else in production code. `termwrap` is on that list because it names
-  `*exec.Cmd` in a signature without ever constructing one - a distinction
-  depguard cannot draw. `forge` joined for #310 as omatty's one route to the
+  from `infra/agentcli`, `infra/detach`, `infra/forge`, `infra/gateexec`, `infra/golist`, `infra/notify`,
+  `tui/terminal` and `infra/vcs`, and nowhere else in production code. `tui/terminal` is on that list because it spawns
+  the session's process: the session service hands it a `session.Launch`
+  command line, and the PTY it runs in is bubbleterm's (ADR 0001, "Starting a
+  session"; it only named `*exec.Cmd` in a signature until migration step 5.5). `forge` joined for #310 as omatty's one route to the
   forge, through `gh` - reading on a timer, and since #331 writing on a
-  keypress. Adding a ninth package is a decision, so
+  keypress; since M16 it runs every forge's CLI (`gh`, `glab`, `tea`, `az`)
+  behind one Router (#452). Adding a ninth package is a decision, so
   `TestDepguard_ExecAllowlistMatchesReality` fails until someone writes it down
   in both `.golangci.yml` and here.
 - **The network is a capability too** (#453). `net/http` is reachable from
@@ -243,15 +274,15 @@ not in the gate.
 3. **omatty never writes to the user's `~/.claude/settings.json`.** Per-session
    hooks are passed with `--settings ~/.omatty/hooks.json`. Zero footprint is a
    feature.
-4. **bubbleterm and git are reachable only through `internal/termwrap` and
-   `internal/vcs`.** bubbleterm is pre-1.0 and will break; the blast radius must
+4. **bubbleterm and git are reachable only through `internal/tui/terminal` and
+   `internal/infra/vcs`.** bubbleterm is pre-1.0 and will break; the blast radius must
    stay inside one package we own.
 
    Enforced by `depguard` in `.golangci.yml` (#260) - but only half of it can
    be. bubbleterm is an import, so a rule can fence it. git is a *string
    literal* handed to `exec`, which no import rule can see, so that half is
    `TestNoGitOutsideVcs` in `scripts/depguard_test.go`. The forge CLIs follow
-   the same rule for the same reason: `internal/forge` owns gh (#310), and
+   the same rule for the same reason: `internal/infra/forge` owns gh (#310), and
    since #452 glab, az and tea too; `TestNoGhOutsideForge` is their fence.
 
    depguard can only ever fail in one direction: it catches an import that
@@ -313,7 +344,7 @@ not in the gate.
   production code takes. Named fakes are readable in a failure message.
 - Filesystem tests use `t.TempDir()`. Never touch the real `~/.claude` or
   `~/.omatty`.
-- Golden-frame tests for `termwrap`: recorded ANSI in, asserted cell grid out.
+- Golden-frame tests for `tui/terminal`: recorded ANSI in, asserted cell grid out.
 - End-to-end via `teatest` against `testdata/fake-claude`.
 
 ### Every bug gets a regression test. No exceptions.
@@ -355,10 +386,19 @@ message and explain why the behaviour it asserted was never correct.
   typed payload. Reject anything oversized rather than buffering it.
 - **omatty stores no token** (#453; it used to read "holds no token"). The REST
   fallback borrows one from the environment (`GITLAB_TOKEN`, `GH_TOKEN`, ...)
-  per call, sends it in a header and never in a URL, follows no redirect, and
-  writes it to no config, `state.json`, log line or error. A test drives every
-  answer a forge can give and asserts the token is absent from both. There is
-  no login flow and no token store.
+  per call, sends it in a header and never in a URL, never over plain `http`,
+  follows a redirect only on its own host and only to https, and writes it to
+  no config, `state.json`, log line or error. A test drives every answer a
+  forge can give and asserts the token is absent from both. There is no login
+  flow and no token store.
+- **A token goes only to the instance it is for.** A variable that names no
+  host is bound the way its own CLI binds it: `GITEA_TOKEN` to the instance
+  `GITEA_INSTANCE_URL` names, as tea's env login does; Bitbucket Data Center has
+  its own `BITBUCKET_DC_TOKEN`, bound by `BITBUCKET_DC_URL`, so a Cloud token
+  never reaches a Data Center host or the reverse; az's token and
+  `AZURE_DEVOPS_EXT_PAT` go to Azure DevOps Services alone. M16's reviews found
+  each of these sending a token to the wrong server (#459, #461, #456) - a new
+  backend is reviewed for it first.
 
 ## Project tracking and Git workflow
 
@@ -427,7 +467,7 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
 
   | | |
   |---|---|
-  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, `go test -race`, 90% coverage, C.R.A.P. under 12, `go build` — on `ubuntu-latest` and `macos-latest` |
+  | The CI gate, green on both runners | `gofmt`, `go vet`, `go mod tidy -diff`, `golangci-lint`, `govulncheck`, files under 500 lines, `go test -race`, 90% coverage, C.R.A.P. under 12, `go build` — on `ubuntu-latest` and `macos-latest` |
   | The real-binary smoke test | Rule 2 in `docs/ROADMAP.md`, run against a scratch `HOME` with `testdata/fake-claude`, **read by a person** |
 
   The gate is the same one every milestone clears, for the same reason: the
@@ -482,9 +522,14 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
   implements.
 - `docs/ARCHITECTURE.md` — data flow, package breakdown, why each invariant
   is a rule, and the seams. The one page to read before the code (#156).
-- `internal/agent` package doc — the agent seam (#46): an agent is a command
-  template plus a status adapter, and why the adapter interface lives in
-  `watcher`.
+- `docs/ARCHITECTURE_AUDIT.md` and `docs/adr/` — the 2026-09-29 audit (#615)
+  and the architecture decisions it led to. `0001-architecture.md` (#618) is
+  the layout: `domain/`, `service/`, `infra/`, `pubsub`, `tui/`, `cli`.
+  `docs/MIGRATION_PLAN.md` is how the code got there (#653, done 2026-10-01).
+- `internal/domain/agent` package doc — the agent seam (#46): an agent is a
+  command template plus a status adapter; the catalog of profiles is composed
+  in `cmd/omatty/agents.go`, and the adapter interface lives in
+  `internal/domain/status`.
 - `CHANGELOG.md` — what each release changed, with the issues behind it.
   Written as part of the promoting PR; see "Branches and releases".
 - `docs/comparison.md` — how omatty compares to every other tool in this

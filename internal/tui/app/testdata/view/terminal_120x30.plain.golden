@@ -1,0 +1,30 @@
+ projects · 2               │ omatty ▎ main                                                                             
+────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────
+  ▾ omatty                  │session one                                                                                
+▎ ○ main                    │                                                                                           
+▎                           │                                                                                           
+▎                           │                                                                                           
+  ○ parser-fix              │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+  ▾ api-svc                 │                                                                                           
+  ○ main                    │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+                            │                                                                                           
+ ctrl+o q quit  ctrl+o ? keys  ctrl+o j/k switch  ctrl+o n new  ctrl+o d diff                                 3 sessions
