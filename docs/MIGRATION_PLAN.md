@@ -84,7 +84,8 @@ count after the step.
 | 6.2 | #653 | #692 | merged | 1 |
 | 6.10 | #653 | #693 | merged | 0 |
 | Amendment 10 + 6.3a | #653 | #694 | merged | 0 |
-| 7.1 | #653 | #702 | open | 0 |
+| 7.1 | #653 | #702 | merged | 0 |
+| 7.2a | #653 | this PR | open | 0 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
@@ -250,7 +251,8 @@ net: a logic PR that changes a row says which row and why (rule 4).
 | # | PR | Scope | Risk | Serves | Needs | Rollback |
 |---|---|---|---|---|---|---|
 | 7.1 | `feat: omatty sessions --json and status --json` | `internal/cli`; the transcript `Read` port on `service/status`. **Adds two user-visible commands (approved in ADR review).** | M | ADR "The second driving adapter" | 5.10 | revert |
-| 7.2 | `refactor: adopt, rm and stats run through internal/cli` | today's subcommands move out of `cmd/omatty/subcommands.go`; their CLI output is unchanged | M | invariant 10 | 7.1 | revert |
+| 7.2a | `refactor: discovery reads prompts through a PromptText port` | *Ruling during 7.2.* `service/discovery` imported `service/status` for `PromptText` alone. Once `cli` imports discovery for adopt, discovery's instability drops to 0.50 under status's 0.60 and the SDP gate fails (margin -0.100). discovery declares `PromptText` and cmd passes `status.PromptText`, so discovery imports no internal package and is agent-blind (#46). No behaviour change. | L | SDP (#269) | 7.1 | revert |
+| 7.2 | `refactor: adopt, rm and stats run through internal/cli` | today's subcommands move out of `cmd/omatty/subcommands.go`; their CLI output is unchanged | M | invariant 10 | 7.2a | revert |
 
 ### Stage 8: the rule turns on
 

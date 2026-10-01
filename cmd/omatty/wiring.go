@@ -271,7 +271,7 @@ func sessionProposer(store sessions.StateStore, home string, git discovery.Git) 
 		if err != nil {
 			return nil, err
 		}
-		cands, err := discovery.ProposeSessions(paths.TranscriptsDir(home), git, projectRoot, ids)
+		cands, err := discovery.ProposeSessions(paths.TranscriptsDir(home), git, projectRoot, ids, status.PromptText)
 		if err != nil {
 			return nil, err
 		}
@@ -375,7 +375,7 @@ func sessionNamer(home string, profile agent.Profile) app.NameFunc {
 	return func(sess sessions.Session) (string, error) {
 		// The conversation, not the ID: after /clear the row's first
 		// transcript is the one it left behind (#316).
-		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()))
+		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()), status.PromptText)
 	}
 }
 

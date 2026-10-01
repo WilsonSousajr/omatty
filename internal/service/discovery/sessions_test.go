@@ -11,6 +11,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/service/discovery"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // sessionStore writes one slug directory for cwd holding the given transcripts,
@@ -91,7 +92,7 @@ func TestProposeSessions_ListsTheProjectsSessionsNewestFirst_issue122(t *testing
 		fixture{ID: "older", Prompt: "fix the parser", Used: now.Add(-48 * time.Hour)},
 		fixture{ID: "newer", Prompt: "add a file tree", Used: now})
 
-	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil)
+	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatalf("ProposeSessions() error = %v, want nil", err)
@@ -124,7 +125,7 @@ func TestProposeSessions_SkipsSessionsInAnotherProject_issue122(t *testing.T) {
 	}
 	git := &FakeGit{Repos: map[string]bool{mine: true, theirs: true}}
 
-	got, err := discovery.ProposeSessions(root, git, mine, nil)
+	got, err := discovery.ProposeSessions(root, git, mine, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -146,7 +147,7 @@ func TestProposeSessions_SkipsSessionsAlreadyRegistered_issue122(t *testing.T) {
 		fixture{ID: "fresh", Prompt: "two"})
 
 	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo,
-		[]string{"known"})
+		[]string{"known"}, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -164,7 +165,7 @@ func TestProposeSessions_TitlesASessionFromItsFirstTypedPrompt_issue122(t *testi
 	mkdirs(t, repo)
 	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: "fix the parser crash"})
 
-	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil)
+	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -183,7 +184,7 @@ func TestProposeSessions_SkipsThePromptsClaudeWroteItself_issue122(t *testing.T)
 	mkdirs(t, repo)
 	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: "the real question"})
 
-	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil)
+	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -203,7 +204,7 @@ func TestProposeSessions_FlattensAnUntrustedPromptIntoOneLine_issue122(t *testin
 	root := sessionStore(t, repo,
 		fixture{ID: "s1", Prompt: "first line\n\x1b[2Jsecond\tline"})
 
-	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil)
+	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -222,7 +223,7 @@ func TestProposeSessions_TruncatesALongPrompt_issue122(t *testing.T) {
 	mkdirs(t, repo)
 	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: strings.Repeat("long ", 200)})
 
-	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil)
+	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -240,7 +241,7 @@ func TestProposeSessions_NamesASessionWithNoPromptByItsID_issue122(t *testing.T)
 	mkdirs(t, repo)
 	root := sessionStore(t, repo, fixture{ID: "0a6b870b-9ccc-4f80-82cc-f9ede44b9123"})
 
-	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil)
+	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -269,7 +270,7 @@ func TestProposeSessions_FindsThemForAProjectRegisteredInsideAWorktree_issue122(
 
 	// wt, not repo: that is the Root AddProject would have stored for a project
 	// registered from inside the worktree.
-	got, err := discovery.ProposeSessions(root, git, wt, nil)
+	got, err := discovery.ProposeSessions(root, git, wt, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -301,7 +302,7 @@ func TestProposeSessions_KeepsCollidingSlugDirectoriesApart_issue122(t *testing.
 		fixture{ID: "in-nested", Prompt: "the nested one"})
 	git := &FakeGit{Repos: map[string]bool{dashed: true, nested: true}}
 
-	got, err := discovery.ProposeSessions(root, git, nested, nil)
+	got, err := discovery.ProposeSessions(root, git, nested, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -327,7 +328,7 @@ func TestProposeSessions_TitlesASessionWhoseFirstPromptCarriesAnAttachment_issue
 		RawContent: `[{"type":"text","text":"look at this screenshot"},{"type":"image","source":{}}]`,
 	})
 
-	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil)
+	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -350,7 +351,7 @@ func TestProposeSessions_StripsFormatCharactersFromATitle_issue122(t *testing.T)
 	mkdirs(t, repo)
 	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: "fix \u202Ethe parser"})
 
-	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil)
+	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -370,7 +371,7 @@ func TestProposeSessions_TruncatesATitleToDisplayCellsNotRunes_issue122(t *testi
 	mkdirs(t, repo)
 	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: strings.Repeat("界", 60)})
 
-	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil)
+	got, err := discovery.ProposeSessions(root, &FakeGit{Repos: map[string]bool{repo: true}}, repo, nil, status.PromptText)
 
 	if err != nil {
 		t.Fatal(err)
@@ -388,7 +389,7 @@ func TestFirstPromptTitle_ReadsTheFirstTypedPrompt_issue127(t *testing.T) {
 	repo := filepath.Join(t.TempDir(), "omatty")
 	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: "fix the wheel"})
 
-	got, err := discovery.FirstPromptTitle(transcriptOf(root, repo, "s1"))
+	got, err := discovery.FirstPromptTitle(transcriptOf(root, repo, "s1"), status.PromptText)
 
 	if err != nil || got != "fix the wheel" {
 		t.Fatalf("FirstPromptTitle() = %q, %v; want \"fix the wheel\"", got, err)
@@ -398,7 +399,7 @@ func TestFirstPromptTitle_ReadsTheFirstTypedPrompt_issue127(t *testing.T) {
 // A session that has not been spoken to has no transcript yet. That is not a
 // failure: the model asks again on the next event.
 func TestFirstPromptTitle_IsEmptyAndNotAnErrorBeforeAnyPrompt_issue127(t *testing.T) {
-	got, err := discovery.FirstPromptTitle(filepath.Join(t.TempDir(), "none.jsonl"))
+	got, err := discovery.FirstPromptTitle(filepath.Join(t.TempDir(), "none.jsonl"), status.PromptText)
 	if err != nil || got != "" {
 		t.Fatalf("FirstPromptTitle() with no transcript = %q, %v; want \"\" and nil", got, err)
 	}
@@ -410,7 +411,7 @@ func TestFirstPromptTitle_SkipsInjectedEntriesAndFlattensTheRest_issue127(t *tes
 	repo := filepath.Join(t.TempDir(), "omatty")
 	root := sessionStore(t, repo, fixture{ID: "s1", Prompt: "fix\u202e the\nwheel"})
 
-	got, err := discovery.FirstPromptTitle(transcriptOf(root, repo, "s1"))
+	got, err := discovery.FirstPromptTitle(transcriptOf(root, repo, "s1"), status.PromptText)
 
 	if err != nil || got != "fix the wheel" {
 		t.Fatalf("FirstPromptTitle() = %q, %v; want the flattened prompt", got, err)
@@ -422,7 +423,7 @@ func TestFirstPromptTitle_SurfacesAnUnreadableTranscript_issue127(t *testing.T) 
 	if err := os.MkdirAll(dir, 0o755); err != nil { // a directory where the file should be
 		t.Fatal(err)
 	}
-	if _, err := discovery.FirstPromptTitle(dir); err == nil {
+	if _, err := discovery.FirstPromptTitle(dir, status.PromptText); err == nil {
 		t.Fatal("FirstPromptTitle() on an unreadable transcript = nil error, want one")
 	}
 }
