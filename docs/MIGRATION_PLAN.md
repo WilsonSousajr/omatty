@@ -86,7 +86,7 @@ count after the step.
 | Amendment 10 + 6.3a | #653 | #694 | merged | 0 |
 | 7.1 | #653 | #702 | merged | 0 |
 | 7.2a | #653 | #703 | merged | 0 |
-| 7.2 | #653 | this PR | open | 0 |
+| 7.2 | #653 | #704 | open | 0 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
