@@ -25,7 +25,7 @@ import (
 // The config's lazy_start reaches the boot, in both directions (#317).
 func TestTuiDeps_PassesLazyStart_issue317(t *testing.T) {
 	for _, lazy := range []bool{true, false} {
-		env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+		env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 		env.Cfg = config.Defaults("/h")
 		env.Cfg.Sessions.LazyStart = lazy
 
@@ -37,7 +37,7 @@ func TestTuiDeps_PassesLazyStart_issue317(t *testing.T) {
 
 // The config's idle_stop reaches the model's sweep (#319).
 func TestTuiDeps_PassesIdleStop_issue319(t *testing.T) {
-	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	env.Cfg.Sessions.IdleStop = config.Duration(90 * time.Minute)
 
@@ -51,7 +51,7 @@ func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T)
 	// launcher derives a socket path from it and refuses one over 103 bytes,
 	// which t.TempDir() exceeds on macOS (#43).
 	home := "/h"
-	env := tuiEnv{Home: home, Agent: claudeProfile(), HooksFile: filepath.Join(home, "hooks.json"), Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: home, Agents: mustAgents(t), HooksFile: filepath.Join(home, "hooks.json"), Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults(home)
 	env.Cfg.ClaudeBin = "/opt/claude"
 	env.Cfg.Leader = "ctrl+a"
@@ -112,7 +112,7 @@ func TestCreatorOpts_CarryThroughTheStore_issue653(t *testing.T) {
 // Router's own - neutral for a project it has not resolved - and not ui's
 // unwired default, which is GitHub's.
 func TestTuiDeps_WiresEveryForgeCallThroughTheRouter_issue452(t *testing.T) {
-	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 
 	deps := tuiDeps(env, nil, session.State{})
@@ -346,7 +346,7 @@ func TestSessionNamer_ReadsATranscriptBehindASymlink_issue564(t *testing.T) {
 	}
 	adoptFixture(t, home, physical, "abc", "fix the parser")
 
-	title, err := sessionNamer(home, claudeProfile())(session.Session{ID: "abc", Dir: filepath.Join(root, "link", "omatty")})
+	title, err := sessionNamer(home, catalogFor(t, claudeProfile(), "claude"))(session.Session{ID: "abc", Dir: filepath.Join(root, "link", "omatty")})
 
 	if err != nil || !strings.Contains(title, "parser") {
 		t.Errorf("sessionNamer = (%q, %v), want a title from the transcript under the resolved directory", title, err)
@@ -361,7 +361,7 @@ func TestSessionNamer_ReadsTheReboundConversation_issue316(t *testing.T) {
 	adoptFixture(t, home, dir, "before-clear", "the old work")
 	adoptFixture(t, home, dir, "after-clear", "fix the parser")
 
-	title, err := sessionNamer(home, claudeProfile())(session.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
+	title, err := sessionNamer(home, catalogFor(t, claudeProfile(), "claude"))(session.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
 
 	if err != nil || !strings.Contains(title, "parser") {
 		t.Errorf("sessionNamer = (%q, %v), want a title from the post-clear prompt", title, err)
@@ -377,7 +377,7 @@ func TestTuiDeps_OpensTranscriptsThroughTheReader_issue653(t *testing.T) {
 	if err := os.WriteFile(path, []byte("line\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	if runtimeFor(env).Watch.OpenTranscript == nil {
 		t.Fatal("OpenTranscript is not wired: every tailer would call a nil opener")
@@ -398,7 +398,7 @@ func TestTuiDeps_ServesTheHookSocket_issue653(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	if runtimeFor(env).Watch.ListenHooks == nil {
 		t.Fatal("ListenHooks is not wired: the watcher would call a nil server")
@@ -427,7 +427,7 @@ func TestTuiDeps_ServesTheHookSocket_issue653(t *testing.T) {
 // on the first gate, which no ui test with a recording runner could notice,
 // so the real wiring is pinned: the wired function runs a real step.
 func TestTuiDeps_RunsGatesThroughGateexec_issue653(t *testing.T) {
-	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	if runtimeFor(env).RunGate == nil {
 		t.Fatal("RunGate is not wired: the first gate would call a nil runner")
@@ -446,7 +446,7 @@ func TestTuiDeps_ReadsCoverageThroughFsread_issue653(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "go.mod"), "module example.com/m\n")
 	mustWriteFile(t, filepath.Join(dir, "cover.out"), "mode: set\nexample.com/m/a.go:3.10,5.4 2 1\n")
-	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	deps := tuiDeps(env, nil, session.State{})
 	if deps.Profiles == nil {
@@ -476,7 +476,7 @@ func TestTuiDeps_SniffsGeneratedHeadersThroughFsread_issue653(t *testing.T) {
 		t.Fatalf("git init: %v: %s", err, out)
 	}
 	mustWriteFile(t, filepath.Join(dir, "stringer.go"), "// Code generated by stringer. DO NOT EDIT.\n\npackage p\n")
-	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
+	env := tuiEnv{Home: "/h", Agents: mustAgents(t), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 	deps := tuiDeps(env, nil, session.State{})
 

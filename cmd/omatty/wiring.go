@@ -41,17 +41,17 @@ func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
 	if err != nil {
 		return err
 	}
-	// Claude is the only profile today; an empty name resolves to it (#46).
-	profile, err := lookupAgent("")
+	agents, err := agentCatalog()
 	if err != nil {
 		return err
 	}
-	hooksFile, err := hooks.Install(profile, home)
+	claude, _ := agents.Lookup("")
+	hooksFile, err := hooks.Install(claude, home)
 	if err != nil {
 		return err
 	}
 	w, h := windowSize()
-	env := tuiEnv{Home: home, Cfg: cfg, Agent: profile, HooksFile: hooksFile, Holder: detach.New(home), Width: w, Height: h}
+	env := tuiEnv{Home: home, Cfg: cfg, Agents: agents, HooksFile: hooksFile, Holder: detach.New(home), Width: w, Height: h}
 	return runWithNamer(tuiDeps(env, store, state), runtimeFor(env), cfg)
 }
 
@@ -69,9 +69,11 @@ func runWithNamer(deps app.Deps, rt tuiRuntime, cfg config.Config) error {
 // struct because the parameter list reached seven, five of them strings, and
 // M7's config, naming and agent seams each add one (#136).
 type tuiEnv struct {
-	Home      string
-	Cfg       config.Config
-	Agent     agent.Profile
+	Home string
+	Cfg  config.Config
+	// Agents is every agent omatty can run; each session is resolved
+	// through it (#521). The binaries the config names join it in runtimeFor.
+	Agents    agent.Catalog
 	HooksFile string
 	// Holder keeps sessions alive across quit. One holder, used twice: it
 	// wraps each launch and it ends an archived session's claude. Two would
@@ -127,7 +129,7 @@ func tuiDeps(env tuiEnv, store sessions.StateStore, state session.State) app.Dep
 		Notice:    holder.Notice(),
 		Create:    sessionCreator(env.Cfg, store),
 		Leader:    env.Cfg.Leader,
-		Name:      sessionNamer(home, env.Agent),
+		Name:      sessionNamer(home, env.Agents),
 		Diff:      src.Load,
 		Stat:      src.Stat,
 		Turn:      turnFuncs(src),
@@ -372,8 +374,12 @@ func modelNamer(cfg config.Config) (app.ModelNameFunc, func()) {
 // can name a session from its transcript without reading one itself (#127).
 // The path is the agent's, not paths.Transcript's: claude files a transcript
 // under its resolved working directory, which differs behind a symlink (#564).
-func sessionNamer(home string, profile agent.Profile) app.NameFunc {
+func sessionNamer(home string, agents agent.Catalog) app.NameFunc {
 	return func(sess session.Session) (string, error) {
+		profile, err := agents.Lookup(sess.Agent)
+		if err != nil {
+			return "", err
+		}
 		// The conversation, not the ID: after /clear the row's first
 		// transcript is the one it left behind (#316).
 		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()), status.PromptText)

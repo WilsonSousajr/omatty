@@ -18,17 +18,17 @@ import (
 // Invariant 9: every session row written before #46 has no agent, and it
 // still relaunches.
 func TestLookup_AnEmptyNameIsClaude_issue46(t *testing.T) {
-	p, err := lookupAgent("")
+	p, err := mustAgents(t).Lookup("")
 	if err != nil || p.Name != "claude" {
-		t.Fatalf("lookupAgent(\"\") = %q, %v; want claude", p.Name, err)
+		t.Fatalf("Lookup(\"\") = %q, %v; want claude", p.Name, err)
 	}
-	if byName, _ := lookupAgent("claude"); byName.Name != p.Name {
+	if byName, _ := mustAgents(t).Lookup("claude"); byName.Name != p.Name {
 		t.Errorf("Lookup(claude) = %q, want the same profile", byName.Name)
 	}
 }
 
 func TestLookup_UnknownAgentNamesItAndTheKnownOnes_issue46(t *testing.T) {
-	_, err := lookupAgent("codex")
+	_, err := mustAgents(t).Lookup("codex")
 	if err == nil || !strings.Contains(err.Error(), "codex") || !strings.Contains(err.Error(), "claude") {
 		t.Fatalf("Lookup(codex) error = %v, want it to name codex and the known profiles", err)
 	}
@@ -40,8 +40,8 @@ func TestClaude_EveryProfileFieldIsSet_issue46(t *testing.T) {
 	if p.Command == nil || p.TranscriptPath == nil || p.HookEvents == nil || p.RenderSettings == nil || p.Status == nil || p.DefaultBin == "" {
 		t.Errorf("Claude() has a nil field: %+v", p)
 	}
-	if len(agentNames()) != 1 || agentNames()[0] != "claude" {
-		t.Errorf("Names() = %v, want [claude]", agentNames())
+	if names := mustAgents(t).Names(); len(names) != 1 || names[0] != "claude" {
+		t.Errorf("Names() = %v, want [claude]", names)
 	}
 }
 
@@ -56,8 +56,9 @@ func TestClaude_DerivesFullTier_issue520(t *testing.T) {
 // start, not at build: hooks need their events and renderer, a transcript
 // its path and parser (#520).
 func TestCatalog_EveryDeclaredCapabilityHasItsFunc_issue520(t *testing.T) {
-	for _, name := range agentNames() {
-		p, _ := lookupAgent(name)
+	agents := mustAgents(t)
+	for _, name := range agents.Names() {
+		p, _ := agents.Lookup(name)
 		if p.Caps.Status >= agent.StatusTranscript && (p.TranscriptPath == nil || p.Status == nil) {
 			t.Errorf("%s declares a transcript and lacks its path or parser", name)
 		}
@@ -143,7 +144,7 @@ func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
 	if err := os.WriteFile(transcript, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", home, &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude"), "/h.json", home, &detach.Plain{})
 
 	cmd, err := l.Launch(session.Session{ID: "abc-123", Dir: dir})
 	if err != nil {
@@ -152,4 +153,24 @@ func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
 	if args := strings.Join(cmd.Argv, " "); !strings.Contains(args, "--resume abc-123") {
 		t.Errorf("args %q lack --resume for a session whose transcript is under its resolved directory", args)
 	}
+}
+
+// catalogFor is a one-profile catalog running bin, for a launcher test (#521).
+func catalogFor(t *testing.T, p agent.Profile, bin string) agent.Catalog {
+	t.Helper()
+	c, err := agent.NewCatalog(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c.WithBins(map[string]string{p.Name: bin})
+}
+
+// mustAgents is cmd's own catalog, which building must not fail (#521).
+func mustAgents(t *testing.T) agent.Catalog {
+	t.Helper()
+	agents, err := agentCatalog()
+	if err != nil {
+		t.Fatalf("agentCatalog: %v", err)
+	}
+	return agents
 }
