@@ -21,7 +21,7 @@ omatty, so quitting detaches instead of killing (#43). `~/.omatty/state.json`
 is the registry of projects and sessions and is, by design, enough on its own
 to relaunch every session with `--resume <uuid>` (invariant 9).
 
-**Keys in.** A keystroke reaches the bubbletea model in `internal/ui`, which
+**Keys in.** A keystroke reaches the bubbletea model in `internal/tui/app`, which
 asks `keys.Router` where it goes. The router is a two-state machine: with a
 terminal pane focused, every key is forwarded to that pane's PTY through
 `termwrap`, except the leader (`ctrl+o` unless configured), which arms the
@@ -102,8 +102,8 @@ thing that ever owns stdout.
 
 ## Package breakdown
 
-One responsibility per package, typed APIs, no cycles. `internal/ui` and
-`internal/termwrap` are the only packages that import bubbletea - termwrap
+One responsibility per package, typed APIs, no cycles. `internal/tui/app` and
+`internal/tui/terminal` are the only packages that import bubbletea - termwrap
 because bubbleterm is itself a bubbletea component, so `termwrap.Terminal`
 returns `tea.Cmd`. Enforced by `depguard` since #260; before that both this
 page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
@@ -130,7 +130,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/infra/hookserver` | omatty's end of the hook socket: user-only, bounded connections and payloads, a read deadline; each payload is offered on and dropped rather than waited on (invariant 11). What a payload means is `internal/service/status`'s. |
 | `internal/infra/hooks` | Renders and installs `~/.omatty/hooks.json`, written atomically and never through a link, and implements the `omatty hook` reporter. |
 | `internal/infra/agentcli` | The agent's binary run headless for a one-shot answer - a session's name from its first prompt (#127) - under a timeout, never through the holder. |
-| `internal/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
+| `internal/tui/keys` | The modal key router. A pure state machine with no bubbletea dependency. |
 | `internal/infra/notify` | Desktop notifications for a session that needs attention while omatty is blurred. |
 | `internal/domain/paste` | Bracketed-paste envelopes for text omatty types into a session on the operator's behalf. Invariant 8 lives here because review and gate both need it. |
 | `internal/infra/paths` | Every filesystem location omatty reads or writes. Pure; takes `home` explicitly so tests never touch the real one. |
@@ -142,8 +142,8 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/domain/status` | A session's status vocabulary - `Kind`, `Status`, `Event`, `Tokens`, `SessionState`, `HookPayload`, the transcript `Entry` and the agent's `Adapter` port - and `Apply`, which folds an event into a state. Pure; `internal/service/status` and `internal/infra/hooks` alias it until migration step 8.1. |
 | `internal/service/review` | A session's diff, stat, turn baseline, revert and what can ship, read through its own `Git` port and an injected diff parser; the diff model it hands back is `domain/review`'s. |
 
-| `internal/termwrap` | omatty's only route to the terminal emulator (bubbleterm). |
-| `internal/ui` | The bubbletea model: sidebar, panes, modals, review column, rendering. |
+| `internal/tui/terminal` | omatty's only route to the terminal emulator (bubbleterm). |
+| `internal/tui/app` | The bubbletea model: sidebar, panes, modals, review column, rendering. |
 | `internal/infra/vcs` | omatty's only route to git, via the CLI. |
 | `internal/service/status` | Transcript tailer + hook listener → typed status events, through an `Adapter`. |
 | `testdata/` | `fake-claude`, `ptyrun`, `screen`, `dtachprobe`: the harness for the real-PTY smoke test the gate cannot replace. |

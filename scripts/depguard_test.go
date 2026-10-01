@@ -19,7 +19,7 @@ import (
 // only thing that would say so. internal/termwrap earns its place by spawning
 // the session's process from a session.Launch, since bubbleterm owns the PTY
 // it runs in (ADR 0001, migration step 5.5, #653).
-var execAllowed = []string{"infra/agentcli", "infra/detach", "infra/forge", "infra/gateexec", "infra/golist", "infra/notify", "termwrap", "infra/vcs"}
+var execAllowed = []string{"infra/agentcli", "infra/detach", "infra/forge", "infra/gateexec", "infra/golist", "infra/notify", "tui/terminal", "infra/vcs"}
 
 // Regression, issue #260: invariant 4 fences bubbleterm inside internal/termwrap,
 // and AGENTS.md:68 said internal/ui was the only package importing bubbletea.
@@ -30,7 +30,7 @@ var execAllowed = []string{"infra/agentcli", "infra/detach", "infra/forge", "inf
 func TestDepguard_AllowsTermwrapToImportBubbletea(t *testing.T) {
 	exempt := exemptedPackages(t, "bubbletea")
 
-	for _, pkg := range []string{"ui", "termwrap"} {
+	for _, pkg := range []string{"tui/app", "tui/terminal"} {
 		if !exempt[pkg] {
 			t.Errorf("internal/%s may not import bubbletea, but it does; "+
 				"depguard would fail every build", pkg)
@@ -43,10 +43,10 @@ func TestDepguard_AllowsTermwrapToImportBubbletea(t *testing.T) {
 func TestDepguard_FencesBubbletermToTermwrapAlone(t *testing.T) {
 	exempt := exemptedPackages(t, "bubbleterm")
 
-	if !exempt["termwrap"] {
-		t.Error("internal/termwrap cannot import bubbleterm; it owns the seam")
+	if !exempt["tui/terminal"] {
+		t.Error("internal/tui/terminal cannot import bubbleterm; it owns the seam")
 	}
-	delete(exempt, "termwrap")
+	delete(exempt, "tui/terminal")
 	for pkg := range exempt {
 		t.Errorf("internal/%s is exempt from the bubbleterm rule; invariant 4 "+
 			"keeps the blast radius inside termwrap alone", pkg)

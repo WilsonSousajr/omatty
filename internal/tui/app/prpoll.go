@@ -1,0 +1,161 @@
+// Each project's pull requests (#310): read through internal/infra/forge's gh, one
+// call per project, off the render path and kept in memory only. The shape is
+// repostat.go's, keyed by project instead of session.
+
+package app
+
+import (
+	"log/slog"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
+	"github.com/WilsonSousajr/omatty/internal/service/status"
+)
+
+// PRListFunc lists a repository's pull requests. Injected so ui never runs gh
+// itself; the argument is the project's root.
+type PRListFunc func(projectRoot string) ([]forge.PR, error)
+
+// noPRs is the Deps.PRs default: with nothing wired there is no gh to ask.
+func noPRs(string) ([]forge.PR, error) { return nil, forge.ErrNoForge }
+
+// PRsLoadedMsg carries one project's answer into Update. Exported so tests
+// can send one.
+type PRsLoadedMsg struct {
+	Project string
+	PRs     []forge.PR
+	Err     error
+}
+
+// PRTickMsg is the heartbeat that polls every project. Exported so tests can
+// send one.
+type PRTickMsg time.Time
+
+// prEvery is the poll's period. A minute: CI takes minutes, a turn ending
+// polls at once (refreshPRs), and every tick is a request against the
+// operator's own GitHub rate limit.
+const prEvery = time.Minute
+
+// prMinGap is the least time between two calls for one project, whatever
+// asks - a turn ending, focus returning, the tick. It holds the cost to what
+// the README promises (#310 final review).
+const prMinGap = 30 * time.Second
+
+func schedulePRTick() tea.Cmd {
+	return tea.Tick(prEvery, func(t time.Time) tea.Msg { return PRTickMsg(t) })
+}
+
+// onPRTick polls every project and re-arms the tick.
+func (m *Model) onPRTick() tea.Cmd { return tea.Batch(m.pollPRs(), schedulePRTick()) }
+
+// pollPRs is one call per project holding a session. Nothing is asked while
+// omatty is blurred, the diffstat poll's rule (#314) - onWindowFocus polls on
+// the way back in - and nothing for a project whose forge has been lost.
+func (m *Model) pollPRs() tea.Cmd {
+	if !m.hasFocus {
+		return nil
+	}
+	var cmds []tea.Cmd
+	for _, p := range m.state.Projects {
+		if m.holdsSessionsIn(p.Name) {
+			cmds = append(cmds, m.pollProjectPRs(p.Name))
+		}
+	}
+	return tea.Batch(cmds...)
+}
+
+func (m *Model) holdsSessionsIn(project string) bool {
+	for _, sess := range m.state.Sessions {
+		if sess.Project == project {
+			return true
+		}
+	}
+	return false
+}
+
+// pollProjectPRs asks for one project's pull requests unless a call is in
+// flight, the project is not on GitHub, or it was asked a moment ago.
+func (m *Model) pollProjectPRs(project string) tea.Cmd {
+	if !m.mayAsk(m.prPending, m.prAsked, project) {
+		return nil
+	}
+	root, list := m.projectRoot(project), m.prList
+	return func() tea.Msg {
+		prs, err := list(root)
+		return PRsLoadedMsg{Project: project, PRs: prs, Err: err}
+	}
+}
+
+// mayAsk reports whether project can be asked for a forge list now, and records
+// the call when it can. Both lists share it (#394), which is the only way the
+// three refusals cannot drift apart: a project whose forge is lost, a call
+// already in flight, and the thirty-second floor the README promises. pending
+// and asked are the caller's own - what is in flight and when it last asked are
+// per list - while forgeStopped is a fact about the checkout and the machine,
+// so it is shared.
+func (m *Model) mayAsk(pending map[string]bool, asked map[string]time.Time, project string) bool {
+	if m.forgeStopped[project] != nil || pending[project] {
+		return false
+	}
+	now := m.clock()
+	if last, ok := asked[project]; ok && now.Sub(last) < prMinGap {
+		return false
+	}
+	pending[project], asked[project] = true, now
+	return true
+}
+
+// refreshPRs polls a session's project when a turn finishes, the moment a
+// push - and so a new CI run - is likeliest. Not on waiting: a permission
+// prompt changes nothing on GitHub, and there can be many (final review).
+func (m *Model) refreshPRs(id string, before, after status.Status) tea.Cmd {
+	if !m.hasFocus || before == after || after != status.StatusDone {
+		return nil
+	}
+	sess, ok := m.session(id)
+	if !ok {
+		return nil
+	}
+	return m.pollProjectPRs(sess.Project)
+}
+
+// onPRs stores an answer. A missing tool or a checkout on no forge stops that
+// project's polls, said once in the log and nowhere else: the card simply
+// keeps its branch. Any other failure keeps the last list and
+// marks the project failed, so the card says it does not know rather than
+// showing the last verdict as current.
+func (m *Model) onPRs(msg PRsLoadedMsg) tea.Cmd {
+	delete(m.prPending, msg.Project)
+	if msg.Err != nil {
+		m.prFailure(msg.Project, msg.Err)
+		return nil
+	}
+	delete(m.prFailed, msg.Project)
+	m.prs[msg.Project] = msg.PRs
+	m.settleTracker(msg.Project)
+	return nil
+}
+
+// prFailure sorts a failed call into a lost forge or an outage.
+func (m *Model) prFailure(project string, err error) {
+	if m.stopsForge(project, err) {
+		return
+	}
+	if !m.prFailed[project] {
+		slog.Warn("reading pull requests", "project", project, "err", err)
+	}
+	m.prFailed[project] = true
+}
+
+// withPRMaps allocates the pull request state (#310). Keyed by project, so
+// archive leaves it alone (skipSessionMaps) and forgetProject clears it.
+func (m *Model) withPRMaps() *Model {
+	m.prs = map[string][]forge.PR{}
+	m.prPending = map[string]bool{}
+	m.prFailed = map[string]bool{}
+	m.forgeStopped = map[string]error{}
+	m.prAsked = map[string]time.Time{}
+	return m
+}

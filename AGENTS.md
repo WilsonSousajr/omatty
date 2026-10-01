@@ -91,9 +91,10 @@ internal/
 │   ├── transcript/ [ADR 0001] reads an agent's JSONL as it grows: new complete lines, truncation.
 │   └── vcs/        OUR interface over the git CLI (invariant 4).
 ├── pubsub/          [ADR 0001] Broker[T]: services publish (Publish waits, Offer drops), the TUI subscribes.
-├── termwrap/       OUR interface over bubbleterm (invariant 4).
-├── keys/           modal key router. Pure state machine (invariant 1).
-└── ui/             bubbletea model, panes, rendering.
+└── tui/          [ADR 0001] the TUI: driving adapter 1.
+    ├── app/        bubbletea model, panes, rendering.
+    ├── keys/       modal key router. Pure state machine (invariant 1).
+    └── terminal/   OUR interface over bubbleterm (invariant 4).
 docs/               design specs and architecture notes.
 scripts/            check-coverage.sh and other gate scripts.
 tools/              gate tools with a main: crapcheck, depcheck. Inside ./... so gofmt,
@@ -103,9 +104,9 @@ testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-claude.
 ```
 
 One responsibility per package, typed APIs, no circular dependencies.
-`internal/ui` and `internal/termwrap` are the only packages that import
-bubbletea. termwrap is a real exception, not an oversight: bubbleterm is itself
-a bubbletea component, so `termwrap.Terminal` returns `tea.Cmd` and cannot avoid
+`internal/tui/app` and `internal/tui/terminal` are the only packages that import
+bubbletea. tui/terminal is a real exception, not an oversight: bubbleterm is itself
+a bubbletea component, so `terminal.Terminal` returns `tea.Cmd` and cannot avoid
 the import. Enforced by `depguard`, not asked for (#260).
 
 ## Build and test commands
@@ -210,7 +211,7 @@ not in the gate.
 - **Inject through constructor or parameter.** No package-level mutable state,
   no global singletons, no `init()` side effects.
 - **Wrap third-party libraries behind a thin interface this project owns.**
-  `internal/termwrap` owns bubbleterm and the PTY, `internal/infra/vcs` owns the git
+  `internal/tui/terminal` owns bubbleterm and the PTY, `internal/infra/vcs` owns the git
   CLI, `internal/infra/forge` owns every forge CLI (gh, glab, az, tea),
   `internal/infra/highlight` owns chroma,
   `internal/infra/gitdiff` owns go-gitdiff. No other package may import them.
@@ -218,7 +219,7 @@ not in the gate.
   string, not imported - by `TestNoGitOutsideVcs` and `TestNoGhOutsideForge`.
 - **Shelling out is a capability, not a convenience.** `os/exec` is reachable
   from `infra/agentcli`, `infra/detach`, `infra/forge`, `infra/gateexec`, `infra/golist`, `infra/notify`,
-  `termwrap` and `infra/vcs`, and nowhere else in production code. `termwrap` is on that list because it spawns
+  `tui/terminal` and `infra/vcs`, and nowhere else in production code. `tui/terminal` is on that list because it spawns
   the session's process: the session service hands it a `session.Launch`
   command line, and the PTY it runs in is bubbleterm's (ADR 0001, "Starting a
   session"; it only named `*exec.Cmd` in a signature until migration step 5.5). `forge` joined for #310 as omatty's one route to the
@@ -264,7 +265,7 @@ not in the gate.
 3. **omatty never writes to the user's `~/.claude/settings.json`.** Per-session
    hooks are passed with `--settings ~/.omatty/hooks.json`. Zero footprint is a
    feature.
-4. **bubbleterm and git are reachable only through `internal/termwrap` and
+4. **bubbleterm and git are reachable only through `internal/tui/terminal` and
    `internal/infra/vcs`.** bubbleterm is pre-1.0 and will break; the blast radius must
    stay inside one package we own.
 
@@ -334,7 +335,7 @@ not in the gate.
   production code takes. Named fakes are readable in a failure message.
 - Filesystem tests use `t.TempDir()`. Never touch the real `~/.claude` or
   `~/.omatty`.
-- Golden-frame tests for `termwrap`: recorded ANSI in, asserted cell grid out.
+- Golden-frame tests for `tui/terminal`: recorded ANSI in, asserted cell grid out.
 - End-to-end via `teatest` against `testdata/fake-claude`.
 
 ### Every bug gets a regression test. No exceptions.
