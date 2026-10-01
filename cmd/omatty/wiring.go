@@ -45,13 +45,12 @@ func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
 	if err != nil {
 		return err
 	}
-	claude, _ := agents.Lookup("")
-	hooksFile, err := hooks.Install(claude, home)
+	hooksFiles, err := hooks.InstallAll(agents, home)
 	if err != nil {
 		return err
 	}
 	w, h := windowSize()
-	env := tuiEnv{Home: home, Cfg: cfg, Agents: agents, HooksFile: hooksFile, Holder: detach.New(home), Width: w, Height: h}
+	env := tuiEnv{Home: home, Cfg: cfg, Agents: agents, HooksFiles: hooksFiles, Holder: detach.New(home), Width: w, Height: h}
 	return runWithNamer(tuiDeps(env, store, state), runtimeFor(env), cfg)
 }
 
@@ -65,7 +64,7 @@ func runWithNamer(deps app.Deps, rt tuiRuntime, cfg config.Config) error {
 }
 
 // tuiEnv is what the wiring needs before it can build app.Deps: where
-// things live, the hooks file claude is given, and the window to start at. A
+// things live, the hooks file each agent is given, and the window to start at. A
 // struct because the parameter list reached seven, five of them strings, and
 // M7's config, naming and agent seams each add one (#136).
 type tuiEnv struct {
@@ -73,8 +72,10 @@ type tuiEnv struct {
 	Cfg  config.Config
 	// Agents is every agent omatty can run; each session is resolved
 	// through it (#521). The binaries the config names join it in runtimeFor.
-	Agents    agent.Catalog
-	HooksFile string
+	Agents agent.Catalog
+	// HooksFiles is the settings file omatty wrote for each agent that takes
+	// hooks, by agent name (#522).
+	HooksFiles map[string]string
 	// Holder keeps sessions alive across quit. One holder, used twice: it
 	// wraps each launch and it ends an archived session's claude. Two would
 	// mean two PATH lookups that could disagree (#43).

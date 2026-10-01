@@ -20,6 +20,7 @@ import (
 type Catalog struct {
 	profiles []Profile
 	bins     map[string]string
+	hooks    map[string]string
 }
 
 // NewCatalog checks every profile can serve what it declares and returns
@@ -54,8 +55,8 @@ func (p Profile) servesItsCaps() error {
 		return fmt.Errorf("agent %q: no command template, want one to start it", p.Name)
 	case p.Caps.Status >= StatusTranscript && (p.TranscriptPath == nil || p.Status == nil):
 		return fmt.Errorf("agent %q: declares a transcript, want a transcript path and a status adapter", p.Name)
-	case p.Caps.Status == StatusHooks && (p.HookEvents == nil || p.RenderSettings == nil):
-		return fmt.Errorf("agent %q: declares hooks, want hook events and a settings renderer", p.Name)
+	case p.Caps.Status == StatusHooks && (p.HookEvents == nil || p.RenderSettings == nil || p.ParseHook == nil):
+		return fmt.Errorf("agent %q: declares hooks, want hook events, a settings renderer and a payload parser", p.Name)
 	}
 	return nil
 }
@@ -106,3 +107,17 @@ func (c Catalog) Bin(p Profile) string {
 	}
 	return p.DefaultBin
 }
+
+// WithHooksFiles returns the catalog with the settings file omatty wrote for
+// each agent that takes hooks, keyed by agent name (#522).
+//
+//	c = c.WithHooksFiles(files) // from hooks.InstallAll
+func (c Catalog) WithHooksFiles(files map[string]string) Catalog {
+	c.hooks = files
+	return c
+}
+
+// HooksFile is the settings file to hand p, or "" for an agent without one.
+//
+//	argv := p.Command(c.Bin(p), id, dir, resume, c.HooksFile(p))
+func (c Catalog) HooksFile(p Profile) string { return c.hooks[p.Name] }

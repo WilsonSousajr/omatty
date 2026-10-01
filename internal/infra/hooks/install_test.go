@@ -1,10 +1,12 @@
 package hooks_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/status"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
@@ -22,8 +24,8 @@ func TestInstall_WritesTheRunningBinaryPath_issue79(t *testing.T) {
 		t.Fatalf("InstallHooks() error = %v", err)
 	}
 
-	if path != paths.HooksFile(home) {
-		t.Errorf("path = %q, want %q", path, paths.HooksFile(home))
+	if path != paths.HooksFile(home, "") {
+		t.Errorf("path = %q, want %q", path, paths.HooksFile(home, ""))
 	}
 	exe, _ := os.Executable()
 	got, _ := os.ReadFile(path)
@@ -135,3 +137,55 @@ func TestWriteSettings_LeavesNoTempFileBehind_issue58(t *testing.T) {
 func stopProfile() agent.Profile {
 	return agent.Profile{HookEvents: func() []string { return []string{"Stop"} }, RenderSettings: hooks.Render}
 }
+
+// One settings file per agent that takes hooks, and none for one that does
+// not: claude's at hooks.json, which live detached sessions already name,
+// another's beside it (#522).
+func TestInstallAll_OneFilePerHookAgent_issue522(t *testing.T) {
+	home := t.TempDir()
+	hooky := func(name string) agent.Profile {
+		p := stopProfile()
+		p.Name, p.Command = name, agent.ClaudeCommand
+		p.Caps = agent.Caps{Identity: agent.Assigned, Status: agent.StatusHooks}
+		p.TranscriptPath = paths.Transcript
+		p.Status = fakeAdapter{}
+		p.ParseHook = hooks.ParsePayload
+		return p
+	}
+	quiet := agent.Profile{Name: "quiet", Command: agent.ClaudeCommand}
+	agents, err := agent.NewCatalog(hooky("claude"), hooky("toy"), quiet)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := hooks.InstallAll(agents, home)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if files["claude"] != paths.HooksFile(home, "claude") || files["toy"] != paths.HooksFile(home, "toy") {
+		t.Errorf("files = %v, want claude's and toy's own", files)
+	}
+	if _, ok := files["quiet"]; ok {
+		t.Errorf("an agent without hooks got a settings file: %v", files)
+	}
+	for _, f := range []string{files["claude"], files["toy"]} {
+		if _, err := os.Stat(f); err != nil {
+			t.Errorf("%s was not written: %v", f, err)
+		}
+		// Invariant 3, generalised: nothing outside omatty's own directory.
+		if !strings.HasPrefix(f, paths.Root(home)+string(filepath.Separator)) {
+			t.Errorf("%s is outside %s", f, paths.Root(home))
+		}
+	}
+}
+
+// fakeAdapter stands in for a hook agent's status parser, which this package
+// never calls; the catalog only requires that one is declared (#520).
+type fakeAdapter struct{}
+
+func (fakeAdapter) ParseEntry([]byte) (status.Entry, bool) { return status.Entry{}, false }
+func (fakeAdapter) DeriveKind([]status.Entry) (status.Kind, time.Time, bool) {
+	return 0, time.Time{}, false
+}
+func (fakeAdapter) KindOf(status.HookPayload) (status.Kind, bool) { return 0, false }

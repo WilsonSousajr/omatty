@@ -67,7 +67,11 @@ func TestOmattyLocations(t *testing.T) {
 	}{
 		{"root", paths.Root("/home/u"), "/home/u/.omatty"},
 		{"state", paths.StateFile("/home/u"), "/home/u/.omatty/state.json"},
-		{"hooks", paths.HooksFile("/home/u"), "/home/u/.omatty/hooks.json"},
+		{"hooks", paths.HooksFile("/home/u", ""), "/home/u/.omatty/hooks.json"},
+		// claude keeps hooks.json: a session dtach holds across quit carries
+		// that path in its argv, and moving it would cut its hooks (#522).
+		{"claude's hooks", paths.HooksFile("/home/u", "claude"), "/home/u/.omatty/hooks.json"},
+		{"another agent's hooks", paths.HooksFile("/home/u", "codex"), "/home/u/.omatty/hooks-codex.json"},
 		{"socket", paths.HookSocket("/home/u"), "/home/u/.omatty/sock"},
 		{"logs", paths.LogDir("/home/u"), "/home/u/.omatty/logs"},
 		{"config", paths.ConfigFile("/home/u"), "/home/u/.omatty/config.toml"},

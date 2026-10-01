@@ -116,6 +116,74 @@ func TestOmattyHook_ExitsZeroWithoutHOME_issue54(t *testing.T) {
 	}
 }
 
+// An agent omatty does not know is a hook that sends nothing and exits 0
+// silently, whatever its payload (invariant 11, #522).
+//
+// Nothing sent is shown by order rather than by waiting: a claude hook runs
+// after the unknown one has exited, so had the first sent its payload, it
+// would be the first to arrive.
+func TestOmattyHook_UnknownAgentExitsZeroSilently_issue522(t *testing.T) {
+	dir, events, closeListener := listenUnderHome(t)
+	defer closeListener()
+
+	out, err := runHookArgs(t, []string{"HOME=" + dir}, `{"session_id":"x","hook_event_name":"Stop"}`, "--agent", "nope")
+	if err != nil || len(out) != 0 {
+		t.Errorf("omatty hook --agent nope exited %v with output %q, want exit 0 and no output (invariant 11)", err, out)
+	}
+	if _, err := runHookArgs(t, []string{"HOME=" + dir}, `{"session_id":"after","hook_event_name":"Stop"}`); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case p := <-events:
+		if p.SessionID != "after" {
+			t.Errorf("first payload is %q, want the claude hook's: the unknown agent's was sent", p.SessionID)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("the claude hook never reached the listener")
+	}
+}
+
+// --agent claude is the flagless hook, delivered the same way; a malformed
+// payload in claude's shape is still a silent success (#522).
+func TestOmattyHook_AgentFlagReadsThatAgentsShape_issue522(t *testing.T) {
+	dir, events, closeListener := listenUnderHome(t)
+	defer closeListener()
+
+	if out, err := runHookArgs(t, []string{"HOME=" + dir}, `{not json`, "--agent", "claude"); err != nil || len(out) != 0 {
+		t.Errorf("malformed payload: exited %v with %q, want exit 0 and no output", err, out)
+	}
+	if out, err := runHookArgs(t, []string{"HOME=" + dir}, `{"session_id":"abc","hook_event_name":"Stop"}`, "--agent", "claude"); err != nil || len(out) != 0 {
+		t.Fatalf("exited %v with %q, want exit 0 and no output", err, out)
+	}
+	select {
+	case p := <-events:
+		if p.SessionID != "abc" || p.HookEventName != "Stop" {
+			t.Errorf("received %+v, want abc Stop", p)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("omatty hook --agent claude never reached the listener")
+	}
+}
+
+// The 4 MiB bound holds with the flag as without it (invariant 11, #55).
+func TestOmattyHook_AgentFlagKeepsTheStdinBound_issue522(t *testing.T) {
+	big := `{"session_id":"x","hook_event_name":"Stop","tool_response":"` + strings.Repeat("a", 5<<20) + `"}`
+	out, err := runHookArgs(t, nil, big, "--agent", "claude")
+	if err != nil || len(out) != 0 {
+		t.Errorf("oversized stdin: exited %v with %q, want exit 0 and no output", err, out)
+	}
+}
+
+// runHookArgs runs the built binary's hook subcommand with args after
+// "hook", the test's environment minus HOME, plus env.
+func runHookArgs(t *testing.T, env []string, stdin string, args ...string) ([]byte, error) {
+	t.Helper()
+	cmd := exec.Command(omattyBinary(t), append([]string{"hook"}, args...)...)
+	cmd.Env = append(withoutHome(os.Environ()), env...)
+	cmd.Stdin = strings.NewReader(stdin)
+	return cmd.CombinedOutput()
+}
+
 // runHook runs the built binary's hook subcommand with the test's own
 // environment minus HOME, plus env.
 func runHook(t *testing.T, env []string, stdin string) ([]byte, error) {

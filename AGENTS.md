@@ -271,9 +271,15 @@ not in the gate.
    attempt.
 2. **Status comes from JSONL and hooks, never from the rendered screen.** No
    package may parse the terminal cell grid to infer session state.
-3. **omatty never writes to the user's `~/.claude/settings.json`.** Per-session
-   hooks are passed with `--settings ~/.omatty/hooks.json`. Zero footprint is a
-   feature.
+3. **omatty never writes any agent's user configuration** (`~/.claude`,
+   `~/.codex`, `~/.gemini`, `~/.config/opencode`, ...), **and never writes an
+   agent config file inside the project** (#522). Per-session hooks are passed
+   per invocation - claude's with `--settings ~/.omatty/hooks.json`, another
+   agent's from `~/.omatty/hooks-<agent>.json` by a flag or by an env var
+   naming a file the agent *merges*. A route that replaces the user's config is
+   refused, because it hides their auth and settings. An agent whose only hook
+   route is a global or project file gets no hooks and drops a tier. Zero
+   footprint is a feature.
 4. **bubbleterm and git are reachable only through `internal/tui/terminal` and
    `internal/infra/vcs`.** bubbleterm is pre-1.0 and will break; the blast radius must
    stay inside one package we own.
@@ -306,9 +312,10 @@ not in the gate.
    Any new session field is either derivable or persisted.
 10. **`cmd/` stays thin.** Parse flags, construct dependencies, call typed
     library functions. No logic.
-11. **A hook must never block or fail claude.** `omatty hook` reads bounded
-    stdin (4 MiB cap, #55), dials the socket with a short timeout, and exits 0 in
-    every case — socket missing, connection refused, malformed JSON — writing
+11. **A hook must never block or fail any agent.** `omatty hook [--agent
+    <name>]` reads bounded stdin (4 MiB cap, #55), dials the socket with a
+    short timeout, and exits 0 in every case — socket missing, connection
+    refused, malformed JSON, an agent it does not know (#522) — writing
     nothing to stdout or stderr. Its `hooks.json` timeout is 5 s. A hook that
     hangs or errors would stall every claude session on the machine, whether
     or not omatty is running.

@@ -238,10 +238,15 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
    rule is whether a wrong answer would mislead omatty about a session - a
    clipboard cannot.
 
-3. **omatty never writes `~/.claude/settings.json`.** Hooks are injected
-   per-process with `--settings ~/.omatty/hooks.json`. Zero footprint is a
-   feature: uninstalling omatty leaves Claude exactly as it was, and two
-   omatty versions cannot fight over one file.
+3. **omatty never writes any agent's user configuration, nor an agent config
+   file inside the project.** Hooks are injected per-process: claude's with
+   `--settings ~/.omatty/hooks.json`, every other agent's from its own
+   `~/.omatty/hooks-<agent>.json` (`paths.HooksFile`). Zero footprint is a
+   feature: uninstalling omatty leaves every agent exactly as it was, and two
+   omatty versions cannot fight over one file. M17 added the second half
+   (#522): a `.gemini/settings.json` or `.cursor/hooks.json` written into the
+   repository dirties the operator's tree and gets committed, so an agent
+   whose only hook route is such a file gets no hooks and drops a tier.
 
 4. **bubbleterm, git and dtach are reachable only through packages omatty
    owns.** bubbleterm is pre-1.0 and will break; the blast radius must be one
@@ -292,7 +297,9 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
     in every case, writing nothing - a hook that hung or errored would stall
     every claude session on the machine. `main` dispatches to it before
     opening the log or reading config, so nothing that can fail sits in its
-    path (#54).
+    path (#54). `--agent <name>` (#522) adds no such thing: the payload
+    parser comes from the in-memory catalog, and an agent it cannot resolve
+    is a hook that sends nothing.
 
 12. **[M9] Gate verdicts come from exit status, never from output text.**
     Invariant 2 applied to the gate, and the same argument: a step's output is

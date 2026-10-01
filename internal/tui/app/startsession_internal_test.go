@@ -43,7 +43,7 @@ func TestStartSession_HandsTheLaunchToTheFactory(t *testing.T) {
 	}
 	sess := session.Session{ID: "abc-123", Dir: "/w/parser-fix"}
 
-	l := sessions.NewLauncher(catalogFor(t, startProfile(), "claude"), "/h.json", t.TempDir(), &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, startProfile(), "claude", "/h.json"), t.TempDir(), &detach.Plain{})
 	term, err := startSession(l, factory, sess, 80, 24)
 
 	if err != nil {
@@ -62,7 +62,7 @@ func TestStartSession_FailureNamesTheSession(t *testing.T) {
 		return nil, errors.New("pty exhausted")
 	}
 
-	_, err := startSession(sessions.NewLauncher(catalogFor(t, startProfile(), "claude"), "/h.json", t.TempDir(), &detach.Plain{}), factory, session.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
+	_, err := startSession(sessions.NewLauncher(catalogFor(t, startProfile(), "claude", "/h.json"), t.TempDir(), &detach.Plain{}), factory, session.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
 
 	if err == nil {
 		t.Fatal("Start() returned nil after a factory failure, want an error")
@@ -81,7 +81,7 @@ func TestStartSession_UnknownAgentStartsNothingAndSaysWhich_issue521(t *testing.
 		return terminal.NewFake(""), nil
 	}
 
-	_, err := startSession(sessions.NewLauncher(catalogFor(t, startProfile(), "claude"), "/h.json", t.TempDir(), &detach.Plain{}), factory, session.Session{ID: "abc-123", Dir: "/w", Agent: "codex"}, 80, 24)
+	_, err := startSession(sessions.NewLauncher(catalogFor(t, startProfile(), "claude", "/h.json"), t.TempDir(), &detach.Plain{}), factory, session.Session{ID: "abc-123", Dir: "/w", Agent: "codex"}, 80, 24)
 
 	if err == nil || !strings.Contains(err.Error(), `"codex"`) || !strings.Contains(err.Error(), "abc-123") {
 		t.Errorf("error = %v, want one naming the session and codex", err)
@@ -101,7 +101,7 @@ func TestStartSession_RunsTheFakeClaude(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	l := sessions.NewLauncher(catalogFor(t, startProfile(), bin), "/h.json", t.TempDir(), &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, startProfile(), bin, "/h.json"), t.TempDir(), &detach.Plain{})
 	sess := session.Session{ID: "smoke-uuid", Dir: t.TempDir()}
 
 	term, err := startSession(l, terminal.Start, sess, 60, 12)
@@ -123,19 +123,20 @@ func TestStartSession_SurfacesAHolderFailure_issue43(t *testing.T) {
 		return nil, nil
 	}
 
-	_, err := startSession(sessions.NewLauncher(catalogFor(t, startProfile(), "claude"), "/h.json", t.TempDir(), h), factory, session.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
+	_, err := startSession(sessions.NewLauncher(catalogFor(t, startProfile(), "claude", "/h.json"), t.TempDir(), h), factory, session.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
 
 	if err == nil {
 		t.Fatal("Start() returned nil after the holder failed, want an error")
 	}
 }
 
-// catalogFor is a one-profile catalog running bin, for a launcher test (#521).
-func catalogFor(t *testing.T, p agent.Profile, bin string) agent.Catalog {
+// catalogFor is a one-profile catalog running bin with hooksFile as its
+// settings, for a launcher test (#521, #522).
+func catalogFor(t *testing.T, p agent.Profile, bin, hooksFile string) agent.Catalog {
 	t.Helper()
 	c, err := agent.NewCatalog(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return c.WithBins(map[string]string{p.Name: bin})
+	return c.WithBins(map[string]string{p.Name: bin}).WithHooksFiles(map[string]string{p.Name: hooksFile})
 }
