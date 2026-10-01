@@ -1,5 +1,10 @@
 # Architecture audit (Phase 0)
 
+> **Done.** ADR 0001 (#618) answered this audit and `docs/MIGRATION_PLAN.md`
+> carried it out (#653, completed 2026-10-01). The page is kept as the record
+> of the code before the migration; its line references are to that code, and
+> `docs/ARCHITECTURE.md` describes the code as it is.
+
 Captured 2026-09-29 against `develop` @ `1243cb2` (v0.9.0 plus the M16 docs), for
 #615. This is read-only discovery. It proposes no design; that is Phase 1, an
 ADR, and it waits on review of this page.

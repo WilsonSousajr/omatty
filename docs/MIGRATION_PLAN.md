@@ -1,6 +1,9 @@
 # Migration plan: today's layout to ADR 0001
 
-- **Status:** Approved 2026-09-29 (#623); executing (Phase 4).
+- **Status:** Approved 2026-09-29 (#623); **done** 2026-10-01 (#653). Layer
+  findings went from 28 to 0, and the check is enforced in CI since 8.2. Steps
+  6.3b-6.9 (the per-face Screen packages) were deferred by Amendment 10 to
+  #695-#701.
 - **Target:** `docs/adr/0001-architecture.md` (accepted, #618).
 - **Evidence:** `docs/ARCHITECTURE_AUDIT.md` (#615).
 - **Net:** the Phase 2 characterization tests (#620):
@@ -88,7 +91,8 @@ count after the step.
 | 7.2a | #653 | #703 | merged | 0 |
 | 7.2 | #653 | #704 | merged | 0 |
 | 8.1 | #653 | #705 | merged | 0 |
-| 8.2 | #653 | #706 | open | 0 |
+| 8.2 | #653 | #706 | merged | 0 |
+| 8.3 | #653 | #707 | open | 0 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,
