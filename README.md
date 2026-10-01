@@ -209,6 +209,8 @@ omatty gate my-app                    # show the gate, or propose one and confir
 omatty gate my-app --detect           # print the proposal, write nothing
 omatty carry my-app .env certs        # files every new worktree of it carries
 omatty carry my-app                   # show that list
+omatty sessions --json                # every session, for a script
+omatty status --json                  # each session's status and tokens, read from its transcript
 omatty                                # run the TUI
 omatty --version                      # which build is this
 ```
