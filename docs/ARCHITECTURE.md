@@ -57,7 +57,7 @@ claude --settings ~/.omatty/hooks.json
 
 **Review round trip.** The review column asks for a diff through a typed
 function `cmd/omatty` hands the model at startup; the function calls
-`internal/infra/vcs`, which is the one place git is run. `internal/review` splits
+`internal/infra/vcs`, which is the one place git is run. `internal/service/review` splits
 the diff into hunks, holds the operator's comments anchored on content -
 file, hunk header, line hash - rather than line numbers, and composes the one
 message that sends them back. `ui` writes that message into the session's PTY
@@ -140,7 +140,7 @@ page and AGENTS.md said `ui` alone, and had been wrong for nine milestones.
 | `internal/domain/review` | The review model: a diff as files, hunks and lines; comments anchored on content, not line numbers (invariant 7); where they land after the diff moves; the file tree; the prompt `Compose` writes. Pure; `internal/review` aliases it until migration step 8.1. |
 | `internal/domain/session` | `Project`, `Session`, `State` - what `state.json` holds, whose JSON tags are invariant 9 - and the placeholder title and branch a new session starts with. Pure; `internal/service/sessions` aliases it until migration step 8.1. |
 | `internal/domain/status` | A session's status vocabulary - `Kind`, `Status`, `Event`, `Tokens`, `SessionState`, `HookPayload`, the transcript `Entry` and the agent's `Adapter` port - and `Apply`, which folds an event into a state. Pure; `internal/service/status` and `internal/infra/hooks` alias it until migration step 8.1. |
-| `internal/review` | Diff → hunks → content-anchored comments → the message sent back. |
+| `internal/service/review` | A session's diff, stat, turn baseline, revert and what can ship, read through its own `Git` port and an injected diff parser; the diff model it hands back is `domain/review`'s. |
 
 | `internal/termwrap` | omatty's only route to the terminal emulator (bubbleterm). |
 | `internal/ui` | The bubbletea model: sidebar, panes, modals, review column, rendering. |

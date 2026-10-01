@@ -12,7 +12,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/review"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // diffNavKey runs ], [, n, N and enter, reporting whether key was one.
