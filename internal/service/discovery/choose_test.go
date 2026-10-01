@@ -1,16 +1,16 @@
-package discover_test
+package discovery_test
 
 import (
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/WilsonSousajr/omatty/internal/discover"
+	"github.com/WilsonSousajr/omatty/internal/service/discovery"
 )
 
-func threeCandidates() []discover.Candidate {
+func threeCandidates() []discovery.Candidate {
 	now := time.Now()
-	return []discover.Candidate{
+	return []discovery.Candidate{
 		{Name: "omatty", Root: "/p/omatty", LastUsed: now},
 		{Name: "api-svc", Root: "/work/api-svc", LastUsed: now.Add(-48 * time.Hour)},
 		{Name: "notes", Root: "/p/notes", LastUsed: now.Add(-90 * 24 * time.Hour)},
@@ -20,7 +20,7 @@ func threeCandidates() []discover.Candidate {
 func TestList_NumbersEachCandidateAndSaysWhenItWasUsed(t *testing.T) {
 	now := time.Now()
 
-	got := discover.List(threeCandidates(), now)
+	got := discovery.List(threeCandidates(), now)
 
 	if len(got) != 3 {
 		t.Fatalf("List() returned %d lines, want 3", len(got))
@@ -51,7 +51,7 @@ func TestChoose_Selection(t *testing.T) {
 		{"whitespace chooses nothing", "   ", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := discover.Choose(threeCandidates(), tc.selection)
+			got, err := discovery.Choose(threeCandidates(), tc.selection)
 			if err != nil {
 				t.Fatalf("Choose(%q) error = %v, want nil", tc.selection, err)
 			}
@@ -68,7 +68,7 @@ func TestChoose_Selection(t *testing.T) {
 }
 
 func TestChoose_RejectsSomethingThatIsNotANumber(t *testing.T) {
-	_, err := discover.Choose(threeCandidates(), "omatty")
+	_, err := discovery.Choose(threeCandidates(), "omatty")
 
 	if err == nil {
 		t.Fatal("Choose() with a name returned nil, want an error")
@@ -80,7 +80,7 @@ func TestChoose_RejectsSomethingThatIsNotANumber(t *testing.T) {
 
 func TestChoose_RejectsAnOutOfRangeNumber(t *testing.T) {
 	for _, sel := range []string{"0", "4", "-1"} {
-		_, err := discover.Choose(threeCandidates(), sel)
+		_, err := discovery.Choose(threeCandidates(), sel)
 		if err == nil {
 			t.Errorf("Choose(%q) returned nil, want an out-of-range error", sel)
 			continue
@@ -94,7 +94,7 @@ func TestChoose_RejectsAnOutOfRangeNumber(t *testing.T) {
 // One bad field must reject the whole selection rather than registering the
 // good half: a partial answer to "which of these" is not an answer.
 func TestChoose_OneBadFieldRejectsTheWholeSelection(t *testing.T) {
-	got, err := discover.Choose(threeCandidates(), "1 99")
+	got, err := discovery.Choose(threeCandidates(), "1 99")
 
 	if err == nil {
 		t.Fatal("Choose() with one bad field returned nil, want an error")
@@ -104,9 +104,9 @@ func TestChoose_OneBadFieldRejectsTheWholeSelection(t *testing.T) {
 	}
 }
 
-func threeSessions() []discover.SessionCandidate {
+func threeSessions() []discovery.SessionCandidate {
 	now := time.Now()
-	return []discover.SessionCandidate{
+	return []discovery.SessionCandidate{
 		{ID: "s1", Title: "fix the parser", Dir: "/p/omatty", LastUsed: now},
 		{ID: "s2", Title: "add a file tree", Dir: "/p/omatty", LastUsed: now.Add(-48 * time.Hour)},
 		{ID: "s3", Title: "chase a flake", Dir: "/p/omatty", LastUsed: now.Add(-90 * 24 * time.Hour)},
@@ -114,7 +114,7 @@ func threeSessions() []discover.SessionCandidate {
 }
 
 func TestListSessions_NumbersEachSessionAndSaysWhenItWasUsed_issue122(t *testing.T) {
-	got := discover.ListSessions(threeSessions(), time.Now())
+	got := discovery.ListSessions(threeSessions(), time.Now())
 
 	if len(got) != 3 {
 		t.Fatalf("ListSessions() returned %d lines, want 3", len(got))
@@ -141,7 +141,7 @@ func TestChooseSessions_Selection_issue122(t *testing.T) {
 		{"empty chooses nothing", "", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := discover.ChooseSessions(threeSessions(), tc.selection)
+			got, err := discovery.ChooseSessions(threeSessions(), tc.selection)
 			if err != nil {
 				t.Fatalf("ChooseSessions(%q) error = %v, want nil", tc.selection, err)
 			}
@@ -158,7 +158,7 @@ func TestChooseSessions_Selection_issue122(t *testing.T) {
 }
 
 func TestChooseSessions_RejectsSomethingThatIsNotANumber_issue122(t *testing.T) {
-	_, err := discover.ChooseSessions(threeSessions(), "s1")
+	_, err := discovery.ChooseSessions(threeSessions(), "s1")
 
 	if err == nil {
 		t.Fatal("ChooseSessions() with an id returned nil, want an error")
@@ -169,7 +169,7 @@ func TestChooseSessions_RejectsSomethingThatIsNotANumber_issue122(t *testing.T) 
 }
 
 func TestChooseSessions_RejectsAnOutOfRangeNumber_issue122(t *testing.T) {
-	_, err := discover.ChooseSessions(threeSessions(), "4")
+	_, err := discovery.ChooseSessions(threeSessions(), "4")
 
 	if err == nil {
 		t.Fatal("ChooseSessions(\"4\") returned nil, want an out-of-range error")

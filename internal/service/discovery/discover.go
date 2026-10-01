@@ -1,4 +1,4 @@
-// Package discover proposes repositories to register, read from Claude Code's
+// Package discovery proposes repositories to register, read from Claude Code's
 // own transcript store (#91).
 //
 // `omatty add <dir>` registers one directory at a time, typed from memory.
@@ -13,7 +13,7 @@
 // Transcript content is untrusted (AGENTS.md, Security). Only `cwd` is read
 // out of it, and it is validated against the filesystem and against git before
 // it is offered.
-package discover
+package discovery
 
 import (
 	"bufio"
@@ -69,7 +69,7 @@ type Git interface {
 // "already registered", and nothing on screen said why - and the store only
 // grows, so the second use of the feature is the common one (#91).
 //
-//	cands, err := discover.Propose(paths.TranscriptsDir(home), vcs.NewCLI(), roots)
+//	cands, err := discovery.Propose(paths.TranscriptsDir(home), vcs.NewCLI(), roots)
 func Propose(storeRoot string, git Git, registered []string) ([]Candidate, error) {
 	entries, err := os.ReadDir(storeRoot)
 	if err != nil {

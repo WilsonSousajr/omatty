@@ -76,7 +76,8 @@ count after the step.
 | 5.8a (fsread) | #653 | #681 | merged | 7 |
 | 5.8b (ports) | #653 | #683 | merged | 4 |
 | 5.8c (move) | #653 | #685 | merged | 4 |
-| Amendment 9 + 5.9a | #653 | #687 | open | 3 |
+| Amendment 9 + 5.9a | #653 | #687 | merged | 3 |
+| 5.9b (move) | #653 | this PR | open | 3 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,

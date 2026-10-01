@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/WilsonSousajr/omatty/internal/discover"
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/agentcli"
@@ -28,6 +27,7 @@ import (
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
 	"github.com/WilsonSousajr/omatty/internal/infra/transcript"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
+	"github.com/WilsonSousajr/omatty/internal/service/discovery"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
@@ -174,7 +174,7 @@ func withTableDeps(deps ui.RunDeps, cfg config.Config) ui.RunDeps {
 // main_test.go concedes this wiring is covered only by the milestone's PTY
 // smoke test (#122).
 type wiringGit interface {
-	discover.Git
+	discovery.Git
 	RemoveWorktree(repoRoot, dir string) error
 }
 
@@ -246,18 +246,18 @@ func withPickerDeps(
 	return deps
 }
 
-// projectProposer adapts discover.Propose to ui.DiscoverFunc.
+// projectProposer adapts discovery.Propose to ui.DiscoverFunc.
 //
 // LastUsed is carried across rather than flattened away: it is what orders the
 // list, so dropping it left the picker showing rows in an order it could not
 // explain (#91).
-func projectProposer(store sessions.StateStore, home string, git discover.Git) ui.DiscoverFunc {
+func projectProposer(store sessions.StateStore, home string, git discovery.Git) ui.DiscoverFunc {
 	return func() ([]ui.Proposal, error) {
 		roots, err := registeredRoots(store)
 		if err != nil {
 			return nil, err
 		}
-		cands, err := discover.Propose(paths.TranscriptsDir(home), git, roots)
+		cands, err := discovery.Propose(paths.TranscriptsDir(home), git, roots)
 		if err != nil {
 			return nil, err
 		}
@@ -269,18 +269,18 @@ func projectProposer(store sessions.StateStore, home string, git discover.Git) u
 	}
 }
 
-// sessionProposer adapts discover.ProposeSessions to ui.AdoptFunc.
+// sessionProposer adapts discovery.ProposeSessions to ui.AdoptFunc.
 //
 // LastUsed and Dir are carried across rather than flattened away: one orders
 // the list and the other is where the adopted session must actually start, and
 // they differ for a session that ran in a linked worktree (#122).
-func sessionProposer(store sessions.StateStore, home string, git discover.Git) ui.AdoptFunc {
+func sessionProposer(store sessions.StateStore, home string, git discovery.Git) ui.AdoptFunc {
 	return func(projectRoot string) ([]ui.SessionProposal, error) {
 		ids, err := sessions.KnownSessionIDs(context.Background(), store)
 		if err != nil {
 			return nil, err
 		}
-		cands, err := discover.ProposeSessions(paths.TranscriptsDir(home), git, projectRoot, ids)
+		cands, err := discovery.ProposeSessions(paths.TranscriptsDir(home), git, projectRoot, ids)
 		if err != nil {
 			return nil, err
 		}
@@ -376,7 +376,7 @@ func modelNamer(cfg config.Config) (ui.ModelNameFunc, func()) {
 	}
 }
 
-// sessionNamer adapts discover.FirstPromptTitle to ui.NameFunc, so the model
+// sessionNamer adapts discovery.FirstPromptTitle to ui.NameFunc, so the model
 // can name a session from its transcript without reading one itself (#127).
 // The path is the agent's, not paths.Transcript's: claude files a transcript
 // under its resolved working directory, which differs behind a symlink (#564).
@@ -384,7 +384,7 @@ func sessionNamer(home string, profile agent.Profile) ui.NameFunc {
 	return func(sess sessions.Session) (string, error) {
 		// The conversation, not the ID: after /clear the row's first
 		// transcript is the one it left behind (#316).
-		return discover.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()))
+		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()))
 	}
 }
 

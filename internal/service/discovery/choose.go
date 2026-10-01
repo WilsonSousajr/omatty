@@ -2,7 +2,7 @@
 // here rather than in cmd/omatty so the subcommand stays a construction plus
 // one typed call (invariant 10).
 
-package discover
+package discovery
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ import (
 // List renders candidates as numbered lines for `omatty discover`, newest
 // first, each with when it was last used.
 //
-//	for _, line := range discover.List(cands, time.Now()) { report(line) }
+//	for _, line := range discovery.List(cands, time.Now()) { report(line) }
 func List(cands []Candidate, now time.Time) []string {
 	lines := make([]string, 0, len(cands))
 	for i, c := range cands {
@@ -28,7 +28,7 @@ func List(cands []Candidate, now time.Time) []string {
 // ListSessions renders adoptable sessions as numbered lines for `omatty adopt`,
 // newest first, each with its title and when it was last used (#122).
 //
-//	for _, line := range discover.ListSessions(cands, time.Now()) { report(line) }
+//	for _, line := range discovery.ListSessions(cands, time.Now()) { report(line) }
 //
 // The title rather than the id leads, because a uuid tells the operator nothing
 // about which session it is; the id is shown too, since it is what `--resume`
@@ -88,7 +88,7 @@ func plural(n int, unit string) string {
 // how you back out: discovery proposes, and nothing is registered without
 // being asked for (invariant 9).
 //
-//	picked, err := discover.Choose(cands, "1 3")
+//	picked, err := discovery.Choose(cands, "1 3")
 func Choose(cands []Candidate, selection string) ([]Candidate, error) {
 	return pick(cands, selection)
 }
@@ -97,7 +97,7 @@ func Choose(cands []Candidate, selection string) ([]Candidate, error) {
 // The grammar is identical on purpose: an operator who has learnt one list has
 // learnt the other.
 //
-//	picked, err := discover.ChooseSessions(cands, "1 3")
+//	picked, err := discovery.ChooseSessions(cands, "1 3")
 func ChooseSessions(cands []SessionCandidate, selection string) ([]SessionCandidate, error) {
 	return pick(cands, selection)
 }
