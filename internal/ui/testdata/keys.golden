@@ -359,7 +359,7 @@ leader "?" code=63 mod=0 text="?" -> pty=0 msgs= focus=0/false armed=false modal
 leader "space" code=32 mod=0 text=" " -> pty=0 msgs= focus=0/true armed=false modal="" view=0 sel=s1 open=false focused=false zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=9e8ac33e
 leader "enter" code=13 mod=0 text="" -> pty=0 msgs= focus=0/true armed=false modal="" view=0 sel=s1 open=false focused=false zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=9e8ac33e
 leader "esc" code=27 mod=0 text="" -> pty=0 msgs= focus=0/true armed=false modal="" view=0 sel=s1 open=false focused=false zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=9e8ac33e
-leader "tab" code=9 mod=0 text="" -> pty=0 msgs= focus=0/true armed=false modal="" view=0 sel=s1 open=false focused=false zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=ab0d0c9c
+leader "tab" code=9 mod=0 text="" -> pty=0 msgs=ui.persistedMsg focus=0/true armed=false modal="" view=0 sel=s1 open=false focused=false zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=ab0d0c9c
 leader "backspace" code=127 mod=0 text="" -> pty=0 msgs= focus=0/true armed=false modal="" view=0 sel=s1 open=false focused=false zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=9e8ac33e
 leader "up" code=1114113 mod=0 text="" -> pty=0 msgs= focus=0/true armed=false modal="" view=0 sel=s1 open=false focused=false zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=9e8ac33e
 leader "down" code=1114114 mod=0 text="" -> pty=0 msgs= focus=0/true armed=false modal="" view=0 sel=s1 open=false focused=false zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=9e8ac33e

@@ -115,6 +115,7 @@ func filledModel() *Model {
 	m.terms[forgottenID] = nil
 	m.activeAt[forgottenID] = time.Unix(0, 0)
 	m.starting = map[string]bool{forgottenID: true}
+	m.titleAsked = map[string]int{forgottenID: 1}
 	return m
 }
 

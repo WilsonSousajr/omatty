@@ -7,7 +7,6 @@ package ui
 
 import (
 	"fmt"
-	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -47,28 +46,49 @@ func (m *Model) commitRename() tea.Cmd {
 	id, title := m.modal.Editor.Target, m.modal.Editor.Buffer
 	m.modal = modal{}
 	m.lastErr = ""
-	if err := m.applyTitle(id, title); err != nil {
-		slog.Error("renaming session", "session", id, "title", title, "err", err)
-		m.lastErr = err.Error()
-	}
-	return nil
+	return m.applyTitle(id, title, nil)
 }
 
 // applyTitle is the three steps a new title takes: persist, retitle in
 // memory, rebuild the sidebar keeping the selection (#41). Shared by the
 // rename box and the auto-namer (#127) so the two cannot end up doing
-// different amounts of work.
-func (m *Model) applyTitle(id, title string) error {
-	if err := m.rename(id, title); err != nil {
-		return err
+// different amounts of work. The persist runs off the Update goroutine
+// (#653); then runs once the title has landed.
+func (m *Model) applyTitle(id, title string, then func(*Model) tea.Cmd) tea.Cmd {
+	rename, asked := m.rename, m.askTitle(id)
+	return m.persistCmd("renaming session", []any{"session", id, "title", title},
+		func() error { return rename(id, title) },
+		func(m *Model) tea.Cmd { return m.retitled(id, title, asked, then) })
+}
+
+// askTitle counts one more title asked for id and returns its number.
+func (m *Model) askTitle(id string) int {
+	if m.titleAsked == nil {
+		m.titleAsked = map[string]int{}
+	}
+	m.titleAsked[id]++
+	return m.titleAsked[id]
+}
+
+// retitled shows a title that is on disk, unless a newer one was asked for
+// since: the writer lands them in order, so the newer is already on its way,
+// and showing this one over it - or naming a branch after it - would undo
+// what the operator just typed (#653, #127).
+func (m *Model) retitled(id, title string, asked int, then func(*Model) tea.Cmd) tea.Cmd {
+	if m.titleAsked[id] != asked {
+		return nil
 	}
 	if !m.retitle(id, title) {
-		return fmt.Errorf("session %s was renamed on disk but is not in the sidebar; reload to see it", id)
+		m.lastErr = fmt.Sprintf("session %s was renamed on disk but is not in the sidebar; reload to see it", id)
+		return nil
 	}
 	// SetRows, not NewSidebar: it re-finds the selection by id, so the row you
 	// just renamed is still the row you are on.
 	m.sidebar.SetRows(SidebarRows(m.state, m.statusMap()))
-	return nil
+	if then == nil {
+		return nil
+	}
+	return then(m)
 }
 
 // retitle updates the in-memory state the sidebar is rebuilt from, so the new

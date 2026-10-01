@@ -148,7 +148,7 @@ func TestModel_archiveTearsDownEverythingTheSessionOwned_issue40(t *testing.T) {
 	m, fakes := modelWithArchive(t, r)
 	openArchive(t, m, "s1")
 
-	press(m, key('y'))
+	pressAndSettle(m, key('y'))
 
 	if len(r.Archived) != 1 || r.Archived[0] != "s1" {
 		t.Errorf("archived = %v, want [s1]", r.Archived)
@@ -199,10 +199,10 @@ func TestModel_archiveWithWRemovesTheWorktree_issue40(t *testing.T) {
 func TestModel_archiveSizesWhicheverSessionTheCursorLandsOn_issue40(t *testing.T) {
 	r := &recordArchive{}
 	m, fakes := modelWithArchive(t, r)
-	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	settle(m, second(m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})))
 	openArchive(t, m, "s1")
 
-	press(m, key('y'))
+	pressAndSettle(m, key('y'))
 
 	landed := m.Selected()
 	if landed == "" || landed == "s1" {
@@ -222,7 +222,7 @@ func TestModel_archiveFailureKeepsTheSessionAlive_issue40(t *testing.T) {
 	m, fakes := modelWithArchive(t, r)
 	openArchive(t, m, "s1")
 
-	press(m, key('y'))
+	pressAndSettle(m, key('y'))
 
 	if fakes["s1"].Closed {
 		t.Error("the terminal was closed even though the registry edit failed")

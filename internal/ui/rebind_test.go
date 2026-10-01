@@ -54,7 +54,7 @@ func TestModel_ClearRebindsTheRowAndTheTailer_issue316(t *testing.T) {
 	r := &recordRebind{}
 	m := modelWithRebind(t, r)
 
-	m.Update(cleared("s1"))
+	settle(m, second(m.Update(cleared("s1"))))
 
 	if r.Calls != 1 || r.SessionID != "s1" || r.Conversation != "after-clear" {
 		t.Errorf("Rebind got %d calls, last (%q, %q), want one (s1, after-clear)", r.Calls, r.SessionID, r.Conversation)
@@ -68,9 +68,9 @@ func TestModel_ClearRebindsTheRowAndTheTailer_issue316(t *testing.T) {
 // the new conversation id, and it must reach the row it belongs to.
 func TestModel_StatusUnderTheNewConversationReachesTheRow_issue316(t *testing.T) {
 	m := modelWithRebind(t, &recordRebind{})
-	m.Update(cleared("s1"))
+	settle(m, second(m.Update(cleared("s1"))))
 
-	m.Update(ui.StatusMsg{SessionID: "after-clear", Kind: status.PermissionRequested, At: fixedNow.Add(time.Second)})
+	settle(m, second(m.Update(ui.StatusMsg{SessionID: "after-clear", Kind: status.PermissionRequested, At: fixedNow.Add(time.Second)})))
 
 	if got := rowOf(t, m, "main"); !strings.Contains(got, "●") {
 		t.Errorf("a hook under the post-clear id did not reach s1's row: %q", got)
@@ -110,7 +110,7 @@ func TestModel_RebindFailureSurfacesAndKeepsTheRow_issue316(t *testing.T) {
 	r := &recordRebind{Err: errors.New("state.json is read-only")}
 	m := modelWithRebind(t, r)
 
-	m.Update(cleared("s1"))
+	settle(m, second(m.Update(cleared("s1"))))
 
 	if got := m.View().Content; !strings.Contains(got, "read-only") {
 		t.Errorf("View() does not surface the failed rebind:\n%s", got)
@@ -126,9 +126,9 @@ func TestModel_RebindFailureSurfacesAndKeepsTheRow_issue316(t *testing.T) {
 func TestModel_UnwiredRebindNamesTheMissingWiring_issue316(t *testing.T) {
 	terms, _ := fakeTerms(t)
 	m := ui.NewModel(baseDeps(twoProjectState(), terms))
-	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+	settle(m, second(m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})))
 
-	m.Update(cleared("s1"))
+	settle(m, second(m.Update(cleared("s1"))))
 
 	if got := m.View().Content; !strings.Contains(got, "no rebind source") {
 		t.Errorf("View() does not name the missing rebind wiring:\n%s", got)

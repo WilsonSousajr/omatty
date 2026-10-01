@@ -198,17 +198,20 @@ func (m *Model) archiveSession(removeWorktree bool) tea.Cmd {
 		m.lastErr = fmt.Sprintf("session %s is no longer in the registry; nothing was archived", id)
 		return nil
 	}
-	removed, err := m.archive(id)
-	if err != nil {
-		slog.Error("archiving session", "session", id, "err", err)
-		m.lastErr = err.Error()
-		return nil
+	archive := m.archive
+	var removed sessions.Session
+	write := func() error {
+		var err error
+		removed, err = archive(id)
+		return err
 	}
-	// The registry's copy, not the model's: only that one is guaranteed to
-	// match what was on disk when the row was removed, and it is Worktree that
-	// decides whether a directory is about to be deleted (#40).
-	sess.Worktree, sess.Dir = removed.Worktree, removed.Dir
-	return m.dropSession(sess, removeWorktree)
+	return m.persistCmd("archiving session", []any{"session", id}, write, func(m *Model) tea.Cmd {
+		// The registry's copy, not the model's: only that one is guaranteed to
+		// match what was on disk when the row was removed, and it is Worktree
+		// that decides whether a directory is about to be deleted (#40).
+		sess.Worktree, sess.Dir = removed.Worktree, removed.Dir
+		return m.dropSession(sess, removeWorktree)
+	})
 }
 
 // dropSession unwinds everything the session owned: its process, its tailer,
@@ -313,7 +316,8 @@ func (m *Model) forgetCardMaps(id string) {
 	delete(m.activeAt, id)    // the idle sweep's floor (#319)
 	delete(m.turnPending, id) // the turn baseline's bookkeeping (#311)
 	delete(m.turnErr, id)
-	delete(m.starting, id) // a start in flight lands on no pane (#653)
+	delete(m.starting, id)   // a start in flight lands on no pane (#653)
+	delete(m.titleAsked, id) // nor does a title (#653)
 }
 
 // WorktreeRemovedMsg carries the outcome of a worktree removal into Update.

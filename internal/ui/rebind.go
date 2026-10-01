@@ -7,8 +7,8 @@ package ui
 
 import (
 	"fmt"
-	"log/slog"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
@@ -32,18 +32,32 @@ func noRebind(sessionID, conversation string) error {
 // it carries: persist, then memory, then the tailer, so a failed save leaves
 // memory and disk agreeing on what to resume. The pane comes from e.Owner,
 // never from the directory - two panes can share one.
-func (m *Model) followClear(e status.Event) {
+//
+// The persist runs off the Update goroutine since #653, so for the moment it
+// takes, an event naming the new conversation maps to no row and is dropped;
+// the tailer, started once the save lands, re-derives the status from the
+// transcript.
+func (m *Model) followClear(e status.Event) tea.Cmd {
 	i, ok := m.sessionIndex(e.Owner)
 	if !ok || m.state.Sessions[i].ConversationID() == e.SessionID {
-		return
+		return nil
 	}
-	if err := m.rebind(e.Owner, e.SessionID); err != nil {
-		slog.Error("following a cleared session", "session", e.Owner, "conversation", e.SessionID, "err", err)
-		m.lastErr = err.Error()
-		return
+	rebind := m.rebind
+	return m.persistCmd("following a cleared session", []any{"session", e.Owner, "conversation", e.SessionID},
+		func() error { return rebind(e.Owner, e.SessionID) },
+		func(m *Model) tea.Cmd { return m.rebound(e.Owner, e.SessionID) })
+}
+
+// rebound points a row that is on disk at its new conversation, and its
+// tailer with it.
+func (m *Model) rebound(id, conversation string) tea.Cmd {
+	i, ok := m.sessionIndex(id)
+	if !ok {
+		return nil
 	}
-	m.state.Sessions[i].Conversation = e.SessionID
+	m.state.Sessions[i].Conversation = conversation
 	m.tailStart(m.state.Sessions[i])
+	return nil
 }
 
 // sessionOfConversation is the row whose claude is on conversation. Every

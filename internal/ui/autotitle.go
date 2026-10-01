@@ -86,17 +86,15 @@ func (m *Model) onNamed(msg NamedMsg) tea.Cmd {
 	if !ok || msg.Title == "" || sess.Title != msg.From {
 		return nil
 	}
-	if err := m.applyTitle(msg.SessionID, msg.Title); err != nil {
-		slog.Warn("naming session", "session", msg.SessionID, "title", msg.Title, "err", err)
-		return nil
-	}
-	// The branch takes the name the title settles on, so when the model is
-	// going to be asked for a better one it waits for that answer rather than
-	// renaming twice or renaming to the worse of the two (#151).
-	if cmd := m.modelName(msg.SessionID, msg.Title); cmd != nil {
-		return cmd
-	}
-	return m.maybeRenameBranch(msg.SessionID, msg.Title)
+	return quietly(m.applyTitle(msg.SessionID, msg.Title, func(m *Model) tea.Cmd {
+		// The branch takes the name the title settles on, so when the model is
+		// going to be asked for a better one it waits for that answer rather
+		// than renaming twice or renaming to the worse of the two (#151).
+		if cmd := m.modelName(msg.SessionID, msg.Title); cmd != nil {
+			return cmd
+		}
+		return m.maybeRenameBranch(msg.SessionID, msg.Title)
+	}))
 }
 
 // ModelNameFunc asks the agent for a better name than the prompt-derived
@@ -137,28 +135,34 @@ func (m *Model) modelName(sessionID, title string) tea.Cmd {
 // rather than from the message is what makes a failed model call cost the
 // better name and nothing else (#151).
 func (m *Model) onModelNamed(msg ModelNamedMsg) tea.Cmd {
-	if err := m.applyModelName(msg); err != nil {
-		slog.Warn("model naming", "session", msg.SessionID, "title", msg.Title, "err", err)
+	if msg.Err != nil {
+		slog.Warn("model naming", "session", msg.SessionID, "title", msg.Title, "err", msg.Err)
+		return branchAfterNaming(msg.SessionID)(m)
 	}
-	sess, ok := m.session(msg.SessionID)
-	if !ok {
-		return nil
+	if !m.modelNameApplies(msg) {
+		return branchAfterNaming(msg.SessionID)(m)
 	}
-	return m.maybeRenameBranch(msg.SessionID, sess.Title)
+	// Through applyTitle alone and never through onNamed: onNamed is what
+	// dispatches modelName, so routing back through it would ask the model to
+	// improve its own answer, forever.
+	return quietly(m.applyTitle(msg.SessionID, msg.Title, branchAfterNaming(msg.SessionID)))
 }
 
-// applyModelName applies the model's suggestion unless it failed, was empty,
-// or the title moved on while the call was in flight. It renames through
-// applyTitle alone and never through onNamed: onNamed is what dispatches
-// modelName, so routing back through it would ask the model to improve its own
-// answer, forever.
-func (m *Model) applyModelName(msg ModelNamedMsg) error {
-	if msg.Err != nil {
-		return msg.Err
-	}
+// modelNameApplies reports whether the model's suggestion is still wanted: it
+// is not empty, and the title has not moved on while the call was in flight.
+func (m *Model) modelNameApplies(msg ModelNamedMsg) bool {
 	sess, ok := m.session(msg.SessionID)
-	if !ok || msg.Title == "" || sess.Title != msg.From {
-		return nil
+	return ok && msg.Title != "" && sess.Title == msg.From
+}
+
+// branchAfterNaming renames the session's branch to whatever title it settled
+// on, the last step of naming (#151).
+func branchAfterNaming(id string) func(*Model) tea.Cmd {
+	return func(m *Model) tea.Cmd {
+		sess, ok := m.session(id)
+		if !ok {
+			return nil
+		}
+		return m.maybeRenameBranch(id, sess.Title)
 	}
-	return m.applyTitle(msg.SessionID, msg.Title)
 }

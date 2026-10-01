@@ -222,6 +222,8 @@ func (m *Model) onLifecycleMsg(msg tea.Msg) (tea.Cmd, bool) {
 		return m.onSessionCreated(typed), true
 	case sessionStartedMsg:
 		return m.onSessionStarted(typed), true
+	case persistedMsg:
+		return m.onPersisted(typed), true
 	}
 	return nil, false
 }
