@@ -39,7 +39,7 @@ func TestList_reportsOnlyTheFilesThisPlatformCompiles(t *testing.T) {
 // go list -json writes a stream of concatenated objects rather than a JSON
 // array, so anything decoding it with Unmarshal gets only the first package.
 func TestList_readsEveryPackageInTheStream(t *testing.T) {
-	pkgs, err := golist.List("../..", "./infra/paths", "./domain/fuzzy", "./keys")
+	pkgs, err := golist.List("../..", "./infra/paths", "./domain/fuzzy", "./tui/keys")
 
 	if err != nil {
 		t.Fatal(err)

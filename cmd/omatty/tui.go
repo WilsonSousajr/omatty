@@ -1,8 +1,8 @@
 // The TUI's lifecycle: everything that lives as long as the program - the
 // terminals, the status service, the gate Runner - built and closed here,
 // in the one composition root (ADR 0001; migration step 5.10, #653). Until
-// then ui.Run was a second composition root, and RunDeps a second copy of
-// most of ui.Deps that every new dependency had to be plumbed through twice.
+// then app.Run was a second composition root, and RunDeps a second copy of
+// most of app.Deps that every new dependency had to be plumbed through twice.
 
 package main
 
@@ -16,15 +16,15 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/service/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
-	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/tui/app"
+	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
-// tuiRuntime is what the TUI's lifecycle needs beyond ui.Deps: how to start
+// tuiRuntime is what the TUI's lifecycle needs beyond app.Deps: how to start
 // a session's terminal, what the status service reads, and how gates run.
 type tuiRuntime struct {
 	Launch       *sessions.Launcher
-	Factory      termwrap.Factory
+	Factory      terminal.Factory
 	Watch        status.WatchDeps
 	GateParallel int
 	RunGate      gate.RunFunc
@@ -37,7 +37,7 @@ type tuiRuntime struct {
 func runtimeFor(env tuiEnv) tuiRuntime {
 	return tuiRuntime{
 		Launch:  sessions.NewLauncher(env.Agent, env.Cfg.ClaudeBin, env.HooksFile, env.Home, env.Holder),
-		Factory: termwrap.Start,
+		Factory: terminal.Start,
 		Watch: status.WatchDeps{Home: env.Home, HookSocket: paths.HookSocket(env.Home), Clock: time.Now, OpenTranscript: openTranscript, ListenHooks: listenHooks,
 			Adapter: env.Agent.Status, TranscriptPath: env.Agent.TranscriptPath},
 		// The gate's bound comes from the config; the Runner raises a zero to
@@ -50,13 +50,13 @@ func runtimeFor(env tuiEnv) tuiRuntime {
 // runProgram starts every wanted session's terminal, the status service and
 // the gate Runner, hands the model what they produce, and runs it until the
 // operator quits; then closes all three.
-func runProgram(deps ui.Deps, rt tuiRuntime) error {
-	deps.Leader = ui.LeaderOr(deps.Leader)
+func runProgram(deps app.Deps, rt tuiRuntime) error {
+	deps.Leader = app.LeaderOr(deps.Leader)
 	// Asked before the terminals start: once a client is attached the socket
 	// exists whether or not a claude was already behind it (#191).
-	held := ui.HeldSessions(rt.Launch, deps.State)
-	terms := ui.StartTerminals(deps.State, ui.SessionsToStart(rt.LazyStart, deps.State, held), rt.Launch, rt.Factory, rt.Width, rt.Height, deps.Leader)
-	defer ui.CloseTerminals(terms)
+	held := app.HeldSessions(rt.Launch, deps.State)
+	terms := app.StartTerminals(deps.State, app.SessionsToStart(rt.LazyStart, deps.State, held), rt.Launch, rt.Factory, rt.Width, rt.Height, deps.Leader)
+	defer app.CloseTerminals(terms)
 	watch := status.Start(rt.Watch, deps.State.Sessions)
 	defer watch.Close()
 	// The model's subscriptions live as long as the program: cancelled on
@@ -67,9 +67,9 @@ func runProgram(deps ui.Deps, rt tuiRuntime) error {
 	// would make the machine unusable (#229).
 	gates := gate.NewRunner(rt.GateParallel, rt.RunGate)
 	defer gates.Close()
-	deps.Terms, deps.Reattached, deps.Start = terms, held, ui.GuardedStarter(rt.Launch, rt.Factory, deps.Leader)
+	deps.Terms, deps.Reattached, deps.Start = terms, held, app.GuardedStarter(rt.Launch, rt.Factory, deps.Leader)
 	deps.Events, deps.HooksDown, deps.TailStart, deps.TailStop = watch.Subscribe(ctx), !watch.HooksLive(), watch.Add, watch.Remove
 	deps.GateReports, deps.GateRun = gates.Subscribe(ctx), gates.Start
 	deps.Clock, deps.Notifier = time.Now, notify.New()
-	return ui.RunProgram(ui.NewModel(deps), len(terms))
+	return app.RunProgram(app.NewModel(deps), len(terms))
 }

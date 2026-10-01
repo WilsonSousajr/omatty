@@ -15,7 +15,7 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"net"
 )
 
@@ -232,7 +232,7 @@ func TestProjectProposer_SurfacesAnUnreadableStore_issue91(t *testing.T) {
 // parameter: every picker dependency is now reachable without a repository.
 func TestWithPickerDeps_BuildsEveryPickerDependency_issue122(t *testing.T) {
 	g := &FakeGit{}
-	deps := withPickerDeps(ui.Deps{}, storeIn(t), t.TempDir(), g, g)
+	deps := withPickerDeps(app.Deps{}, storeIn(t), t.TempDir(), g, g)
 
 	for name, built := range map[string]bool{
 		"Discover":     deps.Discover != nil,
@@ -257,7 +257,7 @@ func TestSessionAdopter_ReturnsTheRowTheRegistryWrote_issue122(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := sessionAdopter(store, git)("omatty", []ui.SessionProposal{
+	got := sessionAdopter(store, git)("omatty", []app.SessionProposal{
 		{ID: "abc-123", Title: "fix the parser", Dir: "/p/omatty/.omatty/wt/fix"},
 	})
 

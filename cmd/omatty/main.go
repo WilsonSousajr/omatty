@@ -38,8 +38,8 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/termwrap"
-	"github.com/WilsonSousajr/omatty/internal/ui"
+	"github.com/WilsonSousajr/omatty/internal/tui/app"
+	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
 func main() {
@@ -136,11 +136,11 @@ func report(line string) {
 // logged and used, and onResize ignores the 0x0 bubbletea then reports
 // (issue #74).
 func windowSize() (int, int) {
-	w, h, err := termwrap.WindowSize(os.Stdout)
+	w, h, err := terminal.WindowSize(os.Stdout)
 	if err != nil {
 		slog.Warn("terminal size unavailable; sessions start at the default",
-			"err", err, "width", ui.DefaultWidth, "height", ui.DefaultHeight)
-		return ui.DefaultWidth, ui.DefaultHeight
+			"err", err, "width", app.DefaultWidth, "height", app.DefaultHeight)
+		return app.DefaultWidth, app.DefaultHeight
 	}
 	return w, h
 }
