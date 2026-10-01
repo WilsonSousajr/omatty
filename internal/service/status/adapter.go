@@ -23,7 +23,11 @@ type TranscriptPathFunc func(home, dir, sessionID string) string
 //	w := status.Start(status.WatchDeps{Home: home, Clock: time.Now,
 //	        Adapter: profile.Status, TranscriptPath: profile.TranscriptPath}, st.Sessions)
 type WatchDeps struct {
-	Home           string
+	Home string
+	// HookSocket is where the hook server listens. A value from cmd since
+	// migration step 5.10 (#653): where omatty keeps files is infra's
+	// knowledge (ADR 0001: paths is infra), so the service is told.
+	HookSocket     string
 	Clock          func() time.Time
 	Adapter        Adapter
 	TranscriptPath TranscriptPathFunc

@@ -12,7 +12,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	sgate "github.com/WilsonSousajr/omatty/internal/service/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
@@ -66,7 +65,7 @@ type TurnFuncs struct {
 // silent notifier, no tailer for runtime sessions.
 //
 //	m := ui.NewModel(ui.Deps{State: st, Terms: terms, Create: create, Start: start,
-//	        Events: w.Subscribe(ctx), Clock: time.Now, Notifier: notify.New(), TailStart: w.Add})
+//	        Events: w.Subscribe(ctx), Clock: time.Now, Notifier: notify.New(), TailStart: w.Add}) // in cmd/omatty
 type Deps struct {
 	State  sessions.State
 	Terms  map[string]termwrap.Terminal
@@ -96,7 +95,7 @@ type Deps struct {
 	// test passes one that answers at once, since test helpers run every
 	// command they are handed and a real tick is a real 100 ms wait.
 	SpinTick  TickFunc
-	Notifier  notify.Notifier
+	Notifier  Notifier
 	TailStart func(sessions.Session)
 	// Diff loads a session's changes for the review column (#21).
 	Diff DiffFunc
@@ -196,7 +195,7 @@ func (d Deps) withDefaults() Deps {
 		d.SpinTick = tea.Tick
 	}
 	if d.Notifier == nil {
-		d.Notifier = notify.Silent{}
+		d.Notifier = silentNotifier{}
 	}
 	if d.Leader == "" {
 		d.Leader = DefaultLeader
@@ -417,3 +416,18 @@ var errNoShip = errors.New("ui: no forge wired, so this session cannot be shippe
 func noPreview(dir, rel string) (review.Preview, error) {
 	return review.Preview{}, fmt.Errorf("ui: no file reader configured for %q in %q", rel, dir)
 }
+
+// Notifier posts a desktop notification for a session that needs the
+// operator (#69). Declared here, by its consumer, since migration step 5.10
+// (#653); internal/infra/notify implements it, and cmd passes notify.New().
+//
+//	deps.Notifier = notify.New()
+type Notifier interface {
+	Notify(title, body string) error
+}
+
+// silentNotifier is the Deps.Notifier default: a model built without one
+// notifies nobody, so no method needs a nil guard.
+type silentNotifier struct{}
+
+func (silentNotifier) Notify(string, string) error { return nil }

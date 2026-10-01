@@ -19,7 +19,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
-	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/hookserver"
@@ -31,7 +30,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/service/review"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
-	"github.com/WilsonSousajr/omatty/internal/termwrap"
 	"github.com/WilsonSousajr/omatty/internal/ui"
 	"io"
 )
@@ -52,19 +50,19 @@ func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
 	}
 	w, h := windowSize()
 	env := tuiEnv{Home: home, Cfg: cfg, Agent: profile, HooksFile: hooksFile, Holder: detach.New(home), Width: w, Height: h}
-	return runWithNamer(tuiDeps(env, store, state), cfg)
+	return runWithNamer(tuiDeps(env, store, state), runtimeFor(env), cfg)
 }
 
 // runWithNamer runs the TUI with the opt-in model namer attached, closing
 // the namer's working directory on the way out (#127).
-func runWithNamer(deps ui.RunDeps, cfg config.Config) error {
+func runWithNamer(deps ui.Deps, rt tuiRuntime, cfg config.Config) error {
 	namer, closeNamer := modelNamer(cfg)
 	deps.ModelName = namer
 	defer closeNamer()
-	return ui.Run(deps)
+	return runProgram(deps, rt)
 }
 
-// tuiEnv is what the wiring needs before it can build ui.RunDeps: where
+// tuiEnv is what the wiring needs before it can build ui.Deps: where
 // things live, the hooks file claude is given, and the window to start at. A
 // struct because the parameter list reached seven, five of them strings, and
 // M7's config, naming and agent seams each add one (#136).
@@ -119,17 +117,12 @@ func newRouter(cfg config.Config, git *vcs.CLI) *forge.Router {
 // tuiDeps wires the TUI's dependencies: the launcher, the terminal factory,
 // and the typed functions that reach git and the registry on ui's behalf,
 // because ui may do neither itself (invariants 4 and 10).
-func tuiDeps(env tuiEnv, store sessions.StateStore, state sessions.State) ui.RunDeps {
-	home, hooksFile, w, h := env.Home, env.HooksFile, env.Width, env.Height
-	git, holder := vcs.NewCLI(), env.Holder
+func tuiDeps(env tuiEnv, store sessions.StateStore, state sessions.State) ui.Deps {
+	home, git, holder := env.Home, vcs.NewCLI(), env.Holder
 	src, fg := review.NewSource(git, gitdiff.ParseDiff).WithHeads(fsread.Head), newRouter(env.Cfg, git)
-	deps := ui.RunDeps{
-		Home: home, State: state, Width: w, Height: h, OpenTranscript: openTranscript, ListenHooks: listenHooks,
-		RunGate: gateexec.Run, Profiles: fsread.CoverageProfiles{}, Preview: fsread.ReadPreview, Stop: holder.Stop,
+	deps := ui.Deps{
+		State: state, Profiles: fsread.CoverageProfiles{}, Preview: fsread.ReadPreview, Stop: holder.Stop,
 		Notice:    holder.Notice(),
-		Launch:    sessions.NewLauncher(env.Agent, env.Cfg.ClaudeBin, hooksFile, home, holder),
-		Agent:     env.Agent,
-		Factory:   termwrap.Start,
 		Create:    sessionCreator(env.Cfg, store),
 		Leader:    env.Cfg.Leader,
 		Name:      sessionNamer(home, env.Agent),
@@ -146,7 +139,7 @@ func tuiDeps(env tuiEnv, store sessions.StateStore, state sessions.State) ui.Run
 // a card shows (#310), the open issues the tracker lists (#394), an item, the
 // browser and the words the copy uses share a resolved forge per project, a
 // bound and the operator's own authentication (#452).
-func withForgeDeps(deps ui.RunDeps, fg *forge.Router) ui.RunDeps {
+func withForgeDeps(deps ui.Deps, fg *forge.Router) ui.Deps {
 	deps.PRs, deps.Issues, deps.Label = fg.ListPRs, fg.ListIssues, fg.Label
 	deps.Item = ui.ForgeItemFuncs{Issue: fg.ViewIssue, PR: fg.ViewPR}
 	deps.Browse = ui.ForgeBrowseFuncs{Issue: fg.BrowseIssue, PR: fg.BrowsePR}
@@ -156,11 +149,8 @@ func withForgeDeps(deps ui.RunDeps, fg *forge.Router) ui.RunDeps {
 // withTableDeps copies the config's [gate] and [sessions] tables onto the run.
 // Split from tuiDeps when [sessions] pushed it past the length limit (#317,
 // #319); the four are all plain values read from one file.
-func withTableDeps(deps ui.RunDeps, cfg config.Config) ui.RunDeps {
-	// The gate's bound comes from the config; the Runner raises a zero to
-	// one, so an old config file without a [gate] section still works.
-	deps.GateParallel, deps.GateAuto = cfg.Gate.MaxParallel, cfg.Gate.Auto
-	deps.LazyStart = cfg.Sessions.LazyStart
+func withTableDeps(deps ui.Deps, cfg config.Config) ui.Deps {
+	deps.GateAuto = cfg.Gate.Auto
 	deps.IdleStop = time.Duration(cfg.Sessions.IdleStop)
 	deps.NerdIcons = cfg.UI.Icons == config.IconsNerd
 	return deps
@@ -195,14 +185,14 @@ type sessionsGit interface {
 // adoption arrived. The seam is where it is because these all share the store,
 // and the fields above share nothing but the window.
 func withStoreDeps(
-	deps ui.RunDeps, store sessions.StateStore, home string, git wiringGit, sgit sessionsGit,
-) ui.RunDeps {
+	deps ui.Deps, store sessions.StateStore, home string, git wiringGit, sgit sessionsGit,
+) ui.Deps {
 	return withPickerDeps(withLifecycleDeps(deps, store, git), store, home, git, sgit)
 }
 
 // withLifecycleDeps adds rename, rebind, archive, worktree removal, project
 // removal and the sidebar fold (#40, #41, #159, #316, #505).
-func withLifecycleDeps(deps ui.RunDeps, store sessions.StateStore, git wiringGit) ui.RunDeps {
+func withLifecycleDeps(deps ui.Deps, store sessions.StateStore, git wiringGit) ui.Deps {
 	deps.Rename = sessionRenamer(store)
 	deps.Rebind = sessionRebinder(store)
 	deps.RenameBranch = branchRenamer(store, vcs.NewCLI().Contextual())
@@ -237,8 +227,8 @@ func projectFolder(store sessions.StateStore) ui.FoldFunc {
 
 // withPickerDeps adds the project picker (#91) and the adoption picker (#122).
 func withPickerDeps(
-	deps ui.RunDeps, store sessions.StateStore, home string, git wiringGit, sgit sessionsGit,
-) ui.RunDeps {
+	deps ui.Deps, store sessions.StateStore, home string, git wiringGit, sgit sessionsGit,
+) ui.Deps {
 	deps.Discover = projectProposer(store, home, git)
 	deps.AddProject = projectRegistrar(store, sgit)
 	deps.AdoptPropose = sessionProposer(store, home, git)
@@ -361,7 +351,7 @@ const namingTimeout = 10 * time.Second
 
 // modelNamer adapts agentcli.Namer to ui.ModelNameFunc, or returns nil when
 // the operator has not opted in (#44, #127). The closer removes the namer's
-// working directory; ui.Run cannot, because it receives a func, not the
+// working directory; runProgram cannot, because it receives a func, not the
 // Namer.
 func modelNamer(cfg config.Config) (ui.ModelNameFunc, func()) {
 	if !cfg.Naming.Model {

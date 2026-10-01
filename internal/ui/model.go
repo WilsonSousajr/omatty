@@ -7,7 +7,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 	"github.com/WilsonSousajr/omatty/internal/keys"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	sgate "github.com/WilsonSousajr/omatty/internal/service/gate"
@@ -52,7 +51,7 @@ type Model struct {
 	events    <-chan pubsub.Event[status.Event]
 	clock     func() time.Time
 	tailStart func(sessions.Session)
-	notifier  notify.Notifier
+	notifier  Notifier
 	// notified is when each session last posted a notification (issue #69).
 	notified map[string]time.Time
 	// startedAt gates notifications to transitions newer than this run: the

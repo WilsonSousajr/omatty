@@ -5,7 +5,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/infra/notify"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
@@ -107,7 +106,7 @@ func (m *Model) cooldownElapsed(id string) bool {
 	return true
 }
 
-func notifyCmd(n notify.Notifier, body string) tea.Cmd {
+func notifyCmd(n Notifier, body string) tea.Cmd {
 	return func() tea.Msg {
 		if err := n.Notify("omatty", body); err != nil {
 			slog.Warn("desktop notification failed", "body", body, "err", err)
