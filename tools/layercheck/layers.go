@@ -21,30 +21,23 @@ const (
 	Unlayered Layer = "unlayered" // placed nowhere: always a finding
 )
 
-// prefixes place a package by the path ADR 0001 gives its layer, so a package
-// that has moved needs no entry in transitional.
+// prefixes place a package by the path ADR 0001 gives its layer: a directory
+// and everything beneath it. The table that placed packages still waiting to
+// move went with migration step 8.2 (#653), the migration having moved them.
 var prefixes = []struct {
 	prefix string
 	layer  Layer
 }{
 	{"internal/domain/", Domain}, {"internal/service/", Service}, {"internal/infra/", Infra},
-	{"internal/tui/", TUI}, {"cmd/", Cmd}, {"tools/", Tools},
+	{"internal/pubsub/", Pubsub}, {"internal/tui/", TUI}, {"internal/cli/", CLI},
+	{"cmd/", Cmd}, {"tools/", Tools}, {"scripts/", Tools},
 }
 
-// transitional places today's packages where ADR 0001's tree sends them, or
-// sends their core when the package is mixed - so what the mixed half imports
-// shows up as a finding. The migration empties it; an entry left after its
-// package moved is dead and harmless.
-var transitional = map[string]Layer{
-	"internal/pubsub": Pubsub, "internal/cli": CLI, "scripts": Tools,
-}
-
-// layerOf places importPath, a package of module.
+// layerOf places importPath, a package of module. The trailing slash lets a
+// prefix name a package as well as what is beneath it - internal/cli itself -
+// without also matching a sibling that merely starts the same way.
 func layerOf(importPath, module string) Layer {
-	rel := strings.TrimPrefix(importPath, module+"/")
-	if l, ok := transitional[rel]; ok {
-		return l
-	}
+	rel := strings.TrimPrefix(importPath, module+"/") + "/"
 	for _, p := range prefixes {
 		if strings.HasPrefix(rel, p.prefix) {
 			return p.layer

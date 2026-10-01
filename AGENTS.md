@@ -123,7 +123,7 @@ golangci-lint run                             # + depguard: invariant 4, enforce
 govulncheck ./...                             # no reachable known vulnerability
 ./scripts/check-deps.sh                       # package coupling; test-graph cycles
 ./scripts/check-file-length.sh 500            # every tracked .go file, tests included (#609)
-./scripts/check-layers.sh                     # ADR 0001's layers; report-only until the migration ends (#620)
+./scripts/check-layers.sh -enforce            # ADR 0001's layers (#620, #653)
 shellcheck scripts/*.sh                       # POSIX sh; install.sh is piped into sh (#517)
 go test ./... -race
 ./scripts/check-coverage.sh 90
