@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strconv"
 	"strings"
 	"time"
@@ -339,7 +340,7 @@ func (m *Model) emptyLines() []string {
 // keypress (#43).
 func (m *Model) renderFooter() string {
 	if m.lastErr != "" {
-		return errorStyle.Render(fitLine(" error: "+m.lastErr, m.width))
+		return theme.Error.Render(fitLine(" error: "+m.lastErr, m.width))
 	}
 	if m.notice != "" {
 		// The exit comes first, for the reason the footer const gives: the line
@@ -348,18 +349,18 @@ func (m *Model) renderFooter() string {
 		// exactly the machines the notice appears on - a fresh install without
 		// dtach - where the terminal pane owns ctrl+c and the footer is the
 		// only place the way out is written down (#28, #30, #43).
-		return footerStyle.Render(fitLine(" "+exitKeyFor(m.leader)+"  "+m.notice, m.width))
+		return theme.Footer.Render(fitLine(" "+exitKeyFor(m.leader)+"  "+m.notice, m.width))
 	}
-	return joinEnds(footerStyle.Render(" "+fitKeys(m.footerKeys(), m.width-1)), m.footerFacts(), m.width)
+	return joinEnds(theme.Footer.Render(" "+fitKeys(m.footerKeys(), m.width-1)), m.footerFacts(), m.width)
 }
 
 // footerFacts is the footer's right side (#178): how many sessions there
 // are, and how many wait, the waiting count in amber because it is the
 // waiting state and the colour rule allows exactly that (#175).
 func (m *Model) footerFacts() string {
-	facts := mutedStyle.Render(countNoun(len(m.state.Sessions), "session"))
+	facts := theme.Muted.Render(countNoun(len(m.state.Sessions), "session"))
 	if k := m.waitingCount(); k > 0 {
-		facts += mutedStyle.Render(" · ") + amberStyle.Render(strconv.Itoa(k)+" waiting")
+		facts += theme.Muted.Render(" · ") + theme.Amber.Render(strconv.Itoa(k)+" waiting")
 	}
 	return facts
 }
@@ -439,7 +440,7 @@ func fitLine(s string, width int) string {
 	if w := lipgloss.Width(s); w <= width {
 		return padBy(s, width-w)
 	}
-	cut := lipgloss.NewStyle().MaxWidth(width).Render(s)
+	cut := theme.Clip(width).Render(s)
 	return padBy(cut, width-lipgloss.Width(cut))
 }
 

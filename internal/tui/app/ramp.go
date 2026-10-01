@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"image/color"
 
 	"github.com/WilsonSousajr/omatty/internal/service/status"
@@ -30,7 +31,7 @@ func blend(a, b color.Color, t float64) color.Color {
 // rampWarm and rampCool are the meter's two ends. Named rather than looked up
 // through the status map, so changing what a status means cannot recolour the
 // meter (#175).
-var rampWarm, rampCool = colorAmber, colorGreen
+var rampWarm, rampCool = theme.ColorAmber, theme.ColorGreen
 
 // meterCellColor is the colour of the i-th filled meter cell, warming from
 // amber to green across the bar.
@@ -41,8 +42,5 @@ func meterCellColor(i int) color.Color {
 
 // glyphColor is a status's palette colour, the muted grey for one without.
 func glyphColor(s status.Status) color.Color {
-	if c, ok := statusColors[s]; ok {
-		return c
-	}
-	return colorMuted
+	return theme.StatusColor(s)
 }

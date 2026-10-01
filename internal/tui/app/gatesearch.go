@@ -5,15 +5,13 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strings"
-
-	"charm.land/lipgloss/v2"
 )
 
 // searchStyle marks a match. Bold and underlined rather than a hue: the
 // palette's colours each already mean something (#175), and a match means
 // only "here".
-var searchStyle = lipgloss.NewStyle().Bold(true).Underline(true)
 
 // gateSearchKey runs the gate's r, / and n/N.
 func (m *Model) gateSearchKey(key string) {
@@ -132,7 +130,7 @@ func highlightMatches(line, query string) string {
 		if i < 0 {
 			return b.String() + line
 		}
-		b.WriteString(line[:i] + searchStyle.Render(line[i:i+len(q)]))
+		b.WriteString(line[:i] + theme.Search.Render(line[i:i+len(q)]))
 		line, lower = line[i+len(q):], lower[i+len(q):]
 	}
 }

@@ -9,6 +9,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"unicode"
 
 	"charm.land/lipgloss/v2"
@@ -38,9 +39,9 @@ type hunkKey struct{ file, hunk int }
 // "this part" without saying anything new.
 func emphasisStyle(k review.LineKind) lipgloss.Style {
 	if k == review.LineRemoved {
-		return lipgloss.NewStyle().Foreground(colorRed).Background(lipgloss.Color("52"))
+		return theme.RemovedEmphasis
 	}
-	return lipgloss.NewStyle().Foreground(colorGreen).Background(lipgloss.Color("22"))
+	return theme.AddedEmphasis
 }
 
 // hunkStyleAt is p's hunk, drawn once and remembered.

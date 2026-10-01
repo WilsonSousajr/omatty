@@ -53,6 +53,7 @@ linters:
           files:
             - "!**/internal/tui/app/**"
             - "!**/internal/tui/terminal/**"
+            - "!**/internal/tui/theme/**"
           deny:
             - pkg: charm.land/bubbletea/v2
               desc: "the TUI lives in internal/tui/app; internal/tui/terminal is the wrapper exception"

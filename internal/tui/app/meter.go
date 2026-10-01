@@ -1,13 +1,13 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"sync"
 
 	"math"
 	"strconv"
 	"strings"
 
-	"charm.land/lipgloss/v2"
 	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
@@ -55,7 +55,7 @@ func renderMeter(share float64) string {
 	for i := range filled {
 		b.WriteString(meterFilled()[i])
 	}
-	b.WriteString(mutedStyle.Render(strings.Repeat(meterEmpty, meterCells-filled)))
+	b.WriteString(theme.Muted.Render(strings.Repeat(meterEmpty, meterCells-filled)))
 	return b.String()
 }
 
@@ -65,7 +65,7 @@ func renderMeter(share float64) string {
 var meterFilled = sync.OnceValue(func() [meterCells]string {
 	var cells [meterCells]string
 	for i := range meterCells {
-		cells[i] = lipgloss.NewStyle().Foreground(meterCellColor(i)).Render(meterFull)
+		cells[i] = theme.Foreground(meterCellColor(i)).Render(meterFull)
 	}
 	return cells
 })
@@ -88,7 +88,7 @@ func meterPart(t status.Tokens) string {
 	if !ok {
 		return ""
 	}
-	return renderMeter(share) + " " + mutedStyle.Render(strconv.Itoa(int(math.Round(share*100)))+"% cached")
+	return renderMeter(share) + " " + theme.Muted.Render(strconv.Itoa(int(math.Round(share*100)))+"% cached")
 }
 
 // countsPart is the in/out counts, "in" being everything fed (#170), and ""
@@ -97,5 +97,5 @@ func countsPart(t status.Tokens) string {
 	if t == (status.Tokens{}) {
 		return ""
 	}
-	return mutedStyle.Render(KString(inputTotal(t)) + " in / " + KString(t.Out) + " out")
+	return theme.Muted.Render(KString(inputTotal(t)) + " in / " + KString(t.Out) + " out")
 }

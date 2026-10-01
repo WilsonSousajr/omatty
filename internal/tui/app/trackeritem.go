@@ -9,6 +9,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -196,7 +197,7 @@ func (m *Model) commentLines(comments []forge.Comment, w int) []string {
 	var lines []string
 	for _, c := range comments {
 		rule := fitLine(labelledRule(c.Author+" · "+AgeString(m.clock(), c.At), w), w)
-		lines = append(lines, "", mutedStyle.Render(rule))
+		lines = append(lines, "", theme.Muted.Render(rule))
 		lines = append(lines, markdownLines(c.Body, w)...)
 	}
 	return lines
@@ -215,8 +216,8 @@ func (m *Model) itemHead(key itemKey, item forge.Detail, w int) []string {
 	}
 	// The title bold and the by-line muted, so the page reads as one (#433).
 	number := m.itemRef(key.Project, key.PR, item.Number)
-	head := styleLines(wrapBlock(number+"  "+item.Title, w), headerStyle.Render)
-	return append(append(head, styleLines(wrapBlock(by, w), mutedStyle.Render)...), "")
+	head := styleLines(wrapBlock(number+"  "+item.Title, w), theme.Header.Render)
+	return append(append(head, styleLines(wrapBlock(by, w), theme.Muted.Render)...), "")
 }
 
 // itemNote is the state before an item is held: reading, failed, or the

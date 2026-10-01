@@ -80,7 +80,8 @@ count after the step.
 | 5.9b (move) | #653 | #688 | merged | 3 |
 | 5.6c | #653 | #689 | merged | 3 |
 | 5.10 | #653 | #690 | merged | 1 |
-| 6.1 | #653 | #691 | open | 1 |
+| 6.1 | #653 | #691 | merged | 1 |
+| 6.2 | #653 | this PR | open | 1 |
 
 *Correction (3.6a):* 3.3's PR said gate's `os` and `syscall` findings
 "belonged to the pure half". They did not. Those imports are in `run.go`,

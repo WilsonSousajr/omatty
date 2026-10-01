@@ -7,6 +7,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -39,7 +40,7 @@ func (m *Model) withFileList(body []string, h int) []string {
 	files, bw := m.fileListLines(h), m.diffBodyWidth(m.columnWidth())
 	out := make([]string, h)
 	for i := range out {
-		out[i] = fitLine(lineAt(files, i), fileListWidth) + mutedStyle.Render(previewSeam) + fitLine(lineAt(body, i), bw)
+		out[i] = fitLine(lineAt(files, i), fileListWidth) + theme.Muted.Render(previewSeam) + fitLine(lineAt(body, i), bw)
 	}
 	return out
 }
@@ -78,10 +79,10 @@ func (m *Model) fileListRow(f review.File, current bool) string {
 	room := fileListWidth - lipgloss.Width(lead) - lipgloss.Width(stat)
 	path := previewTitle(f.Path, max(room, 1))
 	if current {
-		path = headerStyle.Render(path)
+		path = theme.Header.Render(path)
 	}
 	pad := strings.Repeat(" ", max(room-lipgloss.Width(path), 0))
-	return lead + path + pad + mutedStyle.Render(stat)
+	return lead + path + pad + theme.Muted.Render(stat)
 }
 
 // clickFileList moves the diff to the file clicked in the list, and reports
