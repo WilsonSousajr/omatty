@@ -17,16 +17,16 @@ import (
 
 // diffNavKey runs ], [, n, N and enter, reporting whether key was one.
 func (m *Model) diffNavKey(key string) bool {
-	switch key {
-	case "]":
+	switch {
+	case is(key, diffBind.NextFile):
 		m.jumpEntry(1, review.EntryFile)
-	case "[":
+	case is(key, diffBind.PrevFile):
 		m.jumpEntry(-1, review.EntryFile)
-	case "n":
+	case is(key, diffBind.NextHunk):
 		m.jumpEntry(1, review.EntryHunk)
-	case "N", "shift+n", "shift+N":
+	case is(key, diffBind.PrevHunk):
 		m.jumpEntry(-1, review.EntryHunk)
-	case "enter":
+	case is(key, diffBind.Fold):
 		m.toggleFileFold()
 	default:
 		return false

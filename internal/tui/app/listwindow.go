@@ -39,14 +39,14 @@ const pageAll = 1 << 20
 // g and G to the ends, ctrl+d and ctrl+u by half the window - the keys a pager
 // or an editor has taught every terminal reader (#424).
 func (m *Model) pageDelta(key string) (int, bool) {
-	switch key {
-	case "g":
+	switch {
+	case is(key, columnBind.Top):
 		return -pageAll, true
-	case "G", "shift+g", "shift+G":
+	case is(key, columnBind.Bottom):
 		return pageAll, true
-	case "ctrl+d":
+	case is(key, columnBind.HalfDown):
 		return max(m.reviewRows()/2, 1), true
-	case "ctrl+u":
+	case is(key, columnBind.HalfUp):
 		return -max(m.reviewRows()/2, 1), true
 	}
 	return 0, false

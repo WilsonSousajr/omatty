@@ -138,17 +138,17 @@ func (m *Model) onItem(msg ItemLoadedMsg) tea.Cmd {
 // onTrackerItemKey is the item view's keymap: scroll it, read it again, or go
 // back to the list - the preview's shape over the tree (#24).
 func (m *Model) onTrackerItemKey(key string) tea.Cmd {
-	switch key {
-	case "j", "down":
+	switch {
+	case is(key, columnBind.Down):
 		m.scrollItem(1)
-	case "k", "up":
+	case is(key, columnBind.Up):
 		m.scrollItem(-1)
-	case "esc":
+	case is(key, columnBind.Back):
 		m.review.View, m.review.ColOffset = ViewTracker, 0
 		m.contentChanged()
-	case "ctrl+c":
+	case is(key, columnBind.Interrupt):
 		m.review.Focused = false
-	case "r":
+	case is(key, trackerBind.Reload):
 		return m.readItem(m.itemKeyAtCursor(), true)
 	default:
 		return m.trackerDefault(key)

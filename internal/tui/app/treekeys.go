@@ -25,15 +25,15 @@ func (m *Model) onTreeKey(key string) tea.Cmd {
 // treeActionKey runs enter, r, / and a, then the two marking keys, reporting
 // whether key was one.
 func (m *Model) treeActionKey(key string) (tea.Cmd, bool) {
-	switch key {
-	case "enter":
+	switch {
+	case is(key, treeBind.Enter):
 		return m.openTreeNode(), true
-	case "r":
+	case is(key, treeBind.Reload):
 		return m.loadFiles(m.review.SessionID), true
-	case "/":
+	case is(key, treeBind.Filter):
 		m.review.Filter.Active = true
 		return nil, true
-	case "a":
+	case is(key, treeBind.Attach):
 		return m.attachSelected(), true
 	}
 	return nil, m.treeMarkKey(key)
@@ -45,14 +45,14 @@ func (m *Model) treeActionKey(key string) (tea.Cmd, bool) {
 // routing.go has several - one switch over every key here is past the
 // statement limit, and the split is along a real seam.
 func (m *Model) treeMarkKey(key string) bool {
-	switch key {
-	case "v":
+	switch {
+	case is(key, treeBind.Read):
 		m.toggleReviewed()
-	case ".":
+	case is(key, treeBind.Generated):
 		// Not g, which #424 made "the top" on every face; "." is what lf,
 		// ranger, yazi and nnn toggle hidden files with.
 		m.toggleGenerated()
-	case "c":
+	case is(key, treeBind.Changed):
 		m.toggleChangedOnly()
 	default:
 		return false
@@ -62,10 +62,10 @@ func (m *Model) treeMarkKey(key string) bool {
 
 // treeCursorKey moves the cursor for j/k, reporting whether key was one.
 func (m *Model) treeCursorKey(key string) bool {
-	switch key {
-	case "j", "down":
+	switch {
+	case is(key, columnBind.Down):
 		m.moveTreeCursor(1)
-	case "k", "up":
+	case is(key, columnBind.Up):
 		m.moveTreeCursor(-1)
 	default:
 		return false
@@ -86,16 +86,16 @@ func (m *Model) leaveTree() {
 // onPreviewKey scrolls the preview; esc returns to the tree, which is where
 // the operator came from, rather than all the way to the terminal.
 func (m *Model) onPreviewKey(key string) tea.Cmd {
-	switch key {
-	case "j", "down":
+	switch {
+	case is(key, columnBind.Down):
 		m.scrollPreview(1)
-	case "k", "up":
+	case is(key, columnBind.Up):
 		m.scrollPreview(-1)
-	case "a":
+	case is(key, treeBind.Attach):
 		return m.attachPath(m.review.Preview.Path, false)
-	case "o":
+	case is(key, treeBind.Open):
 		return m.openDiffAtPreview()
-	case "esc", "ctrl+c":
+	case is(key, columnBind.Back) || is(key, columnBind.Interrupt):
 		m.review.View, m.review.ColOffset = ViewTree, 0
 	default:
 		m.panKey(key)

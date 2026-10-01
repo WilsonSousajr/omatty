@@ -91,21 +91,50 @@ const helpFitsHeight = 90
 // enter and S, the tracker's enter, n, a and b, and the diff's d all shipped
 // with no row. This is #103's tie for the column: every key a face's handler
 // switches on must appear in that face's table or in the shared one.
+//
+// Since migration step 6.3a (#653) the handlers match on key.Bindings and the
+// tables are built from the same bindings, so the tie is by construction; this
+// checks the half construction cannot: that every spelling a face's bindings
+// accept - the hidden second half of a row included - is named by a row of
+// that face's table or the shared one.
 func TestHelp_everyColumnKeyIsDocumented_issue422(t *testing.T) {
 	tables := app.ColumnKeyTables()
 	shared := documentedSet(tables["column"])
-	for face, funcs := range columnHandlers {
+	for face, bound := range app.ColumnBindings() {
 		documented := documentedSet(tables[face])
-		for _, bound := range boundKeysIn(t, funcs) {
-			canonical := arrowAliases[bound]
+		for _, k := range bound {
+			if strings.Contains(k, "+") {
+				continue // a modifier spelling of a key the table lists bare (#87)
+			}
+			canonical := arrowAliases[k]
 			if canonical == "" {
-				canonical = bound
+				canonical = k
 			}
 			if !documented[canonical] && !shared[canonical] {
-				t.Errorf("%s: %q is handled but the help modal has no row for it", face, bound)
+				t.Errorf("%s: %q is handled but the help modal has no row for it", face, k)
 			}
 		}
 	}
+}
+
+// The other half of #422's tie (#653): a handler that matched a raw string
+// again would be a key no binding - and so no help row - knows about. Every
+// review-column handler switches on bindings alone.
+func TestHelp_columnHandlersMatchOnBindingsAlone_issue653(t *testing.T) {
+	if raw := boundKeysIn(t, columnHandlersByFile()); len(raw) != 0 {
+		t.Errorf("review-column handlers switch on raw keys %v; match them through a binding in bindings.go", raw)
+	}
+}
+
+// columnHandlersByFile is columnHandlers keyed by file alone.
+func columnHandlersByFile() map[string][]string {
+	out := map[string][]string{}
+	for _, files := range columnHandlers {
+		for file, fns := range files {
+			out[file] = append(out[file], fns...)
+		}
+	}
+	return out
 }
 
 // columnHandlers is every function that switches on a review-column key, by
