@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"log/slog"
 	"sort"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -111,7 +111,7 @@ func TestModel_noPRPollWhileBlurredAndOneOnFocus_issue310(t *testing.T) {
 func TestModel_aSessionAtRestPollsItsOwnProject_issue310(t *testing.T) {
 	m, f := modelWithPRs(t)
 
-	_, cmd := m.Update(app.StatusMsg{SessionID: "s3", Kind: status.TurnEnded, At: time.Now()})
+	_, cmd := m.Update(app.StatusMsg{SessionID: "s3", Kind: dstatus.TurnEnded, At: time.Now()})
 	settle(m, cmd)
 
 	if got := f.asked(); got != "/p/api-svc" {
@@ -130,7 +130,7 @@ func TestModel_withoutGhNothingIsAskedAgain_issue310(t *testing.T) {
 	deliver(m, m.PollPRs())
 	_, cmd := m.Update(tea.FocusMsg{})
 	deliver(m, cmd)
-	_, cmd = m.Update(app.StatusMsg{SessionID: "s1", Kind: status.TurnEnded, At: time.Now()})
+	_, cmd = m.Update(app.StatusMsg{SessionID: "s1", Kind: dstatus.TurnEnded, At: time.Now()})
 	settle(m, cmd)
 
 	if len(f.Asked) != 0 {
@@ -189,7 +189,7 @@ func TestModel_aFailedPRPollKeepsTheLastListAndWarnsOnce_issue310(t *testing.T) 
 func TestModel_aPermissionPromptDoesNotPollPRs_issue310(t *testing.T) {
 	m, f := modelWithPRs(t)
 
-	_, cmd := m.Update(app.StatusMsg{SessionID: "s3", Kind: status.PermissionRequested, At: time.Now()})
+	_, cmd := m.Update(app.StatusMsg{SessionID: "s3", Kind: dstatus.PermissionRequested, At: time.Now()})
 	settle(m, cmd)
 
 	if len(f.Asked) != 0 {
@@ -204,7 +204,7 @@ func TestModel_aProjectIsAskedAtMostOnceInTheGap_issue310(t *testing.T) {
 	deliver(m, m.PollPRs())
 	f.Asked = nil
 
-	_, cmd := m.Update(app.StatusMsg{SessionID: "s3", Kind: status.TurnEnded, At: time.Now()})
+	_, cmd := m.Update(app.StatusMsg{SessionID: "s3", Kind: dstatus.TurnEnded, At: time.Now()})
 	settle(m, cmd)
 	_, cmd = m.Update(tea.FocusMsg{})
 	deliver(m, cmd)
@@ -225,7 +225,7 @@ func TestModel_aTurnEndingWhileBlurredDoesNotPollPRs_issue310(t *testing.T) {
 	m, f := modelWithPRs(t)
 	m.Update(tea.BlurMsg{})
 
-	_, cmd := m.Update(app.StatusMsg{SessionID: "s3", Kind: status.TurnEnded, At: time.Now()})
+	_, cmd := m.Update(app.StatusMsg{SessionID: "s3", Kind: dstatus.TurnEnded, At: time.Now()})
 	settle(m, cmd)
 
 	if len(f.Asked) != 0 {

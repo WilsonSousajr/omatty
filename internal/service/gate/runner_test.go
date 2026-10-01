@@ -1,6 +1,7 @@
 package gate_test
 
 import (
+	dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"testing"
 	"time"
 
@@ -10,14 +11,14 @@ import (
 )
 
 // waitReport reads one report, failing rather than hanging the suite.
-func waitReport(t *testing.T, reports <-chan pubsub.Event[gate.Report]) gate.Report {
+func waitReport(t *testing.T, reports <-chan pubsub.Event[dgate.Report]) dgate.Report {
 	t.Helper()
 	select {
 	case e := <-reports:
 		return e.Payload
 	case <-time.After(30 * time.Second):
 		t.Fatal("no report arrived")
-		return gate.Report{}
+		return dgate.Report{}
 	}
 }
 
@@ -26,13 +27,13 @@ func TestRunner_reportsTheRunItWasGiven(t *testing.T) {
 	defer r.Close()
 	reports := r.Subscribe(t.Context())
 
-	r.Start("s1", t.TempDir(), []gate.Step{{Name: "ok", Run: "true"}})
+	r.Start("s1", t.TempDir(), []dgate.Step{{Name: "ok", Run: "true"}})
 
 	rep := waitReport(t, reports)
 	if rep.ID != "s1" {
 		t.Errorf("Report.ID = %q, want s1", rep.ID)
 	}
-	if len(rep.Results) != 1 || rep.Results[0].Verdict != gate.Pass {
+	if len(rep.Results) != 1 || rep.Results[0].Verdict != dgate.Pass {
 		t.Errorf("Report.Results = %+v, want one Pass", rep.Results)
 	}
 }
@@ -44,7 +45,7 @@ func TestRunner_surfacesAnUnusableDirectory(t *testing.T) {
 	defer r.Close()
 	reports := r.Subscribe(t.Context())
 
-	r.Start("s1", "/no/such/directory/anywhere", []gate.Step{{Name: "ok", Run: "true"}})
+	r.Start("s1", "/no/such/directory/anywhere", []dgate.Step{{Name: "ok", Run: "true"}})
 
 	if rep := waitReport(t, reports); rep.Err == nil {
 		t.Error("Report.Err = nil, want the directory failure surfaced")
@@ -60,8 +61,8 @@ func TestRunner_restartingASession_reportsOnlyTheNewRun(t *testing.T) {
 	reports := r.Subscribe(t.Context())
 	dir := t.TempDir()
 
-	r.Start("s1", dir, []gate.Step{{Name: "slow", Run: "sleep 30"}})
-	r.Start("s1", dir, []gate.Step{{Name: "quick", Run: "true"}})
+	r.Start("s1", dir, []dgate.Step{{Name: "slow", Run: "sleep 30"}})
+	r.Start("s1", dir, []dgate.Step{{Name: "quick", Run: "true"}})
 
 	rep := waitReport(t, reports)
 	if rep.Results[0].Step.Name != "quick" {
@@ -79,7 +80,7 @@ func TestRunner_cancelStopsAnInFlightRun(t *testing.T) {
 	defer r.Close()
 	reports := r.Subscribe(t.Context())
 
-	r.Start("s1", t.TempDir(), []gate.Step{{Name: "slow", Run: "sleep 30"}})
+	r.Start("s1", t.TempDir(), []dgate.Step{{Name: "slow", Run: "sleep 30"}})
 	r.Cancel("s1")
 
 	select {
@@ -95,7 +96,7 @@ func TestRunner_cancelStopsAnInFlightRun(t *testing.T) {
 func TestRunner_closeIsSafeTwiceAndStopsWork(t *testing.T) {
 	r := gate.NewRunner(2, gateexec.Run)
 	reports := r.Subscribe(t.Context())
-	r.Start("s1", t.TempDir(), []gate.Step{{Name: "slow", Run: "sleep 30"}})
+	r.Start("s1", t.TempDir(), []dgate.Step{{Name: "slow", Run: "sleep 30"}})
 
 	r.Close()
 	r.Close()
@@ -113,5 +114,5 @@ func TestRunner_startAfterCloseIsIgnored(t *testing.T) {
 	r := gate.NewRunner(1, gateexec.Run)
 	r.Close()
 
-	r.Start("s1", t.TempDir(), []gate.Step{{Name: "ok", Run: "true"}})
+	r.Start("s1", t.TempDir(), []dgate.Step{{Name: "ok", Run: "true"}})
 }

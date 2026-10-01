@@ -2,6 +2,7 @@ package forge_test
 
 import (
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,7 +83,7 @@ func TestCLI_ListPRsRecognisesARepoThatIsNotOnGitHub_issue310(t *testing.T) {
 	} {
 		bin, _ := fakeGH(t, "", stderr, 1)
 		_, err := forge.NewCLIWithBin(bin).ListPRs(t.TempDir())
-		if !errors.Is(err, forge.ErrNoForge) {
+		if !errors.Is(err, dforge.ErrNoForge) {
 			t.Errorf("stderr %q: error = %v, want ErrNoForge", stderr, err)
 		}
 	}
@@ -95,7 +96,7 @@ func TestCLI_ListPRsCarriesAnyOtherFailure_issue310(t *testing.T) {
 
 	_, err := forge.NewCLIWithBin(bin).ListPRs(t.TempDir())
 
-	if err == nil || errors.Is(err, forge.ErrNoForge) || missingTool(err, "gh") {
+	if err == nil || errors.Is(err, dforge.ErrNoForge) || missingTool(err, "gh") {
 		t.Fatalf("error = %v, want an ordinary error", err)
 	}
 	if !strings.Contains(err.Error(), "Bad credentials") {

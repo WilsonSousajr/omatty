@@ -2,12 +2,12 @@ package review_test
 
 import (
 	"errors"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
-	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
@@ -16,7 +16,7 @@ import (
 // truth when opened (#180).
 func TestSource_StatCountsTrackedChangesAgainstTheSameBaseAsLoad_issue180(t *testing.T) {
 	g := &FakeGit{Branch: "parser-fix", MergeBaseOut: "abc123",
-		ShortstatOut: vcs.Shortstat{Files: 2, Added: 12, Removed: 3}}
+		ShortstatOut: dreview.Shortstat{Files: 2, Added: 12, Removed: 3}}
 
 	st, err := review.NewSource(g, gitdiff.ParseDiff).Stat(worktreeSession, "/p/omatty")
 
@@ -113,7 +113,7 @@ func TestSource_UntrackedFilesAreAppendedAsAdditions_issue21(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(d.Files) != 1 || d.Files[0].Path != "new.txt" || d.Files[0].Status != review.FileAdded {
+	if len(d.Files) != 1 || d.Files[0].Path != "new.txt" || d.Files[0].Status != dreview.FileAdded {
 		t.Errorf("files = %+v, want new.txt as an added file", d.Files)
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -23,9 +22,9 @@ func TestModel_RendersRealProcessOutputThroughTheModel_issue33(t *testing.T) {
 	}
 	defer func() { _ = term.Close() }()
 
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "p", Root: "/p"}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "p", Title: "one"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "p", Root: "/p"}},
+		Sessions: []session.Session{{ID: "s1", Project: "p", Title: "one"}},
 	}
 	m := app.NewModel(app.Deps{State: st, Terms: map[string]terminal.Terminal{"s1": term}, Create: noCreate, Start: noStart})
 

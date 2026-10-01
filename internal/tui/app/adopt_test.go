@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ type recordAdopt struct {
 	// StartedRows are the whole Sessions start was handed, not just their ids:
 	// the id is the same either way, so only the rest of the row can show
 	// which value the picker used.
-	StartedRows []sessions.Session
+	StartedRows []session.Session
 }
 
 func (r *recordAdopt) propose(projectRoot string) ([]app.SessionProposal, error) {
@@ -52,7 +53,7 @@ func (r *recordAdopt) adopt(project string, picks []app.SessionProposal) []sessi
 	for _, p := range picks {
 		r.Adopted = append(r.Adopted, p.ID)
 		out = append(out, sessions.Adoption{
-			Session: sessions.Session{
+			Session: session.Session{
 				ID: p.ID, Project: project, Title: p.Title, Dir: p.Dir, Branch: r.WroteBranch,
 			},
 			Err: r.AdoptErr,
@@ -61,13 +62,13 @@ func (r *recordAdopt) adopt(project string, picks []app.SessionProposal) []sessi
 	return out
 }
 
-func (r *recordAdopt) start(sess sessions.Session, _, _ int) (terminal.Terminal, error) {
+func (r *recordAdopt) start(sess session.Session, _, _ int) (terminal.Terminal, error) {
 	r.Started = append(r.Started, sess.ID)
 	r.StartedRows = append(r.StartedRows, sess)
 	return terminal.NewFake("adopted"), nil
 }
 
-func (r *recordAdopt) tail(sess sessions.Session) { r.Tailed = append(r.Tailed, sess.ID) }
+func (r *recordAdopt) tail(sess session.Session) { r.Tailed = append(r.Tailed, sess.ID) }
 
 func twoProposals() []app.SessionProposal {
 	now := time.Now()

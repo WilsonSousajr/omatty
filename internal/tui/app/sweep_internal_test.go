@@ -1,12 +1,12 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
@@ -25,9 +25,9 @@ type sweepRig struct {
 func newSweepRig(t *testing.T, idle time.Duration) sweepRig {
 	t.Helper()
 	now, ended := sweepT0, []string{}
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "p", Root: "/p"}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "p", Title: "one"},
+	st := session.State{
+		Projects: []session.Project{{Name: "p", Root: "/p"}},
+		Sessions: []session.Session{{ID: "s1", Project: "p", Title: "one"},
 			{ID: "s2", Project: "p", Title: "two"}, {ID: "s3", Project: "p", Title: "three"}},
 	}
 	terms := map[string]terminal.Terminal{}
@@ -37,15 +37,15 @@ func newSweepRig(t *testing.T, idle time.Duration) sweepRig {
 	m := NewModel(Deps{State: st, Terms: terms, IdleStop: idle,
 		Clock: func() time.Time { return now },
 		Stop:  func(id string) error { ended = append(ended, id); return nil },
-		Start: func(sessions.Session, int, int) (terminal.Terminal, error) { return terminal.NewFake(""), nil },
+		Start: func(session.Session, int, int) (terminal.Terminal, error) { return terminal.NewFake(""), nil },
 	})
 	return sweepRig{m: m, now: &now, ended: &ended}
 }
 
 // settled records a transcript turn for id at the given time, as the tailer
 // would on its first read.
-func (r sweepRig) settled(id string, st status.Status, at time.Time) {
-	r.m.status[id] = status.SessionState{Status: st, At: at}
+func (r sweepRig) settled(id string, st dstatus.Status, at time.Time) {
+	r.m.status[id] = dstatus.SessionState{Status: st, At: at}
 }
 
 // sweep runs one sweep and the stops it scheduled, returning who was stopped.
@@ -64,7 +64,7 @@ func (r sweepRig) running(id string) bool { return r.m.terms[id] != nil }
 // process ended, row kept (#319).
 func TestSweep_StopsAQuietSession_issue319(t *testing.T) {
 	r := newSweepRig(t, time.Hour)
-	r.settled("s2", status.StatusDone, sweepT0.Add(-3*time.Hour))
+	r.settled("s2", dstatus.StatusDone, sweepT0.Add(-3*time.Hour))
 	*r.now = sweepT0.Add(2 * time.Hour)
 
 	stopped := r.sweep()
@@ -80,7 +80,7 @@ func TestSweep_StopsAQuietSession_issue319(t *testing.T) {
 // The pane the operator is looking at never goes blank under their hands.
 func TestSweep_SparesTheSelectedSession_issue319(t *testing.T) {
 	r := newSweepRig(t, time.Hour)
-	r.settled("s1", status.StatusDone, sweepT0.Add(-3*time.Hour))
+	r.settled("s1", dstatus.StatusDone, sweepT0.Add(-3*time.Hour))
 	*r.now = sweepT0.Add(2 * time.Hour)
 
 	if stopped := r.sweep(); slicesContain(stopped, "s1") || !r.running("s1") {
@@ -91,7 +91,7 @@ func TestSweep_SparesTheSelectedSession_issue319(t *testing.T) {
 // A turn in flight, or a session waiting on the operator's answer, is never
 // quiet, however old its last settled turn (#319).
 func TestSweep_SparesABusyOrWaitingSession_issue319(t *testing.T) {
-	for _, busy := range []status.Status{status.StatusThinking, status.StatusTool, status.StatusWaiting} {
+	for _, busy := range []dstatus.Status{dstatus.StatusThinking, dstatus.StatusTool, dstatus.StatusWaiting} {
 		r := newSweepRig(t, time.Hour)
 		r.settled("s2", busy, sweepT0.Add(-3*time.Hour))
 		*r.now = sweepT0.Add(2 * time.Hour)
@@ -116,7 +116,7 @@ func TestSweep_SparesAJustStartedSession_issue319(t *testing.T) {
 // A session resumed with enter is fresh again, whatever its transcript says.
 func TestSweep_SparesASessionJustResumed_issue319(t *testing.T) {
 	r := newSweepRig(t, time.Hour)
-	r.settled("s2", status.StatusDone, sweepT0.Add(-3*time.Hour))
+	r.settled("s2", dstatus.StatusDone, sweepT0.Add(-3*time.Hour))
 	*r.now = sweepT0.Add(2 * time.Hour)
 	r.sweep()
 	r.m.sidebar.SelectByID("s2")
@@ -134,7 +134,7 @@ func TestSweep_SparesASessionJustResumed_issue319(t *testing.T) {
 // transcript while its work went on, and this is the floor that covered it.
 func TestSweep_SparesASessionBeingTypedInto_issue316(t *testing.T) {
 	r := newSweepRig(t, time.Hour)
-	r.settled("s2", status.StatusDone, sweepT0.Add(-72*time.Hour))
+	r.settled("s2", dstatus.StatusDone, sweepT0.Add(-72*time.Hour))
 	*r.now = sweepT0.Add(2 * time.Hour)
 	r.m.sidebar.SelectByID("s2")
 	r.m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
@@ -149,7 +149,7 @@ func TestSweep_SparesASessionBeingTypedInto_issue316(t *testing.T) {
 // A session with no process has nothing to stop; a second sweep leaves it.
 func TestSweep_LeavesAStoppedSessionAlone_issue319(t *testing.T) {
 	r := newSweepRig(t, time.Hour)
-	r.settled("s2", status.StatusDone, sweepT0.Add(-3*time.Hour))
+	r.settled("s2", dstatus.StatusDone, sweepT0.Add(-3*time.Hour))
 	*r.now = sweepT0.Add(2 * time.Hour)
 	r.sweep()
 

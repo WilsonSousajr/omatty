@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -8,7 +9,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -30,11 +30,11 @@ func modelWithOverlay(t *testing.T, profile string) *app.Model {
 	if profile != "" {
 		write(t, filepath.Join(dir, "cover.out"), profile)
 	}
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "omatty", Root: dir, Gate: []gate.Step{
+	st := session.State{
+		Projects: []session.Project{{Name: "omatty", Root: dir, Gate: []gate.Step{
 			{Name: "cov", Run: "./cov.sh", Kind: gate.KindCoverage, Profile: "cover.out"},
 		}}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: dir, Branch: "main"}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: dir, Branch: "main"}},
 	}
 	deps := baseDeps(st, fakeTermsFor(st))
 	rec := &diffRecorder{Diff: sampleDiffParsed(t)}

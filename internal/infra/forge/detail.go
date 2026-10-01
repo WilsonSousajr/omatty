@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"strconv"
 	"time"
 )
@@ -42,20 +43,20 @@ type ghComment struct {
 }
 
 // viewIssue is one issue in full.
-func (c ghCLI) viewIssue(ctx context.Context, repoRoot string, number int) (Detail, error) {
+func (c ghCLI) viewIssue(ctx context.Context, repoRoot string, number int) (dforge.Detail, error) {
 	return c.view(ctx, repoRoot, "issue", number, detailFields)
 }
 
 // viewPR is one pull request in full. A separate call rather than a guess: gh
 // has two subcommands, and the tracker knows which list its row came from.
-func (c ghCLI) viewPR(ctx context.Context, repoRoot string, number int) (Detail, error) {
+func (c ghCLI) viewPR(ctx context.Context, repoRoot string, number int) (dforge.Detail, error) {
 	return c.view(ctx, repoRoot, "pr", number, prDetailFields)
 }
 
-func (c ghCLI) view(ctx context.Context, repoRoot, kind string, number int, fields string) (Detail, error) {
+func (c ghCLI) view(ctx context.Context, repoRoot, kind string, number int, fields string) (dforge.Detail, error) {
 	out, err := c.run(ctx, repoRoot, kind, "view", strconv.Itoa(number), "--json", fields)
 	if err != nil {
-		return Detail{}, err
+		return dforge.Detail{}, err
 	}
 	return FoldDetail(out)
 }
@@ -64,19 +65,19 @@ func (c ghCLI) view(ctx context.Context, repoRoot, kind string, number int, fiel
 // DetailMax.
 //
 //	item, err := forge.FoldDetail(out)
-func FoldDetail(raw []byte) (Detail, error) {
+func FoldDetail(raw []byte) (dforge.Detail, error) {
 	var in ghDetail
 	if err := json.Unmarshal(raw, &in); err != nil {
-		return Detail{}, fmt.Errorf("forge: reading gh's view of an item: %w", err)
+		return dforge.Detail{}, fmt.Errorf("forge: reading gh's view of an item: %w", err)
 	}
 	return foldDetail(in), nil
 }
 
 // foldDetail is FoldDetail past the decoding, shared with the HTTP path (#462).
-func foldDetail(in ghDetail) Detail {
-	body, left := bound(clean(in.Body), DetailMax)
+func foldDetail(in ghDetail) dforge.Detail {
+	body, left := bound(clean(in.Body), dforge.DetailMax)
 	comments, dropped := foldComments(in.Comments, left)
-	return Detail{
+	return dforge.Detail{
 		Number: in.Number, Title: cleanLine(in.Title), Author: cleanLine(in.Author.Login),
 		Body: body, Comments: comments, URL: cleanLine(in.URL), Created: in.CreatedAt,
 		Truncated: dropped || len(body) < len(clean(in.Body)),
@@ -87,8 +88,8 @@ func foldDetail(in ghDetail) Detail {
 // foldChecks is each check as omatty's own type: its name - a CheckRun's, or a
 // StatusContext's context - cleaned as every forge string is (#483), its state
 // by the card's own rules, and how long it ran when it has finished.
-func foldChecks(in []check) []Check {
-	out := make([]Check, 0, len(in))
+func foldChecks(in []check) []dforge.Check {
+	out := make([]dforge.Check, 0, len(in))
 	for _, c := range in {
 		name := c.Name
 		if name == "" {
@@ -98,7 +99,7 @@ func foldChecks(in []check) []Check {
 		if !c.StartedAt.IsZero() && c.CompletedAt.After(c.StartedAt) {
 			took = c.CompletedAt.Sub(c.StartedAt)
 		}
-		out = append(out, Check{Name: cleanLine(name), State: rollup([]check{c}), Took: took})
+		out = append(out, dforge.Check{Name: cleanLine(name), State: rollup([]check{c}), Took: took})
 	}
 	return out
 }
@@ -106,15 +107,15 @@ func foldChecks(in []check) []Check {
 // foldComments takes comments while budget lasts, and says whether any was
 // dropped. Whole comments rather than a cut one: half a comment attributed to
 // its author is worse than a missing one the view admits to.
-func foldComments(in []ghComment, budget int) ([]Comment, bool) {
-	out := make([]Comment, 0, len(in))
+func foldComments(in []ghComment, budget int) ([]dforge.Comment, bool) {
+	out := make([]dforge.Comment, 0, len(in))
 	for _, c := range in {
 		body := clean(c.Body) // #483
 		if len(body) > budget {
 			return out, true
 		}
 		budget -= len(body)
-		out = append(out, Comment{Author: cleanLine(c.Author.Login), Body: body, At: c.CreatedAt})
+		out = append(out, dforge.Comment{Author: cleanLine(c.Author.Login), Body: body, At: c.CreatedAt})
 	}
 	return out, false
 }

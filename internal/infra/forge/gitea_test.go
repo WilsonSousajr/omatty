@@ -2,6 +2,7 @@ package forge_test
 
 import (
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -101,8 +102,8 @@ func TestGitea_ListsPullRequestsWithTheirCI_issue458(t *testing.T) {
 		t.Fatal(err)
 	}
 	pr, _ := prNumbered(prs, 14587)
-	want := forge.PR{Number: 14587, Title: pr.Title, Branch: "runner-refs/heads/main", Base: "forgejo", State: forge.Open,
-		CI: forge.CIRunning, Fork: true, Head: "ffd52b9a8d6144520b713dfc75c4cad687d5f68e", Updated: pr.Updated}
+	want := dforge.PR{Number: 14587, Title: pr.Title, Branch: "runner-refs/heads/main", Base: "forgejo", State: dforge.Open,
+		CI: dforge.CIRunning, Fork: true, Head: "ffd52b9a8d6144520b713dfc75c4cad687d5f68e", Updated: pr.Updated}
 	if pr != want || pr.Title == "" {
 		t.Errorf("#14587 = %+v\nwant a fork on runner-refs/heads/main whose checks are pending", pr)
 	}
@@ -118,7 +119,7 @@ func TestGitea_ListsTheRecentlyMerged_issue458(t *testing.T) {
 
 	merged := 0
 	for _, pr := range prs {
-		if pr.State == forge.Merged && !pr.MergedAt.IsZero() {
+		if pr.State == dforge.Merged && !pr.MergedAt.IsZero() {
 			merged++
 		}
 	}
@@ -132,10 +133,10 @@ func TestGitea_ListsTheRecentlyMerged_issue458(t *testing.T) {
 // and Forgejo ranks it worse than pending, so a combined "warning" can hide a
 // check still running (#458's review; this test first said passing).
 func TestGitea_StatusIsTheCIMark_issue458(t *testing.T) {
-	for status, want := range map[string]forge.CIState{
-		"success": forge.CIPassing, "skipped": forge.CIPassing,
-		"failure": forge.CIFailing, "error": forge.CIFailing, "warning": forge.CIFailing,
-		"pending": forge.CIRunning, "something-new": forge.CIRunning,
+	for status, want := range map[string]dforge.CIState{
+		"success": dforge.CIPassing, "skipped": dforge.CIPassing,
+		"failure": dforge.CIFailing, "error": dforge.CIFailing, "warning": dforge.CIFailing,
+		"pending": dforge.CIRunning, "something-new": dforge.CIRunning,
 	} {
 		if got := forge.GiteaCI(status); got != want {
 			t.Errorf("status %q = %v, want %v", status, got, want)

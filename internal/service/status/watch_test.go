@@ -155,7 +155,7 @@ func TestStart_ListensOnTheHookSocket_issue77(t *testing.T) {
 	select {
 	case e := <-w.Subscribe(t.Context()):
 		ev := e.Payload
-		if ev.SessionID != "s1" || ev.Kind != PermissionRequested {
+		if ev.SessionID != "s1" || ev.Kind != dstatus.PermissionRequested {
 			t.Errorf("got %+v, want s1 PermissionRequested", ev)
 		}
 	case <-time.After(2 * time.Second):
@@ -185,7 +185,7 @@ func TestStart_DegradesToTailerOnlyWhenTheSocketCannotBind_issue49(t *testing.T)
 	select {
 	case e := <-w.Subscribe(t.Context()):
 		ev := e.Payload
-		if ev.SessionID != "s1" || ev.Kind != PromptSubmitted {
+		if ev.SessionID != "s1" || ev.Kind != dstatus.PromptSubmitted {
 			t.Errorf("got %+v, want s1 PromptSubmitted from the tailer", ev)
 		}
 	case <-time.After(2 * time.Second):

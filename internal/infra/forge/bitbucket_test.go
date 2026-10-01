@@ -2,6 +2,7 @@ package forge_test
 
 import (
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -85,7 +86,7 @@ func TestBitbucket_ListsPullRequestsWithTheirCI_issue460(t *testing.T) {
 		t.Fatal(err)
 	}
 	pr, _ := prNumbered(prs, 1115)
-	want := forge.PR{Number: 1115, Title: pr.Title, Branch: pr.Branch, Base: "main", State: forge.Open, CI: forge.CIPassing, Head: "31b8ff8dad0a", Updated: pr.Updated}
+	want := dforge.PR{Number: 1115, Title: pr.Title, Branch: pr.Branch, Base: "main", State: dforge.Open, CI: dforge.CIPassing, Head: "31b8ff8dad0a", Updated: pr.Updated}
 	if pr != want || !strings.HasPrefix(pr.Branch, "feature/VULN-1872862") || pr.Updated.IsZero() {
 		t.Errorf("#1115 = %+v, want open on its feature branch with a passing pipeline", pr)
 	}
@@ -99,20 +100,20 @@ func TestBitbucket_ListsTheRecentlyFinished_issue460(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	states := map[forge.PRState]int{}
+	states := map[dforge.PRState]int{}
 	for _, pr := range prs {
 		states[pr.State]++
 	}
-	if states[forge.Merged] != 1 || states[forge.Closed] != 2 {
+	if states[dforge.Merged] != 1 || states[dforge.Closed] != 2 {
 		t.Errorf("finished states = %v, want 1 merged and 2 declined", states)
 	}
 }
 
 // A commit status maps to the card's CI mark; unknown is running.
 func TestBitbucket_StatusIsTheCIMark_issue460(t *testing.T) {
-	for status, want := range map[string]forge.CIState{
-		"SUCCESSFUL": forge.CIPassing, "FAILED": forge.CIFailing, "STOPPED": forge.CIFailing,
-		"INPROGRESS": forge.CIRunning, "SOMETHING_NEW": forge.CIRunning,
+	for status, want := range map[string]dforge.CIState{
+		"SUCCESSFUL": dforge.CIPassing, "FAILED": dforge.CIFailing, "STOPPED": dforge.CIFailing,
+		"INPROGRESS": dforge.CIRunning, "SOMETHING_NEW": dforge.CIRunning,
 	} {
 		if got := forge.BitbucketCI(status); got != want {
 			t.Errorf("status %q = %v, want %v", status, got, want)
@@ -137,10 +138,10 @@ func TestBitbucket_ReadsAPullRequestInFull_issue460(t *testing.T) {
 func TestBitbucket_IssuesLiveElsewhere_issue460(t *testing.T) {
 	r := bitbucketRouter(t, bitbucketToken, &FakeBitbucketAPI{})
 
-	if _, err := r.ListIssues(t.TempDir()); !errors.Is(err, forge.ErrNoTracker) {
+	if _, err := r.ListIssues(t.TempDir()); !errors.Is(err, dforge.ErrNoTracker) {
 		t.Errorf("ListIssues error = %v, want ErrNoTracker", err)
 	}
-	if _, err := r.ViewIssue(t.TempDir(), 1); !errors.Is(err, forge.ErrNoTracker) {
+	if _, err := r.ViewIssue(t.TempDir(), 1); !errors.Is(err, dforge.ErrNoTracker) {
 		t.Errorf("ViewIssue error = %v, want ErrNoTracker", err)
 	}
 }
@@ -164,7 +165,7 @@ func TestBitbucket_BorrowsItsToken_issue460(t *testing.T) {
 		}
 	}
 	_, err := bitbucketRouter(t, nil, &FakeBitbucketAPI{}).ListPRs(t.TempDir())
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || missing.TokenEnv != "BITBUCKET_TOKEN" {
 		t.Errorf("no token: error = %v, want BITBUCKET_TOKEN unset", err)
 	}
@@ -173,7 +174,7 @@ func TestBitbucket_BorrowsItsToken_issue460(t *testing.T) {
 // 401 is the token refused; a list's 404 is no forge.
 func TestBitbucket_ClassifiesTheAnswer_issue460(t *testing.T) {
 	_, err := bitbucketRouter(t, bitbucketToken, &FakeBitbucketAPI{Status: 401}).ListPRs(t.TempDir())
-	var refused *forge.AuthError
+	var refused *dforge.AuthError
 	if !errors.As(err, &refused) || refused.TokenEnv != "BITBUCKET_TOKEN" {
 		t.Errorf("401: error = %v, want BITBUCKET_TOKEN refused", err)
 	}

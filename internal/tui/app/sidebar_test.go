@@ -1,20 +1,20 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
-func twoProjectState() sessions.State {
-	return sessions.State{
-		Projects: []sessions.Project{
+func twoProjectState() session.State {
+	return session.State{
+		Projects: []session.Project{
 			{Name: "omatty", Root: "/p/omatty"},
 			{Name: "api-svc", Root: "/p/api-svc"},
 		},
-		Sessions: []sessions.Session{
+		Sessions: []session.Session{
 			{ID: "s1", Project: "omatty", Title: "main"},
 			{ID: "s2", Project: "omatty", Title: "parser-fix"},
 			{ID: "s3", Project: "api-svc", Title: "main"},
@@ -23,8 +23,8 @@ func twoProjectState() sessions.State {
 }
 
 func TestSidebarRows_GroupsSessionsUnderTheirProject(t *testing.T) {
-	rows := app.SidebarRows(twoProjectState(), map[string]status.Status{
-		"s2": status.StatusThinking,
+	rows := app.SidebarRows(twoProjectState(), map[string]dstatus.Status{
+		"s2": dstatus.StatusThinking,
 	})
 
 	want := []string{"omatty", "s1", "s2", "api-svc", "s3"}
@@ -40,12 +40,12 @@ func TestSidebarRows_GroupsSessionsUnderTheirProject(t *testing.T) {
 			t.Errorf("row %d = %q, want %q", i, got, w)
 		}
 	}
-	if rows[2].Status != status.StatusThinking {
-		t.Errorf("row 2 status = %q, want %q", rows[2].Status, status.StatusThinking)
+	if rows[2].Status != dstatus.StatusThinking {
+		t.Errorf("row 2 status = %q, want %q", rows[2].Status, dstatus.StatusThinking)
 	}
-	if rows[1].Status != status.StatusIdle {
+	if rows[1].Status != dstatus.StatusIdle {
 		t.Errorf("row 1 status = %q, want %q for an unreported session",
-			rows[1].Status, status.StatusIdle)
+			rows[1].Status, dstatus.StatusIdle)
 	}
 }
 
@@ -70,7 +70,7 @@ func TestSidebarRows_EachRowPointsAtItsOwnSession(t *testing.T) {
 }
 
 func TestSidebarRows_ProjectWithNoSessionsStillShows(t *testing.T) {
-	st := sessions.State{Projects: []sessions.Project{{Name: "empty", Root: "/p/empty"}}}
+	st := session.State{Projects: []session.Project{{Name: "empty", Root: "/p/empty"}}}
 
 	rows := app.SidebarRows(st, nil)
 
@@ -124,9 +124,9 @@ func TestSidebar_EmptyStateSelectsNothing(t *testing.T) {
 // A project with no sessions must not strand the cursor before the sessions
 // that follow it.
 func TestSidebar_HeaderOnlyProjectFirstStillSelectsALaterSession(t *testing.T) {
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "empty"}, {Name: "omatty"}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "main"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "empty"}, {Name: "omatty"}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "main"}},
 	}
 
 	s := app.NewSidebar(app.SidebarRows(st, nil))
@@ -137,7 +137,7 @@ func TestSidebar_HeaderOnlyProjectFirstStillSelectsALaterSession(t *testing.T) {
 	}
 }
 
-func emptyState() sessions.State { return sessions.State{} }
+func emptyState() session.State { return session.State{} }
 
 func TestSidebar_MoveDownFromTheLastSessionWrapsToTheFirst_issue126(t *testing.T) {
 	s := app.NewSidebar(app.SidebarRows(twoProjectState(), nil))
@@ -161,9 +161,9 @@ func TestSidebar_MoveUpFromTheFirstSessionWrapsToTheLast_issue126(t *testing.T) 
 }
 
 func TestSidebar_OneSessionStaysPutInBothDirections_issue126(t *testing.T) {
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "omatty"}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "main"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "omatty"}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "main"}},
 	}
 	s := app.NewSidebar(app.SidebarRows(st, nil))
 	s.MoveDown()
@@ -177,7 +177,7 @@ func TestSidebar_OneSessionStaysPutInBothDirections_issue126(t *testing.T) {
 // the first header (#158), but Selected() is still ok=false there; and the
 // lap bound is still what stops a modulo walk spinning here forever.
 func TestSidebar_HeadersOnlyReturnsWithoutSelecting_issue126(t *testing.T) {
-	st := sessions.State{Projects: []sessions.Project{{Name: "empty"}, {Name: "also"}}}
+	st := session.State{Projects: []session.Project{{Name: "empty"}, {Name: "also"}}}
 	s := app.NewSidebar(app.SidebarRows(st, nil))
 
 	s.MoveDown()

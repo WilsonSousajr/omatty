@@ -3,6 +3,7 @@ package hooks_test
 import (
 	"bufio"
 	"encoding/json"
+	"github.com/WilsonSousajr/omatty/internal/domain/status"
 	"net"
 	"os"
 	"path/filepath"
@@ -56,7 +57,7 @@ func TestReport_ForwardsThePayloadToTheSocket_issue18(t *testing.T) {
 
 	select {
 	case line := <-got:
-		var p hooks.Payload
+		var p status.HookPayload
 		if err := json.Unmarshal([]byte(line), &p); err != nil {
 			t.Fatalf("listener got non-JSON %q: %v", line, err)
 		}
@@ -153,7 +154,7 @@ func TestReport_ForwardsAPostToolUseWithAHugeResponse_issue55(t *testing.T) {
 
 	select {
 	case line := <-got:
-		var p hooks.Payload
+		var p status.HookPayload
 		if err := json.Unmarshal([]byte(line), &p); err != nil || p.SessionID != "abc" || p.HookEventName != "PostToolUse" {
 			t.Errorf("forwarded %q (err %v), want session abc PostToolUse", line, err)
 		}

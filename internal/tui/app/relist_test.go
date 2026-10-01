@@ -1,12 +1,12 @@
 package app_test
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -14,9 +14,9 @@ import (
 // event is delivered the way the runtime would, so the relist that a turn end
 // schedules actually runs.
 func turn(m *app.Model, at time.Time) {
-	_, cmd := m.Update(app.StatusMsg{SessionID: "s1", Kind: status.PromptSubmitted, At: at})
+	_, cmd := m.Update(app.StatusMsg{SessionID: "s1", Kind: dstatus.PromptSubmitted, At: at})
 	deliver(m, cmd)
-	_, cmd = m.Update(app.StatusMsg{SessionID: "s1", Kind: status.TurnEnded, At: at.Add(time.Second)})
+	_, cmd = m.Update(app.StatusMsg{SessionID: "s1", Kind: dstatus.TurnEnded, At: at.Add(time.Second)})
 	deliver(m, cmd)
 }
 
@@ -112,9 +112,9 @@ func TestModel_ASecondTurnEndWaitsForTheListingInFlight_issue195(t *testing.T) {
 	leader(m, key('f'))
 	now := time.Now()
 
-	_, first := m.Update(app.StatusMsg{SessionID: "s1", Kind: status.TurnEnded, At: now})
-	m.Update(app.StatusMsg{SessionID: "s1", Kind: status.PromptSubmitted, At: now.Add(time.Second)})
-	_, second := m.Update(app.StatusMsg{SessionID: "s1", Kind: status.TurnEnded, At: now.Add(2 * time.Second)})
+	_, first := m.Update(app.StatusMsg{SessionID: "s1", Kind: dstatus.TurnEnded, At: now})
+	m.Update(app.StatusMsg{SessionID: "s1", Kind: dstatus.PromptSubmitted, At: now.Add(time.Second)})
+	_, second := m.Update(app.StatusMsg{SessionID: "s1", Kind: dstatus.TurnEnded, At: now.Add(2 * time.Second)})
 	deliver(m, first)
 	deliver(m, second)
 

@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -28,7 +28,7 @@ func results(names []string, verdicts ...gate.Verdict) []gate.StepResult {
 // under it.
 func TestCard_isThreeLinesOfTheSidebarWidth_issue230(t *testing.T) {
 	m, _ := modelWithFakes(t)
-	sendStatus(m, "s1", status.TurnEnded, time.Now().Add(-4*time.Minute))
+	sendStatus(m, "s1", dstatus.TurnEnded, time.Now().Add(-4*time.Minute))
 
 	card := m.CardOf("s1")
 
@@ -131,7 +131,7 @@ func TestCard_ready_needsAGreenGateChangesAndARestingSession_issue230(t *testing
 		m, _ := modelWithFakes(t)
 		green(m)
 		m.SetRepoStat("s1", review.Stat{Branch: "main", Added: 12, Removed: 3})
-		sendStatus(m, "s1", status.TurnEnded, time.Now())
+		sendStatus(m, "s1", dstatus.TurnEnded, time.Now())
 		if third := stripSGR(m.CardOf("s1")[2]); !strings.Contains(third, "READY") {
 			t.Errorf("line three = %q, want READY", third)
 		}
@@ -141,7 +141,7 @@ func TestCard_ready_needsAGreenGateChangesAndARestingSession_issue230(t *testing
 		m, _ := modelWithFakes(t)
 		green(m)
 		m.SetRepoStat("s1", review.Stat{Branch: "main"})
-		sendStatus(m, "s1", status.TurnEnded, time.Now())
+		sendStatus(m, "s1", dstatus.TurnEnded, time.Now())
 		if third := stripSGR(m.CardOf("s1")[2]); strings.Contains(third, "READY") {
 			t.Errorf("line three = %q, want no READY without a diff", third)
 		}
@@ -151,7 +151,7 @@ func TestCard_ready_needsAGreenGateChangesAndARestingSession_issue230(t *testing
 		m, _ := modelWithFakes(t)
 		green(m)
 		m.SetRepoStat("s1", review.Stat{Branch: "main", Added: 12})
-		sendStatus(m, "s1", status.ToolStarted, time.Now())
+		sendStatus(m, "s1", dstatus.ToolStarted, time.Now())
 		if third := stripSGR(m.CardOf("s1")[2]); strings.Contains(third, "READY") {
 			t.Errorf("line three = %q, want no READY while the session is working", third)
 		}

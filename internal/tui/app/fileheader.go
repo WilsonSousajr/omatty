@@ -24,12 +24,11 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // renameArrow joins the two names of a renamed file, and binaryNote is what a
@@ -43,7 +42,7 @@ const renameArrow, binaryNote = " → ", " (binary)"
 //
 // A binary's "(binary)" takes the diffstat's place and is never given up: it
 // is why that file has no body, which is this row's whole finding.
-func fileHeading(f review.File, note string, budget int) string {
+func fileHeading(f dreview.File, note string, budget int) string {
 	if f.Binary {
 		return headingName(f, budget-lipgloss.Width(binaryNote)) + binaryNote
 	}
@@ -57,7 +56,7 @@ func fileHeading(f review.File, note string, budget int) string {
 //
 // When even the count alone will not fit there is nothing left to give, and
 // the row is cut by the caller's fitLine - the same place #283's rule ends.
-func fitHeading(f review.File, stat, note string, budget int) string {
+func fitHeading(f dreview.File, stat, note string, budget int) string {
 	room := budget - lipgloss.Width(note)
 	if minName(f) <= room-lipgloss.Width(stat) {
 		return headingName(f, room-lipgloss.Width(stat)) + stat + note
@@ -75,8 +74,8 @@ func fitHeading(f review.File, stat, note string, budget int) string {
 // the old name give up entirely, to a bare "…" - it still says the file came
 // from somewhere, and dropping it would make a rename read as an ordinary
 // edit.
-func headingName(f review.File, budget int) string {
-	if f.Status != review.FileRenamed {
+func headingName(f dreview.File, budget int) string {
+	if f.Status != dreview.FileRenamed {
 		return previewTitle(f.Path, budget)
 	}
 	room := budget - lipgloss.Width(renameArrow)
@@ -90,9 +89,9 @@ func headingName(f review.File, budget int) string {
 // minName is the fewest cells headingName can draw without giving up the
 // filename, which is previewTitle's last rung before it elides the name
 // itself. It is what the diffstat is weighed against.
-func minName(f review.File) int {
+func minName(f dreview.File) int {
 	n := lipgloss.Width(fileName(f.Path))
-	if f.Status == review.FileRenamed {
+	if f.Status == dreview.FileRenamed {
 		n += lipgloss.Width("…" + renameArrow)
 	}
 	return n

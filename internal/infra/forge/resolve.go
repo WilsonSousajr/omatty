@@ -3,16 +3,17 @@ package forge
 import (
 	"context"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 )
 
 // backend reads one forge for the Router, over one transport. Unexported: the
 // UI depends on func types it declares itself, and a forge is a backend here,
 // never an interface another package implements (ARCHITECTURE.md's seam rule).
 type backend interface {
-	listPRs(ctx context.Context, repoRoot string) ([]PR, error)
-	listIssues(ctx context.Context, repoRoot string) ([]Issue, error)
-	viewIssue(ctx context.Context, repoRoot string, number int) (Detail, error)
-	viewPR(ctx context.Context, repoRoot string, number int) (Detail, error)
+	listPRs(ctx context.Context, repoRoot string) ([]dforge.PR, error)
+	listIssues(ctx context.Context, repoRoot string) ([]dforge.Issue, error)
+	viewIssue(ctx context.Context, repoRoot string, number int) (dforge.Detail, error)
+	viewPR(ctx context.Context, repoRoot string, number int) (dforge.Detail, error)
 	browse(ctx context.Context, repoRoot string, number int, pr bool) error
 	shipper
 }
@@ -61,11 +62,11 @@ func (r *Router) cached(repoRoot string) (resolved, bool) {
 func (r *Router) lookUp(repoRoot string) (resolved, error) {
 	raw, err := r.remote(repoRoot)
 	if err != nil {
-		return resolved{}, fmt.Errorf("forge: %q has no origin to read: %v: %w", repoRoot, err, ErrNoForge)
+		return resolved{}, fmt.Errorf("forge: %q has no origin to read: %v: %w", repoRoot, err, dforge.ErrNoForge)
 	}
 	remote, err := ParseRemote(raw)
 	if err != nil {
-		return resolved{}, fmt.Errorf("%v: %w", err, ErrNoForge)
+		return resolved{}, fmt.Errorf("%v: %w", err, dforge.ErrNoForge)
 	}
 	remote, kind, err := r.name(remote)
 	if err != nil {

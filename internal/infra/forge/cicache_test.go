@@ -2,6 +2,7 @@ package forge
 
 import (
 	"context"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"strconv"
 	"sync"
 	"testing"
@@ -13,18 +14,18 @@ import (
 // changes least recently asked go first, so every one is reached in turn.
 func TestCICache_AsksTheLeastRecentlyAskedFirst_issue454(t *testing.T) {
 	c := newCICache()
-	prs := make([]PR, 40)
+	prs := make([]dforge.PR, 40)
 	for i := range prs {
-		prs[i] = PR{Number: i + 1, State: Open, Head: "h" + strconv.Itoa(i), Updated: time.Unix(int64(1000-i), 0)}
+		prs[i] = dforge.PR{Number: i + 1, State: dforge.Open, Head: "h" + strconv.Itoa(i), Updated: time.Unix(int64(1000-i), 0)}
 	}
-	key := func(pr PR) string { return pr.Head }
+	key := func(pr dforge.PR) string { return pr.Head }
 	var mu sync.Mutex
 	var asked []int
-	ask := func(_ context.Context, pr PR) (CIState, error) {
+	ask := func(_ context.Context, pr dforge.PR) (dforge.CIState, error) {
 		mu.Lock()
 		defer mu.Unlock()
 		asked = append(asked, pr.Number)
-		return CIRunning, nil
+		return dforge.CIRunning, nil
 	}
 
 	c.fill(context.Background(), prs, key, ask)

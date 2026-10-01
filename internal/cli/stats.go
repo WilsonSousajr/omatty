@@ -6,13 +6,13 @@ package cli
 import (
 	"context"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"io"
 	"strings"
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/tally"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // gateStats prints the project's lead time and first-pass gate rate.
@@ -25,7 +25,7 @@ import (
 // The pull requests come from the operator's own `gh`, read-only, and a machine
 // without gh simply gets no lead time - the same quiet degradation the cards
 // have (#310).
-func gateStats(w io.Writer, project sessions.Project, sessions []sessions.Session, prs PRLister) error {
+func gateStats(w io.Writer, project session.Project, sessions []session.Session, prs PRLister) error {
 	merged, err := mergedPRs(w, project, prs)
 	if err != nil {
 		return err
@@ -47,7 +47,7 @@ type PRLister func(repoRoot string) ([]forge.PR, error)
 // gh missing is not a failure of this command: half the measurement still works,
 // and saying so is better than refusing to print the gate rate because the
 // forge could not be reached.
-func mergedPRs(w io.Writer, project sessions.Project, prs PRLister) ([]forge.PR, error) {
+func mergedPRs(w io.Writer, project session.Project, prs PRLister) ([]forge.PR, error) {
 	if prs == nil {
 		return nil, nil
 	}
@@ -105,7 +105,7 @@ func roundLead(d time.Duration) string {
 // forge's tool gets no lead time and the gate rate still prints.
 //
 //	err := cli.Stats(ctx, os.Stdout, store, project, router.ListPRs)
-func Stats(ctx context.Context, w io.Writer, store Store, project sessions.Project, prs PRLister) error {
+func Stats(ctx context.Context, w io.Writer, store Store, project session.Project, prs PRLister) error {
 	st, err := store.Load(ctx)
 	if err != nil {
 		return err

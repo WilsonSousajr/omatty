@@ -2,11 +2,11 @@ package app_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -21,13 +21,13 @@ type recordCreate struct {
 	Err      error
 }
 
-func (r *recordCreate) fn(project, title, branch string, worktree bool) (sessions.Session, error) {
+func (r *recordCreate) fn(project, title, branch string, worktree bool) (session.Session, error) {
 	r.Calls++
 	r.Project, r.Title, r.Branch, r.Worktree = project, title, branch, worktree
 	if r.Err != nil {
-		return sessions.Session{}, r.Err
+		return session.Session{}, r.Err
 	}
-	return sessions.Session{ID: "created", Project: project, Title: title, Branch: branch}, nil
+	return session.Session{ID: "created", Project: project, Title: title, Branch: branch}, nil
 }
 
 func modelWithCreate(t *testing.T, c *recordCreate) (*app.Model, map[string]*terminal.Fake) {

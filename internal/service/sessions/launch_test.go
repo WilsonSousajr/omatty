@@ -2,6 +2,7 @@ package sessions_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +21,7 @@ import (
 func TestLauncher_CommandPassesSessionIDAndOwnSettings(t *testing.T) {
 	l := sessions.NewLauncher(claudeProfile(), "claude", "/home/u/.omatty/hooks.json", t.TempDir(), &detach.Plain{})
 
-	cmd, err := l.Launch(sessions.Session{ID: "abc-123", Dir: "/w/parser-fix"})
+	cmd, err := l.Launch(session.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
 	if err != nil {
 		t.Fatalf("Launch() error = %v, want nil", err)
@@ -41,7 +42,7 @@ func TestLauncher_CommandPassesSessionIDAndOwnSettings(t *testing.T) {
 // arguments, not about that.
 func commandArgs(t *testing.T, l *sessions.Launcher, sessionID, dir string) string {
 	t.Helper()
-	cmd, err := l.Launch(sessions.Session{ID: sessionID, Dir: dir})
+	cmd, err := l.Launch(session.Session{ID: sessionID, Dir: dir})
 	if err != nil {
 		t.Fatalf("Launch(%q, %q) error = %v, want nil", sessionID, dir, err)
 	}
@@ -141,7 +142,7 @@ func TestLauncher_CommandWrapsThroughTheHolder_issue43(t *testing.T) {
 	h := &fakeHolder{Wrapped: []string{"dtach", "-A", "/s.sock"}}
 	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h)
 
-	cmd, err := l.Launch(sessions.Session{ID: "abc-123", Dir: "/w/parser-fix"})
+	cmd, err := l.Launch(session.Session{ID: "abc-123", Dir: "/w/parser-fix"})
 
 	if err != nil {
 		t.Fatalf("Launch() error = %v, want nil", err)
@@ -163,7 +164,7 @@ func TestLauncher_CommandSurfacesAHolderFailure_issue43(t *testing.T) {
 	h := &fakeHolder{WrapErr: errors.New("socket path is 130 bytes, over the 104-byte limit")}
 	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), h)
 
-	_, err := l.Launch(sessions.Session{ID: "abc-123", Dir: "/w"})
+	_, err := l.Launch(session.Session{ID: "abc-123", Dir: "/w"})
 
 	if err == nil {
 		t.Fatal("Launch() returned nil after the holder failed, want an error")

@@ -7,6 +7,9 @@ package app
 import (
 	"errors"
 	"fmt"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -15,8 +18,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	sgate "github.com/WilsonSousajr/omatty/internal/service/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
@@ -25,12 +26,12 @@ import (
 // worktree says whether omatty creates one, which since #151 is no longer the
 // same question as whether branch is empty: a worktree session may arrive with
 // no branch named at all, and the registry names it.
-type CreateFunc func(project, title, branch string, worktree bool) (sessions.Session, error)
+type CreateFunc func(project, title, branch string, worktree bool) (session.Session, error)
 
 // StartFunc launches the embedded terminal for a session at w by h. Injected
 // so the model can start a session created at runtime without knowing how;
 // the size is a parameter so it is never frozen at startup (issue #73).
-type StartFunc func(sess sessions.Session, w, h int) (terminal.Terminal, error)
+type StartFunc func(sess session.Session, w, h int) (terminal.Terminal, error)
 
 // TickFunc schedules fn after d, as tea.Tick does (#412).
 //
@@ -41,22 +42,22 @@ type TickFunc func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd
 // (#180). Injected so ui never touches git (invariant 4). Nil is the switch,
 // as ModelName's is: with nothing wired the card's second line is blank,
 // which is what every test's Deps gets.
-type RepoStatFunc func(sess sessions.Session, projectRoot string) (review.Stat, error)
+type RepoStatFunc func(sess session.Session, projectRoot string) (review.Stat, error)
 
 // TurnFuncs are the three calls #311 makes on a session's turn baseline,
 // injected because ui may not touch git (invariant 4). Snap records the
 // baseline as a prompt is submitted, Diff loads what changed since it, and
 // Drop deletes it when the session is archived.
 type TurnFuncs struct {
-	Snap func(sess sessions.Session) error
+	Snap func(sess session.Session) error
 	Diff DiffFunc
-	Drop func(sess sessions.Session, projectRoot string) error
+	Drop func(sess session.Session, projectRoot string) error
 	// Revert puts the worktree back to the baseline and says how many files it
 	// changed; Count is the same number read without writing anything, for the
 	// confirmation to name (#334). Unwired, both say there is no turn, which is
 	// the refusal the column already renders.
-	Revert func(sess sessions.Session) (int, error)
-	Count  func(sess sessions.Session) (int, error)
+	Revert func(sess session.Session) (int, error)
+	Count  func(sess session.Session) (int, error)
 }
 
 // Deps is everything a Model needs. Constructor injection, so no field is
@@ -67,13 +68,13 @@ type TurnFuncs struct {
 //	m := app.NewModel(app.Deps{State: st, Terms: terms, Create: create, Start: start,
 //	        Events: w.Subscribe(ctx), Clock: time.Now, Notifier: notify.New(), TailStart: w.Add}) // in cmd/omatty
 type Deps struct {
-	State  sessions.State
+	State  session.State
 	Terms  map[string]terminal.Terminal
 	Create CreateFunc
 	Start  StartFunc
 	// Events is a subscription to the watcher's broker (ADR 0001, step 5.2a,
 	// #653): status reaches the model as one subscriber among any.
-	Events <-chan pubsub.Event[status.Event]
+	Events <-chan pubsub.Event[dstatus.Event]
 	// GateReports and GateRun wire internal/service/gate's Runner in: a
 	// subscription to its broker (ADR 0001, step 5.3, #653) and its Start. Both optional:
 	// without them the gate pane still opens and explains itself, which is
@@ -100,7 +101,7 @@ type Deps struct {
 	// passes internal/infra/highlight's (Amendment 1, step 6.10, #653).
 	// Nil draws code uncoloured.
 	Highlighter Highlighter
-	TailStart   func(sessions.Session)
+	TailStart   func(session.Session)
 	// Diff loads a session's changes for the review column (#21).
 	Diff DiffFunc
 	// Files lists a session's worktree and Preview reads one of its files,
@@ -255,10 +256,10 @@ func (d Deps) withPRDefaults() Deps {
 // Drop do nothing and Diff says there is no turn, which is what a test sees.
 func (d Deps) withTurnDefaults() Deps {
 	if d.Turn.Snap == nil {
-		d.Turn.Snap = func(sessions.Session) error { return nil }
+		d.Turn.Snap = func(session.Session) error { return nil }
 	}
 	if d.Turn.Diff == nil {
-		d.Turn.Diff = func(sessions.Session, string) (review.Diff, error) { return review.Diff{}, review.ErrNoTurn }
+		d.Turn.Diff = func(session.Session, string) (dreview.Diff, error) { return dreview.Diff{}, review.ErrNoTurn }
 	}
 	if d.Turn.Revert == nil {
 		d.Turn.Revert = noRevert
@@ -267,7 +268,7 @@ func (d Deps) withTurnDefaults() Deps {
 		d.Turn.Count = noRevert
 	}
 	if d.Turn.Drop == nil {
-		d.Turn.Drop = func(sessions.Session, string) error { return nil }
+		d.Turn.Drop = func(session.Session, string) error { return nil }
 	}
 	return d
 }
@@ -361,11 +362,11 @@ type GateRunFunc func(sessionID, dir string, steps []gate.Step)
 // stays in the tree and every coverage marker stands. Wrong in the safe
 // direction - a file shown is a file the operator can judge, where a file
 // folded away by a broken detection is one they never see.
-func noGenerated(sessions.Session, []string) (map[string]bool, error) { return nil, nil }
+func noGenerated(session.Session, []string) (map[string]bool, error) { return nil, nil }
 
 // noRevert is the unwired Revert and Count: there is no baseline, which is the
 // refusal #311's own notice already has words for.
-func noRevert(sessions.Session) (int, error) { return 0, review.ErrNoTurn }
+func noRevert(session.Session) (int, error) { return 0, review.ErrNoTurn }
 
 // noTally is the unwired Tally: nothing is measured. A measurement is not worth
 // a nil check at the call site, and a run nobody counted is the state every
@@ -380,7 +381,7 @@ func noTally(string, bool) error { return nil }
 // Unwired, each refuses. A ship key that silently did nothing would be worse
 // than one that says there is no forge configured.
 type ShipFuncs struct {
-	Shippable       func(sess sessions.Session, projectRoot string) (review.Shippable, error)
+	Shippable       func(sess session.Session, projectRoot string) (review.Shippable, error)
 	Push            func(dir, branch string) error
 	CreatePR        func(repoRoot, head, base, title string) (int, error)
 	MergePR         func(repoRoot string, number int, head string) (bool, error)
@@ -390,7 +391,7 @@ type ShipFuncs struct {
 // withShipDefaults makes every unwired ship function refuse by name.
 func withShipDefaults(s ShipFuncs) ShipFuncs {
 	if s.Shippable == nil {
-		s.Shippable = func(sessions.Session, string) (review.Shippable, error) {
+		s.Shippable = func(session.Session, string) (review.Shippable, error) {
 			return review.Shippable{}, errNoShip
 		}
 	}
@@ -420,8 +421,8 @@ func withForgeShipDefaults(s ShipFuncs) ShipFuncs {
 var errNoShip = errors.New("ui: no forge wired, so this session cannot be shipped from here")
 
 // noPreview is the Deps.Preview default, for the reason noFiles is (#653).
-func noPreview(dir, rel string) (review.Preview, error) {
-	return review.Preview{}, fmt.Errorf("ui: no file reader configured for %q in %q", rel, dir)
+func noPreview(dir, rel string) (dreview.Preview, error) {
+	return dreview.Preview{}, fmt.Errorf("ui: no file reader configured for %q in %q", rel, dir)
 }
 
 // Notifier posts a desktop notification for a session that needs the

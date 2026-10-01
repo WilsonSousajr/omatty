@@ -2,6 +2,7 @@ package forge_test
 
 import (
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,7 +68,7 @@ func TestCLI_anOpenPullRequestOlderThanTheWindowIsStillListed_issue358(t *testin
 		t.Fatal(err)
 	}
 	for _, pr := range prs {
-		if pr.Number == 5 && pr.State == forge.Open {
+		if pr.Number == 5 && pr.State == dforge.Open {
 			return
 		}
 	}

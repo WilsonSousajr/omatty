@@ -1,31 +1,30 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"strings"
 	"testing"
 
 	"charm.land/lipgloss/v2"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // scratchFile is the file #291 was found on: a path deep enough to have
 // something to give up, thirteen added lines and five of them uncovered.
-func scratchFile() review.File {
-	return review.File{Path: "internal/paths/scratch.go", Hunks: addedHunks(13, 0)}
+func scratchFile() dreview.File {
+	return dreview.File{Path: "internal/paths/scratch.go", Hunks: addedHunks(13, 0)}
 }
 
 // addedHunks is one hunk of a added and r removed lines, so File.Counts reports
 // the diffstat the header prints.
-func addedHunks(a, r int) []review.Hunk {
-	lines := make([]review.Line, 0, a+r)
+func addedHunks(a, r int) []dreview.Hunk {
+	lines := make([]dreview.Line, 0, a+r)
 	for range a {
-		lines = append(lines, review.Line{Kind: review.LineAdded})
+		lines = append(lines, dreview.Line{Kind: dreview.LineAdded})
 	}
 	for range r {
-		lines = append(lines, review.Line{Kind: review.LineRemoved})
+		lines = append(lines, dreview.Line{Kind: dreview.LineRemoved})
 	}
-	return []review.Hunk{{Lines: lines}}
+	return []dreview.Hunk{{Lines: lines}}
 }
 
 // The header gives its parts up in the stated order at the column widths the
@@ -76,7 +75,7 @@ func TestFileHeading_withNoCountKeepsTheDiffstat_issue291(t *testing.T) {
 // A file at the repository root has no directory to give up, so the diffstat
 // is the only part that can go.
 func TestFileHeading_aRootFileHasNoDirectoryToGiveUp_issue291(t *testing.T) {
-	f := review.File{Path: "go.mod", Hunks: addedHunks(1, 0)}
+	f := dreview.File{Path: "go.mod", Hunks: addedHunks(1, 0)}
 	if got, want := fileHeading(f, "  1 uncovered", 23), "go.mod  1 uncovered"; got != want {
 		t.Errorf("fileHeading = %q, want %q", got, want)
 	}
@@ -86,10 +85,10 @@ func TestFileHeading_aRootFileHasNoDirectoryToGiveUp_issue291(t *testing.T) {
 // shortens first and gives up to a bare "…", which still says the file came
 // from somewhere.
 func TestFileHeading_aRenameGivesUpTheOldNameFirst_issue291(t *testing.T) {
-	f := review.File{
+	f := dreview.File{
 		Path:    "internal/ui/fileheader.go",
 		OldPath: "internal/ui/reviewview.go",
-		Status:  review.FileRenamed,
+		Status:  dreview.FileRenamed,
 		Hunks:   addedHunks(1, 1),
 	}
 	cases := []struct {
@@ -111,7 +110,7 @@ func TestFileHeading_aRenameGivesUpTheOldNameFirst_issue291(t *testing.T) {
 // A binary has no counts at all; "(binary)" takes the diffstat's place and is
 // never what a narrow column gives up.
 func TestFileHeading_aBinaryKeepsItsNote_issue291(t *testing.T) {
-	f := review.File{Path: "testdata/recorded/session.ansi", Binary: true}
+	f := dreview.File{Path: "testdata/recorded/session.ansi", Binary: true}
 	for budget := 20; budget <= 45; budget++ {
 		got := fileHeading(f, "", budget)
 		if !strings.Contains(got, binaryNote) {

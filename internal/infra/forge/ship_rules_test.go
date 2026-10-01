@@ -2,10 +2,9 @@ package forge_test
 
 import (
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"strings"
 	"testing"
-
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
 
 // shipForgeNamed is one row of shipForges, with routes added over its own.
@@ -236,7 +235,7 @@ func TestShip_AnAnonymousGiteaDoesNotWrite_issue464(t *testing.T) {
 	s.env = nil
 	_, err := s.router(t, api).CreatePR(t.TempDir(), "feat/parser", "main", "t")
 
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || len(api.Got) != 0 {
 		t.Errorf("CreatePR = %v after %+v, want the token note and nothing sent", err, api.Got)
 	}

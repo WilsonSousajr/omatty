@@ -2,6 +2,7 @@ package status
 
 import (
 	"encoding/json"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"time"
 )
@@ -32,10 +33,10 @@ type block struct {
 
 // ParseEntry parses one transcript line. ok is false for a line status does
 // not need, including malformed JSON.
-func ParseEntry(line []byte) (Entry, bool) {
+func ParseEntry(line []byte) (dstatus.Entry, bool) {
 	var r rawEntry
 	if json.Unmarshal(line, &r) != nil {
-		return Entry{}, false
+		return dstatus.Entry{}, false
 	}
 	switch r.Type {
 	case "user":
@@ -43,7 +44,7 @@ func ParseEntry(line []byte) (Entry, bool) {
 	case "assistant":
 		return parseAssistant(r), true
 	default:
-		return Entry{}, false
+		return dstatus.Entry{}, false
 	}
 }
 
@@ -52,8 +53,8 @@ func ParseEntry(line []byte) (Entry, bool) {
 // typed prompt, so none may move the status to thinking (issue #61).
 var injectedPrefixes = []string{"<task-notification", "<command-", "<local-command-"}
 
-func parseUser(r rawEntry) Entry {
-	e := Entry{Type: "user", At: r.Timestamp}
+func parseUser(r rawEntry) dstatus.Entry {
+	e := dstatus.Entry{Type: "user", At: r.Timestamp}
 	if r.IsMeta {
 		return e // context claude injected, not something the operator typed
 	}
@@ -134,14 +135,14 @@ func typedText(s string) (string, bool) {
 	return s, true
 }
 
-func parseAssistant(r rawEntry) Entry {
-	return Entry{
+func parseAssistant(r rawEntry) dstatus.Entry {
+	return dstatus.Entry{
 		Type:       "assistant",
 		MessageID:  r.Message.ID,
 		At:         r.Timestamp,
 		StopReason: r.Message.StopReason,
 		ToolUse:    hasBlock(r.Message.Content, "tool_use"),
-		Usage: Tokens{
+		Usage: dstatus.Tokens{
 			In: r.Message.Usage.In, Out: r.Message.Usage.Out,
 			CacheRead: r.Message.Usage.CacheRead, CacheWrite: r.Message.Usage.CacheMake,
 		},
@@ -165,7 +166,7 @@ func hasBlock(content json.RawMessage, kind string) bool {
 // end_turn normally, but also at max_tokens, stop_sequence, refusal and
 // pause_turn; only tool_use means the turn continues, and a null stop_reason
 // is a mid-response line (issue #63).
-func turnEnded(e Entry) bool {
+func turnEnded(e dstatus.Entry) bool {
 	return e.Type == "assistant" && e.StopReason != "" && e.StopReason != "tool_use"
 }
 
@@ -174,16 +175,16 @@ func turnEnded(e Entry) bool {
 // hook events. It cannot produce Waiting - only a permission hook can tell a
 // running tool from one blocked on you. ok is false when the tail says
 // nothing (only noise so far).
-func DeriveKind(entries []Entry) (Kind, time.Time, bool) {
+func DeriveKind(entries []dstatus.Entry) (dstatus.Kind, time.Time, bool) {
 	for i := len(entries) - 1; i >= 0; i-- {
 		e := entries[i]
 		switch {
 		case e.Type == "user" && (e.UserIsPrompt || e.ToolResult):
-			return PromptSubmitted, e.At, true
+			return dstatus.PromptSubmitted, e.At, true
 		case e.Type == "assistant" && e.ToolUse:
-			return ToolStarted, e.At, true
+			return dstatus.ToolStarted, e.At, true
 		case turnEnded(e):
-			return TurnEnded, e.At, true
+			return dstatus.TurnEnded, e.At, true
 		}
 	}
 	return 0, time.Time{}, false

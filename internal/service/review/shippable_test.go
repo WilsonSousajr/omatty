@@ -2,11 +2,11 @@ package review_test
 
 import (
 	"errors"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
-	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
@@ -16,7 +16,7 @@ var shipSession = session.Session{ID: "s1", Dir: "/wt/s1", Branch: "feat/a", Bas
 // uncommitted work would open a pull request that differs from what was
 // verified, so it has to be countable.
 func TestShippable_CountsUncommittedAndUntrackedTogether_issue331(t *testing.T) {
-	git := &FakeGit{ShortstatOut: vcs.Shortstat{Files: 2}, UntrackedOut: []string{"new.go"}, Commits: 3}
+	git := &FakeGit{ShortstatOut: dreview.Shortstat{Files: 2}, UntrackedOut: []string{"new.go"}, Commits: 3}
 
 	got, err := review.NewSource(git, gitdiff.ParseDiff).Shippable(shipSession, "/p/omatty")
 	if err != nil {

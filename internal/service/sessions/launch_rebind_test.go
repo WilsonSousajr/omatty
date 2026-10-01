@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"slices"
@@ -8,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
-	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
@@ -29,7 +29,7 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 	h := &fakeHolder{Wrapped: []string{"dtach", "-A", "/s.sock"}}
 	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", home, h)
 
-	if _, err := l.Launch(sessions.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"}); err != nil {
+	if _, err := l.Launch(session.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -47,12 +47,12 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 func TestLauncher_ExportsTheOwningSession_issue316(t *testing.T) {
 	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 
-	cmd, err := l.Launch(sessions.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"})
+	cmd, err := l.Launch(session.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if want := hooks.SessionEnv + "=row-1"; !slices.Contains(cmd.Env, want) {
+	if want := session.SessionEnv + "=row-1"; !slices.Contains(cmd.Env, want) {
 		t.Errorf("claude's environment lacks %q", want)
 	}
 	if !slices.Contains(cmd.Env, "HOME="+os.Getenv("HOME")) {
@@ -63,21 +63,21 @@ func TestLauncher_ExportsTheOwningSession_issue316(t *testing.T) {
 // omatty run inside an omatty pane inherits the outer pane's variable. Left
 // in, the inner session's /clear would re-bind the outer pane (#316).
 func TestLauncher_ReplacesAnInheritedOwningSession_issue316(t *testing.T) {
-	t.Setenv(hooks.SessionEnv, "outer-pane")
+	t.Setenv(session.SessionEnv, "outer-pane")
 	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 
-	cmd, err := l.Launch(sessions.Session{ID: "row-1", Dir: "/w"})
+	cmd, err := l.Launch(session.Session{ID: "row-1", Dir: "/w"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var owners []string
 	for _, kv := range cmd.Env {
-		if strings.HasPrefix(kv, hooks.SessionEnv+"=") {
+		if strings.HasPrefix(kv, session.SessionEnv+"=") {
 			owners = append(owners, kv)
 		}
 	}
-	if len(owners) != 1 || owners[0] != hooks.SessionEnv+"=row-1" {
+	if len(owners) != 1 || owners[0] != session.SessionEnv+"=row-1" {
 		t.Errorf("claude's environment names owners %v, want only row-1", owners)
 	}
 }

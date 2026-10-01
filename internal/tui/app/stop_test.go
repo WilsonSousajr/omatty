@@ -1,12 +1,12 @@
 package app_test
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -111,7 +111,7 @@ func TestModel_aStoppedPaneIsNotTheEmptyState_issue318(t *testing.T) {
 // operator's evidence for whether to resume it (#318, invariant 2).
 func TestModel_aStoppedCardKeepsItsGlyphAndAge_issue318(t *testing.T) {
 	r := newStopRig(t)
-	r.m.Update(app.StatusMsg{SessionID: "s1", Kind: status.TurnEnded, At: fixedNow.Add(-3 * time.Hour)})
+	r.m.Update(app.StatusMsg{SessionID: "s1", Kind: dstatus.TurnEnded, At: fixedNow.Add(-3 * time.Hour)})
 
 	r.stop()
 
@@ -154,7 +154,7 @@ func TestModel_otherKeysOnAStoppedPaneStartNothing_issue318(t *testing.T) {
 // cost when a turn is in flight (#318).
 func TestModel_stopNamesTheUndoAndTheCost_issue318(t *testing.T) {
 	r := newStopRig(t)
-	r.m.Update(app.StatusMsg{SessionID: "s1", Kind: status.ToolStarted, At: fixedNow})
+	r.m.Update(app.StatusMsg{SessionID: "s1", Kind: dstatus.ToolStarted, At: fixedNow})
 
 	r.stop()
 

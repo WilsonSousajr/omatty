@@ -1,6 +1,7 @@
 package forge_test
 
 import (
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func run(status, conclusion string) string {
 
 func ctx(state string) string { return `{"__typename":"StatusContext","state":"` + state + `"}` }
 
-func foldOne(t *testing.T, elem string) forge.PR {
+func foldOne(t *testing.T, elem string) dforge.PR {
 	t.Helper()
 	prs, err := forge.Fold([]byte("[" + elem + "]"))
 	if err != nil {
@@ -38,21 +39,21 @@ func TestFold_RollsChecksUpByPrecedence_issue310(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
 		rollup string
-		want   forge.CIState
+		want   dforge.CIState
 	}{
-		{"one passing run", run("COMPLETED", "SUCCESS"), forge.CIPassing},
-		{"a failing run", run("COMPLETED", "SUCCESS") + "," + run("COMPLETED", "FAILURE"), forge.CIFailing},
-		{"a run in progress", run("COMPLETED", "SUCCESS") + "," + run("IN_PROGRESS", ""), forge.CIRunning},
-		{"failure outranks running", run("IN_PROGRESS", "") + "," + run("COMPLETED", "TIMED_OUT"), forge.CIFailing},
-		{"a pending status", ctx("PENDING"), forge.CIRunning},
-		{"an expected status", ctx("EXPECTED"), forge.CIRunning},
-		{"a failing status", ctx("FAILURE"), forge.CIFailing},
-		{"an erroring status", ctx("ERROR"), forge.CIFailing},
-		{"a passing status", ctx("SUCCESS"), forge.CIPassing},
-		{"skipped and neutral pass", run("COMPLETED", "SKIPPED") + "," + run("COMPLETED", "NEUTRAL"), forge.CIPassing},
-		{"cancelled fails", run("COMPLETED", "CANCELLED"), forge.CIFailing},
-		{"action required fails", run("COMPLETED", "ACTION_REQUIRED"), forge.CIFailing},
-		{"no checks at all", "", forge.CINone},
+		{"one passing run", run("COMPLETED", "SUCCESS"), dforge.CIPassing},
+		{"a failing run", run("COMPLETED", "SUCCESS") + "," + run("COMPLETED", "FAILURE"), dforge.CIFailing},
+		{"a run in progress", run("COMPLETED", "SUCCESS") + "," + run("IN_PROGRESS", ""), dforge.CIRunning},
+		{"failure outranks running", run("IN_PROGRESS", "") + "," + run("COMPLETED", "TIMED_OUT"), dforge.CIFailing},
+		{"a pending status", ctx("PENDING"), dforge.CIRunning},
+		{"an expected status", ctx("EXPECTED"), dforge.CIRunning},
+		{"a failing status", ctx("FAILURE"), dforge.CIFailing},
+		{"an erroring status", ctx("ERROR"), dforge.CIFailing},
+		{"a passing status", ctx("SUCCESS"), dforge.CIPassing},
+		{"skipped and neutral pass", run("COMPLETED", "SKIPPED") + "," + run("COMPLETED", "NEUTRAL"), dforge.CIPassing},
+		{"cancelled fails", run("COMPLETED", "CANCELLED"), dforge.CIFailing},
+		{"action required fails", run("COMPLETED", "ACTION_REQUIRED"), dforge.CIFailing},
+		{"no checks at all", "", dforge.CINone},
 	} {
 		if got := foldOne(t, pr("OPEN", "CLEAN", tt.rollup)).CI; got != tt.want {
 			t.Errorf("%s: CI = %v, want %v", tt.name, got, tt.want)
@@ -73,8 +74,8 @@ func TestFold_ConflictIsDirtyOrBehindOnly_issue310(t *testing.T) {
 }
 
 func TestFold_CarriesNumberBranchAndState_issue310(t *testing.T) {
-	for state, want := range map[string]forge.PRState{
-		"OPEN": forge.Open, "MERGED": forge.Merged, "CLOSED": forge.Closed,
+	for state, want := range map[string]dforge.PRState{
+		"OPEN": dforge.Open, "MERGED": dforge.Merged, "CLOSED": dforge.Closed,
 	} {
 		got := foldOne(t, pr(state, "UNKNOWN", ""))
 		if got.State != want || got.Number != 349 || got.Branch != "feat-x" {
@@ -93,7 +94,7 @@ func TestFold_MalformedJSONIsAnError_issue310(t *testing.T) {
 // Final review: STALE is GitHub's mark for a check that never finished; it
 // must not read as passing.
 func TestFold_AStaleCheckIsNotPassing_issue310(t *testing.T) {
-	if got := foldOne(t, pr("OPEN", "CLEAN", run("COMPLETED", "STALE"))).CI; got == forge.CIPassing {
+	if got := foldOne(t, pr("OPEN", "CLEAN", run("COMPLETED", "STALE"))).CI; got == dforge.CIPassing {
 		t.Errorf("CI = %v for a stale check, want it not passing", got)
 	}
 }
@@ -132,9 +133,9 @@ func TestFold_CarriesTitleDraftAndAge_issue393(t *testing.T) {
 // on a repository that requires reviews and leaves it empty on one that does
 // not; empty is no review state, never "approved".
 func TestFold_ReadsTheReviewDecision_issue432(t *testing.T) {
-	for decision, want := range map[string]forge.Review{
-		"APPROVED": forge.ReviewApproved, "CHANGES_REQUESTED": forge.ReviewChanges,
-		"REVIEW_REQUIRED": forge.ReviewRequired, "": forge.ReviewNone,
+	for decision, want := range map[string]dforge.Review{
+		"APPROVED": dforge.ReviewApproved, "CHANGES_REQUESTED": dforge.ReviewChanges,
+		"REVIEW_REQUIRED": dforge.ReviewRequired, "": dforge.ReviewNone,
 	} {
 		got := foldOne(t, `{"number":1,"state":"OPEN","reviewDecision":"`+decision+`"}`)
 		if got.Review != want {

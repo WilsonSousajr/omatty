@@ -7,6 +7,7 @@ package forge
 import (
 	"encoding/json"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"time"
 )
 
@@ -45,7 +46,7 @@ type ghUser struct {
 // FoldIssues turns `gh issue list --json` output into Issues.
 //
 //	issues, err := forge.FoldIssues(out)
-func FoldIssues(raw []byte) ([]Issue, error) {
+func FoldIssues(raw []byte) ([]dforge.Issue, error) {
 	var in []ghIssue
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return nil, fmt.Errorf("forge: reading gh's issue list: %w", err)
@@ -54,10 +55,10 @@ func FoldIssues(raw []byte) ([]Issue, error) {
 }
 
 // foldIssues is FoldIssues past the decoding, shared with the HTTP path (#462).
-func foldIssues(in []ghIssue) []Issue {
-	out := make([]Issue, len(in))
+func foldIssues(in []ghIssue) []dforge.Issue {
+	out := make([]dforge.Issue, len(in))
 	for i, is := range in {
-		out[i] = Issue{
+		out[i] = dforge.Issue{
 			Number:   is.Number,
 			Title:    cleanLine(is.Title), // #483, as every field an author controls
 			Labels:   labelNames(is.Labels),

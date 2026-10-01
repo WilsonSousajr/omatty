@@ -3,6 +3,7 @@ package forge_test
 import (
 	"encoding/json"
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -181,7 +182,7 @@ func TestRouter_WithoutGhOrATokenNamesBoth_issue462(t *testing.T) {
 
 	_, err := r.ListPRs(t.TempDir())
 
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || missing.Tool != "gh" || missing.TokenEnv != "GH_TOKEN" {
 		t.Errorf("error = %v, want gh missing and GH_TOKEN unset", err)
 	}
@@ -222,7 +223,7 @@ func TestGitHubHTTP_ARepositoryItCannotSeeIsErrNoForge_issue462(t *testing.T) {
 	api := &FakeGitHubAPI{PRs: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","message":"Could not resolve to a Repository"}]}`}
 	r := httpRouter(t, "git@github.com:o/private.git", map[string]string{"GH_TOKEN": secret}, api, nil)
 
-	if _, err := r.ListPRs(t.TempDir()); !errors.Is(err, forge.ErrNoForge) {
+	if _, err := r.ListPRs(t.TempDir()); !errors.Is(err, dforge.ErrNoForge) {
 		t.Errorf("error = %v, want ErrNoForge", err)
 	}
 }
@@ -269,7 +270,7 @@ func TestGitHubHTTP_AMissingItemIsNotAMissingRepository_issue462(t *testing.T) {
 
 	_, err := r.ViewIssue(t.TempDir(), 99999)
 
-	if err == nil || errors.Is(err, forge.ErrNoForge) || !errors.Is(err, forge.ErrNotFound) {
+	if err == nil || errors.Is(err, dforge.ErrNoForge) || !errors.Is(err, forge.ErrNotFound) {
 		t.Errorf("error = %v, want not found and not ErrNoForge", err)
 	}
 }

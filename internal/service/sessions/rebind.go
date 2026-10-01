@@ -3,6 +3,7 @@ package sessions
 import (
 	"context"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 )
 
 // RebindSession records that the session's claude now runs conversation, as
@@ -36,7 +37,7 @@ func RebindSession(ctx context.Context, s StateStore, id, conversation string) e
 
 // refuseHeldConversation errors when a row other than id already answers to
 // conversation, by its ID or by a rebind of its own.
-func refuseHeldConversation(st *State, id, conversation string) error {
+func refuseHeldConversation(st *session.State, id, conversation string) error {
 	for _, sess := range st.Sessions {
 		if sess.ID != id && (sess.ID == conversation || sess.Conversation == conversation) {
 			return fmt.Errorf(

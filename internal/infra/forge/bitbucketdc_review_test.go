@@ -3,6 +3,7 @@ package forge_test
 import (
 	"encoding/base64"
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"reflect"
 	"strings"
 	"testing"
@@ -38,7 +39,7 @@ func TestBitbucket_ATokenGoesOnlyWhereItIsFor_issue461(t *testing.T) {
 	_, _ = r.ListPRs(cloud)
 	_, err := r.ListPRs(dc)
 
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || !strings.HasPrefix(missing.TokenEnv, "BITBUCKET_DC_TOKEN") {
 		t.Errorf("Data Center with only a Cloud token: %v, want BITBUCKET_DC_TOKEN unset", err)
 	}
@@ -58,7 +59,7 @@ func TestBitbucketDC_ATokenForAnotherInstanceStaysHome_issue461(t *testing.T) {
 	other := map[string]string{"BITBUCKET_DC_TOKEN": secret, "BITBUCKET_DC_URL": "https://git.other.example"}
 	api := &FakeBitbucketDCAPI{}
 	_, err := dcRouter(t, "https://git.corp.example/scm/ops/platform.git", other, api).ListPRs(t.TempDir())
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || len(api.Got) != 0 {
 		t.Errorf("another instance's token: %v after %+v, want nothing sent and a note", err, api.Got)
 	}
@@ -97,7 +98,7 @@ func TestBitbucketDC_AnHTTPInstanceSaysHTTPSFirst_issue461(t *testing.T) {
 		}
 		api := &FakeBitbucketDCAPI{}
 		_, err := dcRouter(t, remote, env, api).ListPRs(t.TempDir())
-		var plain *forge.PlainHTTPError
+		var plain *dforge.PlainHTTPError
 		if !errors.As(err, &plain) || len(api.Got) != 0 {
 			t.Errorf("%s: %v after %+v, want the https-only note and nothing sent", name, err, api.Got)
 		}
@@ -107,7 +108,7 @@ func TestBitbucketDC_AnHTTPInstanceSaysHTTPSFirst_issue461(t *testing.T) {
 // Data Center's build states: CANCELLED is a check that did not pass, as
 // Cloud's STOPPED is; UNKNOWN is no result - neither is running forever.
 func TestBitbucket_BuildStatesAreFinal_issue461(t *testing.T) {
-	for state, want := range map[string]forge.CIState{"CANCELLED": forge.CIFailing, "UNKNOWN": forge.CINone} {
+	for state, want := range map[string]dforge.CIState{"CANCELLED": dforge.CIFailing, "UNKNOWN": dforge.CINone} {
 		if got := forge.BitbucketCI(state); got != want {
 			t.Errorf("%s = %v, want %v", state, got, want)
 		}
@@ -154,16 +155,16 @@ func TestBitbucketDC_FoldsEveryFieldExactly_issue461(t *testing.T) {
 	open, _ := prNumbered(prs, 42)
 	merged, _ := prNumbered(prs, 40)
 	declined, found := prNumbered(prs, 39)
-	if !open.Updated.Equal(time.UnixMilli(1790500000000)) || !merged.MergedAt.Equal(time.UnixMilli(1788500000000)) || !found || declined.State != forge.Closed {
+	if !open.Updated.Equal(time.UnixMilli(1790500000000)) || !merged.MergedAt.Equal(time.UnixMilli(1788500000000)) || !found || declined.State != dforge.Closed {
 		t.Errorf("updated %v, merged at %v, declined %+v; want the fixture's milliseconds and the declined read", open.Updated, merged.MergedAt, declined)
 	}
 	d, _ := r.ViewPR(t.TempDir(), 42)
-	states := []forge.CIState{}
+	states := []dforge.CIState{}
 	for _, c := range d.Checks {
 		states = append(states, c.State)
 	}
 	if !d.Created.Equal(time.UnixMilli(1790000000000)) || d.URL != "https://git.corp.example/projects/OPS/repos/platform/pull-requests/42" ||
-		!reflect.DeepEqual(states, []forge.CIState{forge.CIPassing, forge.CIFailing}) {
+		!reflect.DeepEqual(states, []dforge.CIState{dforge.CIPassing, dforge.CIFailing}) {
 		t.Errorf("item created %v at %q with checks %v; want the fixture's", d.Created, d.URL, states)
 	}
 }
@@ -210,7 +211,7 @@ func TestBitbucket_AltSSHIsCloud_issue461(t *testing.T) {
 	if l := r.Label(root); l.Forge != "Bitbucket" {
 		t.Errorf("label = %+v, want Bitbucket Cloud's", l)
 	}
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if _, err := r.ListPRs(root); !errors.As(err, &missing) || missing.TokenEnv != "BITBUCKET_TOKEN" {
 		t.Errorf("error = %v, want Cloud's BITBUCKET_TOKEN named", err)
 	}

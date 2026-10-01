@@ -3,6 +3,7 @@ package gate
 import (
 	"context"
 	"fmt"
+	dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"sync"
 
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
@@ -32,14 +33,14 @@ const reportBuffer = 64
 // each other. That is the payoff of the worktree model.
 type Runner struct {
 	slots   chan struct{}
-	reports chan Report
+	reports chan dgate.Report
 	done    chan struct{}
 
 	// broker fans reports out to every subscriber (ADR 0001, step 5.3, #653).
 	// The pump that feeds it starts on the first Subscribe: a gate can finish
 	// before anyone listens, and published to nobody its report would be
 	// lost. Until someone subscribes, reports wait in reports.
-	broker   *pubsub.Broker[Report]
+	broker   *pubsub.Broker[dgate.Report]
 	pumpOnce sync.Once
 	pumpCtx  context.Context
 	stopPump context.CancelFunc
@@ -61,7 +62,7 @@ type Runner struct {
 // step 5.3, #653): cmd passes internal/infra/gateexec's Run.
 //
 //	r := gate.NewRunner(cfg.Gate.MaxParallel, gateexec.Run)
-type RunFunc func(ctx context.Context, dir string, steps []Step) ([]StepResult, error)
+type RunFunc func(ctx context.Context, dir string, steps []dgate.Step) ([]dgate.StepResult, error)
 
 // NewRunner returns a Runner allowing at most limit gates at once, each run
 // by run. A limit below 1 is raised to 1: zero would mean a gate that never
@@ -73,9 +74,9 @@ func NewRunner(limit int, run RunFunc) *Runner {
 	pumpCtx, stopPump := context.WithCancel(context.Background())
 	return &Runner{
 		slots:    make(chan struct{}, limit),
-		reports:  make(chan Report, reportBuffer),
+		reports:  make(chan dgate.Report, reportBuffer),
 		done:     make(chan struct{}),
-		broker:   pubsub.NewBroker[Report](reportBuffer),
+		broker:   pubsub.NewBroker[dgate.Report](reportBuffer),
 		pumpCtx:  pumpCtx,
 		stopPump: stopPump,
 		cancels:  make(map[string]context.CancelFunc),
@@ -88,7 +89,7 @@ func NewRunner(limit int, run RunFunc) *Runner {
 // is lost.
 //
 //	reports := r.Subscribe(ctx)
-func (r *Runner) Subscribe(ctx context.Context) <-chan pubsub.Event[Report] {
+func (r *Runner) Subscribe(ctx context.Context) <-chan pubsub.Event[dgate.Report] {
 	ch := r.broker.Subscribe(ctx)
 	r.pumpOnce.Do(func() { go r.pump() })
 	return ch
@@ -100,14 +101,14 @@ func (r *Runner) Subscribe(ctx context.Context) <-chan pubsub.Event[Report] {
 // a reader that stopped reading.
 func (r *Runner) pump() {
 	for rep := range r.reports {
-		_ = r.broker.Publish(r.pumpCtx, pubsub.Event[Report]{Kind: pubsub.Updated, Payload: rep})
+		_ = r.broker.Publish(r.pumpCtx, pubsub.Event[dgate.Report]{Kind: pubsub.Updated, Payload: rep})
 	}
 }
 
 // Start gates session id in dir, superseding any run already in flight for it.
 // Re-gating while a run is going must leave exactly one answer, and it has to
 // be the new one.
-func (r *Runner) Start(id, dir string, steps []Step) {
+func (r *Runner) Start(id, dir string, steps []dgate.Step) {
 	ctx, ok := r.begin(id)
 	if !ok {
 		return
@@ -179,7 +180,7 @@ func (r *Runner) stopLocked(id string) {
 }
 
 // gate is one run: wait for a slot, do the work, report it.
-func (r *Runner) gate(ctx context.Context, id, dir string, steps []Step) {
+func (r *Runner) gate(ctx context.Context, id, dir string, steps []dgate.Step) {
 	defer r.inflight.Done()
 	defer r.recoverRun(id)
 	select {
@@ -193,7 +194,7 @@ func (r *Runner) gate(ctx context.Context, id, dir string, steps []Step) {
 	if ctx.Err() != nil {
 		return // superseded or cancelled: its answer is no longer wanted
 	}
-	r.send(Report{ID: id, Results: results, Err: err})
+	r.send(dgate.Report{ID: id, Results: results, Err: err})
 }
 
 // recoverRun keeps one session's panic to that session (invariant 6).
@@ -202,12 +203,12 @@ func (r *Runner) recoverRun(id string) {
 	if panicked == nil {
 		return
 	}
-	r.send(Report{ID: id, Err: fmt.Errorf("gate: run for session %s panicked: %v", id, panicked)})
+	r.send(dgate.Report{ID: id, Err: fmt.Errorf("gate: run for session %s panicked: %v", id, panicked)})
 }
 
 // send delivers a report, or gives up if the Runner is closing - never blocks
 // on a channel nobody will read again.
-func (r *Runner) send(rep Report) {
+func (r *Runner) send(rep dgate.Report) {
 	select {
 	case r.reports <- rep:
 	case <-r.done:

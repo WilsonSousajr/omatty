@@ -2,11 +2,10 @@ package app
 
 import (
 	"fmt"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // This file is the review column's horizontal axis. Every content row is drawn
@@ -138,7 +137,7 @@ func (m *Model) diffMaxWidth() int {
 	comments := m.commentsFor(m.review.SessionID).All()
 	widest := 0
 	for _, e := range m.review.Entries {
-		if e.Kind == review.EntryFile {
+		if e.Kind == dreview.EntryFile {
 			continue
 		}
 		widest = max(widest, lipgloss.Width(m.entryText(e, comments)))

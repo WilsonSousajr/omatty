@@ -2,6 +2,7 @@ package forge_test
 
 import (
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -133,11 +134,11 @@ func TestGitLabREST_ASelfManagedPortIsKept_issue455(t *testing.T) {
 // token cannot see.
 func TestGitLabREST_ClassifiesTheAnswer_issue455(t *testing.T) {
 	_, err := restGitLab(t, "git@gitlab.com:g/p.git", &FakeGitLabAPI{Status: 401}, nil).ListIssues(t.TempDir())
-	var refused *forge.AuthError
+	var refused *dforge.AuthError
 	if !errors.As(err, &refused) || refused.TokenEnv != "GITLAB_TOKEN" {
 		t.Errorf("401: error = %v, want GITLAB_TOKEN refused", err)
 	}
-	if _, err := restGitLab(t, "git@gitlab.com:g/p.git", &FakeGitLabAPI{Status: 404}, nil).ListIssues(t.TempDir()); !errors.Is(err, forge.ErrNoForge) {
+	if _, err := restGitLab(t, "git@gitlab.com:g/p.git", &FakeGitLabAPI{Status: 404}, nil).ListIssues(t.TempDir()); !errors.Is(err, dforge.ErrNoForge) {
 		t.Errorf("404: error = %v, want ErrNoForge", err)
 	}
 }
@@ -148,7 +149,7 @@ func TestGitLabREST_WithNeitherNamesBoth_issue455(t *testing.T) {
 
 	_, err := r.ListPRs(t.TempDir())
 
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || missing.Tool != "glab" || missing.TokenEnv != "GITLAB_TOKEN" {
 		t.Errorf("error = %v, want glab missing and GITLAB_TOKEN unset", err)
 	}
@@ -164,7 +165,7 @@ func TestGitLabREST_AnHTTPRemoteStopsWithANote_issue584(t *testing.T) {
 		api := &FakeGitLabAPI{}
 		_, err := restGitLab(t, url, api, hosts).ListIssues(t.TempDir())
 
-		var missing *forge.MissingToolError
+		var missing *dforge.MissingToolError
 		if !errors.As(err, &missing) || missing.Tool != "glab" || missing.TokenEnv != "" {
 			t.Errorf("%s: error = %v, want glab missing, with no token that could help", url, err)
 		}
@@ -205,7 +206,7 @@ func TestGitLabREST_ATransportByNameIsHonoured_issue455(t *testing.T) {
 	if b, _ := os.ReadFile(calls); len(b) != 0 {
 		t.Errorf("REST forced ran glab: %s", b)
 	}
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if _, err := forge.NewTestRouter(env(forge.TransportCLI, &FakeGitLabAPI{}, nil)).ListIssues(t.TempDir()); !errors.As(err, &missing) {
 		t.Errorf("CLI forced with no glab: %v, want glab missing though GITLAB_TOKEN is set", err)
 	}

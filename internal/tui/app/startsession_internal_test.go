@@ -41,7 +41,7 @@ func TestStartSession_HandsTheLaunchToTheFactory(t *testing.T) {
 		gotW, gotH, gotDir = w, h, cmd.Dir
 		return fake, nil
 	}
-	sess := sessions.Session{ID: "abc-123", Dir: "/w/parser-fix"}
+	sess := session.Session{ID: "abc-123", Dir: "/w/parser-fix"}
 
 	l := sessions.NewLauncher(startProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
 	term, err := startSession(l, factory, sess, 80, 24)
@@ -62,7 +62,7 @@ func TestStartSession_FailureNamesTheSession(t *testing.T) {
 		return nil, errors.New("pty exhausted")
 	}
 
-	_, err := startSession(sessions.NewLauncher(startProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, sessions.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
+	_, err := startSession(sessions.NewLauncher(startProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{}), factory, session.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
 
 	if err == nil {
 		t.Fatal("Start() returned nil after a factory failure, want an error")
@@ -83,7 +83,7 @@ func TestStartSession_RunsTheFakeClaude(t *testing.T) {
 		t.Fatal(err)
 	}
 	l := sessions.NewLauncher(startProfile(), bin, "/h.json", t.TempDir(), &detach.Plain{})
-	sess := sessions.Session{ID: "smoke-uuid", Dir: t.TempDir()}
+	sess := session.Session{ID: "smoke-uuid", Dir: t.TempDir()}
 
 	term, err := startSession(l, terminal.Start, sess, 60, 12)
 	if err != nil {
@@ -104,7 +104,7 @@ func TestStartSession_SurfacesAHolderFailure_issue43(t *testing.T) {
 		return nil, nil
 	}
 
-	_, err := startSession(sessions.NewLauncher(startProfile(), "claude", "/h.json", t.TempDir(), h), factory, sessions.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
+	_, err := startSession(sessions.NewLauncher(startProfile(), "claude", "/h.json", t.TempDir(), h), factory, session.Session{ID: "abc-123", Dir: "/w"}, 80, 24)
 
 	if err == nil {
 		t.Fatal("Start() returned nil after the holder failed, want an error")

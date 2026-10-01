@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"io"
 	"strings"
 	"time"
@@ -56,7 +57,7 @@ func Adopt(ctx context.Context, w io.Writer, in io.Reader, ports AdoptPorts, arg
 // chooseAndAdopt prints the list, reads the answer, and registers each pick.
 func chooseAndAdopt(
 	ctx context.Context, w io.Writer, in io.Reader, ports AdoptPorts,
-	p sessions.Project, cands []discovery.SessionCandidate,
+	p session.Project, cands []discovery.SessionCandidate,
 ) error {
 	for _, line := range discovery.ListSessions(cands, time.Now()) {
 		say(w, line)
@@ -98,20 +99,20 @@ func sessionPicks(picked []discovery.SessionCandidate) []sessions.SessionPick {
 // namedProject resolves the project argument, which adopt requires: it acts on
 // one project, so a missing name is a usage error rather than a scan of
 // everything the operator has ever registered.
-func namedProject(ctx context.Context, store sessions.StateStore, args []string) (sessions.Project, error) {
+func namedProject(ctx context.Context, store sessions.StateStore, args []string) (session.Project, error) {
 	if len(args) == 0 {
-		return sessions.Project{}, fmt.Errorf("adopt: want <project>, got no argument")
+		return session.Project{}, fmt.Errorf("adopt: want <project>, got no argument")
 	}
 	p, err := sessions.NamedProject(ctx, store, args[0])
 	if err != nil {
-		return sessions.Project{}, fmt.Errorf("adopt: %w", err)
+		return session.Project{}, fmt.Errorf("adopt: %w", err)
 	}
 	return p, nil
 }
 
 // proposeSessions is the scan: the project's sessions, minus the ones state.json
 // already holds.
-func proposeSessions(ctx context.Context, ports AdoptPorts, p sessions.Project) ([]discovery.SessionCandidate, error) {
+func proposeSessions(ctx context.Context, ports AdoptPorts, p session.Project) ([]discovery.SessionCandidate, error) {
 	ids, err := sessions.KnownSessionIDs(ctx, ports.Store)
 	if err != nil {
 		return nil, err

@@ -2,6 +2,7 @@ package forge_test
 
 import (
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"strings"
 	"testing"
@@ -37,7 +38,7 @@ func teaWith(t *testing.T, first ...teaAnswer) (*forge.Router, string) {
 func TestGitea_IssuesTurnedOffAreElsewhere_issue458(t *testing.T) {
 	r, _ := teaWith(t, at(notFound, "issues?state=open"), repoThere)
 
-	if issues, err := r.ListIssues(t.TempDir()); !errors.Is(err, forge.ErrNoTracker) || len(issues) != 0 {
+	if issues, err := r.ListIssues(t.TempDir()); !errors.Is(err, dforge.ErrNoTracker) || len(issues) != 0 {
 		t.Errorf("ListIssues = %v, %v; want ErrNoTracker", issues, err)
 	}
 	if prs, err := r.ListPRs(t.TempDir()); err != nil || len(prs) == 0 {
@@ -53,7 +54,7 @@ func TestGitea_PullsTurnedOffAreNone_issue458(t *testing.T) {
 		t.Errorf("ListPRs = %v, %v; want none and no error", prs, err)
 	}
 	gone, _ := teaWith(t, at(notFound, "pulls?state="), at(notFound, "/repos/forgejo/forgejo$"))
-	if _, err := gone.ListPRs(t.TempDir()); !errors.Is(err, forge.ErrNoForge) {
+	if _, err := gone.ListPRs(t.TempDir()); !errors.Is(err, dforge.ErrNoForge) {
 		t.Errorf("a repository that is gone: %v, want ErrNoForge", err)
 	}
 }
@@ -78,7 +79,7 @@ func TestGitea_CIIsReadFromAWholePageOfChecks_issue458(t *testing.T) {
 
 	prs, err := r.ListPRs(t.TempDir())
 
-	if err != nil || len(prs) == 0 || prs[0].CI != forge.CINone {
+	if err != nil || len(prs) == 0 || prs[0].CI != dforge.CINone {
 		t.Errorf("ListPRs = %+v, %v; want no CI for a commit with no statuses", prs, err)
 	}
 	if b, _ := os.ReadFile(calls); !strings.Contains(string(b), "/status?limit=50") {
@@ -100,7 +101,7 @@ func TestGitea_IssuesAreAskedAsIssues_issue458(t *testing.T) {
 // its login refused, 5xx an outage - neither is a list of nothing (#458).
 func TestGitea_TeasStatusLineIsTheVerdict_issue458(t *testing.T) {
 	r, _ := teaWith(t, teaAnswer{"issues?state=open", "HTTP/1.1 401 Unauthorized", `{"message":"token is required"}`})
-	var refused *forge.AuthError
+	var refused *dforge.AuthError
 	if _, err := r.ListIssues(t.TempDir()); !errors.As(err, &refused) || refused.Status != 401 {
 		t.Errorf("401: %v, want tea's login refused", err)
 	}
@@ -196,7 +197,7 @@ func TestGitea_AnOldTeaForcedToTheCLISaysSo_issue458(t *testing.T) {
 
 	_, err := r.ListIssues(t.TempDir())
 
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || missing.Tool != "tea 0.12 or later" {
 		t.Errorf("error = %v, want tea 0.12 or later missing", err)
 	}

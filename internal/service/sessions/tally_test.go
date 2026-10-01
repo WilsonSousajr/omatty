@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"testing"
 	"time"
@@ -14,7 +15,7 @@ import (
 // Conversation, Gate and Carry all already make: Version stays 1 (invariant 9).
 func TestCreate_RecordsWhenTheSessionStarted_issue332(t *testing.T) {
 	at := time.Date(2026, 9, 26, 10, 0, 0, 0, time.UTC)
-	st := sessions.State{Projects: []sessions.Project{{Name: "omatty", Root: t.TempDir()}}}
+	st := session.State{Projects: []session.Project{{Name: "omatty", Root: t.TempDir()}}}
 	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir,
 		WorktreeRoot: t.TempDir(),
 		Clock:        func() time.Time { return at },
@@ -32,7 +33,7 @@ func TestCreate_RecordsWhenTheSessionStarted_issue332(t *testing.T) {
 
 // No clock is the wall clock, so nothing has to pass one.
 func TestCreate_WithoutAClockUsesTheWallClock_issue332(t *testing.T) {
-	st := sessions.State{Projects: []sessions.Project{{Name: "omatty", Root: t.TempDir()}}}
+	st := session.State{Projects: []session.Project{{Name: "omatty", Root: t.TempDir()}}}
 	c := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: t.TempDir()},
 		func() string { return "s1" })
 
@@ -50,7 +51,7 @@ func TestCreate_WithoutAClockUsesTheWallClock_issue332(t *testing.T) {
 // that passed. Two ints on Project, omitempty, so a file written before this
 // needs no migration.
 func TestTallyGateRun_CountsRunsAndTheOnesThatPassed_issue332(t *testing.T) {
-	store := storeHolding(t, sessions.Project{Name: "omatty", Root: "/p/omatty"})
+	store := storeHolding(t, session.Project{Name: "omatty", Root: "/p/omatty"})
 
 	for _, passed := range []bool{true, false, true} {
 		if err := sessions.TallyGateRun(t.Context(), store, "omatty", passed); err != nil {
@@ -83,7 +84,7 @@ func TestTallyGateRun_ReportsAnUnknownProject_issue332(t *testing.T) {
 // Version stays 1: the new fields are absent from a file that never had them,
 // and absent means "nothing measured yet", which is derivable.
 func TestTallyGateRun_KeepsTheSchemaAtVersionOne_issue332(t *testing.T) {
-	store := storeHolding(t, sessions.Project{Name: "omatty", Root: "/p/omatty"})
+	store := storeHolding(t, session.Project{Name: "omatty", Root: "/p/omatty"})
 
 	if err := sessions.TallyGateRun(t.Context(), store, "omatty", true); err != nil {
 		t.Fatal(err)
@@ -99,10 +100,10 @@ func TestTallyGateRun_KeepsTheSchemaAtVersionOne_issue332(t *testing.T) {
 }
 
 // storeHolding is a store already saved with these projects.
-func storeHolding(t *testing.T, projects ...sessions.Project) *statestore.Store {
+func storeHolding(t *testing.T, projects ...session.Project) *statestore.Store {
 	t.Helper()
 	store, _ := newStoreAt(t)
-	if err := store.Save(t.Context(), sessions.State{Version: sessions.Version, Projects: projects}); err != nil {
+	if err := store.Save(t.Context(), session.State{Version: session.Version, Projects: projects}); err != nil {
 		t.Fatal(err)
 	}
 	return store

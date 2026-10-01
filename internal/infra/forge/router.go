@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"os/exec"
 	"sync"
@@ -72,8 +73,8 @@ type resolved struct {
 
 // labels is each readable forge's words. A forge omatty cannot read yet has
 // none, so its projects keep the neutral label.
-var labels = map[Kind]Label{
-	KindGitHub: GitHub, KindGitLab: gitLabLabel, KindGitea: giteaLabel, KindBitbucket: bitbucketLabel,
+var labels = map[Kind]dforge.Label{
+	KindGitHub: dforge.GitHub, KindGitLab: gitLabLabel, KindGitea: giteaLabel, KindBitbucket: bitbucketLabel,
 	KindAzure: azureLabel,
 }
 
@@ -88,25 +89,25 @@ func NewRouter(o Options) *Router {
 }
 
 // ListPRs is the project's open pull requests, then its recently finished ones.
-func (r *Router) ListPRs(repoRoot string) ([]PR, error) {
-	return call(r, repoRoot, func(ctx context.Context, b backend) ([]PR, error) { return b.listPRs(ctx, repoRoot) })
+func (r *Router) ListPRs(repoRoot string) ([]dforge.PR, error) {
+	return call(r, repoRoot, func(ctx context.Context, b backend) ([]dforge.PR, error) { return b.listPRs(ctx, repoRoot) })
 }
 
 // ListIssues is the project's open issues.
-func (r *Router) ListIssues(repoRoot string) ([]Issue, error) {
-	return call(r, repoRoot, func(ctx context.Context, b backend) ([]Issue, error) { return b.listIssues(ctx, repoRoot) })
+func (r *Router) ListIssues(repoRoot string) ([]dforge.Issue, error) {
+	return call(r, repoRoot, func(ctx context.Context, b backend) ([]dforge.Issue, error) { return b.listIssues(ctx, repoRoot) })
 }
 
 // ViewIssue is one issue in full.
-func (r *Router) ViewIssue(repoRoot string, number int) (Detail, error) {
-	return call(r, repoRoot, func(ctx context.Context, b backend) (Detail, error) {
+func (r *Router) ViewIssue(repoRoot string, number int) (dforge.Detail, error) {
+	return call(r, repoRoot, func(ctx context.Context, b backend) (dforge.Detail, error) {
 		return b.viewIssue(ctx, repoRoot, number)
 	})
 }
 
 // ViewPR is one pull request in full.
-func (r *Router) ViewPR(repoRoot string, number int) (Detail, error) {
-	return call(r, repoRoot, func(ctx context.Context, b backend) (Detail, error) {
+func (r *Router) ViewPR(repoRoot string, number int) (dforge.Detail, error) {
+	return call(r, repoRoot, func(ctx context.Context, b backend) (dforge.Detail, error) {
 		return b.viewPR(ctx, repoRoot, number)
 	})
 }
@@ -130,24 +131,24 @@ func (r *Router) browse(repoRoot string, number int, pr bool) error {
 // Label is the project's forge words, from what the Router has already
 // resolved: it is called while the window draws, so it never reads the remote
 // or runs anything. Neutral until a call has resolved the project.
-func (r *Router) Label(repoRoot string) Label {
+func (r *Router) Label(repoRoot string) dforge.Label {
 	res, ok := r.cached(repoRoot)
 	if !ok {
-		return Neutral
+		return dforge.Neutral
 	}
 	return labelOf(res)
 }
 
 // labelOf is a resolved project's words: its kind's, and for a Gitea host the
 // name the operator knows it by.
-func labelOf(res resolved) Label {
+func labelOf(res resolved) dforge.Label {
 	if res.kind == KindGitea && res.remote.Host == "codeberg.org" {
 		return codebergLabel
 	}
 	if l, readable := labels[res.kind]; readable {
 		return l
 	}
-	return Neutral
+	return dforge.Neutral
 }
 
 // call is every Router method's shape: resolve the project's backend, then give
@@ -188,7 +189,7 @@ func (r *Router) pick(repoRoot string, res resolved) (backend, error) {
 	case KindAzure:
 		return r.pickAzure(res.remote)
 	}
-	return nil, fmt.Errorf("forge: omatty does not read %s yet: %w", res.kind, ErrNoForge)
+	return nil, fmt.Errorf("forge: omatty does not read %s yet: %w", res.kind, dforge.ErrNoForge)
 }
 
 // pickGitLab is glab when it is installed (#454), else GitLab's REST API with
@@ -204,11 +205,11 @@ func (r *Router) pickGitLab(repoRoot string, remote Remote) (backend, error) {
 		// A token never crosses plain http, so only glab, which keeps its own
 		// per-host protocol, can read an http remote: a note, not a request
 		// that fails every poll (#584).
-		return nil, &MissingToolError{Tool: "glab"}
+		return nil, &dforge.MissingToolError{Tool: "glab"}
 	} else if tok, env := r.borrow([]string{"GITLAB_TOKEN", "GITLAB_ACCESS_TOKEN"}); tok != "" && r.transport != TransportCLI {
 		f = restAPI{rest: r.rest, base: webBase(remote) + "/api/v4", auth: privateToken(tok), env: env}
 	} else {
-		return nil, &MissingToolError{Tool: "glab", TokenEnv: "GITLAB_TOKEN"}
+		return nil, &dforge.MissingToolError{Tool: "glab", TokenEnv: "GITLAB_TOKEN"}
 	}
 	return glBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
 }
@@ -223,7 +224,7 @@ func (r *Router) pickGitHub(remote Remote) (backend, error) {
 	if tok, env := r.borrow(envs); tok != "" && r.transport != TransportCLI {
 		return ghHTTP{rest: r.rest, auth: bearer(tok), env: env, remote: remote, open: r.open}, nil
 	}
-	return nil, &MissingToolError{Tool: "gh", TokenEnv: envs[0]}
+	return nil, &dforge.MissingToolError{Tool: "gh", TokenEnv: envs[0]}
 }
 
 // cli is kind's CLI, when this Router may run it and it is on PATH.

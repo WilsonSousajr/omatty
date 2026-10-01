@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"strconv"
 	"strings"
 	"time"
@@ -63,7 +64,7 @@ func (g ghHTTP) web() string {
 	return g.remote.Scheme + "://" + g.remote.Host + ":" + g.remote.Port
 }
 
-func (g ghHTTP) listPRs(ctx context.Context, _ string) ([]PR, error) {
+func (g ghHTTP) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 	repo, err := gql[gqlPRs](ctx, g, prsQuery, 0)
 	if err != nil {
 		return nil, err
@@ -75,7 +76,7 @@ func (g ghHTTP) listPRs(ctx context.Context, _ string) ([]PR, error) {
 	return append(foldPRs(open), foldPRs(repo.Finished.Nodes)...), nil
 }
 
-func (g ghHTTP) listIssues(ctx context.Context, _ string) ([]Issue, error) {
+func (g ghHTTP) listIssues(ctx context.Context, _ string) ([]dforge.Issue, error) {
 	repo, err := gql[gqlIssues](ctx, g, issuesQuery, 0)
 	if err != nil {
 		return nil, err
@@ -87,21 +88,21 @@ func (g ghHTTP) listIssues(ctx context.Context, _ string) ([]Issue, error) {
 	return foldIssues(in), nil
 }
 
-func (g ghHTTP) viewIssue(ctx context.Context, _ string, number int) (Detail, error) {
+func (g ghHTTP) viewIssue(ctx context.Context, _ string, number int) (dforge.Detail, error) {
 	return g.view(ctx, number)
 }
 
-func (g ghHTTP) viewPR(ctx context.Context, _ string, number int) (Detail, error) {
+func (g ghHTTP) viewPR(ctx context.Context, _ string, number int) (dforge.Detail, error) {
 	return g.view(ctx, number)
 }
 
-func (g ghHTTP) view(ctx context.Context, number int) (Detail, error) {
+func (g ghHTTP) view(ctx context.Context, number int) (dforge.Detail, error) {
 	repo, err := gql[gqlItemRepo](ctx, g, itemQuery, number)
 	if err != nil {
-		return Detail{}, err
+		return dforge.Detail{}, err
 	}
 	if repo.Item == nil {
-		return Detail{}, fmt.Errorf("forge: %s has no item %d: %w", g.remote.Slug(), number, errNotFound)
+		return dforge.Detail{}, fmt.Errorf("forge: %s has no item %d: %w", g.remote.Slug(), number, errNotFound)
 	}
 	d := foldDetail(repo.Item.flat())
 	// One query reads a hundred comments; one with more is not the whole item,
@@ -141,7 +142,7 @@ func gql[T any](ctx context.Context, g ghHTTP, query string, number int) (T, err
 // ownerAndName is a GitHub repository's two path segments.
 func (g ghHTTP) ownerAndName() (string, string, error) {
 	if len(g.remote.Path) != 2 {
-		return "", "", fmt.Errorf("forge: %q is not owner/repo on %s, want two segments: %w", g.remote.Slug(), g.remote.Host, ErrNoForge)
+		return "", "", fmt.Errorf("forge: %q is not owner/repo on %s, want two segments: %w", g.remote.Slug(), g.remote.Host, dforge.ErrNoForge)
 	}
 	return g.remote.Path[0], g.remote.Path[1], nil
 }
@@ -167,7 +168,7 @@ func decodeGQL[T any](raw []byte, slug string) (T, error) {
 // finds for itself: stopping the project for it was #462's review finding.
 func (a gqlAnswer[T]) problem(slug string) error {
 	if a.Data.Repository == nil && a.notFound() {
-		return fmt.Errorf("forge: GitHub cannot see %s: %w", slug, ErrNoForge)
+		return fmt.Errorf("forge: GitHub cannot see %s: %w", slug, dforge.ErrNoForge)
 	}
 	messages := make([]string, 0, len(a.Errors))
 	for _, e := range a.Errors {

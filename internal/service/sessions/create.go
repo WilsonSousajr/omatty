@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"context"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"time"
 
 	"fmt"
@@ -51,7 +52,7 @@ func NewCreator(git Worktrees, opts CreatorOpts, newID func() string) *Creator {
 // Create registers a session on st and returns it. An empty branch runs the
 // session in the project's main checkout; otherwise omatty creates a worktree
 // at CreatorOpts.WorktreeDir. On any failure st is left untouched.
-func (c *Creator) Create(ctx context.Context, st *State, project, title, branch string) (Session, error) {
+func (c *Creator) Create(ctx context.Context, st *session.State, project, title, branch string) (session.Session, error) {
 	return c.create(ctx, st, project, title, branch, branch != "")
 }
 
@@ -59,25 +60,25 @@ func (c *Creator) Create(ctx context.Context, st *State, project, title, branch 
 // branch was named. An empty branch takes the placeholder, which the session's
 // first prompt renames (#151) - so ctrl+o N no longer has one string it must
 // have before it can start anything.
-func (c *Creator) CreateWorktree(ctx context.Context, st *State, project, title, branch string) (Session, error) {
+func (c *Creator) CreateWorktree(ctx context.Context, st *session.State, project, title, branch string) (session.Session, error) {
 	return c.create(ctx, st, project, title, branch, true)
 }
 
 // create is the one registration path both entry points take. worktree is a
 // parameter rather than "branch != \"\"" because since #151 those are different
 // questions: a worktree session may arrive with no branch named at all.
-func (c *Creator) create(ctx context.Context, st *State, project, title, branch string, worktree bool) (Session, error) {
+func (c *Creator) create(ctx context.Context, st *session.State, project, title, branch string, worktree bool) (session.Session, error) {
 	p, err := findProject(st, project)
 	if err != nil {
-		return Session{}, err
+		return session.Session{}, err
 	}
 	id := c.newID()
-	sess := Session{ID: id, Project: project, Title: titleOr(title, id), Dir: p.Root,
+	sess := session.Session{ID: id, Project: project, Title: titleOr(title, id), Dir: p.Root,
 		Started: c.now()}
 	if worktree {
 		sess.Branch = branchOr(branch, id)
 		if err := c.addWorktree(ctx, &sess, p); err != nil {
-			return Session{}, err
+			return session.Session{}, err
 		}
 	}
 	st.Sessions = append(st.Sessions, sess)
@@ -86,7 +87,7 @@ func (c *Creator) create(ctx context.Context, st *State, project, title, branch 
 
 // addWorktree creates sess's worktree, forked from the configured base or
 // the branch the main checkout is on, and records that branch as Base (#21).
-func (c *Creator) addWorktree(ctx context.Context, sess *Session, p Project) error {
+func (c *Creator) addWorktree(ctx context.Context, sess *session.Session, p session.Project) error {
 	base, err := c.base(ctx, p.Root)
 	if err != nil {
 		return fmt.Errorf("registry: reading the base branch of %q: %w", p.Root, err)
@@ -112,7 +113,7 @@ func (c *Creator) addWorktree(ctx context.Context, sess *Session, p Project) err
 // create's contract is that a failure leaves st untouched. The removal's own
 // error is logged rather than returned: the carry failure is the one worth
 // reporting, and hiding it behind a cleanup error would bury the cause.
-func (c *Creator) carry(ctx context.Context, p Project, dir string) error {
+func (c *Creator) carry(ctx context.Context, p session.Project, dir string) error {
 	if len(p.Carry) == 0 {
 		return nil
 	}
@@ -129,7 +130,7 @@ func (c *Creator) carry(ctx context.Context, p Project, dir string) error {
 // copyCarried runs the injected copy, or refuses when none was wired: a
 // project that lists files to carry and silently got none would fail its gate
 // for a reason that has nothing to do with the code (#309).
-func (c *Creator) copyCarried(dir string, p Project) error {
+func (c *Creator) copyCarried(dir string, p session.Project) error {
 	if c.opts.Carry == nil {
 		return fmt.Errorf("registry: project %q lists %d paths to carry but no copier is wired", p.Name, len(p.Carry))
 	}
@@ -146,10 +147,10 @@ func (c *Creator) copyCarried(dir string, p Project) error {
 // the filter #127 step 2 already applies to model output, which is exactly
 // what naming.go says must never happen.
 func branchOr(branch, id string) string {
-	if s := Slug(branch); s != "" {
+	if s := session.Slug(branch); s != "" {
 		return s
 	}
-	return PlaceholderBranch(id)
+	return session.PlaceholderBranch(id)
 }
 
 // titleOr is the name to register a session under: what the operator typed,
@@ -157,7 +158,7 @@ func branchOr(branch, id string) string {
 // The placeholder is replaced by the session's first prompt (#127).
 func titleOr(title, id string) string {
 	if strings.TrimSpace(title) == "" {
-		return PlaceholderTitle(id)
+		return session.PlaceholderTitle(id)
 	}
 	return title
 }
@@ -181,17 +182,17 @@ func recordedBase(base string) string {
 	return base
 }
 
-func findProject(st *State, name string) (Project, error) {
+func findProject(st *session.State, name string) (session.Project, error) {
 	for _, p := range st.Projects {
 		if p.Name == name {
 			return p, nil
 		}
 	}
-	return Project{}, fmt.Errorf(
+	return session.Project{}, fmt.Errorf(
 		"registry: no project named %q (known projects: %v)", name, projectNames(st))
 }
 
-func projectNames(st *State) []string {
+func projectNames(st *session.State) []string {
 	names := make([]string, 0, len(st.Projects))
 	for _, p := range st.Projects {
 		names = append(names, p.Name)

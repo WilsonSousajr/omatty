@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // The JSON is the only format these print, so the flag is asked for rather
@@ -29,9 +29,9 @@ func TestReadCommand_wantsJSON_issue653(t *testing.T) {
 func TestReadCommand_statusReadsARealTranscript_issue653(t *testing.T) {
 	home, dir := t.TempDir(), t.TempDir()
 	store := statestore.NewStore(filepath.Join(home, "state.json"))
-	st := sessions.State{Version: sessions.Version,
-		Projects: []sessions.Project{{Name: "p", Root: dir}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "p", Title: "one", Dir: dir}}}
+	st := session.State{Version: session.Version,
+		Projects: []session.Project{{Name: "p", Root: dir}},
+		Sessions: []session.Session{{ID: "s1", Project: "p", Title: "one", Dir: dir}}}
 	if err := store.Save(context.Background(), st); err != nil {
 		t.Fatal(err)
 	}

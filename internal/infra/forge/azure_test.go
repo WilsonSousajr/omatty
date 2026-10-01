@@ -3,6 +3,7 @@ package forge_test
 import (
 	"encoding/base64"
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -152,15 +153,15 @@ func TestAzure_ListsPullRequests_issue456(t *testing.T) {
 		t.Fatal(err)
 	}
 	pr, _ := prNumbered(prs, 11)
-	want := forge.PR{Number: 11, Title: "Retire the bootstrap script", Branch: "retire-bootstrap", Base: "main", State: forge.Open,
-		CI: forge.CIFailing, Conflict: true, Head: "3aae318f1661c50c34effbbf6882119ed161f2d6", Updated: pr.Updated}
+	want := dforge.PR{Number: 11, Title: "Retire the bootstrap script", Branch: "retire-bootstrap", Base: "main", State: dforge.Open,
+		CI: dforge.CIFailing, Conflict: true, Head: "3aae318f1661c50c34effbbf6882119ed161f2d6", Updated: pr.Updated}
 	if pr != want || pr.Updated.IsZero() {
 		t.Errorf("!11 = %+v\nwant a conflicted pull request whose build policy failed", pr)
 	}
 	if draft, _ := prNumbered(prs, 12); !draft.Draft || !draft.Fork {
 		t.Errorf("!12 = %+v, want a draft from a fork", draft)
 	}
-	if done, _ := prNumbered(prs, 5); done.State != forge.Merged || done.MergedAt.IsZero() {
+	if done, _ := prNumbered(prs, 5); done.State != dforge.Merged || done.MergedAt.IsZero() {
 		t.Errorf("!5 = %+v, want merged with its close time", done)
 	}
 }
@@ -203,7 +204,7 @@ func TestAzure_ReadsAPullRequestInFull_issue456(t *testing.T) {
 
 	d, err := azureRouter(t, az, nil, &FakeAzureAPI{}).ViewPR(t.TempDir(), 11)
 
-	if err != nil || d.Number != 11 || len(d.Comments) != 2 || len(d.Checks) != 1 || d.Checks[0].State != forge.CIFailing {
+	if err != nil || d.Number != 11 || len(d.Comments) != 2 || len(d.Checks) != 1 || d.Checks[0].State != dforge.CIFailing {
 		t.Errorf("detail = %+v, %v; want two comments and one failing build", d, err)
 	}
 }
@@ -261,7 +262,7 @@ func TestAzure_EveryRemoteShapeReachesTheRepository_issue456(t *testing.T) {
 func TestAzure_WithoutAzIsAMissingTool_issue456(t *testing.T) {
 	_, err := azureRouter(t, "", nil, &FakeAzureAPI{}).ListPRs(t.TempDir())
 
-	var missing *forge.MissingToolError
+	var missing *dforge.MissingToolError
 	if !errors.As(err, &missing) || missing.Tool != "az" || missing.TokenEnv != "AZURE_DEVOPS_EXT_PAT" {
 		t.Errorf("error = %v, want az missing and AZURE_DEVOPS_EXT_PAT unset", err)
 	}
@@ -292,7 +293,7 @@ func TestAzureREST_ASignInPageIsARefusal_issue457(t *testing.T) {
 
 	_, err := azureRouter(t, "", azurePAT, api).ListPRs(t.TempDir())
 
-	var refused *forge.AuthError
+	var refused *dforge.AuthError
 	if !errors.As(err, &refused) || refused.TokenEnv != "AZURE_DEVOPS_EXT_PAT" {
 		t.Errorf("error = %v, want AZURE_DEVOPS_EXT_PAT refused", err)
 	}
@@ -348,10 +349,10 @@ func azEvaluation(kind, status string) string {
 // is the card's mark, and a reviewer policy still is not.
 func TestAzure_AStatusPolicyIsCI_issue456(t *testing.T) {
 	az, _ := fakeAz(t, secret)
-	for want, policies := range map[forge.CIState][]string{
-		forge.CIPassing: {azEvaluation("Status", "approved"), azEvaluation("Minimum number of reviewers", "rejected")},
-		forge.CIFailing: {azEvaluation("Status", "rejected"), azEvaluation("Build", "approved")},
-		forge.CIRunning: {azEvaluation("Status", "queued")},
+	for want, policies := range map[dforge.CIState][]string{
+		dforge.CIPassing: {azEvaluation("Status", "approved"), azEvaluation("Minimum number of reviewers", "rejected")},
+		dforge.CIFailing: {azEvaluation("Status", "rejected"), azEvaluation("Build", "approved")},
+		dforge.CIRunning: {azEvaluation("Status", "queued")},
 	} {
 		api := &FakeAzureAPI{Policy: `{"value": [` + strings.Join(policies, ",") + `]}`}
 		prs, err := azureRouter(t, az, nil, api).ListPRs(t.TempDir())

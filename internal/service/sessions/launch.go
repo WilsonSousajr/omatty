@@ -57,7 +57,7 @@ func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder Hold
 // The conversation is what claude resumes, and the row's ID is what the holder
 // names and what the hook reads back from the environment: after /clear the
 // two differ, and only the first moves (#316).
-func (l *Launcher) Launch(sess Session) (session.Launch, error) {
+func (l *Launcher) Launch(sess session.Session) (session.Launch, error) {
 	conv := sess.ConversationID()
 	resume := HasTranscript(l.profile, l.home, sess.Dir, conv)
 	argv, err := l.holder.Wrap(sess.ID, l.profile.Command(l.bin, conv, sess.Dir, resume, l.hooksFile))

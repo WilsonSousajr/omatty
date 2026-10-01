@@ -22,8 +22,8 @@ func TestTail_ParsesThroughTheAdapter_issue46(t *testing.T) {
 		t.Fatal(err)
 	}
 	at := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
-	a := &fakeAdapter{Kind: status.ToolStarted, At: at, Entry: status.Entry{Type: "user", At: at}}
-	sink := make(chan status.Event, 4)
+	a := &fakeAdapter{Kind: dstatus.ToolStarted, At: at, Entry: dstatus.Entry{Type: "user", At: at}}
+	sink := make(chan dstatus.Event, 4)
 
 	tl := status.Tail("s1", transcript.NewReader(path), sink, time.Now, time.Hour, a)
 	defer tl.Close()
@@ -31,7 +31,7 @@ func TestTail_ParsesThroughTheAdapter_issue46(t *testing.T) {
 
 	select {
 	case ev := <-sink:
-		if ev.Kind != status.ToolStarted || a.Parsed != 1 {
+		if ev.Kind != dstatus.ToolStarted || a.Parsed != 1 {
 			t.Errorf("event %+v after %d parses; want the adapter's ToolStarted from one parse", ev, a.Parsed)
 		}
 	case <-time.After(2 * time.Second):
@@ -46,7 +46,7 @@ func TestStart_TailsThePathTheProfileNames_issue46(t *testing.T) {
 	if err := os.WriteFile(path, []byte("x\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	a := &fakeAdapter{Kind: status.TurnEnded, At: time.Now()}
+	a := &fakeAdapter{Kind: dstatus.TurnEnded, At: time.Now()}
 	w := status.Start(status.WatchDeps{
 		Home: home, Clock: time.Now, Adapter: a,
 		TranscriptPath: func(_, _, _ string) string { return path },
@@ -60,7 +60,7 @@ func TestStart_TailsThePathTheProfileNames_issue46(t *testing.T) {
 	select {
 	case e := <-w.Subscribe(t.Context()):
 		ev := e.Payload
-		if ev.SessionID != "s1" || ev.Kind != status.TurnEnded {
+		if ev.SessionID != "s1" || ev.Kind != dstatus.TurnEnded {
 			t.Errorf("event %+v, want s1 TurnEnded from the profile's path", ev)
 		}
 	case <-time.After(3 * time.Second):

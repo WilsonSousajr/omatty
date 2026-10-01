@@ -2,6 +2,8 @@ package app_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
@@ -10,8 +12,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -34,7 +34,7 @@ type shipper struct {
 	Asked   []string // the branches whose protection was read
 }
 
-func (s *shipper) shippable(_ sessions.Session, _ string) (review.Shippable, error) {
+func (s *shipper) shippable(_ session.Session, _ string) (review.Shippable, error) {
 	return s.State, s.StateErr
 }
 
@@ -66,11 +66,11 @@ func (s *shipper) funcs() app.ShipFuncs {
 }
 
 // shipState is one worktree session on a branch forked from develop.
-func shipState() sessions.State {
-	return sessions.State{
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty",
+func shipState() session.State {
+	return session.State{
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty",
 			Gate: []gate.Step{{Name: "test", Run: "go test ./..."}}}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "parser-fix",
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "parser-fix",
 			Dir: "/wt/parser-fix", Branch: "feat/parser", Base: "develop", Worktree: true}},
 	}
 }
@@ -97,7 +97,7 @@ func modelReadyToShipOn(t *testing.T, sh *shipper, prs []forge.PR, label app.Lab
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.SetRepoStat("s1", review.Stat{Branch: "feat/parser", Added: 12, Removed: 3, Head: "abc123"})
 	m.Update(app.PRsLoadedMsg{Project: "omatty", PRs: prs})
-	statusDeliver(m, "s1", status.TurnEnded, time.Now())
+	statusDeliver(m, "s1", dstatus.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 	return m
 }
@@ -274,7 +274,7 @@ func TestModel_pRefusesAMainCheckoutSession_issue331(t *testing.T) {
 	m := app.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.SetRepoStat("s1", review.Stat{Branch: "develop", Added: 3, Head: "abc123"})
-	statusDeliver(m, "s1", status.TurnEnded, time.Now())
+	statusDeliver(m, "s1", dstatus.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 
 	leaderDeliver(m, key('p'))
@@ -291,7 +291,7 @@ func TestModel_pWithNoForgeWiredSaysSo_issue331(t *testing.T) {
 	m := app.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.SetRepoStat("s1", review.Stat{Branch: "feat/parser", Added: 12, Head: "abc123"})
-	statusDeliver(m, "s1", status.TurnEnded, time.Now())
+	statusDeliver(m, "s1", dstatus.TurnEnded, time.Now())
 	deliver(m, second(m.Update(passingReport())))
 
 	leaderDeliver(m, key('p'))

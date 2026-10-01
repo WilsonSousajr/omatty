@@ -7,12 +7,11 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strings"
 
 	"charm.land/lipgloss/v2"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // fileListWidth is the list's cells, diffnav's default.
@@ -72,9 +71,9 @@ func (m *Model) fileListLines(h int) []string {
 // fileListRow is one file: its reviewed mark and status, its path shortened
 // from the front to keep the name (#287), its counts at the right edge. The
 // cursor's file is drawn bold.
-func (m *Model) fileListRow(f review.File, current bool) string {
+func (m *Model) fileListRow(f dreview.File, current bool) string {
 	a, r := f.Counts()
-	lead := m.reviewMark(f.Path, false) + changeLetter(review.ChangeOf(f.Status)) + " "
+	lead := m.reviewMark(f.Path, false) + changeLetter(dreview.ChangeOf(f.Status)) + " "
 	stat := headingStat(a, r)
 	room := fileListWidth - lipgloss.Width(lead) - lipgloss.Width(stat)
 	path := previewTitle(f.Path, max(room, 1))
@@ -93,7 +92,7 @@ func (m *Model) clickFileList(x, y int) bool {
 	}
 	fi := m.fileListOffset(m.reviewRows()) + y - reviewTop()
 	for i, e := range m.review.Entries {
-		if e.Kind == review.EntryFile && e.Pos.File == fi {
+		if e.Kind == dreview.EntryFile && e.Pos.File == fi {
 			m.moveReviewCursor(i - m.review.DiffList.Cursor)
 			m.review.Focused = true
 			return true

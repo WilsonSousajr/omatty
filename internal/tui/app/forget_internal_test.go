@@ -2,6 +2,9 @@ package app
 
 import (
 	"errors"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"reflect"
 	"sort"
@@ -11,8 +14,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
@@ -84,18 +85,18 @@ func mapsMissing(m *Model, id string) []string {
 // an unexported field through reflect needs unsafe, and an explicit fixture is
 // what makes the guard below fail loudly when a new map appears.
 func filledModel() *Model {
-	sess := sessions.Session{ID: forgottenID, Project: "p", Dir: "/tmp/p"}
+	sess := session.Session{ID: forgottenID, Project: "p", Dir: "/tmp/p"}
 	m := NewModel(Deps{
-		State: sessions.State{
-			Projects: []sessions.Project{{Name: "p", Root: "/tmp/p"}},
-			Sessions: []sessions.Session{sess},
+		State: session.State{
+			Projects: []session.Project{{Name: "p", Root: "/tmp/p"}},
+			Sessions: []session.Session{sess},
 		},
 		Terms:      map[string]terminal.Terminal{},
 		Reattached: map[string]bool{},
 	})
-	m.status[forgottenID] = status.SessionState{}
+	m.status[forgottenID] = dstatus.SessionState{}
 	m.notified[forgottenID] = time.Unix(0, 0)
-	m.comments[forgottenID] = &review.Comments{}
+	m.comments[forgottenID] = &dreview.Comments{}
 	m.namePending[forgottenID] = true
 	m.gates[forgottenID] = gate.Report{}
 	m.gateRunning[forgottenID] = true
@@ -177,9 +178,9 @@ func slicesContain(xs []string, x string) bool {
 // A stopped card reads as asleep: its title is muted unless it is the one
 // selected, which stays bold so the cursor is never lost (#318).
 func TestTitleStyle_MutesAStoppedCard_issue318(t *testing.T) {
-	m := NewModel(Deps{State: sessions.State{
-		Projects: []sessions.Project{{Name: "p", Root: "/p"}},
-		Sessions: []sessions.Session{{ID: "live", Project: "p"}, {ID: "asleep", Project: "p"}},
+	m := NewModel(Deps{State: session.State{
+		Projects: []session.Project{{Name: "p", Root: "/p"}},
+		Sessions: []session.Session{{ID: "live", Project: "p"}, {ID: "asleep", Project: "p"}},
 	}, Terms: map[string]terminal.Terminal{"live": terminal.NewFake("")}})
 
 	if got := m.titleStyle("asleep").Render("x"); got != theme.Muted.Render("x") {

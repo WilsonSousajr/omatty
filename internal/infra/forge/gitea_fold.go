@@ -1,6 +1,9 @@
 package forge
 
-import "time"
+import (
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
+	"time"
+)
 
 // Gitea's REST answers, as it writes them (#458).
 type (
@@ -62,10 +65,10 @@ type (
 	}
 )
 
-func foldGTPRs(in []gtPR) []PR {
-	out := make([]PR, len(in))
+func foldGTPRs(in []gtPR) []dforge.PR {
+	out := make([]dforge.PR, len(in))
 	for i, p := range in {
-		out[i] = PR{
+		out[i] = dforge.PR{
 			Number: p.Number, Title: cleanLine(p.Title), Branch: cleanLine(p.Head.Ref), Base: cleanLine(p.Base.Ref),
 			State: gtState(p), Head: p.Head.SHA, Draft: p.Draft,
 			Conflict: gtConflict(p), Fork: gtFork(p),
@@ -75,14 +78,14 @@ func foldGTPRs(in []gtPR) []PR {
 	return out
 }
 
-func gtState(p gtPR) PRState {
+func gtState(p gtPR) dforge.PRState {
 	switch {
 	case p.Merged:
-		return Merged
+		return dforge.Merged
 	case p.State == "closed":
-		return Closed
+		return dforge.Closed
 	}
-	return Open
+	return dforge.Open
 }
 
 // gtConflict is an open pull request that cannot merge. Gitea reports every
@@ -99,18 +102,18 @@ func gtFork(p gtPR) bool {
 // Gitea's own Combine() makes it a failure, and Forgejo ranks it worse than
 // pending, so a combined "warning" can hide a check still running (#458's
 // review). A status omatty does not know is running, never passing.
-func giteaCI(status string) CIState {
+func giteaCI(status string) dforge.CIState {
 	switch status {
 	case "success", "skipped":
-		return CIPassing
+		return dforge.CIPassing
 	case "failure", "error", "warning":
-		return CIFailing
+		return dforge.CIFailing
 	}
-	return CIRunning
+	return dforge.CIRunning
 }
 
-func foldGTIssues(in []gtIssue) []Issue {
-	out := make([]Issue, len(in))
+func foldGTIssues(in []gtIssue) []dforge.Issue {
+	out := make([]dforge.Issue, len(in))
 	for i, is := range in {
 		assignee := ""
 		if len(is.Assignees) > 0 {

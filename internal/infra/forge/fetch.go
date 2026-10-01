@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -90,7 +91,7 @@ func statusError(host, bin string, status int, said string) error {
 	case 404:
 		return fmt.Errorf("forge: %s: %s: %w", host, said, errNotFound)
 	case 401, 403:
-		return &AuthError{Host: host, TokenEnv: bin + "'s login", Status: status}
+		return &dforge.AuthError{Host: host, TokenEnv: bin + "'s login", Status: status}
 	}
 	return fmt.Errorf("forge: %s api on %s answered %d: %s", bin, host, status, said)
 }
@@ -158,7 +159,7 @@ func said(s string) string {
 // is - an item deleted a moment ago is not a project without a forge (#453).
 func repoMissing(err error) error {
 	if errors.Is(err, errNotFound) {
-		return fmt.Errorf("%w: %w", err, ErrNoForge)
+		return fmt.Errorf("%w: %w", err, dforge.ErrNoForge)
 	}
 	return err
 }

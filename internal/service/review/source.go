@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"io"
 	"strings"
 
@@ -43,18 +44,18 @@ func (s *Source) WithHeads(head HeadFunc) *Source {
 // as additions (#21). A main-checkout session has no base branch and diffs
 // against HEAD. projectRoot is the fallback base for worktrees created before
 // the base was recorded.
-func (s *Source) Load(sess session.Session, projectRoot string) (Diff, error) {
+func (s *Source) Load(sess session.Session, projectRoot string) (dreview.Diff, error) {
 	ref, err := s.baseCommit(sess, projectRoot)
 	if err != nil {
-		return Diff{}, err
+		return dreview.Diff{}, err
 	}
 	raw, err := s.git.Diff(sess.Dir, ref)
 	if err != nil {
-		return Diff{}, fmt.Errorf("review: diffing session %s against %s: %w", sess.ID, ref, err)
+		return dreview.Diff{}, fmt.Errorf("review: diffing session %s against %s: %w", sess.ID, ref, err)
 	}
 	extra, err := s.untrackedDiffs(sess.Dir)
 	if err != nil {
-		return Diff{}, err
+		return dreview.Diff{}, err
 	}
 	// Two readers, not raw+extra: the concatenation allocated a second copy
 	// of the whole diff, and a session that touches a lockfile or generated

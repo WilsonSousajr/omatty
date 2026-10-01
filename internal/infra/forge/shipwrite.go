@@ -76,7 +76,7 @@ func branchPath(branch string) string { return (&url.URL{Path: branch}).EscapedP
 // alone, so a token that reads everything else is refused here (#464's
 // review) - and the merge is refused with it, protected being unknowable.
 func needsAdmin(err error, tokenEnv string) error {
-	var refused *AuthError
+	var refused *dforge.AuthError
 	if !errors.As(err, &refused) {
 		return err
 	}

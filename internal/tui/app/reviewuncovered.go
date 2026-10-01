@@ -2,9 +2,9 @@ package app
 
 import (
 	"fmt"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/coverage"
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // uncoveredMark is what an added line no test covers draws instead of its +.
@@ -18,12 +18,12 @@ const uncoveredMark = "!"
 // declaration, a brace, a comment - and silence is never a claim. Only added
 // lines are asked about: a context line's coverage is not this change's
 // business, and a removed line is not in the tree the profile describes.
-func (m *Model) uncovered(e review.Entry) bool {
-	if e.Kind != review.EntryLine {
+func (m *Model) uncovered(e dreview.Entry) bool {
+	if e.Kind != dreview.EntryLine {
 		return false
 	}
 	line := m.shownDiff().LineAt(e.Pos)
-	if line.Kind != review.LineAdded {
+	if line.Kind != dreview.LineAdded {
 		return false
 	}
 	path := m.shownDiff().Files[e.Pos.File].Path
@@ -67,10 +67,10 @@ func (m *Model) uncoveredNote(fi int) string {
 
 // uncoveredInHunk is how many of a hunk's added lines the overlay says never
 // ran, counted the same way linePrefix marks them.
-func uncoveredInHunk(h review.Hunk, lines map[int]bool) int {
+func uncoveredInHunk(h dreview.Hunk, lines map[int]bool) int {
 	n := 0
 	for _, l := range h.Lines {
-		if covered, known := lines[l.NewNo]; l.Kind == review.LineAdded && known && !covered {
+		if covered, known := lines[l.NewNo]; l.Kind == dreview.LineAdded && known && !covered {
 			n++
 		}
 	}

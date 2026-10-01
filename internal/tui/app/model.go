@@ -1,6 +1,9 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -10,8 +13,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
 	sgate "github.com/WilsonSousajr/omatty/internal/service/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/keys"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -29,7 +30,7 @@ const DefaultLeader = "ctrl+o"
 type Model struct {
 	// state is held so a session created at runtime can be folded in and the
 	// sidebar rebuilt (issue #32).
-	state   sessions.State
+	state   session.State
 	sidebar *Sidebar
 	terms   map[string]terminal.Terminal
 	router  *keys.Router
@@ -47,10 +48,10 @@ type Model struct {
 	// one that a newer title has overtaken is not shown over it (#653).
 	titleAsked map[string]int
 	// status is the live per-session state from the watcher; events feeds it.
-	status    map[string]status.SessionState
-	events    <-chan pubsub.Event[status.Event]
+	status    map[string]dstatus.SessionState
+	events    <-chan pubsub.Event[dstatus.Event]
 	clock     func() time.Time
-	tailStart func(sessions.Session)
+	tailStart func(session.Session)
 	notifier  Notifier
 	// highlighter colours code for the diff and the preview (#197, #653).
 	highlighter Highlighter
@@ -72,7 +73,7 @@ type Model struct {
 	paneOnly  bool
 	// comments is each session's pending review queue, kept across opening and
 	// closing the column; only submit drains it (#22).
-	comments    map[string]*review.Comments
+	comments    map[string]*dreview.Comments
 	diff        DiffFunc
 	files       ListFilesFunc
 	generatedFn GeneratedFunc
@@ -301,9 +302,9 @@ func (m *Model) withGate(d Deps) *Model {
 // live status, notification times, and each session's queued review comments.
 // They are never nil, so no method needs a nil guard (issue #76).
 func (m *Model) withRuntimeMaps() *Model {
-	m.status = map[string]status.SessionState{}
+	m.status = map[string]dstatus.SessionState{}
 	m.notified = map[string]time.Time{}
-	m.comments = map[string]*review.Comments{}
+	m.comments = map[string]*dreview.Comments{}
 	m.namePending = map[string]bool{}
 	m.gates = map[string]gate.Report{}
 	m.gateRunning = map[string]bool{}

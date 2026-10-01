@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,7 +9,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -45,9 +45,9 @@ func modelWithProfile(t *testing.T, dir, declared string) *app.Model {
 		{Name: "test", Run: "go test ./..."},
 		{Name: "cov", Run: "./cov.sh", Kind: gate.KindCoverage, Profile: declared},
 	}
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "omatty", Root: dir, Gate: steps}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: dir, Branch: "main"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "omatty", Root: dir, Gate: steps}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: dir, Branch: "main"}},
 	}
 	m := app.NewModel(baseDeps(st, fakeTermsFor(st)))
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})

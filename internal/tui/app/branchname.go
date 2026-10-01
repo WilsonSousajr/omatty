@@ -27,11 +27,10 @@ package app
 
 import (
 	"fmt"
+	dsession "github.com/WilsonSousajr/omatty/internal/domain/session"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // BranchRenameFunc renames a worktree session's branch, and reports whether it
@@ -47,12 +46,12 @@ import (
 // (invariant 4); cmd/omatty closes it over both.
 //
 //	deps.RenameBranch = branchRenamer(store, vcs.NewCLI())
-type BranchRenameFunc func(sess sessions.Session, branch string, unstartedOnly bool) (bool, error)
+type BranchRenameFunc func(sess dsession.Session, branch string, unstartedOnly bool) (bool, error)
 
 // noBranchRename is the Deps.RenameBranch default. Like noRename and unlike
 // noName, it names the missing wiring rather than appearing to succeed: a
 // model that silently kept a placeholder would look like the rule declining.
-func noBranchRename(sess sessions.Session, branch string, _ bool) (bool, error) {
+func noBranchRename(sess dsession.Session, branch string, _ bool) (bool, error) {
 	return false, fmt.Errorf("ui: no branch renamer configured for session %s (branch %q)", sess.ID, branch)
 }
 
@@ -68,8 +67,8 @@ type BranchNamedMsg struct {
 // carrying the branch name omatty gave it. Derived from the session, never
 // tracked, for the reason isPlaceholderTitle gives: a map is empty after a
 // relaunch (invariant 9).
-func isPlaceholderBranch(sess sessions.Session) bool {
-	return sess.Worktree && sess.Branch == sessions.PlaceholderBranch(sess.ID)
+func isPlaceholderBranch(sess dsession.Session) bool {
+	return sess.Worktree && sess.Branch == dsession.PlaceholderBranch(sess.ID)
 }
 
 // maybeRenameBranch gives a placeholder branch the name the session's title
@@ -78,7 +77,7 @@ func isPlaceholderBranch(sess sessions.Session) bool {
 // branch takes the final title rather than the first guess at it.
 func (m *Model) maybeRenameBranch(sessionID, title string) tea.Cmd {
 	sess, ok := m.session(sessionID)
-	branch := sessions.Slug(title)
+	branch := dsession.Slug(title)
 	if !ok || !isPlaceholderBranch(sess) || branch == "" || branch == sess.Branch {
 		return nil
 	}
@@ -138,7 +137,7 @@ func (m *Model) openBranchRename() {
 func (m *Model) commitBranchRename(id, branch string) tea.Cmd {
 	m.modal = modal{}
 	sess, ok := m.session(id)
-	slug := sessions.Slug(branch)
+	slug := dsession.Slug(branch)
 	if !ok || slug == "" || slug == sess.Branch {
 		return nil
 	}

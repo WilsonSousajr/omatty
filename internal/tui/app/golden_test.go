@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +12,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -51,7 +51,7 @@ func writeGolden(t *testing.T, path string, got []byte) {
 // sceneDeps is baseDeps with the clock pinned. baseDeps leaves the wall clock
 // in, and a card's age or a spinner frame read from it would make every
 // golden fail a minute after it was written.
-func sceneDeps(st sessions.State, terms map[string]terminal.Terminal) app.Deps {
+func sceneDeps(st session.State, terms map[string]terminal.Terminal) app.Deps {
 	d := baseDeps(st, terms)
 	d.Clock = func() time.Time { return fixedNow }
 	// A machine without gh, as every scene has always been drawn: the TUI's

@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,7 +78,7 @@ func TestRemove_saysTheRepositoryIsUntouched_issue653(t *testing.T) {
 // better than none (#332).
 func TestStats_withNoForgeStillReports_issue653(t *testing.T) {
 	var out bytes.Buffer
-	project := sessions.Project{Name: "omatty", Root: "/p/omatty"}
+	project := session.Project{Name: "omatty", Root: "/p/omatty"}
 	if err := cli.Stats(t.Context(), &out, &FakeStore{}, project, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +91,7 @@ func TestStats_withNoForgeStillReports_issue653(t *testing.T) {
 func TestStats_aForgeThatFailsIsSaidNotFatal_issue653(t *testing.T) {
 	var out bytes.Buffer
 	failing := func(string) ([]forge.PR, error) { return nil, errors.New("gh is not installed") }
-	project := sessions.Project{Name: "omatty", Root: "/p/omatty"}
+	project := session.Project{Name: "omatty", Root: "/p/omatty"}
 	if err := cli.Stats(t.Context(), &out, &FakeStore{}, project, failing); err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +102,7 @@ func TestStats_aForgeThatFailsIsSaidNotFatal_issue653(t *testing.T) {
 
 // A state.json that will not load is the command's error.
 func TestStats_aStoreThatWillNotLoadIsAnError_issue653(t *testing.T) {
-	err := cli.Stats(t.Context(), &bytes.Buffer{}, &FakeStore{Err: errors.New("broken")}, sessions.Project{}, nil)
+	err := cli.Stats(t.Context(), &bytes.Buffer{}, &FakeStore{Err: errors.New("broken")}, session.Project{}, nil)
 	if err == nil {
 		t.Error("Stats over a broken store = nil, want its error")
 	}

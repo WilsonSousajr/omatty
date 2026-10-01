@@ -50,7 +50,7 @@ type Event struct {
 	At        time.Time
 	Tokens    Tokens // UsageUpdated: cumulative totals
 	// Owner is the registry id of the pane whose claude sent a hook event,
-	// from hooks.SessionEnv; empty for the tailer and for a claude omatty did
+	// from session.SessionEnv; empty for the tailer and for a claude omatty did
 	// not launch. SessionID is the conversation, which /clear changes (#316).
 	Owner string
 	// Hook is true on an event the socket listener produced, false on the

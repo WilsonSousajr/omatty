@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -135,8 +136,8 @@ func TestREST_ClassifiesTheAnswer_issue453(t *testing.T) {
 
 		_, err := fetch(t, f, time.Second)
 
-		var auth *forge.AuthError
-		if err == nil || errors.As(err, &auth) != tt.auth || errors.Is(err, forge.ErrNotFound) != tt.notFound || errors.Is(err, forge.ErrNoForge) {
+		var auth *dforge.AuthError
+		if err == nil || errors.As(err, &auth) != tt.auth || errors.Is(err, forge.ErrNotFound) != tt.notFound || errors.Is(err, dforge.ErrNoForge) {
 			t.Errorf("%d %s %q: error = %v, want auth=%v notFound=%v", tt.status, tt.contentType, tt.body, err, tt.auth, tt.notFound)
 		}
 	}
@@ -160,7 +161,7 @@ func TestREST_NeverSendsATokenOverPlainHTTP_issue453(t *testing.T) {
 	}
 	// Typed, so the UI stops the project with a note: no poll changes a
 	// remote's scheme, and an untyped refusal was asked again forever (#584).
-	var refused *forge.PlainHTTPError
+	var refused *dforge.PlainHTTPError
 	if !errors.As(err, &refused) || refused.TokenEnv != "GITLAB_TOKEN" || refused.Host == "" {
 		t.Errorf("error = %#v, want a PlainHTTPError naming the host and GITLAB_TOKEN (#584)", err)
 	}
@@ -222,7 +223,7 @@ func TestREST_ABodyOfExactlyTheCapIsRead_issue453(t *testing.T) {
 // A refused token names the host and the variable, so the operator knows which
 // of their tokens to fix.
 func TestAuthError_NamesTheHostAndTheVariable_issue453(t *testing.T) {
-	err := &forge.AuthError{Host: "gitlab.com", TokenEnv: "GITLAB_TOKEN", Status: 401}
+	err := &dforge.AuthError{Host: "gitlab.com", TokenEnv: "GITLAB_TOKEN", Status: 401}
 
 	if got := err.Error(); got != "forge: gitlab.com refused GITLAB_TOKEN (401)" {
 		t.Errorf("Error() = %q", got)

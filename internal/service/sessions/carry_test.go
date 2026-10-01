@@ -1,6 +1,7 @@
 package sessions_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
 	"os"
 	"path/filepath"
@@ -44,9 +45,9 @@ func read(t *testing.T, path string) string {
 // on the files (#309).
 func TestCreator_carriesTheProjectsFilesIntoANewWorktree_issue309(t *testing.T) {
 	root, wtRoot := carryRepo(t), t.TempDir()
-	st := &sessions.State{
-		Version:  sessions.Version,
-		Projects: []sessions.Project{{Name: "omatty", Root: root, Carry: []string{".env", "certs"}}},
+	st := &session.State{
+		Version:  session.Version,
+		Projects: []session.Project{{Name: "omatty", Root: root, Carry: []string{".env", "certs"}}},
 	}
 
 	sess, err := sessions.NewCreator(&FakeGit{}, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: wtRoot, Carry: store.CarryInto}, stubID).
@@ -71,9 +72,9 @@ func TestCreator_carriesTheProjectsFilesIntoANewWorktree_issue309(t *testing.T) 
 // choose, and Create's promise is that a failure leaves st untouched (#309).
 func TestCreator_rollsBackTheWorktreeWhenACarryFails_issue309(t *testing.T) {
 	g := &FakeGit{}
-	st := &sessions.State{
-		Version:  sessions.Version,
-		Projects: []sessions.Project{{Name: "omatty", Root: carryRepo(t), Carry: []string{"../escape"}}},
+	st := &session.State{
+		Version:  session.Version,
+		Projects: []session.Project{{Name: "omatty", Root: carryRepo(t), Carry: []string{"../escape"}}},
 	}
 
 	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: t.TempDir(), Carry: store.CarryInto}, stubID).
@@ -153,9 +154,9 @@ func TestSetCarry_refusesAnUnknownProject_issue309(t *testing.T) {
 // create fails naming the project, and the worktree goes with it.
 func TestCreator_refusesACarryWithNoCopierWired_issue653(t *testing.T) {
 	g := &FakeGit{}
-	st := &sessions.State{
-		Version:  sessions.Version,
-		Projects: []sessions.Project{{Name: "omatty", Root: carryRepo(t), Carry: []string{".env"}}},
+	st := &session.State{
+		Version:  session.Version,
+		Projects: []session.Project{{Name: "omatty", Root: carryRepo(t), Carry: []string{".env"}}},
 	}
 
 	_, err := sessions.NewCreator(g, sessions.CreatorOpts{WorktreeDir: paths.WorktreeDir, WorktreeRoot: t.TempDir()}, stubID).

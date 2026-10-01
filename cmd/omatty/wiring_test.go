@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,7 +15,6 @@ import (
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
-	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"net"
@@ -40,7 +41,7 @@ func TestTuiDeps_PassesIdleStop_issue319(t *testing.T) {
 	env.Cfg = config.Defaults("/h")
 	env.Cfg.Sessions.IdleStop = config.Duration(90 * time.Minute)
 
-	if got := tuiDeps(env, nil, sessions.State{}).IdleStop; got != 90*time.Minute {
+	if got := tuiDeps(env, nil, session.State{}).IdleStop; got != 90*time.Minute {
 		t.Errorf("config idle_stop = 90m reached the sweep as %v", got)
 	}
 }
@@ -55,9 +56,9 @@ func TestTuiDeps_PassesTheConfiguredClaudeBinToTheLauncher_issue44(t *testing.T)
 	env.Cfg.ClaudeBin = "/opt/claude"
 	env.Cfg.Leader = "ctrl+a"
 
-	deps := tuiDeps(env, nil, sessions.State{})
+	deps := tuiDeps(env, nil, session.State{})
 
-	launch, err := runtimeFor(env).Launch.Launch(sessions.Session{ID: "id", Dir: home})
+	launch, err := runtimeFor(env).Launch.Launch(session.Session{ID: "id", Dir: home})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +115,7 @@ func TestTuiDeps_WiresEveryForgeCallThroughTheRouter_issue452(t *testing.T) {
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
 
-	deps := tuiDeps(env, nil, sessions.State{})
+	deps := tuiDeps(env, nil, session.State{})
 
 	for name, missing := range map[string]bool{
 		"PRs": deps.PRs == nil, "Issues": deps.Issues == nil,
@@ -127,7 +128,7 @@ func TestTuiDeps_WiresEveryForgeCallThroughTheRouter_issue452(t *testing.T) {
 			t.Errorf("%s is not wired", name)
 		}
 	}
-	if got := deps.Label("/nowhere"); got != forge.Neutral {
+	if got := deps.Label("/nowhere"); got != dforge.Neutral {
 		t.Errorf("Label(unresolved) = %+v, want the Router's neutral label", got)
 	}
 }
@@ -189,7 +190,7 @@ func TestSessionArchiver_ReturnsTheRemovedSession_issue40(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	st.Sessions = append(st.Sessions, sessions.Session{
+	st.Sessions = append(st.Sessions, session.Session{
 		ID: "s1", Project: "omatty", Title: "main", Dir: "/wt/omatty/fix", Worktree: true,
 	})
 	if err := store.Save(t.Context(), st); err != nil {
@@ -310,9 +311,9 @@ func TestProjectFolder_PersistsTheFold_issue505(t *testing.T) {
 // the next start resumes from.
 func TestSessionRebinder_PersistsTheConversation_issue316(t *testing.T) {
 	store := storeIn(t)
-	st := sessions.State{Version: sessions.Version,
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "main", Dir: "/p/omatty"}}}
+	st := session.State{Version: session.Version,
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "main", Dir: "/p/omatty"}}}
 	if err := store.Save(t.Context(), st); err != nil {
 		t.Fatal(err)
 	}
@@ -345,7 +346,7 @@ func TestSessionNamer_ReadsATranscriptBehindASymlink_issue564(t *testing.T) {
 	}
 	adoptFixture(t, home, physical, "abc", "fix the parser")
 
-	title, err := sessionNamer(home, claudeProfile())(sessions.Session{ID: "abc", Dir: filepath.Join(root, "link", "omatty")})
+	title, err := sessionNamer(home, claudeProfile())(session.Session{ID: "abc", Dir: filepath.Join(root, "link", "omatty")})
 
 	if err != nil || !strings.Contains(title, "parser") {
 		t.Errorf("sessionNamer = (%q, %v), want a title from the transcript under the resolved directory", title, err)
@@ -360,7 +361,7 @@ func TestSessionNamer_ReadsTheReboundConversation_issue316(t *testing.T) {
 	adoptFixture(t, home, dir, "before-clear", "the old work")
 	adoptFixture(t, home, dir, "after-clear", "fix the parser")
 
-	title, err := sessionNamer(home, claudeProfile())(sessions.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
+	title, err := sessionNamer(home, claudeProfile())(session.Session{ID: "before-clear", Dir: dir, Conversation: "after-clear"})
 
 	if err != nil || !strings.Contains(title, "parser") {
 		t.Errorf("sessionNamer = (%q, %v), want a title from the post-clear prompt", title, err)
@@ -447,7 +448,7 @@ func TestTuiDeps_ReadsCoverageThroughFsread_issue653(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, "cover.out"), "mode: set\nexample.com/m/a.go:3.10,5.4 2 1\n")
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
-	deps := tuiDeps(env, nil, sessions.State{})
+	deps := tuiDeps(env, nil, session.State{})
 	if deps.Profiles == nil {
 		t.Fatal("Profiles is not wired: no coverage overlay would ever load")
 	}
@@ -477,9 +478,9 @@ func TestTuiDeps_SniffsGeneratedHeadersThroughFsread_issue653(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, "stringer.go"), "// Code generated by stringer. DO NOT EDIT.\n\npackage p\n")
 	env := tuiEnv{Home: "/h", Agent: claudeProfile(), HooksFile: "/h/hooks.json", Holder: &detach.Plain{}, Width: 80, Height: 24}
 	env.Cfg = config.Defaults("/h")
-	deps := tuiDeps(env, nil, sessions.State{})
+	deps := tuiDeps(env, nil, session.State{})
 
-	gen, err := deps.Generated(sessions.Session{ID: "s1", Dir: dir}, []string{"stringer.go"})
+	gen, err := deps.Generated(session.Session{ID: "s1", Dir: dir}, []string{"stringer.go"})
 
 	if err != nil || !gen["stringer.go"] {
 		t.Errorf("Generated = %v, %v; want stringer.go sniffed as generated", gen, err)

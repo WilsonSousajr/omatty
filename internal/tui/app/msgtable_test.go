@@ -2,6 +2,8 @@ package app_test
 
 import (
 	"fmt"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -16,7 +18,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
@@ -38,14 +39,14 @@ func routedMsgs() []routedMsg {
 		{"tea.PasteMsg", tea.PasteMsg{Content: "pasted"}},
 		{"tea.PasteStartMsg", tea.PasteStartMsg{}}, {"tea.PasteEndMsg", tea.PasteEndMsg{}},
 		{"tea.WindowSizeMsg", tea.WindowSizeMsg{Width: 100, Height: 28}},
-		{"DiffLoadedMsg", app.DiffLoadedMsg{SessionID: "s1", Diff: review.Diff{}}},
+		{"DiffLoadedMsg", app.DiffLoadedMsg{SessionID: "s1", Diff: dreview.Diff{}}},
 		{"FilesLoadedMsg", app.FilesLoadedMsg{SessionID: "s1", Paths: []string{"go.mod"}}},
 		{"WorktreeRemovedMsg", app.WorktreeRemovedMsg{SessionID: "s1", Dir: "/p/omatty"}},
 		{"TurnLoadedMsg", app.TurnLoadedMsg{SessionID: "s1"}}, {"TurnSnappedMsg", app.TurnSnappedMsg{SessionID: "s1"}},
 		{"NamedMsg", app.NamedMsg{SessionID: "s1", From: "main", Title: "named"}},
 		{"ModelNamedMsg", app.ModelNamedMsg{SessionID: "s1", From: "main", Title: "model named"}},
 		{"BranchNamedMsg", app.BranchNamedMsg{SessionID: "s1", Branch: "feat/x", Renamed: true}},
-		{"StatusMsg", app.StatusMsg(status.Event{SessionID: "s1", Kind: status.TurnEnded, At: now})},
+		{"StatusMsg", app.StatusMsg(dstatus.Event{SessionID: "s1", Kind: dstatus.TurnEnded, At: now})},
 		{"GateMsg", app.GateMsg(gate.Report{ID: "s1"})},
 		{"RevertedMsg", app.RevertedMsg{SessionID: "s1", Files: 1}},
 		{"ShippedMsg", app.ShippedMsg{SessionID: "s1", Number: 7}},

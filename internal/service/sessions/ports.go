@@ -1,6 +1,9 @@
 package sessions
 
-import "context"
+import (
+	"context"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+)
 
 // StateStore loads and saves the registry's State (ADR 0001's port). Every
 // command here takes one; internal/infra/store implements it over
@@ -9,8 +12,8 @@ import "context"
 //
 //	err := sessions.RenameSession(ctx, store.NewStore(paths.StateFile(home)), id, "parser fix")
 type StateStore interface {
-	Load(ctx context.Context) (State, error)
-	Save(ctx context.Context, st State) error
+	Load(ctx context.Context) (session.State, error)
+	Save(ctx context.Context, st session.State) error
 }
 
 // Worktrees is the slice of git a Creator needs: the branch a checkout is on,

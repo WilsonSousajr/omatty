@@ -1,13 +1,13 @@
 package app_test
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"slices"
 	"testing"
 
 	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -16,7 +16,7 @@ import (
 func TestStatusColors_AmberMeansWaitingAloneAndAccentMeansFocusAlone_issue175(t *testing.T) {
 	for _, s := range app.AllStatuses() {
 		isAmber := sameRGB(app.StatusColor(s), app.AmberColor())
-		if isAmber != (s == status.StatusWaiting) {
+		if isAmber != (s == dstatus.StatusWaiting) {
 			t.Errorf("status %s amber=%v; amber must mean waiting and only waiting", s, isAmber)
 		}
 		if sameRGB(app.StatusColor(s), app.AccentColor()) {
@@ -27,7 +27,7 @@ func TestStatusColors_AmberMeansWaitingAloneAndAccentMeansFocusAlone_issue175(t 
 
 // Working states earn no colour: the spinner already says busy (#410).
 func TestStatusColors_WorkingStatesAreTextColoured_issue175(t *testing.T) {
-	for _, s := range []status.Status{status.StatusThinking, status.StatusTool} {
+	for _, s := range []dstatus.Status{dstatus.StatusThinking, dstatus.StatusTool} {
 		if !sameRGB(app.StatusColor(s), app.TextColor()) {
 			t.Errorf("status %s = %v, want the text colour", s, app.StatusColor(s))
 		}

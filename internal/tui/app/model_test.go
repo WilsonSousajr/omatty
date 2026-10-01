@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 	"time"
@@ -8,16 +9,15 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/WilsonSousajr/omatty/internal/infra/fsread"
 	"github.com/WilsonSousajr/omatty/internal/infra/highlight"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
-func noCreate(_, title, branch string, worktree bool) (sessions.Session, error) {
-	return sessions.Session{ID: "created", Title: title, Branch: branch, Worktree: worktree}, nil
+func noCreate(_, title, branch string, worktree bool) (session.Session, error) {
+	return session.Session{ID: "created", Title: title, Branch: branch, Worktree: worktree}, nil
 }
 
-func noStart(sessions.Session, int, int) (terminal.Terminal, error) { return terminal.NewFake(""), nil }
+func noStart(session.Session, int, int) (terminal.Terminal, error) { return terminal.NewFake(""), nil }
 
 func fakeTerms(t *testing.T) (map[string]terminal.Terminal, map[string]*terminal.Fake) {
 	t.Helper()
@@ -35,7 +35,7 @@ func fakeTerms(t *testing.T) (map[string]terminal.Terminal, map[string]*terminal
 
 // baseDeps is the required half of app.Deps with inert fakes; tests add the
 // optional fields they exercise.
-func baseDeps(st sessions.State, terms map[string]terminal.Terminal) app.Deps {
+func baseDeps(st session.State, terms map[string]terminal.Terminal) app.Deps {
 	return app.Deps{State: st, Terms: terms, Create: noCreate, Start: noStart, SpinTick: instantTick,
 		Profiles: fsread.CoverageProfiles{}, Preview: fsread.ReadPreview, Highlighter: highlight.Chroma{}}
 }

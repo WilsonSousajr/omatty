@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 
@@ -8,7 +9,6 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/pubsub"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -118,9 +118,9 @@ func TestModel_aGateReportForAnUnknownSession_isIgnored_issue231(t *testing.T) {
 // given gate, with the run request recorded rather than executed.
 func modelWithGate(t *testing.T, rec *recordGateRun, steps []gate.Step) *app.Model {
 	t.Helper()
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty", Gate: steps}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty", Branch: "main"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty", Gate: steps}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty", Branch: "main"}},
 	}
 	deps := baseDeps(st, fakeTermsFor(st))
 	deps.GateRun = rec.Run
@@ -134,12 +134,12 @@ func modelWithGate(t *testing.T, rec *recordGateRun, steps []gate.Step) *app.Mod
 // and lists the steps it would run, rather than claiming a run is in flight
 // that nothing will ever finish.
 func TestModel_gatePaneWithNoRunnerWired_listsTheStepsItWouldRun_issue231(t *testing.T) {
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty", Gate: []gate.Step{
+	st := session.State{
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty", Gate: []gate.Step{
 			{Name: "fmt", Run: "gofmt -l ."},
 			{Name: "test", Run: "go test ./..."},
 		}}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
 	m := app.NewModel(baseDeps(st, fakeTermsFor(st))) // no GateRun
 	// Wide enough for a whole command: since #342 a pending row reserves the
@@ -163,9 +163,9 @@ func TestModel_gatePaneWithNoRunnerWired_listsTheStepsItWouldRun_issue231(t *tes
 // Sending needs a terminal. A session without one must say so rather than
 // drop the message silently.
 func TestModel_sendingGateFeedbackWithNoTerminal_saysSo_issue232(t *testing.T) {
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
 	m := app.NewModel(baseDeps(st, nil)) // no terminals at all
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
@@ -184,9 +184,9 @@ func TestModel_sendingGateFeedbackWithNoTerminal_saysSo_issue232(t *testing.T) {
 // The wait is what turns a Runner's channel into a message the model can
 // fold in. Without this the pane would only ever show reports a test planted.
 func TestModel_theGateWaitDeliversAReport_issue231(t *testing.T) {
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty"}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty"}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
 	reports := make(chan pubsub.Event[gate.Report], 1)
 	deps := baseDeps(st, fakeTermsFor(st))

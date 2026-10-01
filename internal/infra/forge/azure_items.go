@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/url"
 	"strconv"
 	"strings"
@@ -22,7 +23,7 @@ const workItemFields = "System.Id,System.Title,System.Tags,System.AssignedTo,Sys
 // listIssues is the open work items: WIQL for their ids, then their fields in
 // one batch - Azure takes at most two hundred ids, and #358's window is a
 // hundred.
-func (a azBackend) listIssues(ctx context.Context, _ string) ([]Issue, error) {
+func (a azBackend) listIssues(ctx context.Context, _ string) ([]dforge.Issue, error) {
 	body, _ := json.Marshal(map[string]string{"query": openItemsWIQL})
 	raw, err := a.rest.post(ctx, a.api("wit/wiql?$top=100"), bytes.NewReader(body), a.auth, a.env)
 	if err != nil {
@@ -42,19 +43,19 @@ func (a azBackend) listIssues(ctx context.Context, _ string) ([]Issue, error) {
 	return a.foldItems(items.Value), nil
 }
 
-func (a azBackend) viewIssue(ctx context.Context, _ string, number int) (Detail, error) {
+func (a azBackend) viewIssue(ctx context.Context, _ string, number int) (dforge.Detail, error) {
 	item, err := azGet[azWorkItem](ctx, a, a.api("wit/workitems/"+strconv.Itoa(number)))
 	if err != nil {
-		return Detail{}, err
+		return dforge.Detail{}, err
 	}
 	comments, _ := azGet[azComments](ctx, a, a.api("wit/workItems/"+strconv.Itoa(number)+"/comments")+"-preview.4")
 	return foldDetail(item.flat(a.itemURL(number), comments.Comments)), nil
 }
 
-func (a azBackend) viewPR(ctx context.Context, _ string, number int) (Detail, error) {
+func (a azBackend) viewPR(ctx context.Context, _ string, number int) (dforge.Detail, error) {
 	pr, err := azGet[azPR](ctx, a, a.repoAPI("pullrequests/"+strconv.Itoa(number)))
 	if err != nil {
-		return Detail{}, err
+		return dforge.Detail{}, err
 	}
 	threads, _ := azGet[azList[azThread]](ctx, a, a.repoAPI("pullRequests/"+strconv.Itoa(number)+"/threads"))
 	builds, _ := a.builds(ctx, number)

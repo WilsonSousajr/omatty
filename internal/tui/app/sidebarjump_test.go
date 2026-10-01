@@ -1,16 +1,16 @@
 package app_test
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"testing"
 
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
-func threeProjectState() sessions.State {
-	return sessions.State{
-		Projects: []sessions.Project{{Name: "a"}, {Name: "b"}, {Name: "none"}, {Name: "c"}},
-		Sessions: []sessions.Session{
+func threeProjectState() session.State {
+	return session.State{
+		Projects: []session.Project{{Name: "a"}, {Name: "b"}, {Name: "none"}, {Name: "c"}},
+		Sessions: []session.Session{
 			{ID: "a1", Project: "a", Title: "t"}, {ID: "a2", Project: "a", Title: "t"},
 			{ID: "b1", Project: "b", Title: "t"}, {ID: "b2", Project: "b", Title: "t"}, {ID: "b3", Project: "b", Title: "t"},
 			{ID: "c1", Project: "c", Title: "t"},
@@ -63,9 +63,9 @@ func TestSidebar_PrevProjectLandsOnTheFirstSessionNotTheLast_issue130_issue158(t
 // test asserted the pair was a no-op, which is exactly the dead row the issue
 // reports.
 func TestSidebar_ProjectJumpVisitsTheEmptyProject_issue130_issue158(t *testing.T) {
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "only"}, {Name: "empty"}},
-		Sessions: []sessions.Session{{ID: "o1", Project: "only", Title: "t"}, {ID: "o2", Project: "only", Title: "t"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "only"}, {Name: "empty"}},
+		Sessions: []session.Session{{ID: "o1", Project: "only", Title: "t"}, {ID: "o2", Project: "only", Title: "t"}},
 	}
 	s := app.NewSidebar(app.SidebarRows(st, nil))
 	s.SelectByID("o2")
@@ -171,7 +171,7 @@ func TestSidebar_SetRowsStaysInTheProjectWhenASessionRemains_issue158(t *testing
 	st := twoProjectState()
 	s := app.NewSidebar(app.SidebarRows(st, nil))
 	s.SelectByID("s2")
-	st.Sessions = []sessions.Session{st.Sessions[0], st.Sessions[2]} // s2 archived
+	st.Sessions = []session.Session{st.Sessions[0], st.Sessions[2]} // s2 archived
 
 	s.SetRows(app.SidebarRows(st, nil))
 
@@ -204,9 +204,9 @@ func TestSidebar_SelectByProjectLandsOnItsFirstSessionOrItsHeader_issue158(t *te
 // project that happens to be registered first - there is something to type
 // into, so start there.
 func TestSidebar_NewSidebarPrefersAnySessionToAnEmptyHeader_issue158(t *testing.T) {
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "empty"}, {Name: "omatty"}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "main"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "empty"}, {Name: "omatty"}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "main"}},
 	}
 	s := app.NewSidebar(app.SidebarRows(st, nil))
 	if got, ok := s.Selected(); !ok || got.Session.ID != "s1" {
@@ -220,7 +220,7 @@ func TestSidebar_NewSidebarPrefersAnySessionToAnEmptyHeader_issue158(t *testing.
 // With no session anywhere the first project is the landing row, which is what
 // keeps ctrl+o n working on a fresh install (the rows[0] fallback #158 notes).
 func TestSidebar_HeadersOnlySelectsTheFirstHeader_issue158(t *testing.T) {
-	st := sessions.State{Projects: []sessions.Project{{Name: "empty"}, {Name: "also"}}}
+	st := session.State{Projects: []session.Project{{Name: "empty"}, {Name: "also"}}}
 	s := app.NewSidebar(app.SidebarRows(st, nil))
 
 	if p, ok := s.SelectedHeader(); !ok || p != "empty" {

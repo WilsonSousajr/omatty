@@ -38,6 +38,7 @@ import (
 	"strconv"
 	"strings"
 
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 	"github.com/WilsonSousajr/omatty/internal/infra/vcs"
 )
@@ -95,7 +96,7 @@ func hostsFor(root, kind string) forge.Hosts {
 	return forge.Hosts{remote.Host: k}
 }
 
-func probeIssues(r *forge.Router, root string) []forge.Issue {
+func probeIssues(r *forge.Router, root string) []dforge.Issue {
 	issues, err := r.ListIssues(root)
 	if err != nil {
 		fmt.Println("ListIssues:", err)
@@ -108,14 +109,14 @@ func probeIssues(r *forge.Router, root string) []forge.Issue {
 	return issues
 }
 
-func probePRs(r *forge.Router, root string) []forge.PR {
+func probePRs(r *forge.Router, root string) []dforge.PR {
 	prs, err := r.ListPRs(root)
 	if err != nil {
 		fmt.Println("ListPRs:", err)
 	}
 	fmt.Printf("\n--- open changes of %d read ---\n", len(prs))
 	for _, pr := range prs {
-		if pr.State != forge.Open {
+		if pr.State != dforge.Open {
 			continue
 		}
 		fmt.Printf("%-5s %-52s %s ci=%v draft=%v conflict=%v fork=%v head=%.8s\n", r.Label(root).Ref(pr.Number),
@@ -127,7 +128,7 @@ func probePRs(r *forge.Router, root string) []forge.PR {
 // probeDetail reads the first two issues and the first open change in full:
 // the body and the comments are a third call with its own field names, and
 // the lists prove nothing about it.
-func probeDetail(r *forge.Router, root string, issues []forge.Issue, prs []forge.PR) {
+func probeDetail(r *forge.Router, root string, issues []dforge.Issue, prs []dforge.PR) {
 	for i, is := range issues {
 		if i == 2 {
 			break
@@ -136,7 +137,7 @@ func probeDetail(r *forge.Router, root string, issues []forge.Issue, prs []forge
 		printDetail("#", d, err)
 	}
 	for _, pr := range prs {
-		if pr.State == forge.Open {
+		if pr.State == dforge.Open {
 			d, err := r.ViewPR(root, pr.Number)
 			printDetail(r.Label(root).Sigil, d, err)
 			return
@@ -144,7 +145,7 @@ func probeDetail(r *forge.Router, root string, issues []forge.Issue, prs []forge
 	}
 }
 
-func printDetail(sigil string, d forge.Detail, err error) {
+func printDetail(sigil string, d dforge.Detail, err error) {
 	if err != nil {
 		fmt.Println("\nview:", err)
 		return
@@ -215,7 +216,7 @@ func exitOn(err error) {
 }
 
 // who names the assignee, or says nobody is on it.
-func who(is forge.Issue) string {
+func who(is dforge.Issue) string {
 	if is.Assignee == "" {
 		return "(unassigned, by " + is.Author + ")"
 	}

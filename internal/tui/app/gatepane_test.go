@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -308,9 +308,9 @@ func TestModel_gateRowsKeepOneCommandColumn_issue342(t *testing.T) {
 		{Name: "coverage", Run: "./cov.sh"},
 	}
 	runs := []string{"gofmt -l .", "go test ./...", "./cov.sh"}
-	st := sessions.State{
-		Projects: []sessions.Project{{Name: "omatty", Root: "/p/omatty", Gate: steps}},
-		Sessions: []sessions.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
+	st := session.State{
+		Projects: []session.Project{{Name: "omatty", Root: "/p/omatty", Gate: steps}},
+		Sessions: []session.Session{{ID: "s1", Project: "omatty", Title: "one", Dir: "/p/omatty"}},
 	}
 	m := app.NewModel(baseDeps(st, fakeTermsFor(st))) // no runner: the pending view
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})

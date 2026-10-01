@@ -1,11 +1,11 @@
 package app_test
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -18,10 +18,10 @@ const (
 )
 
 // deletedAndRenamed is a diff the fixture lacks: one file gone, one moved.
-func deletedAndRenamed() review.Diff {
-	return review.Diff{Files: []review.File{
-		{Path: "gone.go", Status: review.FileDeleted},
-		{Path: "internal/ui/render.go", OldPath: "internal/ui/old.go", Status: review.FileRenamed},
+func deletedAndRenamed() dreview.Diff {
+	return dreview.Diff{Files: []dreview.File{
+		{Path: "gone.go", Status: dreview.FileDeleted},
+		{Path: "internal/ui/render.go", OldPath: "internal/ui/old.go", Status: dreview.FileRenamed},
 	}}
 }
 

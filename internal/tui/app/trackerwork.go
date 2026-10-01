@@ -12,13 +12,13 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"log/slog"
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/paste"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // BrowseFunc opens one item in the operator's browser. Injected so ui never runs
@@ -153,7 +153,7 @@ func (m *Model) startSessionOnIssue(row trackerRow) tea.Cmd {
 	}
 	project := m.review.Tracker.Project
 	title := row.ref() + " " + row.Title
-	branch := sessions.Slug(strconv.Itoa(row.Number) + " " + row.Title)
+	branch := session.Slug(strconv.Itoa(row.Number) + " " + row.Title)
 	// Created off the Update goroutine since #653; a failure lands in the
 	// footer through onSessionCreated, as any new session's does.
 	m.review.Focused = false

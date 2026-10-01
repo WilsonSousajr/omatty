@@ -26,6 +26,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -77,7 +78,7 @@ func runHook() {
 	}
 	// The launcher set SessionEnv on claude and the hook inherited it; it is
 	// what ties a /clear's new conversation to its pane (#316).
-	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second, os.Getenv(hooks.SessionEnv))
+	_ = hooks.Report(os.Stdin, paths.HookSocket(home), time.Second, os.Getenv(session.SessionEnv))
 }
 
 func run() error {

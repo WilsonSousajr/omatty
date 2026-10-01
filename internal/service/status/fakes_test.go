@@ -1,10 +1,8 @@
 package status_test
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"time"
-
-	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // fakeAdapter is a named Adapter that counts what it was asked and answers
@@ -12,22 +10,22 @@ import (
 // through it rather than through claude's functions (#46).
 type fakeAdapter struct {
 	Parsed  int
-	Entry   status.Entry
-	Kind    status.Kind
+	Entry   dstatus.Entry
+	Kind    dstatus.Kind
 	At      time.Time
-	Payload hooks.Payload
+	Payload dstatus.HookPayload
 }
 
-func (f *fakeAdapter) ParseEntry([]byte) (status.Entry, bool) {
+func (f *fakeAdapter) ParseEntry([]byte) (dstatus.Entry, bool) {
 	f.Parsed++
 	return f.Entry, true
 }
 
-func (f *fakeAdapter) DeriveKind([]status.Entry) (status.Kind, time.Time, bool) {
+func (f *fakeAdapter) DeriveKind([]dstatus.Entry) (dstatus.Kind, time.Time, bool) {
 	return f.Kind, f.At, true
 }
 
-func (f *fakeAdapter) KindOf(p hooks.Payload) (status.Kind, bool) {
+func (f *fakeAdapter) KindOf(p dstatus.HookPayload) (dstatus.Kind, bool) {
 	f.Payload = p
 	return f.Kind, true
 }

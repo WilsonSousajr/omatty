@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"io"
 	"net/http"
 	"strings"
@@ -122,7 +123,7 @@ func request(ctx context.Context, method, url string, body io.Reader, a auth, to
 	}
 	a(req)
 	if req.URL.Scheme != "https" && carriesCredential(req.Header) {
-		return nil, &PlainHTTPError{Host: req.URL.Host, TokenEnv: tokenEnv}
+		return nil, &dforge.PlainHTTPError{Host: req.URL.Host, TokenEnv: tokenEnv}
 	}
 	return req, nil
 }
@@ -142,7 +143,7 @@ func answerError(resp *http.Response, tokenEnv string) error {
 	case status == http.StatusNotFound:
 		return fmt.Errorf("forge: %s has no %s: %w", host, resp.Request.URL.Path, errNotFound)
 	case status == http.StatusUnauthorized, status == http.StatusForbidden && !rateLimited(resp):
-		return &AuthError{Host: host, TokenEnv: tokenEnv, Status: status}
+		return &dforge.AuthError{Host: host, TokenEnv: tokenEnv, Status: status}
 	case status >= http.StatusMultipleChoices:
 		return fmt.Errorf("forge: %s answered %d %s", host, status, http.StatusText(status))
 	}
@@ -157,14 +158,14 @@ func notJSON(resp *http.Response, host, tokenEnv string) error {
 	switch {
 	case resp.StatusCode == http.StatusNonAuthoritativeInfo && carriesCredential(resp.Request.Header):
 		// Azure's sign-in page, whatever type it claims (#457's review).
-		return &AuthError{Host: host, TokenEnv: tokenEnv, Status: resp.StatusCode}
+		return &dforge.AuthError{Host: host, TokenEnv: tokenEnv, Status: resp.StatusCode}
 	case strings.Contains(contentType, "json"):
 		return nil
 	case !carriesCredential(resp.Request.Header):
 		// An anonymous read refused nothing: a captive portal's page is an
 		// outage, not a token to set (#589's review).
 	case resp.StatusCode == http.StatusNonAuthoritativeInfo, strings.HasPrefix(contentType, "text/html"):
-		return &AuthError{Host: host, TokenEnv: tokenEnv, Status: resp.StatusCode}
+		return &dforge.AuthError{Host: host, TokenEnv: tokenEnv, Status: resp.StatusCode}
 	}
 	return fmt.Errorf("forge: %s answered %d with no JSON (%q)", host, resp.StatusCode, contentType)
 }

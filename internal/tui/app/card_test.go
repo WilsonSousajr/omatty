@@ -1,13 +1,13 @@
 package app_test
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -23,7 +23,7 @@ import (
 func TestCard_HasTheSpecsColumns_issue176(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	sendStatus(m, "s1", status.TurnEnded, time.Now().Add(-4*time.Minute))
+	sendStatus(m, "s1", dstatus.TurnEnded, time.Now().Add(-4*time.Minute))
 
 	card := m.CardOf("s1")
 
@@ -91,7 +91,7 @@ func TestCard_AProjectHeaderIsOneLine_issue176(t *testing.T) {
 func TestCard_TheAgeIsOnTheCardAndInTheHeader_issue176(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	sendStatus(m, "s1", status.TurnEnded, time.Now().Add(-4*time.Minute))
+	sendStatus(m, "s1", dstatus.TurnEnded, time.Now().Add(-4*time.Minute))
 
 	if head := stripSGR(frameLines(m)[0]); !strings.Contains(head, "4m") {
 		t.Errorf("the header row does not carry the age: %q", head)

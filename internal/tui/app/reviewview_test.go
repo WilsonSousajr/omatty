@@ -1,13 +1,13 @@
 package app_test
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/infra/gitdiff"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -108,7 +108,7 @@ func TestModel_FooterSwapsToTheReviewKeymapWhileFocused_issue21(t *testing.T) {
 
 func TestModel_ReviewOfACleanTreeSaysSo_issue21(t *testing.T) {
 	m, _, rec := modelWithDiff(t)
-	rec.Diff = review.Diff{}
+	rec.Diff = dreview.Diff{}
 
 	leader(m, key('d'))
 

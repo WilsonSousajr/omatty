@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"errors"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -38,7 +39,7 @@ func (r *recordDiscover) register(roots []string) []sessions.Registration {
 		}
 		out = append(out, sessions.Registration{
 			Root:    root,
-			Project: sessions.Project{Name: name, Root: root},
+			Project: session.Project{Name: name, Root: root},
 			Err:     r.RegisterErr,
 		})
 	}

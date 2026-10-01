@@ -3,11 +3,10 @@ package app
 import (
 	"errors"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // Fingerprint is the part of the model a keypress or a message can change,
@@ -38,11 +37,11 @@ func UnexportedRouted(sessionID string) map[string]tea.Msg {
 		"coverageMsg":        coverageMsg{id: sessionID},
 		"generatedMsg":       generatedMsg{id: sessionID, gen: map[string]bool{}},
 		"previewRestMsg":     previewRestMsg{},
-		"sessionRelaunchMsg": sessionRelaunchMsg{Session: sessions.Session{ID: sessionID}},
+		"sessionRelaunchMsg": sessionRelaunchMsg{Session: session.Session{ID: sessionID}},
 		// A failed create and a failed restart: deterministic, and neither
 		// starts a process under the table (#653).
 		"sessionCreatedMsg": sessionCreatedMsg{err: errors.New("fixture: create refused")},
-		"sessionStartedMsg": sessionStartedMsg{sess: sessions.Session{ID: sessionID}, err: errors.New("fixture: pty refused"), restart: true},
+		"sessionStartedMsg": sessionStartedMsg{sess: session.Session{ID: sessionID}, err: errors.New("fixture: pty refused"), restart: true},
 		"persistedMsg":      persistedMsg{err: errors.New("fixture: save refused"), what: "fixture write", warnOnly: true},
 	}
 }

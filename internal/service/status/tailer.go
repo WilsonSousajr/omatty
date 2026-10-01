@@ -1,6 +1,7 @@
 package status
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"sync"
 	"time"
 )
@@ -28,15 +29,15 @@ type Transcript interface {
 type Tailer struct {
 	sessionID string
 	src       Transcript
-	sink      chan<- Event
+	sink      chan<- dstatus.Event
 	clock     func() time.Time
-	adapter   Adapter // the agent's parser (#46)
+	adapter   dstatus.Adapter // the agent's parser (#46)
 
-	ring        []Entry // last ringSize relevant entries
-	usage       Tokens  // cumulative across the whole file
-	lastUsageID string  // the response whose usage was last counted (issue #59)
-	last        Event   // the status event most recently sent, to skip repeats (issue #66)
-	usageDirty  bool    // usage changed since it was last sent
+	ring        []dstatus.Entry // last ringSize relevant entries
+	usage       dstatus.Tokens  // cumulative across the whole file
+	lastUsageID string          // the response whose usage was last counted (issue #59)
+	last        dstatus.Event   // the status event most recently sent, to skip repeats (issue #66)
+	usageDirty  bool            // usage changed since it was last sent
 	stop        chan struct{}
 	done        chan struct{}
 	once        sync.Once
@@ -52,7 +53,7 @@ type Tailer struct {
 // adapter is the agent's own parser: which lines matter and what they mean is
 // the agent's business, not the tailer's (#46).
 func Tail(
-	sessionID string, src Transcript, sink chan<- Event, clock func() time.Time, every time.Duration, adapter Adapter,
+	sessionID string, src Transcript, sink chan<- dstatus.Event, clock func() time.Time, every time.Duration, adapter dstatus.Adapter,
 ) *Tailer {
 	tl := &Tailer{sessionID: sessionID, src: src, sink: sink, clock: clock, adapter: adapter,
 		stop: make(chan struct{}), done: make(chan struct{})}
@@ -103,8 +104,8 @@ func (tl *Tailer) Poll() {
 // startOver forgets everything read before a truncation - a /clear or a
 // rewrite - and marks the zeroed usage dirty, so it reaches the sidebar.
 func (tl *Tailer) startOver() {
-	tl.usage, tl.ring, tl.lastUsageID = Tokens{}, nil, ""
-	tl.last, tl.usageDirty = Event{}, true
+	tl.usage, tl.ring, tl.lastUsageID = dstatus.Tokens{}, nil, ""
+	tl.last, tl.usageDirty = dstatus.Event{}, true
 }
 
 func (tl *Tailer) ingest(line []byte) {
@@ -131,18 +132,18 @@ func (tl *Tailer) ingest(line []byte) {
 func (tl *Tailer) emit() {
 	kind, at, ok := tl.adapter.DeriveKind(tl.ring)
 	if ok && (kind != tl.last.Kind || !at.Equal(tl.last.At)) {
-		tl.last = Event{Kind: kind, At: at}
-		tl.send(Event{SessionID: tl.sessionID, Kind: kind, At: at})
+		tl.last = dstatus.Event{Kind: kind, At: at}
+		tl.send(dstatus.Event{SessionID: tl.sessionID, Kind: kind, At: at})
 	}
 	if tl.usageDirty {
 		tl.usageDirty = false
-		tl.send(Event{SessionID: tl.sessionID, Kind: UsageUpdated, At: tl.clock(), Tokens: tl.usage})
+		tl.send(dstatus.Event{SessionID: tl.sessionID, Kind: dstatus.UsageUpdated, At: tl.clock(), Tokens: tl.usage})
 	}
 }
 
 // send delivers ev unless the tailer is closed, so Close never leaves a
 // goroutine parked on a full sink (issue #65).
-func (tl *Tailer) send(ev Event) {
+func (tl *Tailer) send(ev dstatus.Event) {
 	select {
 	case tl.sink <- ev:
 	case <-tl.stop:

@@ -4,13 +4,13 @@
 package app
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // gateCols is line three's budget: the card's content less the rail, the
@@ -112,16 +112,16 @@ func (m *Model) readyToShip(id string) bool {
 //
 // Found by running the real binary, not by a test: every fixture in the suite
 // reports a status before asserting anything.
-func (m *Model) reportedStatus(id string) status.Status {
+func (m *Model) reportedStatus(id string) dstatus.Status {
 	if s := m.status[id].Status; s != "" {
 		return s
 	}
-	return status.StatusIdle
+	return dstatus.StatusIdle
 }
 
 // atRest reports whether a session is between turns rather than in one.
-func atRest(s status.Status) bool {
-	return s == status.StatusIdle || s == status.StatusDone
+func atRest(s dstatus.Status) bool {
+	return s == dstatus.StatusIdle || s == dstatus.StatusDone
 }
 
 // coverageReading is the percentage a coverage step read, or "" - shown in its

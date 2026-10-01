@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
@@ -21,7 +22,7 @@ import (
 // start used to abort the whole boot, so a single bad session kept every
 // other one from opening; it is logged and skipped instead (#317).
 func StartTerminals(
-	st sessions.State, want map[string]bool, l *sessions.Launcher, f terminal.Factory, w, h int, leader string,
+	st session.State, want map[string]bool, l *sessions.Launcher, f terminal.Factory, w, h int, leader string,
 ) map[string]terminal.Terminal {
 	// The review column is closed at birth, so the terminal gets the full
 	// width beside the sidebar (#21).
@@ -53,7 +54,7 @@ func StartTerminals(
 // on demand. lazy_start = false starts every session, as before.
 //
 //	want := app.SessionsToStart(cfg.Sessions.LazyStart, st, held)
-func SessionsToStart(lazy bool, st sessions.State, held map[string]bool) map[string]bool {
+func SessionsToStart(lazy bool, st session.State, held map[string]bool) map[string]bool {
 	if lazy {
 		return held
 	}
@@ -70,7 +71,7 @@ func SessionsToStart(lazy bool, st sessions.State, held map[string]bool) map[str
 // and reads as fresh: the pane then behaves as it did before this existed.
 //
 //	held := app.HeldSessions(launcher, state)
-func HeldSessions(l *sessions.Launcher, st sessions.State) map[string]bool {
+func HeldSessions(l *sessions.Launcher, st session.State) map[string]bool {
 	held := map[string]bool{}
 	for _, sess := range st.Sessions {
 		ok, err := l.Reattaching(sess.ID)
@@ -133,7 +134,7 @@ func RunProgram(model *Model, sessions int) error {
 //
 //	deps.Start = app.GuardedStarter(launcher, terminal.Start, leader)
 func GuardedStarter(l *sessions.Launcher, f terminal.Factory, leader string) StartFunc {
-	return func(sess sessions.Session, w, h int) (terminal.Terminal, error) {
+	return func(sess session.Session, w, h int) (terminal.Terminal, error) {
 		term, err := startSession(l, f, sess, w, h)
 		if err != nil {
 			return nil, err
@@ -148,7 +149,7 @@ func GuardedStarter(l *sessions.Launcher, f terminal.Factory, leader string) Sta
 // migration step 5.5 (#653) moved the launcher into the service, which may not
 // name a terminal.
 func startSession(
-	l *sessions.Launcher, f terminal.Factory, sess sessions.Session, w, h int,
+	l *sessions.Launcher, f terminal.Factory, sess session.Session, w, h int,
 ) (terminal.Terminal, error) {
 	launch, err := l.Launch(sess)
 	if err != nil {

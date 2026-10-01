@@ -2,6 +2,7 @@ package sessions_test
 
 import (
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,15 +11,14 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	statestore "github.com/WilsonSousajr/omatty/internal/infra/store"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 )
 
 // everyFieldSet is a State in which no field of State, Project or Session is
 // its zero value, so every key omitempty would hide is written and pinned.
-func everyFieldSet() sessions.State {
-	return sessions.State{
+func everyFieldSet() session.State {
+	return session.State{
 		Version: 1,
-		Projects: []sessions.Project{{
+		Projects: []session.Project{{
 			Name:          "omatty",
 			Root:          "/src/omatty",
 			Gate:          []gate.Step{{Name: "test", Run: "go test ./...", Kind: "coverage", Profile: "cover.out"}},
@@ -27,7 +27,7 @@ func everyFieldSet() sessions.State {
 			GateFirstPass: 5,
 			Collapsed:     true,
 		}},
-		Sessions: []sessions.Session{{
+		Sessions: []session.Session{{
 			ID:           "11111111-2222-4333-8444-555555555555",
 			Project:      "omatty",
 			Title:        "fix the parser",

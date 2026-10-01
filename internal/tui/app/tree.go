@@ -4,10 +4,10 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // loadFiles lists the session's worktree for the tree view. The diff view
@@ -74,7 +74,7 @@ func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
 	}
 	m.review.TreeErr = ""
 	if m.review.Tree == nil {
-		m.review.Tree = review.NewTree(msg.Paths, m.changes())
+		m.review.Tree = dreview.NewTree(msg.Paths, m.changes())
 	} else {
 		m.relistUnderCursor(msg.Paths)
 	}
@@ -108,10 +108,10 @@ func (m *Model) relistUnderCursor(paths []string) {
 // the hue beside a row in the tree (#196). The diff and the listing arrive
 // independently, so the tree is re-marked whenever either lands. A renamed
 // file is keyed on its new name, the one the listing has.
-func (m *Model) changes() map[string]review.Change {
-	out := map[string]review.Change{}
+func (m *Model) changes() map[string]dreview.Change {
+	out := map[string]dreview.Change{}
 	for _, f := range m.review.Diff.Files {
-		out[f.Path] = review.ChangeOf(f.Status)
+		out[f.Path] = dreview.ChangeOf(f.Status)
 	}
 	return out
 }
@@ -137,7 +137,7 @@ func (m *Model) classifyAfterDiff(id string) tea.Cmd {
 }
 
 // treeRows is the visible listing, empty until it has been loaded.
-func (m *Model) treeRows() []review.TreeNode {
+func (m *Model) treeRows() []dreview.TreeNode {
 	if m.review.Tree == nil {
 		return nil
 	}
@@ -162,7 +162,7 @@ func (m *Model) openTreeNode() tea.Cmd {
 		m.review.Tree.Toggle(n.Path)
 		m.contentChanged()
 		m.moveTreeCursor(0)
-	case n.Change == review.ChangeDeleted:
+	case n.Change == dreview.ChangeDeleted:
 		m.previewDeleted(n.Path)
 	default:
 		m.previewFile(n.Path)
@@ -174,7 +174,7 @@ func (m *Model) openTreeNode() tea.Cmd {
 // file to read, and a read error would say "no such file" about a row the
 // tree itself put there (#196).
 func (m *Model) previewDeleted(rel string) {
-	m.review.Preview = review.Preview{Path: rel, Deleted: true}
+	m.review.Preview = dreview.Preview{Path: rel, Deleted: true}
 	m.review.PreviewOffset, m.review.View, m.review.ColOffset = 0, ViewPreview, 0
 	m.contentChanged()
 }
@@ -211,7 +211,7 @@ const highlightBudget = 64 << 10
 // file with no lexer leaves Styled nil and says nothing; only a file over
 // the budget is noted, because that is the one the operator might expect
 // coloured.
-func stylePreview(hl Highlighter, p *review.Preview) {
+func stylePreview(hl Highlighter, p *dreview.Preview) {
 	if p.Binary || p.Deleted || len(p.Lines) == 0 {
 		return
 	}

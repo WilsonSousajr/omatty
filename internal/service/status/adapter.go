@@ -29,7 +29,7 @@ type WatchDeps struct {
 	// knowledge (ADR 0001: paths is infra), so the service is told.
 	HookSocket     string
 	Clock          func() time.Time
-	Adapter        Adapter
+	Adapter        dstatus.Adapter
 	TranscriptPath TranscriptPathFunc
 	// OpenTranscript reads a transcript at a path. It is injected, because
 	// reading files is infra's business (ADR 0001, step 5.2c, #653): cmd passes
@@ -51,9 +51,11 @@ type WatchDeps struct {
 // supplies its own without touching either (#46, #61, #62, #122).
 type claudeStatus struct{}
 
-func (claudeStatus) ParseEntry(line []byte) (Entry, bool)               { return ParseEntry(line) }
-func (claudeStatus) DeriveKind(entries []Entry) (Kind, time.Time, bool) { return DeriveKind(entries) }
-func (claudeStatus) KindOf(p dstatus.HookPayload) (Kind, bool)          { return KindOf(p) }
+func (claudeStatus) ParseEntry(line []byte) (dstatus.Entry, bool) { return ParseEntry(line) }
+func (claudeStatus) DeriveKind(entries []dstatus.Entry) (dstatus.Kind, time.Time, bool) {
+	return DeriveKind(entries)
+}
+func (claudeStatus) KindOf(p dstatus.HookPayload) (dstatus.Kind, bool) { return KindOf(p) }
 
 // ClaudeAdapter is the Adapter for claude's own transcript and hook shapes.
-func ClaudeAdapter() Adapter { return claudeStatus{} }
+func ClaudeAdapter() dstatus.Adapter { return claudeStatus{} }

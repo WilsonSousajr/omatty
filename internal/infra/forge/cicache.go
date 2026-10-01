@@ -2,6 +2,7 @@ package forge
 
 import (
 	"context"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"sort"
 	"sync"
 )
@@ -16,12 +17,14 @@ const ciAsks = 30
 // only what is not yet known to pass. One per Router, shared by every backend.
 type ciCache struct {
 	mu    sync.Mutex
-	done  map[string]CIState
+	done  map[string]dforge.CIState
 	asked map[string]int // the poll a change was last asked on
 	poll  int
 }
 
-func newCICache() *ciCache { return &ciCache{done: map[string]CIState{}, asked: map[string]int{}} }
+func newCICache() *ciCache {
+	return &ciCache{done: map[string]dforge.CIState{}, asked: map[string]int{}}
+}
 
 // ciParallel is how many CI asks run at once. Each is a CLI process or an HTTP
 // round trip; one after another, a first poll of thirty glab calls took most of
@@ -31,7 +34,7 @@ const ciParallel = 6
 // fill sets CI on the open changes in prs. key names a change's head across
 // projects; ask reads one change's verdict. A change whose ask fails keeps
 // CINone - no mark - rather than failing the whole list.
-func (c *ciCache) fill(ctx context.Context, prs []PR, key func(PR) string, ask func(context.Context, PR) (CIState, error)) {
+func (c *ciCache) fill(ctx context.Context, prs []dforge.PR, key func(dforge.PR) string, ask func(context.Context, dforge.PR) (dforge.CIState, error)) {
 	var wg sync.WaitGroup
 	slots := make(chan struct{}, ciParallel)
 	for _, i := range c.unknown(prs, key) {
@@ -52,7 +55,7 @@ func (c *ciCache) fill(ctx context.Context, prs []PR, key func(PR) string, ask f
 // those the most recently updated. A running change is never kept, so without
 // the rotation the same thirty would be asked every poll and the rest never
 // (#454's review).
-func (c *ciCache) unknown(prs []PR, key func(PR) string) []int {
+func (c *ciCache) unknown(prs []dforge.PR, key func(dforge.PR) string) []int {
 	var ask []int
 	for _, i := range byRecency(prs) {
 		if state, ok := c.known(key(prs[i])); ok {
@@ -72,7 +75,7 @@ func (c *ciCache) unknown(prs []PR, key func(PR) string) []int {
 	return ask
 }
 
-func (c *ciCache) known(key string) (CIState, bool) {
+func (c *ciCache) known(key string) (dforge.CIState, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	state, ok := c.done[key]
@@ -82,8 +85,8 @@ func (c *ciCache) known(key string) (CIState, bool) {
 // remember keeps a pass, which a head keeps. A failure is asked again: a
 // flaky job retried, or a pipeline run again, changes the verdict on the same
 // head (#454's review). Running, and none, are asked again too.
-func (c *ciCache) remember(key string, state CIState) {
-	if state != CIPassing {
+func (c *ciCache) remember(key string, state dforge.CIState) {
+	if state != dforge.CIPassing {
 		return
 	}
 	c.mu.Lock()
@@ -92,10 +95,10 @@ func (c *ciCache) remember(key string, state CIState) {
 }
 
 // byRecency is the indexes of the open changes, most recently updated first.
-func byRecency(prs []PR) []int {
+func byRecency(prs []dforge.PR) []int {
 	var open []int
 	for i, pr := range prs {
-		if pr.State == Open {
+		if pr.State == dforge.Open {
 			open = append(open, i)
 		}
 	}

@@ -2,6 +2,7 @@ package forge_test
 
 import (
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"os"
 	"strings"
 	"sync"
@@ -55,7 +56,7 @@ func TestRouter_ANonGitHubRemoteIsErrNoForgeWithoutRunningGh_issue452(t *testing
 
 		_, err := routerOn(&FakeRemote{URL: url}, bin, nil).ListPRs(t.TempDir())
 
-		if err == nil || errors.Is(err, forge.ErrNoForge) != noForge {
+		if err == nil || errors.Is(err, dforge.ErrNoForge) != noForge {
 			t.Errorf("%s: error = %v, want ErrNoForge %v", url, err, noForge)
 		}
 		if ranGh(t, calls) {
@@ -74,7 +75,7 @@ func TestRouter_NoReadableOriginIsErrNoForge_issue452(t *testing.T) {
 
 		_, err := routerOn(remote, bin, nil).ListIssues(t.TempDir())
 
-		if !errors.Is(err, forge.ErrNoForge) {
+		if !errors.Is(err, dforge.ErrNoForge) {
 			t.Errorf("remote %+v: error = %v, want ErrNoForge", remote, err)
 		}
 	}
@@ -139,11 +140,11 @@ func TestRouter_LabelNeverReadsTheRemote_issue452(t *testing.T) {
 	r := routerOn(remote, bin, nil)
 	root := t.TempDir()
 
-	if got := r.Label(root); got != forge.Neutral || remote.asked() != 0 {
+	if got := r.Label(root); got != dforge.Neutral || remote.asked() != 0 {
 		t.Errorf("before a call: Label = %+v after %d remote reads, want Neutral and none", got, remote.asked())
 	}
 	_, _ = r.ListPRs(root)
-	if got := r.Label(root); got != forge.GitHub {
+	if got := r.Label(root); got != dforge.GitHub {
 		t.Errorf("after a call: Label = %+v, want GitHub's", got)
 	}
 }
@@ -202,7 +203,7 @@ func TestRouter_AnSSHAliasReachesItsForge_issue576(t *testing.T) {
 	if b, _ := os.ReadFile(sshCalls); !strings.Contains(string(b), "|-G -- github-work") {
 		t.Errorf("ssh was asked %q, want -G -- github-work", b)
 	}
-	if got := r.Label(root); got != forge.GitHub {
+	if got := r.Label(root); got != dforge.GitHub {
 		t.Errorf("Label = %+v, want GitHub's", got)
 	}
 }
@@ -213,7 +214,7 @@ func TestRouter_AnAliasForAnUnknownHostIsErrNoForge_issue576(t *testing.T) {
 	ssh, _ := sshSays(t, "git.corp.example")
 	r := forge.NewRouterWithSSH(forge.Options{Remote: (&FakeRemote{URL: "git@corp:team/app.git"}).url}, gh, ssh)
 
-	if _, err := r.ListPRs(t.TempDir()); !errors.Is(err, forge.ErrNoForge) {
+	if _, err := r.ListPRs(t.TempDir()); !errors.Is(err, dforge.ErrNoForge) {
 		t.Errorf("error = %v, want ErrNoForge", err)
 	}
 }
@@ -271,7 +272,7 @@ func TestRouter_AHostGhIsLoggedIntoIsGitHub_issue579(t *testing.T) {
 	if _, err := r.ListPRs(root); err != nil {
 		t.Fatalf("ListPRs = %v, want the host read as GitHub Enterprise", err)
 	}
-	if got := r.Label(root); got != forge.GitHub {
+	if got := r.Label(root); got != dforge.GitHub {
 		t.Errorf("Label = %+v, want GitHub's", got)
 	}
 	if b, _ := os.ReadFile(calls); !strings.Contains(string(b), "auth token --hostname ghe.corp.example") {
@@ -287,7 +288,7 @@ func TestRouter_AHostGhDoesNotKnowIsErrNoForge_issue579(t *testing.T) {
 
 		_, err := routerOn(&FakeRemote{URL: url}, gh, nil).ListPRs(t.TempDir())
 
-		if !errors.Is(err, forge.ErrNoForge) {
+		if !errors.Is(err, dforge.ErrNoForge) {
 			t.Errorf("%s: error = %v, want ErrNoForge", url, err)
 		}
 		if b, _ := os.ReadFile(calls); strings.Contains(string(b), "oProxyCommand") {

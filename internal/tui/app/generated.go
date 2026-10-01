@@ -3,11 +3,10 @@
 package app
 
 import (
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-
-	"github.com/WilsonSousajr/omatty/internal/service/review"
 )
 
 // generatedMsg carries one session's detection back into Update.
@@ -66,7 +65,7 @@ func (m *Model) pathsToClassify() []string {
 
 // treeNodes is every row of the listing, folded or not - Visible would hide
 // exactly the files being classified.
-func (m *Model) treeNodes() []review.TreeNode {
+func (m *Model) treeNodes() []dreview.TreeNode {
 	if m.review.Tree == nil {
 		return nil
 	}

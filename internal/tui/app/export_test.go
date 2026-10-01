@@ -2,6 +2,8 @@ package app
 
 import (
 	"charm.land/bubbles/v2/key"
+	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"image/color"
 	"time"
@@ -10,7 +12,6 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/service/review"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // Test-only accessors, so the external ui_test package can assert against the
@@ -44,8 +45,8 @@ func SearchHit(s string) string { return theme.Search.Render(s) }
 func (m *Model) UseNerdIcons() { m.glyphs, m.nerdIcons = nerdGlyphs, true }
 
 // EmphasisAdded and EmphasisRemoved are the changed words of a pair (#435).
-func EmphasisAdded(s string) string   { return emphasisStyle(review.LineAdded).Render(s) }
-func EmphasisRemoved(s string) string { return emphasisStyle(review.LineRemoved).Render(s) }
+func EmphasisAdded(s string) string   { return emphasisStyle(dreview.LineAdded).Render(s) }
+func EmphasisRemoved(s string) string { return emphasisStyle(dreview.LineRemoved).Render(s) }
 
 // ColumnKeyTables is each review-column face's documented keys, by face, plus
 // "column" for the keys every face shares - the tables helpBody renders, so
@@ -184,7 +185,7 @@ const PanStep = panStep
 
 // RenderMeter is the rule's meter for t, "" with no input; MeterGlyphs its two
 // cells and MeterCells its width (#153).
-func RenderMeter(t status.Tokens) string {
+func RenderMeter(t dstatus.Tokens) string {
 	share, ok := cacheShare(t)
 	if !ok {
 		return ""
@@ -198,7 +199,7 @@ func MeterCells() int       { return meterCells }
 // entry (#154).
 func Blend(a, b color.Color, t float64) color.Color { return blend(a, b, t) }
 func MeterCellColor(i int) color.Color              { return meterCellColor(i) }
-func StatusColor(s status.Status) color.Color       { return theme.StatusColor(s) }
+func StatusColor(s dstatus.Status) color.Color      { return theme.StatusColor(s) }
 
 // AccentColor, AmberColor and TextColor are the palette entries the colour
 // rule binds (#175); AllStatuses is every status the tables must cover.
@@ -206,14 +207,14 @@ func MeterRamp() (warm, cool color.Color) { return rampWarm, rampCool }
 func AccentColor() color.Color            { return theme.ColorAccent }
 func AmberColor() color.Color             { return theme.ColorAmber }
 func TextColor() color.Color              { return theme.ColorText }
-func AllStatuses() []status.Status {
-	return []status.Status{status.StatusIdle, status.StatusThinking, status.StatusTool,
-		status.StatusWaiting, status.StatusDone, status.StatusError, status.StatusExited}
+func AllStatuses() []dstatus.Status {
+	return []dstatus.Status{dstatus.StatusIdle, dstatus.StatusThinking, dstatus.StatusTool,
+		dstatus.StatusWaiting, dstatus.StatusDone, dstatus.StatusError, dstatus.StatusExited}
 }
 
 // TokensPart is the rule's whole usage segment - meter, share and counts - so
 // a test can assert what "in" counts without rebuilding the rule (#170).
-func TokensPart(t status.Tokens) string { return tokensPart(t) }
+func TokensPart(t dstatus.Tokens) string { return tokensPart(t) }
 
 // HeaderParts and Collapse are the pane segment's pieces and the collapse
 // order, for the width table (#177). ModalNames is every surface's name.

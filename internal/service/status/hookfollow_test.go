@@ -19,7 +19,7 @@ func (nopCloser) Close() error { return nil }
 // hookFed starts a Watch whose hook server is a channel the test holds, so a
 // payload can be handed over exactly as internal/infra/hookserver would hand
 // it (step 5.2d, #653), and returns the first event that comes out.
-func hookFed(t *testing.T, adapter status.Adapter, clock func() time.Time, p dstatus.HookPayload) status.Event {
+func hookFed(t *testing.T, adapter dstatus.Adapter, clock func() time.Time, p dstatus.HookPayload) dstatus.Event {
 	t.Helper()
 	var sink chan<- dstatus.HookPayload
 	w := status.Start(status.WatchDeps{
@@ -39,7 +39,7 @@ func hookFed(t *testing.T, adapter status.Adapter, clock func() time.Time, p dst
 		return e.Payload
 	case <-time.After(3 * time.Second):
 		t.Fatal("no event came out of the hook follower")
-		return status.Event{}
+		return dstatus.Event{}
 	}
 }
 
@@ -49,7 +49,7 @@ func TestHooks_aPayloadBecomesAnEventStampedNow_issue18(t *testing.T) {
 	fixed := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
 	ev := hookFed(t, status.ClaudeAdapter(), func() time.Time { return fixed },
 		dstatus.HookPayload{SessionID: "abc", HookEventName: "PreToolUse", ToolName: "Bash"})
-	if ev.SessionID != "abc" || ev.Kind != status.ToolStarted || !ev.At.Equal(fixed) {
+	if ev.SessionID != "abc" || ev.Kind != dstatus.ToolStarted || !ev.At.Equal(fixed) {
 		t.Errorf("event = %+v, want abc ToolStarted at %v", ev, fixed)
 	}
 }
@@ -59,7 +59,7 @@ func TestHooks_aPayloadBecomesAnEventStampedNow_issue18(t *testing.T) {
 func TestHooks_carryTheOwningSession_issue316(t *testing.T) {
 	ev := hookFed(t, status.ClaudeAdapter(), time.Now,
 		dstatus.HookPayload{SessionID: "new", HookEventName: "SessionStart", Source: "clear", OmattySession: "row-1"})
-	if ev.SessionID != "new" || ev.Owner != "row-1" || ev.Kind != status.SessionRebound {
+	if ev.SessionID != "new" || ev.Owner != "row-1" || ev.Kind != dstatus.SessionRebound {
 		t.Errorf("event = %+v, want conversation new, owner row-1, SessionRebound", ev)
 	}
 }
@@ -69,7 +69,7 @@ func TestHooks_carryTheOwningSession_issue316(t *testing.T) {
 func TestHooks_markTheirEventsAsFromAHook_issue311(t *testing.T) {
 	ev := hookFed(t, status.ClaudeAdapter(), time.Now,
 		dstatus.HookPayload{SessionID: "abc", HookEventName: "UserPromptSubmit"})
-	if !ev.Hook || ev.Kind != status.PromptSubmitted {
+	if !ev.Hook || ev.Kind != dstatus.PromptSubmitted {
 		t.Errorf("event = %+v, want a PromptSubmitted marked Hook", ev)
 	}
 }
@@ -77,9 +77,9 @@ func TestHooks_markTheirEventsAsFromAHook_issue311(t *testing.T) {
 // Which hook names mean what is the agent's business: the adapter's KindOf
 // decides, not a table here (#46).
 func TestHooks_mapPayloadsThroughTheAdapter_issue46(t *testing.T) {
-	a := &fakeAdapter{Kind: status.TurnEnded, At: time.Now()}
+	a := &fakeAdapter{Kind: dstatus.TurnEnded, At: time.Now()}
 	ev := hookFed(t, a, time.Now, dstatus.HookPayload{SessionID: "s1", HookEventName: "whatever-this-agent-says"})
-	if ev.SessionID != "s1" || ev.Kind != status.TurnEnded {
+	if ev.SessionID != "s1" || ev.Kind != dstatus.TurnEnded {
 		t.Errorf("event = %+v, want s1 TurnEnded from the adapter", ev)
 	}
 }

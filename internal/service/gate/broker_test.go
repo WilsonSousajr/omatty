@@ -2,6 +2,7 @@ package gate
 
 import (
 	"context"
+	dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -10,8 +11,8 @@ import (
 )
 
 // passes is a run that finishes at once with one passing step.
-func passes(context.Context, string, []Step) ([]StepResult, error) {
-	return []StepResult{{Step: Step{Name: "ok"}, Verdict: Pass}}, nil
+func passes(context.Context, string, []dgate.Step) ([]dgate.StepResult, error) {
+	return []dgate.StepResult{{Step: dgate.Step{Name: "ok"}, Verdict: dgate.Pass}}, nil
 }
 
 // ADR 0001's event model, step 5.3 (#653): a gate's report reaches its readers
@@ -24,7 +25,7 @@ func TestRunner_everySubscriberHearsTheReport_issue653(t *testing.T) {
 
 	r.Start("s1", "/p", nil)
 
-	for name, ch := range map[string]<-chan pubsub.Event[Report]{"a": a, "b": b} {
+	for name, ch := range map[string]<-chan pubsub.Event[dgate.Report]{"a": a, "b": b} {
 		select {
 		case e := <-ch:
 			if e.Payload.ID != "s1" || len(e.Payload.Results) != 1 {

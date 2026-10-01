@@ -34,4 +34,4 @@ type Git interface {
 // ParseFunc parses git's unified diff output into a Diff. Injected, because
 // go-gitdiff is reachable only through internal/infra/gitdiff (migration step
 // 5.8, #653): cmd passes gitdiff.ParseDiff.
-type ParseFunc func(r io.Reader) (Diff, error)
+type ParseFunc func(r io.Reader) (dreview.Diff, error)

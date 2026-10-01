@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"errors"
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -21,7 +22,7 @@ type bbBackend struct {
 }
 
 // bitbucketLabel is Bitbucket's words: pull requests, "#12".
-var bitbucketLabel = Label{Forge: "Bitbucket", Change: "pull request", Short: "PR", Sigil: "#"}
+var bitbucketLabel = dforge.Label{Forge: "Bitbucket", Change: "pull request", Short: "PR", Sigil: "#"}
 
 func (b bbBackend) repo() string { return "repositories/" + b.remote.Slug() }
 
@@ -44,7 +45,7 @@ func bbPages[T any](ctx context.Context, f fetcher, path string, most int) ([]T,
 	return all, nil
 }
 
-func (b bbBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
+func (b bbBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 	var finished bbPage[bbPR]
 	var finishedErr error
 	done := make(chan struct{})
@@ -63,18 +64,18 @@ func (b bbBackend) listPRs(ctx context.Context, _ string) ([]PR, error) {
 	return prs, nil
 }
 
-func (b bbBackend) ciKey(pr PR) string {
+func (b bbBackend) ciKey(pr dforge.PR) string {
 	return b.remote.Host + "/" + b.remote.Slug() + "#" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
 // statusCI is the worst of the head commit's statuses, which Pipelines and
 // any external CI both report to.
-func (b bbBackend) statusCI(ctx context.Context, pr PR) (CIState, error) {
+func (b bbBackend) statusCI(ctx context.Context, pr dforge.PR) (dforge.CIState, error) {
 	statuses, err := b.statuses(ctx, pr.Head)
 	if err != nil || len(statuses) == 0 {
-		return CINone, err
+		return dforge.CINone, err
 	}
-	worst := CINone
+	worst := dforge.CINone
 	for _, s := range statuses {
 		worst = max(worst, bitbucketCI(s.State))
 	}
@@ -88,17 +89,19 @@ func (b bbBackend) statuses(ctx context.Context, head string) ([]bbStatus, error
 
 // listIssues is ErrNoTracker: Bitbucket Cloud answers its issue API with 410
 // Gone on every repository (CHANGE-3071, checked 2026-09-28).
-func (b bbBackend) listIssues(context.Context, string) ([]Issue, error) { return nil, ErrNoTracker }
-
-func (b bbBackend) viewIssue(context.Context, string, int) (Detail, error) {
-	return Detail{}, ErrNoTracker
+func (b bbBackend) listIssues(context.Context, string) ([]dforge.Issue, error) {
+	return nil, dforge.ErrNoTracker
 }
 
-func (b bbBackend) viewPR(ctx context.Context, _ string, number int) (Detail, error) {
+func (b bbBackend) viewIssue(context.Context, string, int) (dforge.Detail, error) {
+	return dforge.Detail{}, dforge.ErrNoTracker
+}
+
+func (b bbBackend) viewPR(ctx context.Context, _ string, number int) (dforge.Detail, error) {
 	path := b.repo() + "/pullrequests/" + strconv.Itoa(number)
 	pr, err := getJSON[bbPR](ctx, b.f, path)
 	if err != nil {
-		return Detail{}, err
+		return dforge.Detail{}, err
 	}
 	comments, err := getJSON[bbPage[bbComment]](ctx, b.f, path+"/comments?pagelen=100")
 	statuses, _ := b.statuses(ctx, pr.Source.Commit.Hash)
@@ -115,7 +118,7 @@ func (b bbBackend) viewPR(ctx context.Context, _ string, number int) (Detail, er
 // naming the token (#460's review).
 func bbListErr(err error) error {
 	if errors.Is(err, errNotFound) {
-		return &AuthError{Host: "api.bitbucket.org", TokenEnv: "BITBUCKET_TOKEN", Status: http.StatusNotFound}
+		return &dforge.AuthError{Host: "api.bitbucket.org", TokenEnv: "BITBUCKET_TOKEN", Status: http.StatusNotFound}
 	}
 	return err
 }
@@ -123,7 +126,7 @@ func bbListErr(err error) error {
 // browse opens the pull request's page; Bitbucket keeps no issues to open.
 func (b bbBackend) browse(_ context.Context, _ string, number int, pr bool) error {
 	if !pr {
-		return ErrNoTracker
+		return dforge.ErrNoTracker
 	}
 	return b.open(webBase(b.remote) + "/" + b.remote.Slug() + "/pull-requests/" + strconv.Itoa(number))
 }
@@ -150,7 +153,7 @@ func (r *Router) pickBitbucket(remote Remote) (backend, error) {
 	}
 	a := r.bitbucketAuth("BITBUCKET_TOKEN", "BITBUCKET_USER")
 	if a == nil {
-		return nil, &MissingToolError{TokenEnv: "BITBUCKET_TOKEN"}
+		return nil, &dforge.MissingToolError{TokenEnv: "BITBUCKET_TOKEN"}
 	}
 	f := restAPI{rest: r.rest, base: "https://api.bitbucket.org/2.0", auth: a, env: "BITBUCKET_TOKEN"}
 	return bbBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
@@ -181,11 +184,11 @@ func (r *Router) dataCenter(remote Remote) (backend, error) {
 	}
 	web, bound := r.dcWebRoot(remote, contextPath)
 	if u, err := url.Parse(web); err != nil || u.Scheme != "https" {
-		return nil, &PlainHTTPError{Host: strings.TrimPrefix(web, "http://"), TokenEnv: "BITBUCKET_DC_TOKEN"}
+		return nil, &dforge.PlainHTTPError{Host: strings.TrimPrefix(web, "http://"), TokenEnv: "BITBUCKET_DC_TOKEN"}
 	}
 	a := r.bitbucketAuth("BITBUCKET_DC_TOKEN", "BITBUCKET_DC_USER")
 	if a == nil || !bound {
-		return nil, &MissingToolError{TokenEnv: "BITBUCKET_DC_TOKEN for " + web}
+		return nil, &dforge.MissingToolError{TokenEnv: "BITBUCKET_DC_TOKEN for " + web}
 	}
 	f := restAPI{rest: r.rest, base: web + "/rest", auth: a, env: "BITBUCKET_DC_TOKEN"}
 	return bdcBackend{f: f, remote: remote, web: web, key: key, slug: slug, ci: r.ci, open: r.open}, nil

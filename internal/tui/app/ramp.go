@@ -1,10 +1,9 @@
 package app
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"image/color"
-
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 )
 
 // The meter's ramp (#154): it warms from amber to green left to right, so a
@@ -41,6 +40,6 @@ func meterCellColor(i int) color.Color {
 }
 
 // glyphColor is a status's palette colour, the muted grey for one without.
-func glyphColor(s status.Status) color.Color {
+func glyphColor(s dstatus.Status) color.Color {
 	return theme.StatusColor(s)
 }

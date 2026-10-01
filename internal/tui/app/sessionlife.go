@@ -5,11 +5,11 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"log/slog"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/WilsonSousajr/omatty/internal/service/sessions"
-	"github.com/WilsonSousajr/omatty/internal/service/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
@@ -17,7 +17,7 @@ import (
 // whose replacement process should now start. It exists because the stop half
 // runs off the Update goroutine and the start half must not begin until it has
 // finished (#15, #43).
-type sessionRelaunchMsg struct{ Session sessions.Session }
+type sessionRelaunchMsg struct{ Session session.Session }
 
 // restartSelected relaunches the focused session's process in place (issue
 // #15). It covers a crashed pane and a claude that exited.
@@ -40,7 +40,7 @@ func (m *Model) restartSelected() tea.Cmd {
 // (#653); restarted puts it in place. The old terminal is closed only after
 // the new one starts, so a failed restart never leaves the pane empty; the
 // launcher resumes the transcript (#36) so nothing is lost.
-func (m *Model) relaunch(sess sessions.Session) tea.Cmd { return m.startCmd(sess, true) }
+func (m *Model) relaunch(sess session.Session) tea.Cmd { return m.startCmd(sess, true) }
 
 // submitPrompt creates the session. A worktree prompt uses the buffer as both
 // the session title and the branch name, and for that prompt the buffer is
@@ -72,7 +72,7 @@ func (m *Model) submitPrompt() tea.Cmd {
 // other. Every step here is load-bearing, and a second copy that dropped one
 // would fail quietly: no terminal is a row you cannot focus, no tailer is a
 // session that never shows status (#33).
-func (m *Model) foldInSession(sess sessions.Session, term terminal.Terminal) tea.Cmd {
+func (m *Model) foldInSession(sess session.Session, term terminal.Terminal) tea.Cmd {
 	m.terms[sess.ID] = term
 	m.markActive(sess.ID) // a fresh process is not idle (#319)
 	m.state.Sessions = append(m.state.Sessions, sess)
@@ -118,7 +118,7 @@ func (m *Model) stopSelected() tea.Cmd {
 // No confirmation, as for ctrl+o r: nothing typed is lost and enter resumes
 // it with --resume. The notice names that undo, and the turn a busy session
 // loses, which is the one real cost.
-func (m *Model) stopSession(sess sessions.Session) tea.Cmd {
+func (m *Model) stopSession(sess session.Session) tea.Cmd {
 	if term := m.terms[sess.ID]; term != nil {
 		_ = term.Close()
 	}
@@ -148,9 +148,9 @@ func (m *Model) onStoppedKey(msg tea.KeyPressMsg) tea.Cmd {
 }
 
 // stopNotice is what the footer says after a stop.
-func stopNotice(title string, was status.Status) string {
+func stopNotice(title string, was dstatus.Status) string {
 	notice := "stopped " + title + "; enter resumes it"
-	if was == status.StatusThinking || was == status.StatusTool {
+	if was == dstatus.StatusThinking || was == dstatus.StatusTool {
 		notice += " (its turn in flight was lost)"
 	}
 	return notice

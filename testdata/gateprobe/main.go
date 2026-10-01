@@ -22,21 +22,22 @@ import (
 	"strings"
 	"time"
 
+	dgate "github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/infra/gateexec"
 	"github.com/WilsonSousajr/omatty/internal/service/gate"
 )
 
 // scratch is a checkout whose gate fails in the middle, which is the case
 // worth watching: the steps after a failure must report Pending, not Pass.
-var scratch = []gate.Step{
+var scratch = []dgate.Step{
 	{Name: "fmt", Run: "test -f go.mod"},
 	{Name: "test", Run: "echo '--- FAIL: TestThing' >&2; echo 'thing_test.go:12: got 1, want 2' >&2; exit 1"},
-	{Name: "cov", Run: "echo 'coverage 92.6% meets the 90% gate'", Kind: gate.KindCoverage},
+	{Name: "cov", Run: "echo 'coverage 92.6% meets the 90% gate'", Kind: dgate.KindCoverage},
 }
 
 // absent names a tool no machine has, so the LookPath pre-flight is exercised
 // against a real PATH rather than a fake one.
-var absent = []gate.Step{{Name: "lint", Run: "omatty-no-such-linter run"}}
+var absent = []dgate.Step{{Name: "lint", Run: "omatty-no-such-linter run"}}
 
 func main() {
 	dir := scratchDir()
@@ -106,8 +107,8 @@ func runner(dir string) {
 	defer r.Close()
 	reports := r.Subscribe(context.Background())
 	started := time.Now()
-	r.Start("session-a", dir, []gate.Step{{Name: "slow", Run: "sleep 1; true"}})
-	r.Start("session-b", dir, []gate.Step{{Name: "slow", Run: "sleep 1; true"}})
+	r.Start("session-a", dir, []dgate.Step{{Name: "slow", Run: "sleep 1; true"}})
+	r.Start("session-b", dir, []dgate.Step{{Name: "slow", Run: "sleep 1; true"}})
 	for range 2 {
 		rep := (<-reports).Payload
 		fmt.Printf("  %s reported at %+.1fs\n", rep.ID, time.Since(started).Seconds())
@@ -120,8 +121,8 @@ func supersede(dir string) {
 	r := gate.NewRunner(2, gateexec.Run)
 	defer r.Close()
 	reports := r.Subscribe(context.Background())
-	r.Start("session-a", dir, []gate.Step{{Name: "slow", Run: "sleep 5"}})
-	r.Start("session-a", dir, []gate.Step{{Name: "quick", Run: "true"}})
+	r.Start("session-a", dir, []dgate.Step{{Name: "slow", Run: "sleep 5"}})
+	r.Start("session-a", dir, []dgate.Step{{Name: "quick", Run: "true"}})
 
 	rep := (<-reports).Payload
 	fmt.Printf("  reported: %s (%s)\n", rep.Results[0].Step.Name, rep.Results[0].Verdict)
@@ -134,7 +135,7 @@ func supersede(dir string) {
 }
 
 // report prints a run the way a person reads it.
-func report(results []gate.StepResult, err error) {
+func report(results []dgate.StepResult, err error) {
 	if err != nil {
 		fmt.Println("  error:", err)
 		return
