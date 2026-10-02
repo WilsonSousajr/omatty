@@ -210,7 +210,7 @@ bubbleterm is itself a bubbletea component, so `terminal.Terminal` returns
 | `internal/cli` | The second driving adapter: `sessions --json`, `status --json`, and the flows behind `adopt`, `rm` and `gate --stats`. |
 | `cmd/omatty` | The binary and the one composition root. Flags, dependency construction, `omatty hook`. Thin by rule. |
 | `tools/`, `scripts/` | The gate's own tools - `crapcheck`, `depcheck`, `layercheck` - and the scripts that run them. Outside the hexagon. |
-| `testdata/` | `fake-claude`, `ptyrun`, `screen`, `dtachprobe`, `gateprobe`, `forgeprobe`: the harness for the real-PTY smoke test the gate cannot replace. |
+| `testdata/` | `fake-agent` (one shape per agent; `fake-claude` links to its claude shape, #527), `ptyrun`, `screen`, `dtachprobe`, `gateprobe`, `forgeprobe`: the harness for the real-PTY smoke test the gate cannot replace. |
 
 ## The twelve invariants, and why
 

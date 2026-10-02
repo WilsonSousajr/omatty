@@ -106,7 +106,7 @@ scripts/            check-coverage.sh and other gate scripts.
 tools/              gate tools with a main: crapcheck, depcheck, layercheck. Inside ./... so gofmt,
                     vet, lint and build cover them; outside ./internal/... so an
                     untestable main does not pull the coverage gate down.
-testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-claude.
+testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-agent (fake-claude links to it).
 ```
 
 One responsibility per package, typed APIs, no circular dependencies.
@@ -363,7 +363,10 @@ not in the gate.
 - Filesystem tests use `t.TempDir()`. Never touch the real `~/.claude` or
   `~/.omatty`.
 - Golden-frame tests for `tui/terminal`: recorded ANSI in, asserted cell grid out.
-- End-to-end via `teatest` against `testdata/fake-claude`.
+- End-to-end via `teatest` against `testdata/fake-claude`, and against
+  `testdata/fake-agent --shape <agent>` for any other agent's shape (#527):
+  one fake, each shape writing that agent's own records where that agent
+  keeps them. Fixtures are synthetic, never a sanitised real transcript.
 
 ### Every bug gets a regression test. No exceptions.
 
