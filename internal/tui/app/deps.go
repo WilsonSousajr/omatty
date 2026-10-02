@@ -7,6 +7,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
@@ -76,6 +77,10 @@ type Deps struct {
 	// Agents lists every agent with whether it is installed, for ctrl+o n's
 	// agent step; nil, or one installed, skips the step (#524). DefaultAgent
 	// is the config's default_agent, and SetProjectAgent persists ctrl+o c.
+	// AgentCaps is an agent's capabilities by name, so the surface never
+	// claims more than the session's tier knows (#526). Nil, or an agent it
+	// does not know, reads as claude's.
+	AgentCaps       func(name string) (agent.Caps, bool)
 	Agents          func() []AgentOption
 	DefaultAgent    string
 	SetProjectAgent func(project, agent string) error

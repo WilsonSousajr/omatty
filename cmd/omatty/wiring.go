@@ -148,7 +148,7 @@ func tuiDeps(env tuiEnv, store sessions.StateStore, state session.State) app.Dep
 // project's chosen agent is persisted.
 func withAgentDeps(deps app.Deps, env tuiEnv, store sessions.StateStore) app.Deps {
 	deps.Agents = agentOptions(env.Agents.WithBins(env.Cfg.AgentBins()), agentcli.Installed)
-	deps.DefaultAgent = env.Cfg.DefaultAgent
+	deps.DefaultAgent, deps.AgentCaps = env.Cfg.DefaultAgent, agentCaps(env.Agents)
 	deps.SetProjectAgent = func(project, agent string) error {
 		return sessions.SetProjectAgent(context.Background(), store, project, agent)
 	}

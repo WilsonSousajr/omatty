@@ -192,3 +192,17 @@ func refuseUnknownBins(builtins agent.Catalog, cfg config.Config) error {
 	}
 	return nil
 }
+
+// agentCaps is each agent's capabilities by name, for the TUI's tier-aware
+// surface (#526); an agent the catalog lacks reports none.
+//
+//	deps.AgentCaps = agentCaps(agents)
+func agentCaps(agents agent.Catalog) func(string) (agent.Caps, bool) {
+	return func(name string) (agent.Caps, bool) {
+		p, err := agents.Lookup(name)
+		if err != nil {
+			return agent.Caps{}, false
+		}
+		return p.Caps, true
+	}
+}

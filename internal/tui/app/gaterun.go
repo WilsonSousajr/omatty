@@ -168,7 +168,9 @@ func passedWholly(report gate.Report) bool {
 // again on a repeated TurnEnded would cancel a run in flight to start the
 // same one over.
 func (m *Model) autoGate(id string, before, after dstatus.Status) {
-	if !m.gateAuto || before == after || !atRest(after) {
+	// An agent with no turn boundary going quiet is not a turn that ended
+	// (#526): the gate still runs on demand, never on a guess.
+	if !m.gateAuto || before == after || !atRest(after) || !m.turnBoundary(id) {
 		return
 	}
 	// Marked before the run rather than inferred after it: by the time the

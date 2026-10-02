@@ -124,7 +124,7 @@ func (m *Model) stopSession(sess session.Session) tea.Cmd {
 		_ = term.Close()
 	}
 	delete(m.terms, sess.ID)
-	m.notice = stopNotice(sess.Title, m.status[sess.ID].Status)
+	m.notice = stopNotice(sess.Title, m.resumeHint(sess.ID), m.status[sess.ID].Status)
 	return m.stopSessionCmd(sess, nil)
 }
 
@@ -144,13 +144,13 @@ func (m *Model) onStoppedKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "ctrl+c":
 		return tea.Quit
 	}
-	m.notice = row.Session.Title + " is stopped; enter resumes it"
+	m.notice = row.Session.Title + " is stopped; " + m.resumeHint(row.Session.ID)
 	return nil
 }
 
 // stopNotice is what the footer says after a stop.
-func stopNotice(title string, was dstatus.Status) string {
-	notice := "stopped " + title + "; enter resumes it"
+func stopNotice(title, hint string, was dstatus.Status) string {
+	notice := "stopped " + title + "; " + hint
 	if was == dstatus.StatusThinking || was == dstatus.StatusTool {
 		notice += " (its turn in flight was lost)"
 	}

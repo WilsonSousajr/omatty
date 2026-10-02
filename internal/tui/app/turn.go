@@ -108,6 +108,10 @@ func (m *Model) dropTurn(sess dsession.Session, root string) tea.Cmd {
 // toggleScope switches the diff between the whole session and this turn,
 // starting from the top: the two are different lists of rows.
 func (m *Model) toggleScope() tea.Cmd {
+	if !m.turnBoundary(m.review.SessionID) {
+		m.notice = m.noTurnReason(m.review.SessionID) // #526
+		return nil
+	}
 	if m.review.Scope == scopeTurn {
 		m.review.Scope = scopeSession
 	} else {

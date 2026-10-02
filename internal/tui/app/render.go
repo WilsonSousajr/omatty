@@ -311,7 +311,7 @@ func (m *Model) renderTerminal(w, h int) string {
 		return fitBlock(rows, w, h)
 	}
 	if row, ok := m.sidebar.Selected(); ok {
-		return fitBlock(m.stoppedLines(row.Session.Title), w, h)
+		return fitBlock(m.stoppedLines(row.Session.ID, row.Session.Title), w, h)
 	}
 	return fitBlock(m.emptyLines(), w, h)
 }
@@ -319,8 +319,15 @@ func (m *Model) renderTerminal(w, h int) string {
 // stoppedLines is a selected session with no process: ctrl+o s stopped it,
 // or it has not been started (#318). Not the empty state, which would tell
 // the operator to create a session while one sits selected.
-func (m *Model) stoppedLines(title string) []string {
-	return []string{"", title + " is stopped", "", "enter resumes it", "ctrl+c or " + m.leader + " q to quit"}
+//
+// An agent with no resume starts fresh, and the pane says what that costs
+// rather than offering a resume that cannot happen (#526).
+func (m *Model) stoppedLines(id, title string) []string {
+	lines := []string{"", title + " is stopped", "", m.resumeHint(id)}
+	if !m.capsOf(id).Resume {
+		lines = append(lines, m.lostConversation(id))
+	}
+	return append(lines, "ctrl+c or "+m.leader+" q to quit")
 }
 
 // emptyLines is the pane with no session to show: what to do next, and the way

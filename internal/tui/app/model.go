@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
@@ -38,6 +39,7 @@ type Model struct {
 	create  CreateFunc
 	// agents, defaultAgent and setProjectAgent choose a session's agent (#524).
 	agents          func() []AgentOption
+	agentCaps       func(name string) (agent.Caps, bool) // the tier-aware surface (#526)
 	defaultAgent    string
 	setProjectAgent func(project, agent string) error
 	start           StartFunc
@@ -271,7 +273,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse, m.labelOf = d.PRs, d.Issues, d.Item, d.Browse, d.Label
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
-	m.rebind, m.agents, m.defaultAgent, m.setProjectAgent = d.Rebind, d.Agents, d.DefaultAgent, d.SetProjectAgent
+	m.rebind, m.agents, m.defaultAgent, m.setProjectAgent, m.agentCaps = d.Rebind, d.Agents, d.DefaultAgent, d.SetProjectAgent, d.AgentCaps
 	m.renameBranch = d.RenameBranch
 	m.modelNamer = d.ModelName
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop

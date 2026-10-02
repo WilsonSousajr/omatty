@@ -6,6 +6,7 @@
 package app
 
 import (
+	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strconv"
 	"strings"
@@ -94,10 +95,7 @@ func (m *Model) paneParts(row Row, now time.Time, owns bool) headerParts {
 		Crumb:  theme.Muted.Render(row.Project) + " " + crumbRail(owns) + " " + row.Session.Title,
 		Branch: m.breadcrumbBranch(row.Session.ID),
 	}
-	if st.Status != "" {
-		glyph := m.glyphCell(row.Session.ID, st.Status, now)
-		p.State = strings.TrimSpace(glyph + " " + string(st.Status) + " " + AgeString(now, st.At))
-	}
+	p.State = m.paneState(row.Session.ID, st, now)
 	p.Meter, p.Counts = meterPart(st.Tokens), countsPart(st.Tokens)
 	return p
 }
@@ -130,4 +128,18 @@ func (m *Model) sidebarSegment() string {
 		return seg + " · " + mouseOffMark
 	}
 	return seg
+}
+
+// paneState is the header's status: the session's, or for a Process-tier
+// one whether its process runs, then the agent and tier for any agent but
+// claude (#526).
+func (m *Model) paneState(id string, st dstatus.SessionState, now time.Time) string {
+	state := ""
+	switch {
+	case m.processTier(id):
+		state = m.processState(id)
+	case st.Status != "":
+		state = strings.TrimSpace(m.glyphCell(id, st.Status, now) + " " + string(st.Status) + " " + AgeString(now, st.At))
+	}
+	return dots(state, m.agentLabel(id))
 }
