@@ -91,6 +91,9 @@ func (m *Model) maybeNotify(e dstatus.Event, before, after dstatus.Status) tea.C
 		return nil
 	}
 	body, ok := needsYou(m.sessionTitle(e.SessionID), after)
+	// "finished" is a turn's end, which an agent without a turn boundary
+	// cannot report; "needs you" is not, and still goes (#526).
+	ok = ok && (after != dstatus.StatusDone || m.turnBoundary(e.SessionID))
 	if !ok || !m.cooldownElapsed(e.SessionID) {
 		return nil
 	}

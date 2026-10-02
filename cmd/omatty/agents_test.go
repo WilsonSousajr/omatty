@@ -299,3 +299,24 @@ func TestKnownDefaultAgent_AcceptsAGenericOne_issue525(t *testing.T) {
 		t.Errorf("knownDefaultAgent(aider) = %v, want nil", err)
 	}
 }
+
+// The TUI reads each agent's capabilities from the catalog, so a generic
+// agent's card claims only the Process tier (#526).
+func TestAgentCaps_ComeFromTheCatalog_issue526(t *testing.T) {
+	cfg := config.Defaults("/h")
+	cfg.Agents = map[string]config.Agent{"aider": {Command: []string{"aider"}}}
+	agents, err := configuredAgents(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := agentCaps(agents)
+	if c, ok := caps("claude"); !ok || c.Tier() != agent.Full {
+		t.Errorf("claude = %+v, %v; want full", c, ok)
+	}
+	if c, ok := caps("aider"); !ok || c.Tier() != agent.Process {
+		t.Errorf("aider = %+v, %v; want process", c, ok)
+	}
+	if _, ok := caps("nope"); ok {
+		t.Error("an unknown agent reported capabilities")
+	}
+}
