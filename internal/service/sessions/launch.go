@@ -90,6 +90,9 @@ func ownedEnv(env []string, id string) []string {
 // for the session, which is the condition under which it must be resumed
 // rather than started (#36, #46).
 func HasTranscript(profile agent.Profile, home, dir, sessionID string) bool {
+	if profile.TranscriptPath == nil {
+		return false // a generic agent keeps none omatty can find (#525)
+	}
 	info, err := os.Stat(profile.TranscriptPath(home, dir, sessionID))
 	return err == nil && !info.IsDir()
 }

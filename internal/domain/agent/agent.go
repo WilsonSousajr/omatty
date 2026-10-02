@@ -77,3 +77,29 @@ func ClaudeCommand(bin, sessionID, _ string, resume bool, settingsFile string) [
 	}
 	return []string{bin, flag, sessionID, "--settings", settingsFile}
 }
+
+// Generic is an agent declared in config.toml by its command alone (#525): it
+// runs that command in the session's directory, with the configured binary
+// in place of its first word, and nothing else. No session id, no resume, no
+// settings file, no transcript - so its Caps are the zero value, the Process
+// tier: omatty knows it runs and when it exits. It is how Aider, Goose,
+// Crush, Droid and next month's agent run in omatty on day one.
+//
+//	p := agent.Generic("aider", []string{"aider", "--no-auto-commits"})
+func Generic(name string, argv []string) Profile {
+	args := append([]string(nil), argv[1:]...)
+	return Profile{
+		Name:       name,
+		DefaultBin: argv[0],
+		Command: func(bin, _, _ string, _ bool, _ string) []string {
+			return append([]string{bin}, args...)
+		},
+	}
+}
+
+// KeepsTranscript reports whether omatty can read the agent's transcript:
+// a path to find it and a parser to read it. A generic agent has neither
+// (#525), so nothing may tail, name or resume it from one.
+//
+//	if !p.KeepsTranscript() { return } // Process tier
+func (p Profile) KeepsTranscript() bool { return p.TranscriptPath != nil && p.Status != nil }

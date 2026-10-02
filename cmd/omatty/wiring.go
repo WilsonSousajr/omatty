@@ -41,7 +41,7 @@ func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
 	if err != nil {
 		return err
 	}
-	agents, err := agentCatalog()
+	agents, err := configuredAgents(cfg)
 	if err != nil {
 		return err
 	}
@@ -395,6 +395,9 @@ func sessionNamer(home string, agents agent.Catalog) app.NameFunc {
 		profile, err := agents.Lookup(sess.Agent)
 		if err != nil {
 			return "", err
+		}
+		if !profile.KeepsTranscript() {
+			return "", nil // nothing to name it from: it keeps its title (#525)
 		}
 		// The conversation, not the ID: after /clear the row's first
 		// transcript is the one it left behind (#316).

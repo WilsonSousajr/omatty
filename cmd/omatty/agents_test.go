@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"os"
 	"path/filepath"
 	"strings"
@@ -220,5 +221,81 @@ func TestCheckDefaultAgent_RefusesAnUnknownOne_issue524(t *testing.T) {
 	err := checkDefaultAgent(mustAgents(t), "codx")
 	if err == nil || !strings.Contains(err.Error(), "codx") || !strings.Contains(err.Error(), "default_agent") {
 		t.Errorf("error = %v, want one naming default_agent and codx", err)
+	}
+}
+
+// The config's generic agents join the catalog beside the built-ins, so the
+// picker lists them and a session can run one (#525).
+func TestConfiguredAgents_JoinsTheGenericOnes_issue525(t *testing.T) {
+	cfg := config.Defaults("/h")
+	cfg.Agents = map[string]config.Agent{"aider": {Command: []string{"aider", "-x"}}, "claude": {Bin: "/opt/claude"}}
+	agents, err := configuredAgents(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(agents.Names(), ","); got != "claude,aider" {
+		t.Errorf("Names() = %s, want claude,aider", got)
+	}
+}
+
+// A generic block named after a built-in is refused, naming both: it would
+// silently replace claude's own profile (#525).
+func TestConfiguredAgents_RefusesAGenericNamedAfterABuiltIn_issue525(t *testing.T) {
+	cfg := config.Defaults("/h")
+	cfg.Agents = map[string]config.Agent{"claude": {Command: []string{"my-claude"}}}
+	_, err := configuredAgents(cfg)
+	if err == nil || !strings.Contains(err.Error(), "agents.claude") || !strings.Contains(err.Error(), "built-in") {
+		t.Errorf("error = %v, want one naming agents.claude and the built-in", err)
+	}
+}
+
+// A block that names neither a built-in nor a command names nothing to run.
+func TestConfiguredAgents_RefusesABinForAnUnknownAgent_issue525(t *testing.T) {
+	cfg := config.Defaults("/h")
+	cfg.Agents = map[string]config.Agent{"aidr": {Bin: "/opt/aider"}}
+	_, err := configuredAgents(cfg)
+	if err == nil || !strings.Contains(err.Error(), "aidr") {
+		t.Errorf("error = %v, want one naming aidr", err)
+	}
+}
+
+// A row naming a generic agent whose block has since been removed starts
+// nothing: the catalog no longer knows it, which the launcher reports as ✕
+// with the name (invariant 6, #521, #525).
+func TestConfiguredAgents_ARemovedBlockIsUnknown_issue525(t *testing.T) {
+	agents, err := configuredAgents(config.Defaults("/h"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := agents.Lookup("aider"); err == nil || !strings.Contains(err.Error(), "aider") {
+		t.Errorf("Lookup(aider) error = %v, want one naming aider", err)
+	}
+}
+
+// A Process-tier session has no transcript: status --json reads it as the
+// zero state and the namer leaves its title alone, rather than reaching for a
+// path the profile does not have (#525).
+func TestReads_AProcessAgentHasNoTranscript_issue525(t *testing.T) {
+	agents, err := agent.NewCatalog(claudeProfile(), agent.Generic("aider", []string{"aider"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess := session.Session{ID: "a1", Dir: "/w", Agent: "aider"}
+	if got := statusReader("/h", agents)(sess); got != (dstatus.SessionState{}) {
+		t.Errorf("status = %+v, want the zero state", got)
+	}
+	if title, err := sessionNamer("/h", agents)(sess); title != "" || err != nil {
+		t.Errorf("name = %q, %v; want none and no error", title, err)
+	}
+}
+
+// default_agent may name a generic agent: Aider as every new session's
+// agent is a choice the config makes, not one omatty refuses (#525).
+func TestKnownDefaultAgent_AcceptsAGenericOne_issue525(t *testing.T) {
+	cfg := config.Defaults("/h")
+	cfg.DefaultAgent = "aider"
+	cfg.Agents = map[string]config.Agent{"aider": {Command: []string{"aider"}}}
+	if err := knownDefaultAgent(cfg); err != nil {
+		t.Errorf("knownDefaultAgent(aider) = %v, want nil", err)
 	}
 }

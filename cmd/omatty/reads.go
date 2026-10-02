@@ -43,7 +43,7 @@ func readCommand(cmd string, args []string, home string, store sessions.StateSto
 func statusReader(home string, agents agent.Catalog) cli.StatusReader {
 	return func(s session.Session) dstatus.SessionState {
 		profile, err := agents.Lookup(s.Agent)
-		if err != nil {
+		if err != nil || !profile.KeepsTranscript() {
 			return dstatus.SessionState{}
 		}
 		conv := s.ConversationID()
