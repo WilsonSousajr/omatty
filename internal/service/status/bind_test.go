@@ -149,3 +149,20 @@ func (reportingAdapter) KindOf(p dstatus.HookPayload) (dstatus.Kind, bool) {
 type nopTranscript struct{}
 
 func (nopTranscript) Poll() ([][]byte, bool, bool) { return nil, false, false }
+
+// A Process-tier agent keeps no transcript omatty can read: it is not
+// tailed, and adding it must not reach for a transcript path it lacks (#525).
+func TestWatch_AProcessAgentIsNotTailed_issue525(t *testing.T) {
+	agents, err := agent.NewCatalog(agent.Generic("aider", []string{"aider"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := &Watch{deps: WatchDeps{Agents: agents, Clock: time.Now}, events: make(chan dstatus.Event, 1),
+		tailers: map[string]*Tailer{}, adapters: map[string]dstatus.Adapter{}, binders: map[string]*binder{},
+		sessions: map[string]session.Session{}, stopPump: func() {}}
+	w.Add(session.Session{ID: "a1", Dir: "/w"})
+	defer w.Close()
+	if w.tailers["a1"] != nil || w.binders["a1"] != nil {
+		t.Error("a Process-tier session was tailed or scanned")
+	}
+}

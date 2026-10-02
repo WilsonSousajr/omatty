@@ -15,12 +15,53 @@ package config
 import (
 	"fmt"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 // Agent is one [agents.<name>] table.
 type Agent struct {
 	// Bin is the binary to run for this agent; empty is the profile's default.
 	Bin string `toml:"bin"`
+	// Command declares a generic agent: any program, run as written in the
+	// session's directory, at the Process tier (#525). Its first word is its
+	// binary, so it takes no bin beside it. Only command: no resume template
+	// and no transcript rules, because declarative adapters are refused by
+	// name in M17's design, and this is the line that keeps them out.
+	//
+	//	[agents.aider]
+	//	command = ["aider", "--no-auto-commits"]
+	Command []string `toml:"command"`
+}
+
+// GenericAgents is every agent the config declares by command, by name.
+//
+//	for name, argv := range cfg.GenericAgents() { ... agent.Generic(name, argv) }
+func (c Config) GenericAgents() map[string][]string {
+	out := map[string][]string{}
+	for name, a := range c.Agents {
+		if len(a.Command) > 0 {
+			out[name] = a.Command
+		}
+	}
+	return out
+}
+
+// refuseBadAgentBlocks rejects a block whose command was written and names
+// nothing to run, or that names a bin beside its command.
+func refuseBadAgentBlocks(path string, md toml.MetaData, agents map[string]Agent) error {
+	for name, a := range agents {
+		if !md.IsDefined("agents", name, "command") {
+			continue
+		}
+		if len(a.Command) == 0 || strings.TrimSpace(a.Command[0]) == "" {
+			return fmt.Errorf("config %s: agents.%s.command names no program, want one such as [%q]", path, name, name)
+		}
+		if a.Bin != "" {
+			return fmt.Errorf("config %s: agents.%s has both bin and command, want only command: its first word is the binary", path, name)
+		}
+	}
+	return nil
 }
 
 // AgentBins is the binary the config names for each agent, by agent name:

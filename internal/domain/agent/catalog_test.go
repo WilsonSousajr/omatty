@@ -98,3 +98,19 @@ func TestNewCatalog_RefusesScannedIdentityWithoutLocate_issue523(t *testing.T) {
 		t.Errorf("with Locate: %v", err)
 	}
 }
+
+// A generic agent runs its command as written - no session id, no resume,
+// no settings file - and is Process tier: omatty knows it runs, nothing more
+// (#525).
+func TestGeneric_RunsItsCommandAtProcessTier_issue525(t *testing.T) {
+	p := agent.Generic("aider", []string{"aider", "--no-auto-commits"})
+	if p.Name != "aider" || p.DefaultBin != "aider" || p.Caps.Tier() != agent.Process {
+		t.Errorf("Generic = %+v (tier %v), want aider at process tier", p, p.Caps.Tier())
+	}
+	if got := strings.Join(p.Command("/opt/aider", "id", "/w", true, "/h.json"), " "); got != "/opt/aider --no-auto-commits" {
+		t.Errorf("argv = %q, want the command with its configured bin", got)
+	}
+	if _, err := agent.NewCatalog(toyProfile("claude"), p); err != nil {
+		t.Errorf("NewCatalog refused a generic agent: %v", err)
+	}
+}

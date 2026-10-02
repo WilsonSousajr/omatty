@@ -14,7 +14,9 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 	"io"
+	"maps"
 	"path/filepath"
+	"slices"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
@@ -126,12 +128,67 @@ func checkDefaultAgent(agents agent.Catalog, name string) error {
 	return nil
 }
 
-// knownDefaultAgent is checkDefaultAgent against this omatty's own catalog,
-// for `omatty new`, which builds no catalog of its own (#524).
+// knownDefaultAgent is checkDefaultAgent against the configured catalog,
+// generic agents included (#525), for `omatty new`, which builds no catalog
+// of its own (#524).
 func knownDefaultAgent(cfg config.Config) error {
-	agents, err := agentCatalog()
+	agents, err := configuredAgents(cfg)
 	if err != nil {
 		return err
 	}
 	return checkDefaultAgent(agents, cfg.DefaultAgent)
+}
+
+// configuredAgents is the catalog a running omatty resolves sessions through:
+// the built-in profiles, then every generic agent the config declares by
+// command, in name order (#525). The hook path keeps agentCatalog, the
+// built-ins alone: no generic agent takes hooks, and reading the config
+// there is what invariant 11 forbids.
+//
+//	agents, err := configuredAgents(cfg)
+func configuredAgents(cfg config.Config) (agent.Catalog, error) {
+	builtins, err := agentCatalog()
+	if err != nil {
+		return agent.Catalog{}, err
+	}
+	if err := refuseUnknownBins(builtins, cfg); err != nil {
+		return agent.Catalog{}, err
+	}
+	profiles, err := withGenerics(builtins, cfg.GenericAgents())
+	if err != nil {
+		return agent.Catalog{}, err
+	}
+	return agent.NewCatalog(profiles...)
+}
+
+// withGenerics is the built-in profiles followed by the generic ones. A
+// generic named after a built-in would silently replace it, so it is refused
+// naming both.
+func withGenerics(builtins agent.Catalog, generics map[string][]string) ([]agent.Profile, error) {
+	profiles := make([]agent.Profile, 0, len(builtins.Names())+len(generics))
+	for _, name := range builtins.Names() {
+		p, _ := builtins.Lookup(name)
+		profiles = append(profiles, p)
+	}
+	for _, name := range slices.Sorted(maps.Keys(generics)) {
+		if _, err := builtins.Lookup(name); err == nil {
+			return nil, fmt.Errorf("config agents.%s declares a command, but %s is a built-in agent; give the block another name", name, name)
+		}
+		profiles = append(profiles, agent.Generic(name, generics[name]))
+	}
+	return profiles, nil
+}
+
+// refuseUnknownBins rejects a block that sets only a bin for an agent that is
+// neither built in nor declared by command: it names nothing omatty can run.
+func refuseUnknownBins(builtins agent.Catalog, cfg config.Config) error {
+	for name, a := range cfg.Agents {
+		if len(a.Command) > 0 {
+			continue
+		}
+		if _, err := builtins.Lookup(name); err != nil {
+			return fmt.Errorf("config agents.%s: %w; declare it with command = [...] to run it as a generic agent", name, err)
+		}
+	}
+	return nil
 }

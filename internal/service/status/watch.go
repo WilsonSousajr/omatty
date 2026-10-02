@@ -129,6 +129,11 @@ func (w *Watch) Add(sess session.Session) {
 		return
 	}
 	w.Remove(sess.ID)
+	if !profile.KeepsTranscript() {
+		// Process tier: running or exited is all there is to know, and the
+		// pane's process says that without a tailer (#525).
+		return
+	}
 	if profile.Caps.Identity == agent.Scanned && sess.Conversation == "" {
 		w.startBinder(sess, profile)
 		return

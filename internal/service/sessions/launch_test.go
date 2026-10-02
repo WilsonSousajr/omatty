@@ -299,3 +299,19 @@ func TestLauncher_EveryAgentGetsItsPanesSessionEnv_issue523(t *testing.T) {
 		t.Errorf("the other agent's env lacks %s=pane-1", session.SessionEnv)
 	}
 }
+
+// A generic agent launches its own command line in the session's directory,
+// with no transcript to look for (#525).
+func TestLauncher_GenericAgentRunsItsCommand_issue525(t *testing.T) {
+	agents, err := agent.NewCatalog(claudeProfile(), agent.Generic("aider", []string{"aider", "--no-auto-commits"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	launch, err := sessions.NewLauncher(agents, t.TempDir(), &detach.Plain{}).Launch(session.Session{ID: "a1", Dir: "/w", Agent: "aider"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(launch.Argv, " "); got != "aider --no-auto-commits" || launch.Dir != "/w" {
+		t.Errorf("launch = %q in %q, want aider's command in /w", got, launch.Dir)
+	}
+}

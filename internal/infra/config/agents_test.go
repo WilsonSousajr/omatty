@@ -68,3 +68,33 @@ func TestLoad_RefusesABlankDefaultAgent_issue524(t *testing.T) {
 		t.Errorf("error = %v, want one naming default_agent", err)
 	}
 }
+
+// An [agents.x] block with a command declares a generic agent, run as
+// written (#525).
+func TestLoad_ReadsAGenericAgentsCommand_issue525(t *testing.T) {
+	home := t.TempDir()
+	cfg, err := config.Load(writeConfig(t, home, "[agents.aider]\ncommand = [\"aider\", \"--no-auto-commits\"]\n"), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string][]string{"aider": {"aider", "--no-auto-commits"}}
+	if got := cfg.GenericAgents(); !reflect.DeepEqual(got, want) {
+		t.Errorf("GenericAgents() = %v, want %v", got, want)
+	}
+}
+
+// A command names its own binary, so bin beside it is two answers to one
+// question; an empty command names nothing to run (#525).
+func TestLoad_RefusesAMalformedGenericBlock_issue525(t *testing.T) {
+	for body, want := range map[string]string{
+		"[agents.aider]\nbin = \"a\"\ncommand = [\"aider\"]\n": "bin",
+		"[agents.aider]\ncommand = []\n":                       "command",
+		"[agents.aider]\ncommand = [\" \"]\n":                  "command",
+	} {
+		home := t.TempDir()
+		_, err := config.Load(writeConfig(t, home, body), home)
+		if err == nil || !strings.Contains(err.Error(), "aider") || !strings.Contains(err.Error(), want) {
+			t.Errorf("%q: error = %v, want one naming aider and %s", body, err, want)
+		}
+	}
+}

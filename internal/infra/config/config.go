@@ -150,10 +150,7 @@ func Load(path, home string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("config %s: %w", path, err)
 	}
-	if err := refuseUnknownKeys(path, md); err != nil {
-		return Config{}, err
-	}
-	if err := refuseUntabledHosts(path, md, cfg.Forge.Hosts); err != nil {
+	if err := refuseBadShapes(path, md, cfg); err != nil {
 		return Config{}, err
 	}
 	if err := refuseBadValues(path, cfg); err != nil {
@@ -161,6 +158,20 @@ func Load(path, home string) (Config, error) {
 	}
 	cfg.WorktreeRoot = expandHome(cfg.WorktreeRoot, home)
 	return cfg, nil
+}
+
+// refuseBadShapes is every check that needs the decoder's metadata - which
+// keys were written, and as what - rather than the decoded values alone.
+// Split from Load when the agent blocks (#525) pushed it past the length
+// limit.
+func refuseBadShapes(path string, md toml.MetaData, cfg Config) error {
+	if err := refuseUnknownKeys(path, md); err != nil {
+		return err
+	}
+	if err := refuseUntabledHosts(path, md, cfg.Forge.Hosts); err != nil {
+		return err
+	}
+	return refuseBadAgentBlocks(path, md, cfg.Agents)
 }
 
 // knownKeys is the list an unknown-key error offers, so a typo is answered
