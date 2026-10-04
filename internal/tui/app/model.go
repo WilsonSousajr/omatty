@@ -140,6 +140,7 @@ type Model struct {
 	issueFailed  map[string]bool
 	issueAsked   map[string]time.Time
 	forgeStopped map[string]error
+	forgeRetry   map[string]bool                 // a stopped project may be asked once more (#658)
 	noTracker    map[string]bool                 // the forge keeps no issues for it (#460)
 	trackerFolds map[string]map[trackerKind]bool // the tracker sections tab folded, per project (#663)
 	labelOf      LabelFunc

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strconv"
 	"strings"
@@ -44,7 +45,17 @@ func plural(n int, noun string) string {
 	if n == 1 {
 		return "1 " + noun
 	}
-	return strconv.Itoa(n) + " " + noun + "s"
+	return windowed(n) + " " + noun + "s"
+}
+
+// windowed is a count as the window drew it: "100+" for a list that filled its
+// window, since the forge was asked for only that many and more may be open
+// (#658). Below the window a count is the whole list.
+func windowed(n int) string {
+	if n >= forge.ListWindow {
+		return strconv.Itoa(n) + "+"
+	}
+	return strconv.Itoa(n)
 }
 
 // renderTracker draws the rows, or says why there are none.

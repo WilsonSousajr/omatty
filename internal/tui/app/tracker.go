@@ -97,7 +97,7 @@ func (m *Model) toggleTracker() tea.Cmd {
 	m.review.Tracker = keptTracker(m.review.Tracker, project)
 	m.contentChanged()
 	m.moveTrackerCursor(0) // off a heading, onto a row (#432)
-	return tea.Batch(m.resizeIfWidthChanged(wasOpen), m.readTracker(project))
+	return tea.Batch(m.resizeIfWidthChanged(wasOpen), m.readTrackerNow(project))
 }
 
 // keptTracker points the tracker at project, keeping the cursor only when it is
@@ -116,6 +116,22 @@ func (m *Model) readTracker(project string) tea.Cmd {
 	return tea.Batch(m.pollProjectIssues(project), m.pollProjectPRs(project))
 }
 
+// readTrackerNow is readTracker asked for by the operator - r, or opening the
+// tracker - so it goes past what a poll respects: the thirty-second floor, a
+// stopped forge that may since have been fixed, and a forge that said it keeps
+// no issues (#658). Each refused r without a word, which read as "not
+// syncing". A read still in flight cannot be asked twice, and says so.
+func (m *Model) readTrackerNow(project string) tea.Cmd {
+	if m.issuePending[project] || m.prPending[project] {
+		m.notice = "still reading " + project + "'s issues and " + m.label(project).Change + "s"
+	}
+	m.retryForge(project)
+	delete(m.noTracker, project)
+	delete(m.issueAsked, project)
+	delete(m.prAsked, project)
+	return m.readTracker(project)
+}
+
 // onTrackerKey is the tracker's keymap, deliberately the diff's shape - j/k to
 // walk, r to read again, esc to leave - so the column's five faces do not each
 // need learning.
@@ -125,7 +141,7 @@ func (m *Model) onTrackerKey(key string) tea.Cmd {
 	}
 	switch {
 	case is(key, trackerBind.Reload):
-		return m.readTracker(m.review.Tracker.Project)
+		return m.readTrackerNow(m.review.Tracker.Project)
 	case is(key, trackerBind.Read):
 		return m.openItemAtCursor()
 	}
