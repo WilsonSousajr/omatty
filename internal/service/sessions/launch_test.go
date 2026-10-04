@@ -315,3 +315,29 @@ func TestLauncher_GenericAgentRunsItsCommand_issue525(t *testing.T) {
 		t.Errorf("launch = %q in %q, want aider's command in /w", got, launch.Dir)
 	}
 }
+
+// An agent whose hooks travel as arguments gets them after its own argv,
+// and only it does: claude still gets its settings file alone (#152).
+func TestLauncher_AppendsTheAgentsHookArgs_issue152(t *testing.T) {
+	agents, err := agent.NewCatalog(claudeProfile(), fakeProfile(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	agents = agents.WithHooksFiles(map[string]string{"claude": "/h/hooks.json"}).
+		WithHookArgs(map[string][]string{"other": {"-c", "hooks.Stop=[]"}})
+	l := sessions.NewLauncher(agents, t.TempDir(), &detach.Plain{})
+	other, err := l.Launch(session.Session{ID: "abc", Dir: "/w", Agent: "other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(other.Argv, " "); !strings.HasSuffix(got, " -c hooks.Stop=[]") {
+		t.Errorf("other argv = %q, want its hook arguments last", got)
+	}
+	claude, err := l.Launch(session.Session{ID: "abc", Dir: "/w"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(claude.Argv, " "); got != "claude --session-id abc --settings /h/hooks.json" {
+		t.Errorf("claude argv = %q, want no hook arguments", got)
+	}
+}

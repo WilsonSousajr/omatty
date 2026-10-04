@@ -51,6 +51,11 @@ type Profile struct {
 	// RenderSettings is the settings-file content that makes the agent
 	// report to `omatty hook`.
 	RenderSettings func(binPath string, eventNames []string) ([]byte, error)
+	// RenderArgs is the alternative to RenderSettings for an agent that reads
+	// no file omatty may write: its hooks travel as arguments, which the
+	// launcher appends to Command's argv. Codex takes them as `-c` flags,
+	// trust included (#152).
+	RenderArgs func(binPath string, eventNames []string) ([]string, error)
 	// Locate lists the conversations in the agent's store for dir begun at
 	// or after since: how a Scanned identity is found (#523).
 	Locate func(home, dir string, since time.Time) []string

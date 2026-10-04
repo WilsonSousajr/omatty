@@ -1,6 +1,7 @@
 package agent_test
 
 import (
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -112,5 +113,39 @@ func TestGeneric_RunsItsCommandAtProcessTier_issue525(t *testing.T) {
 	}
 	if _, err := agent.NewCatalog(toyProfile("claude"), p); err != nil {
 		t.Errorf("NewCatalog refused a generic agent: %v", err)
+	}
+}
+
+// An agent whose hooks travel as arguments rather than a settings file -
+// Codex reads no file omatty may write, only `-c` flags (#152) - declares
+// RenderArgs in place of RenderSettings, and the catalog accepts it.
+func TestNewCatalog_AcceptsHooksRenderedAsArguments_issue152(t *testing.T) {
+	p := toyProfile("argy")
+	p.Caps = agent.Caps{Identity: agent.Reported, Status: agent.StatusHooks}
+	p.TranscriptPath = func(_, _, _ string) string { return "" }
+	p.Status = fakeAdapter{}
+	p.HookEvents = func() []string { return []string{"Stop"} }
+	p.ParseHook = func(io.Reader) (status.HookPayload, bool) { return status.HookPayload{}, false }
+	if _, err := agent.NewCatalog(p); err == nil {
+		t.Fatal("a hooks profile with neither renderer was accepted")
+	}
+	p.RenderArgs = func(string, []string) ([]string, error) { return nil, nil }
+	if _, err := agent.NewCatalog(p); err != nil {
+		t.Errorf("RenderArgs in place of RenderSettings: %v", err)
+	}
+}
+
+// The catalog carries each agent's rendered hook arguments as it carries
+// its settings file; an agent with none gets none (#152).
+func TestCatalog_HookArgsAreEachAgentsOwn_issue152(t *testing.T) {
+	c := mustCatalog(t, toyProfile("claude"), toyProfile("codex")).
+		WithHookArgs(map[string][]string{"codex": {"-c", "hooks.Stop=[]"}})
+	claude, _ := c.Lookup("claude")
+	codex, _ := c.Lookup("codex")
+	if got := strings.Join(c.HookArgs(codex), " "); got != "-c hooks.Stop=[]" {
+		t.Errorf("HookArgs(codex) = %q, want its own arguments", got)
+	}
+	if got := c.HookArgs(claude); got != nil {
+		t.Errorf("HookArgs(claude) = %q, want none", got)
 	}
 }

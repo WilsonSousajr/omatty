@@ -189,3 +189,33 @@ func (fakeAdapter) DeriveKind([]status.Entry) (status.Kind, time.Time, bool) {
 	return 0, time.Time{}, false
 }
 func (fakeAdapter) KindOf(status.HookPayload) (status.Kind, bool) { return 0, false }
+
+// An agent whose hooks travel as arguments gets no settings file - codex
+// would never read it (#152) - and its arguments, rendered for the running
+// binary, instead.
+func TestInstallAll_AnArgumentAgentGetsArgsNotAFile_issue152(t *testing.T) {
+	home := t.TempDir()
+	argy := stopProfile()
+	argy.Name, argy.Command = "argy", agent.ClaudeCommand
+	argy.Caps = agent.Caps{Identity: agent.Reported, Status: agent.StatusHooks}
+	argy.TranscriptPath = paths.Transcript
+	argy.Status = fakeAdapter{}
+	argy.ParseHook = hooks.ParseCodexPayload
+	argy.RenderSettings, argy.RenderArgs = nil, hooks.RenderCodexArgs
+	agents, err := agent.NewCatalog(argy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := hooks.InstallAll(agents, home)
+	if err != nil || len(files) != 0 {
+		t.Errorf("InstallAll = %v, %v; want no file for an argument agent", files, err)
+	}
+	args, err := hooks.RenderAllArgs(agents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	self, _ := os.Executable()
+	if got := strings.Join(args["argy"], " "); !strings.Contains(got, "-c hooks.Stop=") || !strings.Contains(got, self) {
+		t.Errorf("args = %q, want a Stop hook naming the running binary %s", got, self)
+	}
+}

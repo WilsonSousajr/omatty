@@ -106,8 +106,8 @@ func InstallAll(agents agent.Catalog, home string) (map[string]string, error) {
 	files := map[string]string{}
 	for _, name := range agents.Names() {
 		profile, _ := agents.Lookup(name)
-		if profile.Caps.Status != agent.StatusHooks {
-			continue
+		if profile.Caps.Status != agent.StatusHooks || profile.RenderSettings == nil {
+			continue // no hooks, or hooks that travel as arguments (#152)
 		}
 		path, err := Install(profile, home)
 		if err != nil {
@@ -116,4 +116,30 @@ func InstallAll(agents agent.Catalog, home string) (map[string]string, error) {
 		files[name] = path
 	}
 	return files, nil
+}
+
+// RenderAllArgs renders, for the running binary, the hook arguments of every
+// agent whose hooks travel as argv rather than a settings file, by agent
+// name. Codex is one: it reads no file omatty may write, only `-c` flags
+// (#152). Nothing is written.
+//
+//	args, err := hooks.RenderAllArgs(agents)
+func RenderAllArgs(agents agent.Catalog) (map[string][]string, error) {
+	bin, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("supervisor: locating the omatty binary: %w", err)
+	}
+	out := map[string][]string{}
+	for _, name := range agents.Names() {
+		profile, _ := agents.Lookup(name)
+		if profile.Caps.Status != agent.StatusHooks || profile.RenderArgs == nil {
+			continue
+		}
+		args, err := profile.RenderArgs(bin, profile.HookEvents())
+		if err != nil {
+			return nil, fmt.Errorf("supervisor: rendering %s's hook arguments for %q: %w", name, bin, err)
+		}
+		out[name] = args
+	}
+	return out, nil
 }

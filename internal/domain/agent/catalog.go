@@ -21,6 +21,7 @@ type Catalog struct {
 	profiles []Profile
 	bins     map[string]string
 	hooks    map[string]string
+	hookArgs map[string][]string
 }
 
 // NewCatalog checks every profile can serve what it declares and returns
@@ -57,7 +58,7 @@ func (p Profile) servesItsCaps() error {
 		{p.Command == nil, "no command template, want one to start it"},
 		{p.lacksScan(), "declares a scanned identity, want a Locate to scan its store with"},
 		{p.lacksTranscript(), "declares a transcript, want a transcript path and a status adapter"},
-		{p.lacksHooks(), "declares hooks, want hook events, a settings renderer and a payload parser"},
+		{p.lacksHooks(), "declares hooks, want hook events, a settings or argument renderer and a payload parser"},
 	}
 	for _, c := range checks {
 		if c.missing {
@@ -74,7 +75,8 @@ func (p Profile) lacksTranscript() bool {
 }
 
 func (p Profile) lacksHooks() bool {
-	return p.Caps.Status == StatusHooks && (p.HookEvents == nil || p.RenderSettings == nil || p.ParseHook == nil)
+	rendered := p.RenderSettings != nil || p.RenderArgs != nil
+	return p.Caps.Status == StatusHooks && (p.HookEvents == nil || !rendered || p.ParseHook == nil)
 }
 
 // Lookup returns the profile a session names. An unknown name is an error
@@ -137,3 +139,18 @@ func (c Catalog) WithHooksFiles(files map[string]string) Catalog {
 //
 //	argv := p.Command(c.Bin(p), id, dir, resume, c.HooksFile(p))
 func (c Catalog) HooksFile(p Profile) string { return c.hooks[p.Name] }
+
+// WithHookArgs returns the catalog with the hook arguments omatty rendered
+// for each agent whose hooks travel as argv, keyed by agent name (#152).
+//
+//	c = c.WithHookArgs(args) // from hooks.RenderAllArgs
+func (c Catalog) WithHookArgs(args map[string][]string) Catalog {
+	c.hookArgs = args
+	return c
+}
+
+// HookArgs is the hook arguments to append to p's argv, or nil for an agent
+// whose hooks come from a settings file or not at all.
+//
+//	argv := append(p.Command(c.Bin(p), id, dir, resume, c.HooksFile(p)), c.HookArgs(p)...)
+func (c Catalog) HookArgs(p Profile) []string { return c.hookArgs[p.Name] }
