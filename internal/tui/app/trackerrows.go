@@ -11,8 +11,27 @@ import (
 // trackerRows is the project's open issues, then its open pull requests under a
 // labelled rule. One flat slice, so the cursor and the window index the rows a
 // person sees rather than two lists and an offset between them.
+//
+// The rule goes with its list: one with nothing under it says a list is there
+// when it is not (#399). With both lists on screen each is named (#432); a
+// lone list needs no name - unless its forge keeps no issues, which it says
+// over the list it does keep, where the issues would have been (#460).
 func (m *Model) trackerRows() []trackerRow {
 	project := m.review.Tracker.Project
+	issues, prs := m.issueRows(project), m.openPRs(project)
+	switch {
+	case len(prs) == 0:
+		return issues
+	case len(issues) > 0:
+		return append(m.section(rowIssue, "issues", issues), m.section(rowPR, m.label(project).Change+"s", prs)...)
+	case m.noTracker[project]:
+		return m.section(rowPR, m.label(project).Short+"s · issues elsewhere", prs)
+	}
+	return prs
+}
+
+// issueRows is the project's open issues as rows, narrowed by the filter.
+func (m *Model) issueRows(project string) []trackerRow {
 	rows := make([]trackerRow, 0, len(m.issues[project]))
 	for _, is := range m.issues[project] {
 		row := trackerRow{
@@ -23,27 +42,19 @@ func (m *Model) trackerRows() []trackerRow {
 			rows = append(rows, row)
 		}
 	}
-	prs := m.openPRs(project)
-	if len(prs) == 0 {
-		return rows
-	}
-	return append(m.withRules(project, rows), prs...)
+	return rows
 }
 
-// withRules heads the issues and the pull requests that follow them. The rule
-// goes with its list: one with nothing under it says a list is there when it is
-// not (#399). With both lists on screen each is named (#432); a lone list needs
-// no name - unless its forge keeps no issues, which it says over the list it
-// does keep, where the issues would have been (#460).
-func (m *Model) withRules(project string, issues []trackerRow) []trackerRow {
-	if len(issues) > 0 {
-		issues = append([]trackerRow{{Kind: rowRule, Title: "issues"}}, issues...)
-		return append(issues, trackerRow{Kind: rowRule, Title: m.label(project).Change + "s"})
+// section is one list under its rule, or - folded by tab (#663) - the rule
+// alone, carrying how many the list holds, so a fold hides the list and not
+// its size. Under a filter that is the filtered count.
+func (m *Model) section(kind trackerKind, title string, items []trackerRow) []trackerRow {
+	rule := trackerRow{Kind: rowRule, Title: title, Section: kind}
+	if !m.trackerFolds[m.review.Tracker.Project][kind] {
+		return append([]trackerRow{rule}, items...)
 	}
-	if m.noTracker[project] {
-		return []trackerRow{{Kind: rowRule, Title: m.label(project).Short + "s · issues elsewhere"}}
-	}
-	return issues
+	rule.Title, rule.Folded = title+" ("+strconv.Itoa(len(items))+") ▸", true
+	return []trackerRow{rule}
 }
 
 // matchesFilter reports whether a row survives the filter line. The haystack is

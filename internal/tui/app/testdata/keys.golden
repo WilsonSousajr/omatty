@@ -1661,7 +1661,7 @@ tracker "?" code=63 mod=0 text="?" -> pty=0 msgs= focus=1/true armed=false modal
 tracker "space" code=32 mod=0 text=" " -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2
 tracker "enter" code=13 mod=0 text="" -> pty=0 msgs=app.ItemLoadedMsg focus=1/true armed=false modal="" view=5 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=6a1751db
 tracker "esc" code=27 mod=0 text="" -> pty=0 msgs= focus=0/true armed=false modal="" view=4 sel=s1 open=true focused=false zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=eaee9e89
-tracker "tab" code=9 mod=0 text="" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2
+tracker "tab" code=9 mod=0 text="" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=0 filter="" note=false frame=88f3a8f4
 tracker "backspace" code=127 mod=0 text="" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2
 tracker "up" code=1114113 mod=0 text="" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=0 filter="" note=false frame=3570765c
 tracker "down" code=1114114 mod=0 text="" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=2 filter="" note=false frame=87b2e3df

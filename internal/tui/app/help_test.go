@@ -145,7 +145,7 @@ var columnHandlers = map[string]map[string][]string{
 	"diff":    {"reviewkeys.go": {"onReviewKey", "reviewAction"}, "diffnav.go": {"diffNavKey"}},
 	"tree":    {"treekeys.go": {"onTreeKey", "treeActionKey", "treeCursorKey", "treeMarkKey", "onPreviewKey"}},
 	"gate":    {"gatepane.go": {"onGateKey", "gateCursorKey"}, "gatesearch.go": {"gateSearchKey"}},
-	"tracker": {"tracker.go": {"onTrackerKey", "trackerCursorKey"}, "trackerwork.go": {"trackerAction"}, "trackeritem.go": {"onTrackerItemKey"}},
+	"tracker": {"tracker.go": {"onTrackerKey", "trackerCursorKey", "trackerSectionKey"}, "trackerwork.go": {"trackerAction"}, "trackeritem.go": {"onTrackerItemKey"}},
 }
 
 // arrowAliases are the arrow keys' spellings of j, k, h and l: one key an

@@ -128,6 +128,7 @@ func (m *Model) withIssueMaps() *Model {
 	m.issueFailed = map[string]bool{}
 	m.issueAsked = map[string]time.Time{}
 	m.noTracker = map[string]bool{}
+	m.trackerFolds = map[string]map[trackerKind]bool{}
 	return m
 }
 
@@ -137,5 +138,6 @@ func (m *Model) forgetProjectIssues(name string) {
 	delete(m.issuePending, name)
 	delete(m.issueFailed, name)
 	delete(m.noTracker, name)
+	delete(m.trackerFolds, name)
 	delete(m.issueAsked, name)
 }
