@@ -85,10 +85,10 @@ func TestRenderCodexArgs_EscapesTheCommandForTOML_issue152(t *testing.T) {
 // transcript_path; the real session always names its rollout. Dropping the
 // payload in the hook keeps that thread from re-binding the row (#152).
 func TestParseCodexPayload_DropsAThreadWithNoTranscript_issue152(t *testing.T) {
-	real := `{"session_id":"s1","transcript_path":"/h/.codex/sessions/r.jsonl","cwd":"/w","hook_event_name":"SessionStart","source":"startup"}`
+	own := `{"session_id":"s1","transcript_path":"/h/.codex/sessions/r.jsonl","cwd":"/w","hook_event_name":"SessionStart","source":"startup"}`
 	memories := `{"session_id":"s2","transcript_path":null,"cwd":"/h/.codex/memories","hook_event_name":"SessionStart","source":"startup"}`
 	missing := `{"session_id":"s3","hook_event_name":"Stop"}`
-	p, ok := hooks.ParseCodexPayload(strings.NewReader(real))
+	p, ok := hooks.ParseCodexPayload(strings.NewReader(own))
 	if !ok || p.SessionID != "s1" || p.HookEventName != "SessionStart" || p.Source != "startup" {
 		t.Errorf("real session = %+v, %v; want it parsed", p, ok)
 	}

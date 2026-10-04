@@ -3,10 +3,11 @@
 // its transcript, which hook events it reports, and how to read one line of
 // that transcript into omatty's neutral status vocabulary.
 //
-// Claude is the only profile today (#46). It exists as a profile rather than
-// as the hardcoded default it was, so a second agent is a new catalog entry and
-// not a simultaneous edit to the launcher, the watcher, paths and cmd. Each
-// session's agent is resolved through an injected Catalog (#521).
+// Claude was the first profile (#46) and codex the second (#152). Claude
+// became a profile rather than the hardcoded default it was, so a second
+// agent is a new catalog entry and not a simultaneous edit to the launcher,
+// the watcher, paths and cmd. Each session's agent is resolved through an
+// injected Catalog (#521).
 //
 // The catalog - which profiles exist, and the implementations each one
 // carries - is composed in cmd/omatty (ADR 0001, migration step 5.2b,
@@ -81,6 +82,21 @@ func ClaudeCommand(bin, sessionID, _ string, resume bool, settingsFile string) [
 		flag = "--resume"
 	}
 	return []string{bin, flag, sessionID, "--settings", settingsFile}
+}
+
+// CodexCommand is codex's argument list (#152). codex takes no id from
+// omatty: a fresh start is the binary alone, and the id codex chooses comes
+// back on its SessionStart hook (Reported, #523). A resume names that id,
+// the row's Conversation, to `codex resume`. There is no settings file -
+// codex reads hooks only from `-c` flags, which the launcher appends from
+// the profile's RenderArgs, and which `codex resume` accepts after the id.
+//
+//	argv := agent.CodexCommand("codex", conversation, dir, true, "") // codex resume <id>
+func CodexCommand(bin, sessionID, _ string, resume bool, _ string) []string {
+	if resume {
+		return []string{bin, "resume", sessionID}
+	}
+	return []string{bin}
 }
 
 // Generic is an agent declared in config.toml by its command alone (#525): it

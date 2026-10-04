@@ -29,9 +29,10 @@ func TestLookup_AnEmptyNameIsClaude_issue46(t *testing.T) {
 }
 
 func TestLookup_UnknownAgentNamesItAndTheKnownOnes_issue46(t *testing.T) {
-	_, err := mustAgents(t).Lookup("codex")
-	if err == nil || !strings.Contains(err.Error(), "codex") || !strings.Contains(err.Error(), "claude") {
-		t.Fatalf("Lookup(codex) error = %v, want it to name codex and the known profiles", err)
+	// "nope", not "codex": codex is a profile since #152.
+	_, err := mustAgents(t).Lookup("nope")
+	if err == nil || !strings.Contains(err.Error(), "nope") || !strings.Contains(err.Error(), "claude") || !strings.Contains(err.Error(), "codex") {
+		t.Fatalf("Lookup(nope) error = %v, want it to name nope and the known profiles", err)
 	}
 }
 
@@ -41,8 +42,8 @@ func TestClaude_EveryProfileFieldIsSet_issue46(t *testing.T) {
 	if p.Command == nil || p.TranscriptPath == nil || p.HookEvents == nil || p.RenderSettings == nil || p.Status == nil || p.DefaultBin == "" {
 		t.Errorf("Claude() has a nil field: %+v", p)
 	}
-	if names := mustAgents(t).Names(); len(names) != 1 || names[0] != "claude" {
-		t.Errorf("Names() = %v, want [claude]", names)
+	if names := mustAgents(t).Names(); len(names) == 0 || names[0] != "claude" {
+		t.Errorf("Names() = %v, want claude first", names)
 	}
 }
 
@@ -63,7 +64,8 @@ func TestCatalog_EveryDeclaredCapabilityHasItsFunc_issue520(t *testing.T) {
 		if p.Caps.Status >= agent.StatusTranscript && (p.TranscriptPath == nil || p.Status == nil) {
 			t.Errorf("%s declares a transcript and lacks its path or parser", name)
 		}
-		if p.Caps.Status == agent.StatusHooks && (p.HookEvents == nil || p.RenderSettings == nil) {
+		rendered := p.RenderSettings != nil || p.RenderArgs != nil // a file, or -c flags (#152)
+		if p.Caps.Status == agent.StatusHooks && (p.HookEvents == nil || !rendered) {
 			t.Errorf("%s declares hooks and lacks their events or renderer", name)
 		}
 	}
@@ -204,11 +206,11 @@ func TestAgentOptions_ListsEveryAgentWithItsInstalledBin_issue524(t *testing.T) 
 		asked = append(asked, bin)
 		return true
 	})()
-	if len(options) != 1 || options[0].Name != "claude" || !options[0].Installed {
-		t.Errorf("options = %+v, want claude, installed", options)
+	if len(options) != 2 || options[0].Name != "claude" || !options[0].Installed || options[1].Name != "codex" {
+		t.Errorf("options = %+v, want claude installed, then codex", options)
 	}
-	if len(asked) != 1 || asked[0] != "/opt/claude" {
-		t.Errorf("asked about %v, want the configured /opt/claude", asked)
+	if strings.Join(asked, ",") != "/opt/claude,codex" {
+		t.Errorf("asked about %v, want the configured /opt/claude, then codex's default", asked)
 	}
 }
 
@@ -233,8 +235,8 @@ func TestConfiguredAgents_JoinsTheGenericOnes_issue525(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(agents.Names(), ","); got != "claude,aider" {
-		t.Errorf("Names() = %s, want claude,aider", got)
+	if got := strings.Join(agents.Names(), ","); got != "claude,codex,aider" {
+		t.Errorf("Names() = %s, want the built-ins, then aider", got)
 	}
 }
 
