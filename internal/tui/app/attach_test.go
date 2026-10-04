@@ -35,6 +35,7 @@ func TestModel_AAttachesTheSelectedFileAsAPathReference_issue199(t *testing.T) {
 func TestModel_AOnADirectoryAttachesItWithATrailingSlash_issue199(t *testing.T) {
 	m, fakes, _, _ := modelWithTree(t)
 	leader(m, key('f')) // cursor on internal/ui/, one compacted row since #430 (#194)
+	openInternal(m)     // closed since #593
 
 	pressAndSettle(m, key('a'))
 

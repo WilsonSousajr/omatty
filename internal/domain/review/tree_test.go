@@ -37,9 +37,9 @@ func modified(paths ...string) map[string]review.Change {
 }
 
 func TestNewTree_PreOrderWithDirectoriesOnFirstSight_issue24(t *testing.T) {
-	tr := review.NewTree(
+	tr := openAll(review.NewTree(
 		[]string{"internal/ui/model.go", "internal/ui/render.go", "go.mod", "internal/vcs/git.go"},
-		modified("internal/ui/model.go"))
+		modified("internal/ui/model.go")))
 
 	got := names(tr.Visible())
 
@@ -54,10 +54,10 @@ func TestNewTree_PreOrderWithDirectoriesOnFirstSight_issue24(t *testing.T) {
 // A file browser lists directories before files at every depth and ignores
 // case, so Foo.go and bar.go read as bar, Foo rather than by byte (#194).
 func TestNewTree_DirectoriesFirstThenCaseInsensitive_issue194(t *testing.T) {
-	tr := review.NewTree([]string{
+	tr := openAll(review.NewTree([]string{
 		"go.mod", "Foo.go", "bar.go", "cmd/main.go",
 		"internal/ui/Zed.go", "internal/ui/apple.go", "internal-old/x.go",
-	}, nil)
+	}, nil))
 
 	got := names(tr.Visible())
 
@@ -70,7 +70,7 @@ func TestNewTree_DirectoriesFirstThenCaseInsensitive_issue194(t *testing.T) {
 }
 
 func TestTree_ToggleHidesADirectorysChildren_issue24(t *testing.T) {
-	tr := review.NewTree([]string{"a/b.go", "a/c/d.go", "e.go"}, nil)
+	tr := openAll(review.NewTree([]string{"a/b.go", "a/c/d.go", "e.go"}, nil))
 
 	tr.Toggle("a")
 
@@ -88,7 +88,7 @@ func TestTree_ToggleHidesADirectorysChildren_issue24(t *testing.T) {
 }
 
 func TestTree_ToggleOnAFileIsIgnored_issue24(t *testing.T) {
-	tr := review.NewTree([]string{"e.go"}, nil)
+	tr := openAll(review.NewTree([]string{"e.go"}, nil))
 	tr.Toggle("e.go")
 	if tr.Collapsed("e.go") || len(tr.Visible()) != 1 {
 		t.Error("a file must not collapse")
@@ -98,7 +98,7 @@ func TestTree_ToggleOnAFileIsIgnored_issue24(t *testing.T) {
 // A directory whose name prefixes a sibling's must not be hidden with it:
 // "internal" collapsed hides "internal/ui", never "internal-old".
 func TestTree_CollapsingADirectoryLeavesAPrefixSiblingVisible_issue24(t *testing.T) {
-	tr := review.NewTree([]string{"a/b.go", "ab/c.go"}, nil)
+	tr := openAll(review.NewTree([]string{"a/b.go", "ab/c.go"}, nil))
 
 	tr.Toggle("a")
 
@@ -110,7 +110,7 @@ func TestTree_CollapsingADirectoryLeavesAPrefixSiblingVisible_issue24(t *testing
 // The listing arrives before the diff, so the marks land on a tree the
 // operator may already have folded.
 func TestTree_RetouchMarksFilesWithoutLosingTheCollapseState_issue24(t *testing.T) {
-	tr := review.NewTree([]string{"a/b.go", "e.go"}, nil)
+	tr := openAll(review.NewTree([]string{"a/b.go", "e.go"}, nil))
 	tr.Toggle("a")
 
 	tr.Retouch(modified("a/b.go"))
@@ -129,7 +129,7 @@ func TestTree_RetouchMarksFilesWithoutLosingTheCollapseState_issue24(t *testing.
 }
 
 func TestNewTree_NoPathsIsAnEmptyListing_issue24(t *testing.T) {
-	if got := review.NewTree(nil, nil).Visible(); len(got) != 0 {
+	if got := openAll(review.NewTree(nil, nil)).Visible(); len(got) != 0 {
 		t.Errorf("Visible() = %v, want none", got)
 	}
 }
@@ -138,7 +138,7 @@ func TestNewTree_NoPathsIsAnEmptyListing_issue24(t *testing.T) {
 // loaded and empty, and failed. Visible() returning nil for an empty listing
 // collapsed the first two into one and the panel spun forever (#131).
 func TestTree_VisibleOnAnEmptyTreeIsEmptyNotNil_issue131(t *testing.T) {
-	got := review.NewTree(nil, nil).Visible()
+	got := openAll(review.NewTree(nil, nil)).Visible()
 	if got == nil {
 		t.Fatal("Visible() on an empty tree = nil, want a non-nil empty slice")
 	}
@@ -150,7 +150,7 @@ func TestTree_VisibleOnAnEmptyTreeIsEmptyNotNil_issue131(t *testing.T) {
 // A turn ends and the worktree is listed again; the directory the operator
 // folded stays folded and a file claude created appears in place (#195).
 func TestTree_RelistKeepsTheCollapseState_issue195(t *testing.T) {
-	tr := review.NewTree([]string{"a/b.go", "e.go"}, modified("a/b.go"))
+	tr := openAll(review.NewTree([]string{"a/b.go", "e.go"}, modified("a/b.go")))
 	tr.Toggle("a")
 
 	tr.Relist([]string{"a/b.go", "a/new.go", "e.go"}, modified("a/new.go"))
@@ -168,7 +168,7 @@ func TestTree_RelistKeepsTheCollapseState_issue195(t *testing.T) {
 // entry that folds a future directory of the same name unexpectedly - but a
 // directory that is still there keeps its state. Both halves in one test.
 func TestTree_RelistForgetsADirectoryThatIsGone_issue195(t *testing.T) {
-	tr := review.NewTree([]string{"a/b.go", "c/d.go"}, nil)
+	tr := openAll(review.NewTree([]string{"a/b.go", "c/d.go"}, nil))
 	tr.Toggle("a")
 	tr.Toggle("c")
 
@@ -188,10 +188,10 @@ func TestTree_RelistForgetsADirectoryThatIsGone_issue195(t *testing.T) {
 // modified whatever changed beneath it (#196) until #430 made it carry the
 // strongest change beneath: here a deletion, so D.
 func TestTree_RowsCarryTheKindOfChange_issue196(t *testing.T) {
-	tr := review.NewTree([]string{"a/m.go", "a/n.go", "r.go"}, map[string]review.Change{
+	tr := openAll(review.NewTree([]string{"a/m.go", "a/n.go", "r.go"}, map[string]review.Change{
 		"a/m.go": review.ChangeModified, "a/n.go": review.ChangeAdded,
 		"a/d.go": review.ChangeDeleted, "r.go": review.ChangeRenamed,
-	})
+	}))
 
 	got := names(tr.Visible())
 
@@ -204,7 +204,7 @@ func TestTree_RowsCarryTheKindOfChange_issue196(t *testing.T) {
 // A deleted file listed by the change map must not survive a relist that no
 // longer deletes it, and must not duplicate a path that is also listed.
 func TestTree_ADeletedRowFollowsTheChangeMap_issue196(t *testing.T) {
-	tr := review.NewTree([]string{"a.go"}, map[string]review.Change{"a.go": review.ChangeDeleted})
+	tr := openAll(review.NewTree([]string{"a.go"}, map[string]review.Change{"a.go": review.ChangeDeleted}))
 	if got := names(tr.Visible()); got != "a.goD" {
 		t.Errorf("Visible() = %s, want a.goD: listed and deleted is one row", got)
 	}
@@ -235,9 +235,9 @@ func TestChangeOf_MapsEveryDiffStatus_issue196(t *testing.T) {
 // ancestor of a kept file, so the shape around a match is still readable
 // (#198).
 func TestTree_SetFilterKeepsMatchesAndTheirAncestors_issue198(t *testing.T) {
-	tr := review.NewTree([]string{
+	tr := openAll(review.NewTree([]string{
 		"internal/review/tree.go", "internal/ui/tree.go", "internal/ui/model.go", "go.mod",
-	}, nil)
+	}, nil))
 
 	tr.SetFilter("tree")
 
@@ -250,7 +250,7 @@ func TestTree_SetFilterKeepsMatchesAndTheirAncestors_issue198(t *testing.T) {
 // A match under a folded directory is reachable: directories read as
 // expanded while a filter is on, and the fold comes back when it clears.
 func TestTree_AFilterOpensFoldedDirectoriesAndClearingRestoresThem_issue198(t *testing.T) {
-	tr := review.NewTree([]string{"a/b.go", "a/c.go", "d.go"}, nil)
+	tr := openAll(review.NewTree([]string{"a/b.go", "a/c.go", "d.go"}, nil))
 	tr.Toggle("a")
 
 	tr.SetFilter("b")
@@ -267,7 +267,7 @@ func TestTree_AFilterOpensFoldedDirectoriesAndClearingRestoresThem_issue198(t *t
 // A query nothing matches is an empty, non-nil listing, the way an empty
 // repository is (#131): the ui tells "nothing matched" from "not listed".
 func TestTree_AFilterNothingMatchesIsEmptyNotNil_issue198(t *testing.T) {
-	tr := review.NewTree([]string{"a.go"}, nil)
+	tr := openAll(review.NewTree([]string{"a.go"}, nil))
 	tr.SetFilter("zzz")
 	got := tr.Visible()
 	if got == nil || len(got) != 0 {

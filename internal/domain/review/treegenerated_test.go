@@ -18,13 +18,13 @@ func visiblePaths(t *review.Tree) []string {
 
 func generatedTree(t *testing.T) *review.Tree {
 	t.Helper()
-	tree := review.NewTree([]string{
+	tree := openAll(review.NewTree([]string{
 		"go.mod", "go.sum",
 		"coverage/lcov.info", "coverage/index.html",
 		"internal/ui/model.go", "internal/ui/model.pb.go",
 	}, map[string]review.Change{
 		"go.sum": review.ChangeModified, "internal/ui/model.go": review.ChangeModified,
-	})
+	}))
 	tree.SetGenerated(map[string]bool{
 		"go.sum": true, "coverage/lcov.info": true, "coverage/index.html": true,
 		"internal/ui/model.pb.go": true,

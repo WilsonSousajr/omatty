@@ -57,16 +57,24 @@ func modelWithTree(t *testing.T) (*app.Model, map[string]*terminal.Fake, *fileLi
 }
 
 // foldToGoMod puts the cursor on go.mod. Since #194 the fixture opens with
-// internal/ on the first row, so enter folds it and j lands on go.mod.
+// internal/ on the first row, and since #593 it opens closed, so j alone
+// lands on go.mod.
 func foldToGoMod(m *app.Model) {
-	press(m, special(tea.KeyEnter))
 	press(m, key('j'))
+}
+
+// openInternal opens the fixture's internal/ui chain with enter on the first
+// row, which is the tree every test written before #593 started from: since
+// #593 each directory starts closed.
+func openInternal(m *app.Model) {
+	press(m, special(tea.KeyEnter))
 }
 
 func TestModel_LeaderFOpensTheTreeWithTouchedFilesMarked_issue24(t *testing.T) {
 	m, _, lister, _ := modelWithTree(t)
 
 	leader(m, key('f'))
+	openInternal(m) // closed since #593
 
 	if m.ReviewView() != app.ViewTree || !m.ReviewFocused() {
 		t.Fatalf("view = %v focused = %v, want the tree focused", m.ReviewView(), m.ReviewFocused())
@@ -85,6 +93,7 @@ func TestModel_LeaderFOpensTheTreeWithTouchedFilesMarked_issue24(t *testing.T) {
 func TestModel_EnterCollapsesADirectoryAndPreviewsAFile_issue24(t *testing.T) {
 	m, _, _, reader := modelWithTree(t)
 	leader(m, key('f'))
+	openInternal(m) // closed since #593
 
 	press(m, special(tea.KeyEnter)) // internal/ leads the listing (#194)
 	if strings.Contains(m.View().Content, "model.go") {
@@ -192,6 +201,7 @@ func TestModel_ADiffArrivingAfterTheListingStillMarksTheTree_issue24(t *testing.
 
 	m.Update(app.FilesLoadedMsg{SessionID: "s1", Paths: []string{"internal/ui/model.go", "new.txt"}})
 	m.Update(app.DiffLoadedMsg{SessionID: "s1", Seq: m.DiffSeq(), Diff: sampleDiffParsed(t)})
+	openInternal(m) // closed since #593
 
 	lineWith(t, m.View().Content, "M model.go")
 }

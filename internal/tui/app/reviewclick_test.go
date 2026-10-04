@@ -98,6 +98,7 @@ func TestUpdate_AClickBelowTheLastReviewRowIsIgnored_issue168(t *testing.T) {
 func TestUpdate_AClickOnATreeRowMovesTheTreeCursor_issue168(t *testing.T) {
 	m, _, _, reader := modelWithTree(t)
 	leader(m, key('f'))
+	openInternal(m) // closed since #593
 
 	m.Update(clickAt(reviewHairlineX+5, reviewRowY(1))) // internal/ui/ (compacted, #430), model.go
 	pressAndSettle(m, special(tea.KeyEnter))

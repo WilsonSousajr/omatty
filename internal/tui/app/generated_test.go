@@ -37,6 +37,7 @@ func modelWithGenerated(t *testing.T, gen map[string]bool) (*app.Model, *generat
 	m := app.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	leader(m, key('f'))
+	openInternal(m) // closed since #593
 	return m, det
 }
 

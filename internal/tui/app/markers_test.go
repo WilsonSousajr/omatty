@@ -30,6 +30,7 @@ func deletedAndRenamed() dreview.Diff {
 func TestModel_TreeRowsCarryTheKindOfChange_issue196(t *testing.T) {
 	m, _, _, _ := modelWithTree(t)
 	leader(m, key('f'))
+	openInternal(m) // closed since #593
 
 	view := m.View().Content
 	if row := lineWith(t, view, "M model.go"); !strings.Contains(row, sgrAmber) {
@@ -66,9 +67,8 @@ func TestModel_ADeletedFileIsARowAndEnterOnItDoesNotError_issue196(t *testing.T)
 		t.Errorf("deleted row is not red: %q", row)
 	}
 
-	press(m, special(tea.KeyEnter)) // fold internal/
-	press(m, key('j'))              // go.mod
-	press(m, key('j'))              // gone.go
+	press(m, key('j')) // go.mod
+	press(m, key('j')) // gone.go
 	pressAndSettle(m, special(tea.KeyEnter))
 
 	if m.ReviewView() != app.ViewPreview || len(reader.Read) != 0 {

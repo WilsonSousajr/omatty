@@ -97,6 +97,7 @@ func TestModel_ORoundTripsBetweenTheDiffAndThePreview_issue200(t *testing.T) {
 func TestModel_OInAPreviewOpenedFromTheTreeLandsOnTheFileHeader_issue200(t *testing.T) {
 	m, _ := modelWithLinks(t)
 	leader(m, key('f'))
+	openInternal(m)    // closed since #593
 	press(m, key('j')) // model.go, under the compacted internal/ui/ row (#430)
 	pressAndSettle(m, special(tea.KeyEnter))
 	if m.ReviewView() != app.ViewPreview {
@@ -134,6 +135,7 @@ func TestModel_OFromTheDiffThenEscLandsOnAListedTree_issue200(t *testing.T) {
 	pressAndSettle(m, key('o'))
 
 	press(m, special(tea.KeyEscape))
+	openInternal(m) // closed since #593
 
 	view := m.View().Content
 	if m.ReviewView() != app.ViewTree || strings.Contains(view, "listing files") {
