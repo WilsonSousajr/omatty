@@ -61,7 +61,7 @@ func (m *Model) pollAll() tea.Cmd {
 // pollStat reads one session's stat off the Update goroutine, the shape
 // loadDiff uses. A poll already in flight is not repeated.
 func (m *Model) pollStat(id string) tea.Cmd {
-	sess, ok := m.session(id)
+	sess, ok := m.reviewSession(id)
 	if !ok || m.stat == nil || m.statPending[id] {
 		return nil
 	}

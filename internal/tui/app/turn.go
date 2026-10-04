@@ -35,7 +35,7 @@ func (m *Model) maybeSnapTurn(e dstatus.Event) tea.Cmd {
 	if e.Kind != dstatus.PromptSubmitted || !e.Hook || m.turnPending[e.SessionID] {
 		return nil
 	}
-	sess, ok := m.session(e.SessionID)
+	sess, ok := m.reviewSession(e.SessionID)
 	if !ok {
 		return nil
 	}

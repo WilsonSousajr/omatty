@@ -3,6 +3,7 @@ package app_test
 import (
 	"fmt"
 	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
+	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"go/ast"
 	"go/parser"
@@ -41,6 +42,7 @@ func routedMsgs() []routedMsg {
 		{"tea.WindowSizeMsg", tea.WindowSizeMsg{Width: 100, Height: 28}},
 		{"DiffLoadedMsg", app.DiffLoadedMsg{SessionID: "s1", Diff: dreview.Diff{}}},
 		{"FilesLoadedMsg", app.FilesLoadedMsg{SessionID: "s1", Paths: []string{"go.mod"}}},
+		{"WorkTreeMsg", app.WorkTreeMsg{SessionID: "s1", Cwd: "/wt", Sess: session.Session{ID: "s1", Dir: "/wt"}}},
 		{"WorktreeRemovedMsg", app.WorktreeRemovedMsg{SessionID: "s1", Dir: "/p/omatty"}},
 		{"TurnLoadedMsg", app.TurnLoadedMsg{SessionID: "s1"}}, {"TurnSnappedMsg", app.TurnSnappedMsg{SessionID: "s1"}},
 		{"NamedMsg", app.NamedMsg{SessionID: "s1", From: "main", Title: "named"}},

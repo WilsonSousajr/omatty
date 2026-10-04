@@ -38,6 +38,7 @@ type Tailer struct {
 	lastUsageID string          // the response whose usage was last counted (issue #59)
 	last        dstatus.Event   // the status event most recently sent, to skip repeats (issue #66)
 	usageDirty  bool            // usage changed since it was last sent
+	cwd         string          // the directory the last line that named one was written in (#659)
 	stop        chan struct{}
 	done        chan struct{}
 	once        sync.Once
@@ -104,7 +105,7 @@ func (tl *Tailer) Poll() {
 // startOver forgets everything read before a truncation - a /clear or a
 // rewrite - and marks the zeroed usage dirty, so it reaches the sidebar.
 func (tl *Tailer) startOver() {
-	tl.usage, tl.ring, tl.lastUsageID = dstatus.Tokens{}, nil, ""
+	tl.usage, tl.ring, tl.lastUsageID, tl.cwd = dstatus.Tokens{}, nil, "", ""
 	tl.last, tl.usageDirty = dstatus.Event{}, true
 }
 
@@ -121,6 +122,9 @@ func (tl *Tailer) ingest(line []byte) {
 		tl.lastUsageID = e.MessageID
 		tl.usageDirty = true
 	}
+	if e.Cwd != "" {
+		tl.cwd = e.Cwd
+	}
 	tl.ring = append(tl.ring, e)
 	if len(tl.ring) > ringSize {
 		tl.ring = tl.ring[len(tl.ring)-ringSize:]
@@ -133,7 +137,7 @@ func (tl *Tailer) emit() {
 	kind, at, ok := tl.adapter.DeriveKind(tl.ring)
 	if ok && (kind != tl.last.Kind || !at.Equal(tl.last.At)) {
 		tl.last = dstatus.Event{Kind: kind, At: at}
-		tl.send(dstatus.Event{SessionID: tl.sessionID, Kind: kind, At: at})
+		tl.send(dstatus.Event{SessionID: tl.sessionID, Kind: kind, At: at, Cwd: tl.cwd})
 	}
 	if tl.usageDirty {
 		tl.usageDirty = false

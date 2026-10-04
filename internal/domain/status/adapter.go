@@ -20,6 +20,9 @@ type Entry struct {
 	ToolUse      bool   // assistant: a tool_use block is present
 	ToolResult   bool   // user: a tool_result block is present
 	Usage        Tokens // assistant
+	// Cwd is the directory the agent was working in when it wrote the line,
+	// empty when the line does not say (#659).
+	Cwd string
 }
 
 // Adapter turns one agent's transcript lines and hook payloads into events.

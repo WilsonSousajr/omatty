@@ -37,7 +37,7 @@ type coverageMsg struct {
 // own directory, which for a worktree session is that worktree, so two sessions
 // never read each other's numbers.
 func (m *Model) loadCoverage(id string) tea.Cmd {
-	sess, found := m.sessionByID(id)
+	sess, found := m.reviewSession(id)
 	if !found {
 		return nil
 	}

@@ -107,11 +107,14 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	return m.onPaneMsg(msg)
 }
 
-// onTurnMsg answers the turn baseline's two results: a snapshot taken, and a
-// turn diff loaded (#311). A table of its own, as onNamingMsg is, because the
-// two cases took onDataMsg past the length limit.
+// onTurnMsg answers what a turn leaves behind: the baseline's two results, a
+// snapshot taken and a turn diff loaded (#311), and the checkout the turn
+// ended in (#659). A table of its own, as onNamingMsg is, because the cases
+// took onDataMsg past the length limit.
 func (m *Model) onTurnMsg(msg tea.Msg) (tea.Cmd, bool) {
 	switch typed := msg.(type) {
+	case WorkTreeMsg:
+		return m.onWorkTree(typed), true
 	case TurnLoadedMsg:
 		return m.onTurnLoaded(typed), true
 	case TurnSnappedMsg:

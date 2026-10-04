@@ -13,6 +13,7 @@ type rawEntry struct {
 	Type      string    `json:"type"`
 	Timestamp time.Time `json:"timestamp"`
 	IsMeta    bool      `json:"isMeta"`
+	Cwd       string    `json:"cwd"`
 	Message   struct {
 		ID         string          `json:"id"`
 		StopReason string          `json:"stop_reason"`
@@ -38,14 +39,17 @@ func ParseEntry(line []byte) (dstatus.Entry, bool) {
 	if json.Unmarshal(line, &r) != nil {
 		return dstatus.Entry{}, false
 	}
+	var e dstatus.Entry
 	switch r.Type {
 	case "user":
-		return parseUser(r), true
+		e = parseUser(r)
 	case "assistant":
-		return parseAssistant(r), true
+		e = parseAssistant(r)
 	default:
 		return dstatus.Entry{}, false
 	}
+	e.Cwd = r.Cwd // where claude was working, which the review follows (#659)
+	return e, true
 }
 
 // injectedPrefixes open the user-role entries Claude Code writes itself: a

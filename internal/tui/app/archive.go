@@ -309,6 +309,7 @@ func (m *Model) forgetCardMaps(id string) {
 	delete(m.statPending, id)
 	delete(m.statFailed, id)
 	delete(m.filesPending, id)
+	delete(m.workDirs, id)
 	delete(m.reviewed, id)  // what they had read, display-only (#337)
 	delete(m.generated, id) // which of its files nobody wrote (#338)
 	delete(m.turnGated, id) // whether its gate run followed a turn (#332)
