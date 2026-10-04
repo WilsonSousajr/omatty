@@ -1,10 +1,10 @@
- projects · 2               │ omatty ▎ main             │ files · main · 1/5    
+ projects · 2               │ omatty ▎ main             │ files · main · 1/3    
 ────────────────────────────┼───────────────────────────┼─ files ──────────────×
-  ▾ omatty                  │session one                │  M ▾ internal/ui/     
-▎ ○ main                    │                           │    M model.go         
-▎                           │                           │      render.go        
-▎                           │                           │    go.mod             
-  ○ parser-fix              │                           │  A new.txt            
+  ▾ omatty                  │session one                │  M ▸ internal/        
+▎ ○ main                    │                           │    go.mod             
+▎                           │                           │  A new.txt            
+▎                           │                           │                       
+  ○ parser-fix              │                           │                       
                             │                           │                       
                             │                           │                       
   ▾ api-svc                 │                           │                       

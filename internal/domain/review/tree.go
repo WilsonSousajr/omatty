@@ -17,14 +17,18 @@ type TreeNode struct {
 	Change Change
 }
 
-// Tree is a worktree listing with collapsible directories (#24).
+// Tree is a worktree listing with collapsible directories (#24). Every
+// directory starts closed (#593): the set records the ones the operator
+// opened, so a directory nobody opened - including one claude creates
+// mid-turn - is closed by default.
 //
 //	t := review.NewTree(paths, changes)
 //	rows := t.Visible()
 type Tree struct {
-	nodes     []TreeNode // the full listing in display order
-	collapsed map[string]bool
-	filter    string // narrows Visible while non-empty (#198)
+	nodes  []TreeNode // the full listing in display order
+	open   map[string]bool
+	dirs   map[string]bool // the directories in nodes, for Collapsed
+	filter string          // narrows Visible while non-empty (#198)
 	// generated is the files nobody wrote, folded out of Visible unless
 	// showGenerated is set (#338). Kept here rather than on TreeNode because
 	// it is detected asynchronously, after the listing is already on screen.
@@ -40,7 +44,7 @@ type Tree struct {
 // changed file. paths are sorted here rather than trusted, so a caller that
 // concatenates two git listings still gets a directory listing.
 func NewTree(paths []string, changes map[string]Change) *Tree {
-	t := &Tree{collapsed: map[string]bool{}, generated: map[string]bool{}}
+	t := &Tree{open: map[string]bool{}, generated: map[string]bool{}}
 	t.rebuild(paths, changes)
 	return t
 }
@@ -54,6 +58,12 @@ func (t *Tree) rebuild(paths []string, changes map[string]Change) {
 	seen := map[string]bool{}
 	for _, p := range sorted {
 		t.addPath(p, changes, seen)
+	}
+	t.dirs = map[string]bool{}
+	for _, n := range t.nodes {
+		if n.IsDir {
+			t.dirs[n.Path] = true
+		}
 	}
 }
 
@@ -161,7 +171,7 @@ func (t *Tree) Visible() []TreeNode {
 			continue
 		}
 		out = append(out, n)
-		if n.IsDir && t.collapsed[n.Path] {
+		if n.IsDir && !t.open[n.Path] {
 			hidden = n.Path + "/"
 		}
 	}
@@ -183,13 +193,16 @@ func (t *Tree) folded(n TreeNode) bool {
 // empty `a`, and one reverse pass settles the whole chain where a forward pass
 // would need as many passes as the tree is deep.
 //
-// A *collapsed* directory is always kept. Its children are not in rows at all -
-// Visible skipped them - so "nothing under it" is true of every fold, and
-// dropping them made `enter` on a directory delete it from the listing.
+// A *closed* directory's children are not in rows at all - Visible skipped
+// them - so "nothing under it" is true of every fold, and dropping them made
+// `enter` on a directory delete it from the listing. Its emptiness is decided
+// from the full listing instead: once every directory started closed (#593),
+// keeping every closed one brought back a generated-only coverage/ that opens
+// onto nothing.
 func (t *Tree) withoutEmptyDirs(rows []TreeNode) []TreeNode {
 	keep := make([]bool, len(rows))
 	for i := len(rows) - 1; i >= 0; i-- {
-		keep[i] = !rows[i].IsDir || t.collapsed[rows[i].Path] || hasChildKept(rows, keep, i)
+		keep[i] = !rows[i].IsDir || t.closedWithFiles(rows[i].Path) || hasChildKept(rows, keep, i)
 	}
 	out := make([]TreeNode, 0, len(rows))
 	for i, n := range rows {
@@ -198,6 +211,21 @@ func (t *Tree) withoutEmptyDirs(rows []TreeNode) []TreeNode {
 		}
 	}
 	return out
+}
+
+// closedWithFiles reports whether dir is closed and the full listing holds a
+// file under it that is not folded away.
+func (t *Tree) closedWithFiles(dir string) bool {
+	if t.open[dir] {
+		return false
+	}
+	prefix := dir + "/"
+	for _, n := range t.nodes {
+		if !n.IsDir && strings.HasPrefix(n.Path, prefix) && !t.folded(n) {
+			return true
+		}
+	}
+	return false
 }
 
 // hasChildKept reports whether any kept row after i lies under rows[i].
@@ -303,9 +331,9 @@ func (t *Tree) Retouch(changes map[string]Change) {
 // Relist replaces the rows with a fresh listing and keeps the collapse
 // state, the way Retouch keeps it for a fresh diff: a turn ending re-lists
 // the worktree so a file claude created appears without r, and a directory
-// the operator folded must not spring open under the cursor because of it
-// (#195). A folded directory that is no longer listed is forgotten, so a
-// later directory of the same name starts open like any other.
+// the operator opened must not snap shut under the cursor because of it
+// (#195). An opened directory that is no longer listed is forgotten, so a
+// later directory of the same name starts closed like any other (#593).
 //
 //	tree.Relist(paths, changes)
 func (t *Tree) Relist(paths []string, changes map[string]Change) {
@@ -314,23 +342,45 @@ func (t *Tree) Relist(paths []string, changes map[string]Change) {
 	for _, n := range t.nodes {
 		present[n.Path] = n.IsDir
 	}
-	for dir := range t.collapsed {
+	for dir := range t.open {
 		if !present[dir] {
-			delete(t.collapsed, dir)
+			delete(t.open, dir)
 		}
 	}
 }
 
 // Toggle collapses or expands the directory at path; files are ignored, so
-// enter on a file is free to mean something else.
+// enter on a file is free to mean something else. Opening a directory opens
+// its single-directory chain with it (#593): every directory starts closed,
+// so a chain would otherwise come back as the same closed row with a longer
+// name, once per level, since #430 draws a chain as one row.
+//
+//	tree.Toggle("internal") // opens internal, and internal/ui if it is alone
 func (t *Tree) Toggle(path string) {
-	for _, n := range t.nodes {
-		if n.Path == path && n.IsDir {
-			t.collapsed[path] = !t.collapsed[path]
-			return
-		}
+	if !t.dirs[path] {
+		return
+	}
+	if t.open[path] {
+		delete(t.open, path)
+		return
+	}
+	for dir, ok := path, true; ok; dir, ok = t.onlySubdir(dir) {
+		t.open[dir] = true
 	}
 }
 
-// Collapsed reports whether the directory at path is collapsed.
-func (t *Tree) Collapsed(path string) bool { return t.collapsed[path] }
+// onlySubdir is dir's single direct child when that child is a directory.
+func (t *Tree) onlySubdir(dir string) (string, bool) {
+	prefix, child, count := dir+"/", "", 0
+	for _, n := range t.nodes {
+		rest, under := strings.CutPrefix(n.Path, prefix)
+		if under && !strings.Contains(rest, "/") {
+			child, count = n.Path, count+1
+		}
+	}
+	return child, count == 1 && t.dirs[child]
+}
+
+// Collapsed reports whether the directory at path is collapsed: any directory
+// the operator has not opened. A file is never collapsed.
+func (t *Tree) Collapsed(path string) bool { return t.dirs[path] && !t.open[path] }

@@ -62,7 +62,6 @@ func TestModel_EnterKeepsTheFilterAndHandsKeysBack_issue198(t *testing.T) {
 func TestModel_EscClearsTheFilterAndRestoresTheFolds_issue198(t *testing.T) {
 	m, _, _, _ := modelWithTree(t)
 	leader(m, key('f'))
-	press(m, special(tea.KeyEnter)) // fold internal/
 	if strings.Contains(m.View().Content, "model.go") {
 		t.Fatal("internal/ did not fold")
 	}

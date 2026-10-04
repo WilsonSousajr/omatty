@@ -11,6 +11,7 @@ func TestTree_NerdIconsMarkEachRowsKind_issue431(t *testing.T) {
 	m, _, _, _ := modelWithTree(t)
 	m.UseNerdIcons()
 	leader(m, key('f'))
+	openInternal(m) // closed since #593
 
 	body := stripSGR(m.View().Content)
 	for _, want := range []string{"\uf07c internal/", "\ue627 model.go", "\ue627 go.mod", "\uf15c new.txt"} {
@@ -25,6 +26,7 @@ func TestTree_NerdIconsMarkEachRowsKind_issue431(t *testing.T) {
 func TestTree_PlainIconsLeaveTheTreeAsItWas_issue431(t *testing.T) {
 	m, _, _, _ := modelWithTree(t)
 	leader(m, key('f'))
+	openInternal(m) // closed since #593
 
 	for _, r := range stripSGR(m.View().Content) {
 		if r >= 0xe000 && r <= 0xf8ff {
