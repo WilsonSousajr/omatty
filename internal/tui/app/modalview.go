@@ -119,7 +119,7 @@ var gateKeys = rowsOf(gateBind.Fold, gateBind.Send, gateBind.Rerun, gateBind.Sea
 	gateBind.NextMatch, gateBind.PrevMatch)
 
 var trackerKeys = rowsOf(trackerBind.Read, trackerBind.Filter, trackerBind.Start,
-	trackerBind.Attach, trackerBind.Browse, trackerBind.Reload, trackerBind.NextSection)
+	trackerBind.Attach, trackerBind.Browse, trackerBind.Reload, trackerBind.NextSection, trackerBind.Fold)
 
 // helpSection is one titled block of the help modal below the leader keys.
 type helpSection struct {
