@@ -1571,7 +1571,7 @@ tracker "Q" code=113 mod=1 text="Q" -> pty=0 msgs= focus=1/true armed=false moda
 tracker "Q" code=81 mod=0 text="Q" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2
 tracker "shift+q" code=113 mod=1 text="" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2
 tracker "ctrl+q" code=113 mod=4 text="" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2
-tracker "r" code=114 mod=0 text="r" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2
+tracker "r" code=114 mod=0 text="r" -> pty=0 msgs=app.IssuesLoadedMsg,app.PRsLoadedMsg focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2
 tracker "R" code=114 mod=1 text="R" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2
 tracker "R" code=82 mod=0 text="R" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2
 tracker "shift+r" code=114 mod=1 text="" -> pty=0 msgs= focus=1/true armed=false modal="" view=4 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=1 filter="" note=false frame=3c7295a2

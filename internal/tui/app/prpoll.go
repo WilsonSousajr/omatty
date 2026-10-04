@@ -96,7 +96,7 @@ func (m *Model) pollProjectPRs(project string) tea.Cmd {
 // per list - while forgeStopped is a fact about the checkout and the machine,
 // so it is shared.
 func (m *Model) mayAsk(pending map[string]bool, asked map[string]time.Time, project string) bool {
-	if m.forgeStopped[project] != nil || pending[project] {
+	if (m.forgeStopped[project] != nil && !m.forgeRetry[project]) || pending[project] {
 		return false
 	}
 	now := m.clock()
@@ -133,6 +133,7 @@ func (m *Model) onPRs(msg PRsLoadedMsg) tea.Cmd {
 		return nil
 	}
 	delete(m.prFailed, msg.Project)
+	m.forgeRecovered(msg.Project)
 	m.prs[msg.Project] = msg.PRs
 	m.settleTracker(msg.Project)
 	return nil
@@ -140,6 +141,7 @@ func (m *Model) onPRs(msg PRsLoadedMsg) tea.Cmd {
 
 // prFailure sorts a failed call into a lost forge or an outage.
 func (m *Model) prFailure(project string, err error) {
+	delete(m.forgeRetry, project)
 	if m.stopsForge(project, err) {
 		return
 	}
@@ -156,6 +158,7 @@ func (m *Model) withPRMaps() *Model {
 	m.prPending = map[string]bool{}
 	m.prFailed = map[string]bool{}
 	m.forgeStopped = map[string]error{}
+	m.forgeRetry = map[string]bool{}
 	m.prAsked = map[string]time.Time{}
 	return m
 }

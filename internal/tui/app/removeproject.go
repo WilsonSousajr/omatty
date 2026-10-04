@@ -71,6 +71,7 @@ func (m *Model) forgetProject(name string) {
 	delete(m.prPending, name)
 	delete(m.prFailed, name)
 	delete(m.forgeStopped, name)
+	delete(m.forgeRetry, name)
 	delete(m.prAsked, name)
 	m.forgetProjectIssues(name) // and its issues (#394)
 	m.forgetProjectItems(name)  // and any item read in full (#397)

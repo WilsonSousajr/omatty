@@ -296,7 +296,11 @@ func (m *Model) PRFailed(project string) bool    { return m.prFailed[project] }
 // PollIssues is one issue tick without the tick that re-arms it, IssuesOf what
 // the model holds for a project and IssuesFailed whether its last poll failed
 // (#394).
-func (m *Model) PollIssues() tea.Cmd                   { return m.pollIssues() }
+func (m *Model) PollIssues() tea.Cmd { return m.pollIssues() }
+
+// IssueTickPolls is what the issue tick asks, without re-arming the tick: a
+// test that delivered the tick itself would wait out its five minutes.
+func (m *Model) IssueTickPolls() tea.Cmd               { return m.issueTickPolls() }
 func (m *Model) IssuesOf(project string) []forge.Issue { return m.issues[project] }
 func (m *Model) IssuesFailed(project string) bool      { return m.issueFailed[project] }
 

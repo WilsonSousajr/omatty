@@ -65,6 +65,33 @@ func (m *Model) loseForge(project string, err error) {
 	slog.Info("the project's forge cannot be read; it will show no changes or issues", "project", project, "err", err)
 }
 
+// retryForge lets a stopped project be asked once more, unless the stop is a
+// checkout on no forge omatty reads: that is the checkout's, and asking again
+// cannot change it. A missing tool, a refused token or an http host can each be
+// fixed in another terminal while omatty runs, which #310 assumed they could
+// not (#658). The stop and its note stand until an answer comes back.
+func (m *Model) retryForge(project string) {
+	if err := m.forgeStopped[project]; err != nil && !errors.Is(err, forge.ErrNoForge) {
+		m.forgeRetry[project] = true
+	}
+}
+
+// retryStoppedForges is retryForge for every project.
+func (m *Model) retryStoppedForges() {
+	for project := range m.forgeStopped {
+		m.retryForge(project)
+	}
+}
+
+// forgeRecovered lifts a project's stop once one of its lists has answered.
+func (m *Model) forgeRecovered(project string) {
+	if m.forgeStopped[project] != nil {
+		slog.Info("the project's forge answers again", "project", project)
+	}
+	delete(m.forgeStopped, project)
+	delete(m.forgeRetry, project)
+}
+
 // stoppedNote is the tracker's note for a stopped project: the tool that is
 // missing with its fix, the token the forge refused, a token omatty will not
 // send over http, or the forge the checkout is not on.
