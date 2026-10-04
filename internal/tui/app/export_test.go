@@ -81,7 +81,7 @@ func ColumnBindings() map[string][]string {
 		"diff":    keysOf(d.Comment, d.CommentPart, d.Delete, d.Submit, d.Scope, d.Open, d.NextFile, d.PrevFile, d.NextHunk, d.PrevHunk, d.Fold, d.Reload),
 		"tree":    keysOf(tr.Enter, tr.Read, tr.Generated, tr.Filter, tr.Attach, tr.Open, tr.Reload, tr.Changed),
 		"gate":    keysOf(g.Fold, g.Send, g.Rerun, g.Search, g.NextMatch, g.PrevMatch),
-		"tracker": keysOf(tk.Read, tk.Filter, tk.Start, tk.Attach, tk.Browse, tk.Reload),
+		"tracker": keysOf(tk.Read, tk.Filter, tk.Start, tk.Attach, tk.Browse, tk.Reload, tk.NextSection, tk.PrevSection),
 	}
 }
 

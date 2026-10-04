@@ -119,6 +119,12 @@ func (m *Model) onTrackerKey(key string) tea.Cmd {
 		return m.readTracker(m.review.Tracker.Project)
 	case is(key, trackerBind.Read):
 		return m.openItemAtCursor()
+	case is(key, trackerBind.NextSection):
+		m.jumpTrackerSection(1)
+		return nil
+	case is(key, trackerBind.PrevSection):
+		m.jumpTrackerSection(-1)
+		return nil
 	}
 	return m.trackerDefault(key)
 }
@@ -182,6 +188,39 @@ func (m *Model) moveTrackerCursor(delta int) {
 	if len(rows) > 0 && rows[m.review.Tracker.Cursor].Kind == rowRule {
 		m.stepOffRule(rows, delta)
 	}
+}
+
+// jumpTrackerSection moves the cursor to the first item of the next section, or
+// the previous one (#662): with a hundred open issues the pull requests were a
+// walk past every one of them away. The diff's ] and [ between files work the
+// same way - [ inside a section goes to its first item, and neither wraps.
+func (m *Model) jumpTrackerSection(dir int) {
+	cursor, target := m.review.Tracker.Cursor, -1
+	for _, start := range sectionStarts(m.trackerRows()) {
+		if dir > 0 && start > cursor {
+			target = start
+			break
+		}
+		if dir < 0 && start < cursor {
+			target = start
+		}
+	}
+	if target >= 0 {
+		m.moveTrackerCursor(target - cursor)
+	}
+}
+
+// sectionStarts is the row of each section's first item: the row after each
+// heading. A list with no heading has one section and no start to jump to, and
+// a list the filter emptied has no heading (#399), so it is never a stop.
+func sectionStarts(rows []trackerRow) []int {
+	var starts []int
+	for i := 0; i+1 < len(rows); i++ {
+		if rows[i].Kind == rowRule && rows[i+1].Kind != rowRule {
+			starts = append(starts, i+1)
+		}
+	}
+	return starts
 }
 
 // stepOffRule moves the cursor to the nearest row that is not a rule, the way
