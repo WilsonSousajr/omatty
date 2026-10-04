@@ -138,6 +138,7 @@ func tuiDeps(env tuiEnv, store sessions.StateStore, state session.State) app.Dep
 		Stat:      src.Stat,
 		Turn:      turnFuncs(src),
 		Files:     git.ListFiles,
+		Follow:    src.Follow,
 		Generated: src.Generated, Ship: shipFuncs(src, git, fg),
 	}
 	return withAgentDeps(withStoreDeps(withTableDeps(withForgeDeps(deps, fg), env.Cfg), store, home, git, git.Contextual()), env, store)

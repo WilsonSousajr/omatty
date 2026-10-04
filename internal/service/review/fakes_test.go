@@ -33,7 +33,10 @@ type FakeGit struct {
 	// base branch (#684): MergeBase fails on them as git does, and
 	// CommitExists reports them absent.
 	GoneRefs map[string]bool
-	Err      error // returned by every method when set
+	// Roots and Mains are RepoRoot's and MainCheckout's answer per directory
+	// (#659); a directory in neither answers itself.
+	Roots, Mains map[string]string
+	Err          error // returned by every method when set
 	// Errs fails one method by name, so a test can reach an error path that
 	// lies behind a call which has to succeed first.
 	Errs  map[string]error
@@ -51,10 +54,20 @@ func (f *FakeGit) record(name string, args ...string) error {
 	return nil
 }
 
-func (f *FakeGit) RepoRoot(dir string) (string, error) { return dir, f.record("RepoRoot", dir) }
+func (f *FakeGit) RepoRoot(dir string) (string, error) {
+	return answerFor(f.Roots, dir), f.record("RepoRoot", dir)
+}
 
 func (f *FakeGit) MainCheckout(dir string) (string, error) {
-	return dir, f.record("MainCheckout", dir)
+	return answerFor(f.Mains, dir), f.record("MainCheckout", dir)
+}
+
+// answerFor is a per-directory answer, or the directory itself.
+func answerFor(answers map[string]string, dir string) string {
+	if a, ok := answers[dir]; ok {
+		return a
+	}
+	return dir
 }
 
 func (f *FakeGit) CurrentBranch(dir string) (string, error) {

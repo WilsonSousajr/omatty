@@ -45,7 +45,7 @@ func (m *Model) askRevert() tea.Cmd {
 		m.lastErr = "cannot revert " + row.Session.Title + " mid-turn; wait for it to finish"
 		return nil
 	}
-	files, err := m.turn.Count(*row.Session)
+	files, err := m.turn.Count(m.atWorkDir(*row.Session))
 	if err != nil {
 		m.refuseRevert(row.Session.Title, err)
 		return nil
@@ -98,7 +98,7 @@ func revertNote(files int) string {
 func (m *Model) revertSession() tea.Cmd {
 	id := m.modal.Confirm.SessionID
 	m.modal = modal{}
-	sess, ok := m.session(id)
+	sess, ok := m.reviewSession(id)
 	if !ok {
 		return nil
 	}

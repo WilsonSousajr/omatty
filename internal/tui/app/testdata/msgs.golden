@@ -23,6 +23,7 @@ SweepTickMsg         -> cmd=[none,none] pty=0 frameChanged=true focus=1/true arm
 TickMsg              -> cmd=pending pty=0 frameChanged=false focus=1/true armed=false modal="" view=0 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=db4b0f60
 TurnLoadedMsg        -> cmd=nil pty=0 frameChanged=false focus=1/true armed=false modal="" view=0 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=db4b0f60
 TurnSnappedMsg       -> cmd=nil pty=0 frameChanged=false focus=1/true armed=false modal="" view=0 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=db4b0f60
+WorkTreeMsg          -> cmd=app.DiffLoadedMsg pty=0 frameChanged=false focus=1/true armed=false modal="" view=0 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=db4b0f60
 WorktreeRemovedMsg   -> cmd=nil pty=0 frameChanged=false focus=1/true armed=false modal="" view=0 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=db4b0f60
 coverageMsg          -> cmd=nil pty=0 frameChanged=false focus=1/true armed=false modal="" view=0 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=db4b0f60
 generatedMsg         -> cmd=nil pty=0 frameChanged=false focus=1/true armed=false modal="" view=0 sel=s1 open=true focused=true zoom=false diff=0 files=0 gate=0 tracker=-1 filter="" note=false frame=db4b0f60

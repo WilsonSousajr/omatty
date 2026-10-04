@@ -121,6 +121,10 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
+	// Follow resolves the directory claude reports working in to the
+	// checkout the review should read (#659). Unwired, the review stays on
+	// the session's own directory, as it always did.
+	Follow FollowFunc
 	// Generated reports which of a session's files nobody wrote, so the tree
 	// can fold them and the coverage markers can leave them alone (#338).
 	// Unwired, nothing is generated - which is what every tree looked like
@@ -234,6 +238,9 @@ func (d Deps) withReviewDefaults() Deps {
 	}
 	if d.Files == nil {
 		d.Files = noFiles
+	}
+	if d.Follow == nil {
+		d.Follow = stayHome
 	}
 	// Reading a file is infra's business since migration step 5.8 (#653), so
 	// cmd injects internal/infra/fsread's reader; unwired, the preview names

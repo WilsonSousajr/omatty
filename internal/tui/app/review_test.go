@@ -43,10 +43,12 @@ type diffRecorder struct {
 	Err   error
 	Asked []string
 	Roots []string
+	Dirs  []string // the checkout each diff read (#659)
 }
 
 func (r *diffRecorder) fn(sess session.Session, root string) (dreview.Diff, error) {
 	r.Asked = append(r.Asked, sess.ID)
+	r.Dirs = append(r.Dirs, sess.Dir)
 	r.Roots = append(r.Roots, root)
 	return r.Diff, r.Err
 }

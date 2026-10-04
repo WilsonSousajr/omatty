@@ -72,7 +72,7 @@ func (m *Model) runGate(id string) {
 	if len(steps) == 0 || m.gateRun == nil || m.gateRunning[id] {
 		return
 	}
-	sess, found := m.sessionByID(id)
+	sess, found := m.reviewSession(id)
 	if !found {
 		return
 	}

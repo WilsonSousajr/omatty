@@ -68,7 +68,7 @@ func (m *Model) afterStatus(e dstatus.Event, before, after dstatus.Status) tea.C
 	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after),
 		m.refreshReview(e.SessionID, before, after), m.maybeName(e.SessionID),
 		m.refreshStat(e.SessionID, before, after), m.maybeSnapTurn(e),
-		m.refreshPRs(e.SessionID, before, after))
+		m.refreshPRs(e.SessionID, before, after), m.followWorkDir(e, after))
 }
 
 func (m *Model) knownSession(id string) bool {
