@@ -12,7 +12,7 @@ import "time"
 // type - attachments, queue operations, titles, snapshots - is dropped at
 // parse, so callers only ever hold user and assistant turns.
 type Entry struct {
-	Type         string // "user" or "assistant"
+	Type         string // "user" or "assistant"; an adapter may add its own, which carry no usage (codex's "turn", #152)
 	MessageID    string // assistant: one API response spans several lines under one id
 	At           time.Time
 	StopReason   string // assistant

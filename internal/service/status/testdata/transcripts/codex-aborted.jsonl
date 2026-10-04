@@ -1,0 +1,3 @@
+{"timestamp":"2026-10-04T09:51:17.313Z","type":"event_msg","payload":{"type":"task_started","turn_id":"01a10653-2f21-7bf3-b9af-cd4f0cf87b75","started_at":1791107477,"model_context_window":258400}}
+{"timestamp":"2026-10-04T09:51:57.607Z","type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":{}}}
+{"timestamp":"2026-10-04T09:51:57.614Z","type":"event_msg","payload":{"type":"turn_aborted","turn_id":"01a10653-2f21-7bf3-b9af-cd4f0cf87b75","reason":"interrupted","duration_ms":40325}}
