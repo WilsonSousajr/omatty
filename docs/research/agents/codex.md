@@ -39,8 +39,10 @@ transcript it names:
 - **`OMATTY_SESSION` reaches the hook.** Every hook process inherits the
   environment of *its pane's* `codex`, even though threads run in a shared
   app-server daemon (§7): two panes with `OMATTY_SESSION=pane-A` and `pane-B`
-  against one daemon each saw their own value. #523's Reported path works
-  unchanged.
+  against one daemon each saw their own value. #523's Reported path finds the
+  pane, but it needs one filter: a background thread fires the same hooks
+  from the same pane (§2, "the memories sub-session"), and its `SessionStart`
+  must not re-bind the row.
 
 Scanning would also work (the filename carries the id, and `session_meta`
 carries `cwd`), but it is not needed.
@@ -54,6 +56,23 @@ are read from every config layer, including the **session-flags layer** that
 ```sh
 codex -c 'hooks.Stop=[{hooks=[{type="command",command="omatty hook --agent codex",timeout=5}]}]'
 ```
+
+**This is not the seam #522 built.** #522 hands a profile a settings *file*
+(`~/.omatty/hooks-<agent>.json`, through `Command`'s `settingsFile`). Codex
+reads no such file without a write into `$CODEX_HOME` (`-p` layers
+`$CODEX_HOME/<name>.config.toml`), so its hooks must travel as argv. #152 has
+to give a profile a way to render hooks as arguments rather than as a file.
+A profile that only wrote `hooks-codex.json` would fire nothing and fall to
+the transcript tier, losing `Waiting`.
+
+**A hook runs through the user's login shell:** `$SHELL -lc <command>`
+(`hooks/src/engine/command_runner.rs`, `build_command`). So the line
+`hooks.HookCommand` already renders, `'<omatty>' hook --agent 'codex'
+2>/dev/null || true`, keeps its quoting, its silence and its exit 0
+(invariant 11). Verified with that exact line: all five events fired, no
+review screen. The cost is that the user's login profile runs on every hook.
+Under the 5 s timeout that is fine for a normal profile, and it is Codex's
+choice, not one omatty can change.
 
 Events: `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`,
 `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`,
@@ -79,9 +98,20 @@ trust record is read from the session-flags layer too
 -c 'hooks.state={"/<session-flags>/config.toml:stop:0:0"={trusted_hash="sha256:<hex>"}, …}'
 ```
 
-Verified: a scratch `CODEX_HOME` with no stored trust, four hooks and their
-trust passed only through `-c`. No review screen, every hook fired, and
-`config.toml` was byte-identical afterwards.
+Verified twice in a scratch `CODEX_HOME` with no stored hook trust:
+`SessionStart`, `UserPromptSubmit`, `Stop` and `PermissionRequest` in one
+run, then all five including `Interrupt` (hashed at its clamped 3 s) with
+omatty's exact hook line. Each time there was no review screen, every hook
+fired, and that home's `config.toml` was byte-identical before and after the
+run. (§7's first-run write predates these runs and happened in another
+home.)
+
+**The `-c` hooks reach a daemon that was already running.** The daemon that
+served one of the hooked runs had been started by an earlier run that passed
+no hooks at all, and the hooks still fired with the second run's
+`OMATTY_SESSION`. Hook config travels with the thread a client starts; it is
+not fixed when the daemon starts. Folder trust (§7) is read differently, by
+the TUI asking the daemon's `config/read`.
 
 The key is `/<session-flags>/config.toml:<event_label>:<group>:<handler>`,
 with the event in snake_case. The hash is `version_for_toml` over the
@@ -141,10 +171,15 @@ but with `cwd` = `~/.codex/memories`, `transcript_path: null`, a different
 `session_id` and a different model. A naive Reported binding would bind the
 pane to that thread.
 
-The profile must therefore bind only on a `SessionStart` whose
-`transcript_path` is non-null and whose `cwd` is the session's directory, and
-drop any event whose `session_id` is not the bound one (with `/clear`'s
-`source: "clear"` the only legitimate re-bind).
+The seam as built cannot tell the two apart: `status.HookPayload` carries
+neither `transcript_path` nor `cwd`, and `Adapter.KindOf` keeps no state. The
+cheapest correct filter is in the hook process itself. Codex's `ParseHook`
+treats `transcript_path` as a required routable field. `hooks.ParsePayload`'s
+scanner already refuses a routable field that is not a string, so a `null`
+drops the payload before it reaches the socket. The real session always
+carries a path (every hooked payload in the spike did); the memories thread
+never does. What is left is what #523 already covers: the row binds on its
+first `SessionStart` with source `startup`, and `clear` re-binds it.
 
 ## 3. Transcript
 
@@ -153,13 +188,20 @@ drop any event whose `session_id` is not the bound one (with `/clear`'s
 timestamp cannot be predicted from the id, so the path is the "not yet"
 locator #523 already has; `SessionStart` hands it over anyway.
 
-Each line is `{"timestamp", "type", "payload"}`. The records that matter:
+Each line is `{"timestamp", "type", "payload"}`. The records that matter,
+from one session's file, in order, with the records status ignores left out:
 
 ```json
-{"timestamp":"2026-10-04T09:51:17.312Z","type":"session_meta","payload":{"id":"01a10653-1210-7910-b53c-987893f66767","timestamp":"2026-10-04T09:51:09.900Z","cwd":"/home/dev/project","originator":"codex-tui","cli_version":"0.160.0","source":"cli"}}
-{"timestamp":"2026-10-04T09:51:17.313Z","type":"event_msg","payload":{"type":"task_started","turn_id":"01a10653-2f21-…","started_at":1791107477,"model_context_window":258400}}
+{"timestamp":"2026-10-04T09:50:23.332Z","type":"session_meta","payload":{"id":"01a10652-4044-7521-927f-fe1fdaed5e18","timestamp":"2026-10-04T09:50:16.181Z","cwd":"/home/dev/project","originator":"codex-tui","cli_version":"0.160.0","source":"cli"}}
+{"timestamp":"2026-10-04T09:50:23.333Z","type":"event_msg","payload":{"type":"task_started","turn_id":"01a10652-5c3a-…","started_at":1791107423,"model_context_window":258400}}
 {"timestamp":"2026-10-04T09:50:25.044Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":15524,"cached_input_tokens":4480,"output_tokens":6,"reasoning_output_tokens":0,"total_tokens":15530},"model_context_window":258400}}}
 {"timestamp":"2026-10-04T09:50:25.060Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"01a10652-5c3a-…","last_agent_message":"PONG","duration_ms":1752}}
+```
+
+An interrupted turn, from a second session, ends with this record in place
+of `task_complete`:
+
+```json
 {"timestamp":"2026-10-04T09:51:57.614Z","type":"event_msg","payload":{"type":"turn_aborted","turn_id":"01a10653-2f21-…","reason":"interrupted","duration_ms":40325}}
 ```
 
@@ -217,9 +259,16 @@ said out loud.
 | `Status` | `Hooks` | `-c` hooks + `-c` trust, zero writes (§2) |
 | `Waiting` | yes | `PermissionRequest` (§2, §3) |
 | `Resume` | yes | `codex resume <uuid>` (§4) |
-| `TurnBoundary` | yes | `Stop` hook; `task_complete` / `turn_aborted` |
+| `TurnBoundary` | yes | `Stop` hook, and `Interrupt` for a turn cut short; `task_complete` / `turn_aborted` |
 
-`agent.Caps{Identity: Reported, Status: StatusHooks, Waiting: true, Resume: true, TurnBoundary: true}.Tier()` is `Full`.
+`agent.Caps{Identity: agent.Reported, Status: agent.StatusHooks, Waiting: true, Resume: true, TurnBoundary: true}.Tier()` is `agent.Full`.
+
+The subscription Full needs is `SessionStart`, `UserPromptSubmit`,
+`PermissionRequest`, `Stop` **and `Interrupt`**. `Stop` does not fire for an
+interrupted turn, so without `Interrupt` an Esc leaves the hook-driven status
+busy until the tailer reads `turn_aborted`. `PreToolUse` and `PostToolUse`
+exist too, but this spike did not subscribe to them. Whether they carry
+claude's tool status is for #152 to check before relying on it.
 
 ## 7. Other things the profile must know
 
