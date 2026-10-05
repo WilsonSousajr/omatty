@@ -11,6 +11,64 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.11.0] — 2026-10-05
+
+More than claude, and a review that keeps up with it. A session can now run
+any agent you declare in `config.toml`, and omatty shows only what that agent
+lets it know — it never draws a status it cannot read. The review column
+follows claude into the worktree it moved to, the file tree opens closed, and
+the tracker's lists stay in sync, with keys to reach the pull requests under
+a long issue list.
+
+### Added
+
+- **Any agent, declared by its command** (#525): `[agents.<name>] command =
+  [...]` runs it in the session's directory at the Process tier — omatty knows
+  whether it runs, and nothing more. `default_agent`, a per-project agent on
+  `ctrl+o c`, and an agent step on `ctrl+o n` choose which one a session runs
+  (#524). Under it, the agent seam M17 builds on: capabilities and a tier per
+  agent (#520), per-session dispatch (#521), hooks per agent through `omatty
+  hook --agent` with invariant 3 kept for every agent (#522), and a session
+  identity an agent reports or omatty finds in its store (#523). The design is
+  in the M17 section of `docs/ROADMAP.md` (#519).
+- **A surface that says what an agent cannot tell it** (#526): a Process-tier
+  session reads `▷ running` or `∅ exited`, never the idle `○`; no token meter
+  where no usage is reported; the turn scope, the gate's auto-run and the
+  "finished" notification are refused, by name, for an agent with no turn's
+  end; and an agent that cannot resume is offered a fresh start, never a
+  resume that cannot happen.
+- **`]` and `[` in the tracker** jump to the first pull request, or back to the
+  first issue (#662), and **`tab` folds a section** to its heading and count,
+  so the pull requests sit right under `issues (87) ▸` (#663).
+
+### Changed
+
+- **The review follows claude's checkout** (#659). When claude moves into a
+  worktree or another checkout of its repository, the tree, the diff, the
+  card's branch and stat, the gate, coverage, revert and `ctrl+o p` follow it
+  at the turn's end; a `cd` into a subdirectory moves nothing, and another
+  repository is never followed. Read from the transcript, held in memory, and
+  `state.json` keeps the launch directory.
+- **The file tree opens with every folder closed** (#593); opening one opens
+  its single-folder chain with it.
+- **The tracker stays in sync** (#658). A missing `gh`, a refused token or an
+  http host no longer stops a project's lists until restart: `r`, opening the
+  tracker and the five-minute tick ask again. `r` reads now rather than
+  waiting out the thirty-second floor, and says when a read is still in
+  flight; a project without a session has its pull requests read; a list that
+  fills its hundred-item window reads `100+`; and a keypress counts as focus,
+  so a terminal that loses the focus-in no longer leaves polling off.
+- A worktree session whose base branch was deleted after merging loads its
+  diff again (#684).
+- `testdata/fake-agent` stands in for every agent's shape in tests (#527), and
+  the Codex spike is written up in `docs/research/agents/codex.md` (#528).
+
+### Not in this release
+
+- The first-class agent profiles - Codex (#152), OpenCode, Gemini and the rest
+  (#529-#544) - are M17's next step; until then a non-claude agent runs at the
+  Process tier as a generic one.
+
 ## [v0.10.0] — 2026-10-01
 
 The architecture. omatty's code is rebuilt into the shape of ADR 0001 — a
@@ -869,7 +927,8 @@ after its issue:
 - The agent seam has one profile, claude. Codex is a follow-up. (#152)
 - Scrollback is not preserved across a detach and reattach.
 
-[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/WilsonSousajr/omatty/compare/v0.11.0...HEAD
+[v0.11.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.11.0
 [v0.10.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.10.0
 [v0.9.0]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.9.0
 [v0.8.2]: https://github.com/WilsonSousajr/omatty/releases/tag/v0.8.2
