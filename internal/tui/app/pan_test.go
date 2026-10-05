@@ -152,6 +152,7 @@ func TestModel_PansTheTree_issue94(t *testing.T) {
 	m := app.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	leader(m, key('f'))
+	openInternal(m) // a/b/c/d opens as one chain since #593
 	if strings.Contains(m.View().Content, "TREE_END") {
 		t.Fatal("the fixture path is not wider than the column")
 	}

@@ -29,7 +29,14 @@ type FakeGit struct {
 	HeadOut                string            // Head result (#310)
 	AttrOut                map[string]bool   // Attr result (#338)
 	Restored               []string          // trees RestoreTree was given (#334)
-	Err                    error             // returned by every method when set
+	// GoneRefs are refs that no longer resolve, like a merged and deleted
+	// base branch (#684): MergeBase fails on them as git does, and
+	// CommitExists reports them absent.
+	GoneRefs map[string]bool
+	// Roots and Mains are RepoRoot's and MainCheckout's answer per directory
+	// (#659); a directory in neither answers itself.
+	Roots, Mains map[string]string
+	Err          error // returned by every method when set
 	// Errs fails one method by name, so a test can reach an error path that
 	// lies behind a call which has to succeed first.
 	Errs  map[string]error
@@ -47,10 +54,20 @@ func (f *FakeGit) record(name string, args ...string) error {
 	return nil
 }
 
-func (f *FakeGit) RepoRoot(dir string) (string, error) { return dir, f.record("RepoRoot", dir) }
+func (f *FakeGit) RepoRoot(dir string) (string, error) {
+	return answerFor(f.Roots, dir), f.record("RepoRoot", dir)
+}
 
 func (f *FakeGit) MainCheckout(dir string) (string, error) {
-	return dir, f.record("MainCheckout", dir)
+	return answerFor(f.Mains, dir), f.record("MainCheckout", dir)
+}
+
+// answerFor is a per-directory answer, or the directory itself.
+func answerFor(answers map[string]string, dir string) string {
+	if a, ok := answers[dir]; ok {
+		return a
+	}
+	return dir
 }
 
 func (f *FakeGit) CurrentBranch(dir string) (string, error) {
@@ -66,7 +83,17 @@ func (f *FakeGit) RemoveWorktree(root, dir string) error {
 }
 
 func (f *FakeGit) MergeBase(dir, ref string) (string, error) {
-	return f.MergeBaseOut, f.record("MergeBase", dir, ref)
+	if err := f.record("MergeBase", dir, ref); err != nil {
+		return "", err
+	}
+	if f.GoneRefs[ref] {
+		return "", fmt.Errorf("FakeGit MergeBase: fatal: Not a valid object name %s", ref)
+	}
+	return f.MergeBaseOut, nil
+}
+
+func (f *FakeGit) CommitExists(dir, ref string) (bool, error) {
+	return !f.GoneRefs[ref], f.record("CommitExists", dir, ref)
 }
 
 func (f *FakeGit) Diff(dir, commit string) (string, error) {

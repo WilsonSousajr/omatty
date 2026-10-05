@@ -65,6 +65,9 @@ func (m *Model) spins(id string, s dstatus.Status) bool {
 // glyphCell is a session's coloured status glyph at now: a spinner frame
 // while it spins, its still glyph otherwise.
 func (m *Model) glyphCell(id string, s dstatus.Status, now time.Time) string {
+	if m.processTier(id) {
+		return m.processCell(id) // never idle, never busy (#526)
+	}
 	if m.spins(id, s) {
 		return renderedSpin()[spinIndex(now)]
 	}

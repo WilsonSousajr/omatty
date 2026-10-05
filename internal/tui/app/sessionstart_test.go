@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"testing"
 	"time"
 
@@ -17,9 +18,9 @@ import (
 func TestModel_aSlowCreateDoesNotHoldUpdate_issue653(t *testing.T) {
 	release := make(chan struct{})
 	s := &startRecorder{}
-	create := func(project, title, _ string, _ bool) (session.Session, error) {
+	create := func(req sessions.NewSession) (session.Session, error) {
 		<-release
-		return session.Session{ID: "new-id", Project: project, Title: title}, nil
+		return session.Session{ID: "new-id", Project: req.Project, Title: req.Title}, nil
 	}
 	m := app.NewModel(app.Deps{State: oneProject(), Terms: map[string]terminal.Terminal{}, Create: create, Start: s.fn})
 	m.Update(ctrl('o'))

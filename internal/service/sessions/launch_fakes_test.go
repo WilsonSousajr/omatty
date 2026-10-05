@@ -1,6 +1,8 @@
 package sessions_test
 
 import (
+	"testing"
+
 	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	"github.com/WilsonSousajr/omatty/internal/infra/hooks"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
@@ -56,3 +58,14 @@ func (f *fakeHolder) Stop(sessionID string) error {
 func (f *fakeHolder) Persists() bool { return true }
 
 func (f *fakeHolder) Notice() string { return "" }
+
+// catalogFor is a one-profile catalog running bin with hooksFile as its
+// settings, for a launcher test (#521, #522).
+func catalogFor(t *testing.T, p agent.Profile, bin, hooksFile string) agent.Catalog {
+	t.Helper()
+	c, err := agent.NewCatalog(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c.WithBins(map[string]string{p.Name: bin}).WithHooksFiles(map[string]string{p.Name: hooksFile})
+}

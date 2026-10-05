@@ -74,7 +74,15 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.10.0**, 2026-10-01 — the architecture. The code is rebuilt in the shape
+**v0.11.0**, 2026-10-05 — Codex, any agent, and a review that follows
+claude. Codex runs beside claude as a first-class agent (#152), a session can
+run any command you declare as an agent, and omatty shows only what that agent
+lets it know (#525, #526). The review column follows claude
+into the worktree it moved to (#659), the file tree opens closed (#593), and
+the tracker stays in sync, with `]`/`[` and `tab` to reach its pull requests
+(#658, #662, #663).
+
+v0.10.0, 2026-10-01 — the architecture. The code is rebuilt in the shape
 of [ADR 0001](docs/adr/0001-architecture.md), with nothing you see changed:
 omatty no longer waits on git or the disk while it draws, every git call has
 a deadline, and `omatty sessions --json` and `omatty status --json` hand a
@@ -283,7 +291,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o j` / `ctrl+o k` | move between sessions |
 | `ctrl+o ]` / `ctrl+o [` | move between projects, including one with no sessions yet |
 | `ctrl+o tab` | fold or unfold the project the cursor is in; a click on its header does the same |
-| `ctrl+o n` | new session on the main checkout |
+| `ctrl+o n` | new session on the main checkout; with two or more agents installed, it then asks which one runs it |
 | `ctrl+o N` | new session on a fresh worktree |
 | `ctrl+o d` | open or close the diff pane |
 | `ctrl+o f` | open or close the file tree |
@@ -297,6 +305,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o p` | ship a green session: push and open its pull request, or merge one already green |
 | `ctrl+o B` | rename a worktree session's branch |
 | `ctrl+o R` | rename the selected session |
+| `ctrl+o c` | choose the agent the selected project's new sessions run |
 | `ctrl+o x` | archive the selected session, or forget an empty project |
 | `ctrl+o /` | jump to a session by typing part of its name |
 | `ctrl+o a` | register a project claude already knows you use |
@@ -407,8 +416,19 @@ no file at all these are the values in force:
 ```toml
 leader = "ctrl+o"          # the one key omatty intercepts; bubbletea spelling ("ctrl+a", not "C-a")
 claude_bin = "claude"      # the binary each session runs, resolved on PATH or absolute
+default_agent = "claude"   # the agent a new session runs unless its project or ctrl+o n says otherwise
 worktree_root = "~/.omatty/wt"   # where `omatty new ... <branch>` and ctrl+o N put worktrees
 base_branch = ""           # fork worktrees from this branch; empty means the checkout's current one
+
+[agents.claude]             # one table per agent; bin is its binary, and here wins over claude_bin
+bin = "claude"
+
+# [agents.codex]           # built in: status, waiting and resume from codex's own hooks and
+# bin = "codex"            # rollout, passed per run as -c flags; nothing is written to ~/.codex.
+#                          # codex binds ctrl+o to copy - under omatty that key is the leader
+
+# [agents.aider]           # any other agent, declared by its command: it runs in the
+# command = ["aider", "--no-auto-commits"]   # session's directory, and omatty knows only whether it runs
 
 [naming]
 model = false              # let a headless claude call improve auto-derived session titles
@@ -664,12 +684,14 @@ its issues matter most.
 | `j` / `k` | move through the list, or scroll an open item |
 | `g` / `G` | the first row, or the last - the same on every face of the column |
 | `ctrl+d` / `ctrl+u` | half a page down, or up |
+| `]` / `[` | the first pull request, or back to the first issue |
+| `tab` | fold the list the cursor is in to its heading and count, or open it again |
 | `enter` | read the item under the cursor: its body and its comments |
 | `/` | filter by number, title or label as you type; `enter` keeps it, `esc` clears it |
 | `n` | start a worktree session named and branched from the issue |
 | `a` | type the item's reference into the selected session's prompt, unsent |
 | `b` | open the item in your browser |
-| `r` | read both lists again now |
+| `r` | read both lists again now, and try again a forge that could not be read |
 | `h` / `l` / `0` | pan along a row too wide for the column |
 | `esc` | from an item back to the list; from the list, lift the filter, then back to Claude |
 
@@ -769,9 +791,11 @@ belongs. omatty turns it off by name in every merge it sends.
 The cost, on top of the pull request reads the cards already make: one issue
 list per project every five minutes, one more when you open the tracker or press
 `r`, and one read of an item you open, cached until you press `r` on it. Nothing
-at all while omatty is in the background, never more than once in thirty seconds
-for one project, and nothing after the forge's CLI and token are both found
-missing. An item is read to 64 KiB and says so if there was more. For a
+at all while omatty is in the background, and never more than once in thirty
+seconds for one project unless you asked. A forge whose CLI and token are both
+missing, or that refused the token, is asked again only every five minutes and
+on `r` - so installing `gh` or fixing a token mid-run is picked up without a
+restart. An item is read to 64 KiB and says so if there was more. For a
 repository on no forge omatty reads, the column says so and the sidebar headers
 stay as they were.
 

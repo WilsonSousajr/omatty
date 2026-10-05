@@ -18,7 +18,10 @@ Core design:
   the transcript path `~/.claude/projects/<slug>/<uuid>.jsonl` deterministically.
   `/clear` moves claude to a new uuid; the `SessionStart` hook reports it with
   `source: "clear"` and the pane's `OMATTY_SESSION`, and the row records it as
-  `Conversation` while its `ID` stays the key (#316).
+  `Conversation` while its `ID` stays the key (#316). An agent that takes no
+  id is bound the same way: its startup hook reports one, or omatty finds the
+  one transcript in its store that can be the session's, and refuses to guess
+  between two (#523).
 - **Status is read from structured JSONL, never scraped from the screen.** Hooks
   injected via `--settings` give low latency; the JSONL tail gives truth.
 - **A session is a Claude process in a directory.** Worktrees are opt-in.
@@ -103,7 +106,7 @@ scripts/            check-coverage.sh and other gate scripts.
 tools/              gate tools with a main: crapcheck, depcheck, layercheck. Inside ./... so gofmt,
                     vet, lint and build cover them; outside ./internal/... so an
                     untestable main does not pull the coverage gate down.
-testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-claude.
+testdata/           fixture repos, recorded ANSI, fixture JSONL, fake-agent (fake-claude links to it).
 ```
 
 One responsibility per package, typed APIs, no circular dependencies.
@@ -271,9 +274,17 @@ not in the gate.
    attempt.
 2. **Status comes from JSONL and hooks, never from the rendered screen.** No
    package may parse the terminal cell grid to infer session state.
-3. **omatty never writes to the user's `~/.claude/settings.json`.** Per-session
-   hooks are passed with `--settings ~/.omatty/hooks.json`. Zero footprint is a
-   feature.
+3. **omatty never writes any agent's user configuration** (`~/.claude`,
+   `~/.codex`, `~/.gemini`, `~/.config/opencode`, ...), **and never writes an
+   agent config file inside the project** (#522). Per-session hooks are passed
+   per invocation - claude's with `--settings ~/.omatty/hooks.json`, another
+   agent's from `~/.omatty/hooks-<agent>.json` by a flag or by an env var
+   naming a file the agent *merges*, or as per-invocation config flags
+   naming no file at all - codex's `-c`, its hooks' trust included (#152). A
+   route that replaces the user's config is
+   refused, because it hides their auth and settings. An agent whose only hook
+   route is a global or project file gets no hooks and drops a tier. Zero
+   footprint is a feature.
 4. **bubbleterm and git are reachable only through `internal/tui/terminal` and
    `internal/infra/vcs`.** bubbleterm is pre-1.0 and will break; the blast radius must
    stay inside one package we own.
@@ -298,13 +309,22 @@ not in the gate.
    attach feedback to the wrong code.
 8. **Review submission uses bracketed paste** (`ESC[200~ … ESC[201~`) then one
    `\r`. Writing a multi-line prompt raw sends N premature messages.
-9. **`state.json` must always suffice to relaunch every session** with
-   `--resume <uuid>`. Any new session field is either derivable or persisted.
+9. **`state.json` must always suffice to do everything the session's agent
+   allows** (#520): relaunch with `--resume <uuid>` where the agent's
+   `Caps.Resume` is set, and a fresh start in the session's directory where it
+   is not, with the lost conversation said out loud rather than a resume
+   offered that cannot happen. For claude that is the rule as it always read.
+   An identity omatty learns rather than assigns - reported by the agent's
+   startup hook, or found by scanning its store - is persisted as the row's
+   `Conversation` (#523), so it resumes after a crash too; a session not yet
+   bound relaunches fresh. Any new session field is either derivable or
+   persisted.
 10. **`cmd/` stays thin.** Parse flags, construct dependencies, call typed
     library functions. No logic.
-11. **A hook must never block or fail claude.** `omatty hook` reads bounded
-    stdin (4 MiB cap, #55), dials the socket with a short timeout, and exits 0 in
-    every case — socket missing, connection refused, malformed JSON — writing
+11. **A hook must never block or fail any agent.** `omatty hook [--agent
+    <name>]` reads bounded stdin (4 MiB cap, #55), dials the socket with a
+    short timeout, and exits 0 in every case — socket missing, connection
+    refused, malformed JSON, an agent it does not know (#522) — writing
     nothing to stdout or stderr. Its `hooks.json` timeout is 5 s. A hook that
     hangs or errors would stall every claude session on the machine, whether
     or not omatty is running.
@@ -345,7 +365,10 @@ not in the gate.
 - Filesystem tests use `t.TempDir()`. Never touch the real `~/.claude` or
   `~/.omatty`.
 - Golden-frame tests for `tui/terminal`: recorded ANSI in, asserted cell grid out.
-- End-to-end via `teatest` against `testdata/fake-claude`.
+- End-to-end via `teatest` against `testdata/fake-claude`, and against
+  `testdata/fake-agent --shape <agent>` for any other agent's shape (#527):
+  one fake, each shape writing that agent's own records where that agent
+  keeps them. Fixtures are synthetic, never a sanitised real transcript.
 
 ### Every bug gets a regression test. No exceptions.
 

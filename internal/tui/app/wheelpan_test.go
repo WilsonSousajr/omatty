@@ -53,6 +53,7 @@ func modelWithWideTree(t *testing.T) *app.Model {
 	m := app.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: fixtureWidth, Height: 30})
 	leader(m, key('f'))
+	openInternal(m) // a/b/c/d opens as one chain since #593
 	return m
 }
 

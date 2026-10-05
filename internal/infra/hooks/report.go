@@ -33,7 +33,17 @@ const maxField = 1024
 // the command exits 0. The error return exists only so tests can assert the
 // forwarding path; cmd discards it.
 func Report(stdin io.Reader, socketPath string, dialTimeout time.Duration, omattySession string) error {
-	p, ok := ParsePayload(stdin)
+	return ReportAs(stdin, ParsePayload, socketPath, dialTimeout, omattySession)
+}
+
+// ReportAs is Report with the agent's own payload parser, for `omatty hook
+// --agent <name>`: each agent's shape becomes the typed payload here, at the
+// edge, and the socket only ever sees that (#522). Invariant 11 holds exactly
+// as for Report: every failure returns nil.
+//
+//	_ = hooks.ReportAs(os.Stdin, profile.ParseHook, socket, time.Second, owner)
+func ReportAs(stdin io.Reader, parse func(io.Reader) (status.HookPayload, bool), socketPath string, dialTimeout time.Duration, omattySession string) error {
+	p, ok := parse(stdin)
 	if !ok {
 		return nil
 	}
@@ -72,12 +82,22 @@ func sendLine(conn net.Conn, p status.HookPayload, timeout time.Duration) {
 //
 //	p, ok := hooks.ParsePayload(os.Stdin)
 func ParsePayload(stdin io.Reader) (status.HookPayload, bool) {
+	return parseRouted(stdin, routableField)
+}
+
+// fieldRouter names where a top-level field's string value goes, or nil
+// for a field to skip. A parser for another agent's shape routes one more
+// field to a local of its own (#152).
+type fieldRouter func(name string, p *status.HookPayload) *string
+
+// parseRouted is ParsePayload with the routing as a parameter.
+func parseRouted(stdin io.Reader, route fieldRouter) (status.HookPayload, bool) {
 	dec := json.NewDecoder(io.LimitReader(stdin, maxPayload))
 	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
 		return status.HookPayload{}, false
 	}
 	var p status.HookPayload
-	if !scanFields(dec, &p) {
+	if !scanFields(dec, &p, route) {
 		return status.HookPayload{}, false
 	}
 	return p, p.SessionID != "" && p.HookEventName != ""
@@ -86,14 +106,14 @@ func ParsePayload(stdin io.Reader) (status.HookPayload, bool) {
 // scanFields walks the top-level object. It stops quietly where the cap cut
 // the input - the routable fields come first in claude's payloads - and
 // reports false only for a routable field that is not a sane string.
-func scanFields(dec *json.Decoder, p *status.HookPayload) bool {
+func scanFields(dec *json.Decoder, p *status.HookPayload, route fieldRouter) bool {
 	for dec.More() {
 		key, err := dec.Token()
 		if err != nil {
 			return true
 		}
 		name, _ := key.(string)
-		if dst := routableField(name, p); dst != nil {
+		if dst := route(name, p); dst != nil {
 			if !readString(dec, dst) {
 				return false
 			}

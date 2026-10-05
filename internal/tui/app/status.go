@@ -68,7 +68,7 @@ func (m *Model) afterStatus(e dstatus.Event, before, after dstatus.Status) tea.C
 	return tea.Batch(m.waitForEvent(), m.maybeNotify(e, before, after),
 		m.refreshReview(e.SessionID, before, after), m.maybeName(e.SessionID),
 		m.refreshStat(e.SessionID, before, after), m.maybeSnapTurn(e),
-		m.refreshPRs(e.SessionID, before, after))
+		m.refreshPRs(e.SessionID, before, after), m.followWorkDir(e, after))
 }
 
 func (m *Model) knownSession(id string) bool {
@@ -91,6 +91,9 @@ func (m *Model) maybeNotify(e dstatus.Event, before, after dstatus.Status) tea.C
 		return nil
 	}
 	body, ok := needsYou(m.sessionTitle(e.SessionID), after)
+	// "finished" is a turn's end, which an agent without a turn boundary
+	// cannot report; "needs you" is not, and still goes (#526).
+	ok = ok && (after != dstatus.StatusDone || m.turnBoundary(e.SessionID))
 	if !ok || !m.cooldownElapsed(e.SessionID) {
 		return nil
 	}

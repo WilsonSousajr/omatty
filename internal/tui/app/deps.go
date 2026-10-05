@@ -7,9 +7,11 @@ package app
 import (
 	"errors"
 	"fmt"
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -21,12 +23,13 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
-// CreateFunc registers a new session in project and returns it.
+// CreateFunc registers the session req describes and returns it.
 //
-// worktree says whether omatty creates one, which since #151 is no longer the
-// same question as whether branch is empty: a worktree session may arrive with
-// no branch named at all, and the registry names it.
-type CreateFunc func(project, title, branch string, worktree bool) (session.Session, error)
+// req.Worktree says whether omatty creates one, which since #151 is no longer
+// the same question as whether the branch is empty: a worktree session may
+// arrive with no branch named at all, and the registry names it. req.Agent is
+// the one chosen on ctrl+o n's agent step, or empty for the project's (#524).
+type CreateFunc func(req sessions.NewSession) (session.Session, error)
 
 // StartFunc launches the embedded terminal for a session at w by h. Injected
 // so the model can start a session created at runtime without knowing how;
@@ -71,7 +74,17 @@ type Deps struct {
 	State  session.State
 	Terms  map[string]terminal.Terminal
 	Create CreateFunc
-	Start  StartFunc
+	// Agents lists every agent with whether it is installed, for ctrl+o n's
+	// agent step; nil, or one installed, skips the step (#524). DefaultAgent
+	// is the config's default_agent, and SetProjectAgent persists ctrl+o c.
+	// AgentCaps is an agent's capabilities by name, so the surface never
+	// claims more than the session's tier knows (#526). Nil, or an agent it
+	// does not know, reads as claude's.
+	AgentCaps       func(name string) (agent.Caps, bool)
+	Agents          func() []AgentOption
+	DefaultAgent    string
+	SetProjectAgent func(project, agent string) error
+	Start           StartFunc
 	// Events is a subscription to the watcher's broker (ADR 0001, step 5.2a,
 	// #653): status reaches the model as one subscriber among any.
 	Events <-chan pubsub.Event[dstatus.Event]
@@ -108,6 +121,10 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
+	// Follow resolves the directory claude reports working in to the
+	// checkout the review should read (#659). Unwired, the review stays on
+	// the session's own directory, as it always did.
+	Follow FollowFunc
 	// Generated reports which of a session's files nobody wrote, so the tree
 	// can fold them and the coverage markers can leave them alone (#338).
 	// Unwired, nothing is generated - which is what every tree looked like
@@ -196,6 +213,9 @@ func (d Deps) withDefaults() Deps {
 	if d.Clock == nil {
 		d.Clock = time.Now
 	}
+	if d.SetProjectAgent == nil {
+		d.SetProjectAgent = noProjectAgent
+	}
 	if d.SpinTick == nil {
 		d.SpinTick = tea.Tick
 	}
@@ -218,6 +238,9 @@ func (d Deps) withReviewDefaults() Deps {
 	}
 	if d.Files == nil {
 		d.Files = noFiles
+	}
+	if d.Follow == nil {
+		d.Follow = stayHome
 	}
 	// Reading a file is infra's business since migration step 5.8 (#653), so
 	// cmd injects internal/infra/fsread's reader; unwired, the preview names

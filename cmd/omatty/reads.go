@@ -29,18 +29,23 @@ func readCommand(cmd string, args []string, home string, store sessions.StateSto
 	if cmd == "sessions" {
 		return cli.Sessions(ctx, out, store)
 	}
-	// Claude is the only profile today; an empty name resolves to it (#46).
-	profile, err := lookupAgent("")
+	agents, err := agentCatalog()
 	if err != nil {
 		return err
 	}
-	return cli.Status(ctx, out, store, statusReader(home, profile))
+	return cli.Status(ctx, out, store, statusReader(home, agents))
 }
 
 // statusReader reads one session's transcript once, through the reader the
-// TUI's tailer uses, into the state its card would show.
-func statusReader(home string, profile agent.Profile) cli.StatusReader {
+// TUI's tailer uses, into the state its card would show. A session whose
+// agent this omatty does not know reads as the zero state, as the TUI shows a
+// session it does not tail (#521).
+func statusReader(home string, agents agent.Catalog) cli.StatusReader {
 	return func(s session.Session) dstatus.SessionState {
+		profile, err := agents.Lookup(s.Agent)
+		if err != nil || !profile.KeepsTranscript() {
+			return dstatus.SessionState{}
+		}
 		conv := s.ConversationID()
 		return status.Read(conv, openTranscript(profile.TranscriptPath(home, s.Dir, conv)), profile.Status, time.Now)
 	}

@@ -110,12 +110,15 @@ var gateBind = struct {
 
 // trackerBind is the tracker's and its open item's.
 var trackerBind = struct {
-	Read, Filter, Start, Attach, Browse, Reload key.Binding
+	Read, Filter, Start, Attach, Browse, Reload, NextSection, PrevSection, Fold key.Binding
 }{
-	Read:   bind("enter", "read the issue or pull request in full", "enter"),
-	Filter: bind("/", "filter by number, title or label", "/"),
-	Start:  bind("n", "start a session named and branched after it", "n"),
-	Attach: bind("a", "attach its reference to the prompt", "a"),
-	Browse: bind("b", "open it in the browser", "b"),
-	Reload: bind("r", "read the list, or the open item, again", "r"),
+	Read:        bind("enter", "read the issue or pull request in full", "enter"),
+	Filter:      bind("/", "filter by number, title or label", "/"),
+	Start:       bind("n", "start a session named and branched after it", "n"),
+	Attach:      bind("a", "attach its reference to the prompt", "a"),
+	Browse:      bind("b", "open it in the browser", "b"),
+	Reload:      bind("r", "read the list, or the open item, again", "r"),
+	NextSection: bind("] / [", "the first pull request, or the first issue", "]"),
+	PrevSection: also("["),
+	Fold:        bind("tab", "fold or unfold the list the cursor is in", "tab"),
 }

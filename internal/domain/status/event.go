@@ -57,6 +57,10 @@ type Event struct {
 	// tailer's. The tailer's PromptSubmitted also fires on tool results, so a
 	// consumer that needs "a prompt was just submitted" must ask this (#311).
 	Hook bool
+	// Cwd is the directory the agent last said it was working in, on a
+	// tailer's status event; empty on a hook's, which carries no transcript
+	// line. The review follows it at a turn's end (#659).
+	Cwd string
 }
 
 // SessionState is what the sidebar shows for a session.

@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Stands in for a real coding agent in tests (#527). Never touches the network.
+# One fake, one --shape per agent: each prints that agent's banner and writes
+# that agent's records where that agent keeps them. testdata/fake-claude is a
+# symlink here, and claude is the shape when none is named, so every test and
+# smoke run that knew fake-claude runs the same bytes as before.
+#
+#   fake-agent [--shape claude] --session-id <uuid> --settings <file>
+#   fake-agent  --shape toy     --session-id <id>
+#   fake-agent  --shape codex   [resume <id>] [-c <key=value>]...
+#
+# The toy is a Transcript-tier agent: no hooks, an id it is given, and a JSONL
+# store of its own under $HOME/.toy, one {"t","at"} object a line - unlike
+# claude's on purpose, so a status read from it proves the toy's own parser.
+#
+# The codex shape is codex's argv and store (#152): `resume <id>` or a fresh
+# start under $FAKE_CODEX_ID, any number of -c flags, and a rollout under
+# ${CODEX_HOME:-$HOME/.codex}/sessions/YYYY/MM/DD/rollout-<time>-<id>.jsonl
+# holding codex's own records - session_meta, task_started, token_count,
+# task_complete - per docs/research/agents/codex.md.
+set -euo pipefail
+shape="claude"
+session_id=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --shape)      shape="$2"; shift 2 ;;
+    --session-id) session_id="$2"; shift 2 ;;
+    --settings)   shift 2 ;;
+    resume)       session_id="$2"; shift 2 ;;
+    -c)           shift 2 ;;
+    *)            shift ;;
+  esac
+done
+
+claude_shape() {
+  printf '\033[2J\033[H'
+  # The real claude sets a window title that starts with a dingbat; the byte
+  # 0x9C inside it used to end the title early and print the rest onto the
+  # grid (#192). Emitted here so the real-PTY smoke run sees the same bytes.
+  printf '\033]0;\342\234\263\357\270\217 fake-claude\007'
+  printf '\033[1m* fake-claude\033[0m session=%s\n' "$session_id"
+  while IFS= read -r line; do
+    printf '> %s\n' "$line"
+    [[ "$line" == "/exit" ]] && break
+  done
+}
+
+# toy_record appends one record to the toy's store.
+toy_record() {
+  printf '{"t":"%s","at":"%s"}\n' "$1" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$store"
+}
+
+# toy_turn is one scripted turn: a prompt, then its end.
+toy_turn() {
+  toy_record prompt
+  toy_record end
+}
+
+toy_shape() {
+  store="$HOME/.toy/$session_id.jsonl"
+  mkdir -p "$HOME/.toy"
+  printf '\033[2J\033[H'
+  printf '\033[1m* fake-toy\033[0m session=%s\n' "$session_id"
+  toy_turn
+  while IFS= read -r line; do
+    printf '> %s\n' "$line"
+    [[ "$line" == "/exit" ]] && break
+    toy_turn
+  done
+}
+
+# codex_record appends one rollout line: {"timestamp","type","payload"}.
+codex_record() {
+  printf '{"timestamp":"%s","type":"%s","payload":%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" "$1" "$2" >> "$rollout"
+}
+
+# codex_turn is one scripted turn, as codex writes it.
+codex_turn() {
+  codex_record event_msg '{"type":"task_started","turn_id":"t"}'
+  codex_record event_msg '{"type":"token_count","info":{"total_token_usage":{"input_tokens":12,"cached_input_tokens":2,"output_tokens":3,"total_tokens":15},"last_token_usage":{"input_tokens":12,"cached_input_tokens":2,"output_tokens":3,"total_tokens":15}}}'
+  codex_record event_msg '{"type":"task_complete","turn_id":"t","last_agent_message":"ok"}'
+}
+
+codex_shape() {
+  session_id="${session_id:-${FAKE_CODEX_ID:-fake-codex-$$}}"
+  local store day
+  store="${CODEX_HOME:-$HOME/.codex}"
+  # A resume appends to the conversation's own rollout, as codex does; a
+  # fresh start opens a new one named after the launch time.
+  rollout="$(find "$store/sessions" -name "rollout-*-$session_id.jsonl" 2>/dev/null | head -1)"
+  if [[ -z "$rollout" ]]; then
+    day="$store/sessions/$(date -u +%Y/%m/%d)"
+    mkdir -p "$day"
+    rollout="$day/rollout-$(date -u +%Y-%m-%dT%H-%M-%S)-$session_id.jsonl"
+  fi
+  printf '\033[2J\033[H'
+  printf '\033[1m* fake-codex\033[0m session=%s\n' "$session_id"
+  codex_record session_meta "{\"id\":\"$session_id\",\"cwd\":\"$PWD\",\"originator\":\"codex-tui\"}"
+  codex_turn
+  while IFS= read -r line; do
+    printf '> %s\n' "$line"
+    [[ "$line" == "/exit" ]] && break
+    codex_turn
+  done
+}
+
+case "$shape" in
+  claude) claude_shape ;;
+  toy)    toy_shape ;;
+  codex)  codex_shape ;;
+  *)      printf 'fake-agent: unknown shape %q, want claude, toy or codex\n' "$shape" >&2; exit 2 ;;
+esac

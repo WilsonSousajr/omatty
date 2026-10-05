@@ -50,7 +50,16 @@ type trackerRow struct {
 	// Sigil writes a change's number its forge's way, "!" on GitLab (#449);
 	// empty means "#", which is how every issue is written.
 	Sigil string
+	// Section is the list a rule heads, and Folded whether tab folded it
+	// (#663). A folded rule is the one rule the cursor rests on: tab there is
+	// what opens it again, so it is not #432's heading with nothing to act on.
+	Section trackerKind
+	Folded  bool
 }
+
+// stop reports whether the cursor may rest on the row: any item, and a
+// folded heading.
+func (r trackerRow) stop() bool { return r.Kind != rowRule || r.Folded }
 
 // ref is the row's number as drawn: "#399", or "!400" for a GitLab change.
 func (r trackerRow) ref() string {
@@ -88,7 +97,7 @@ func (m *Model) toggleTracker() tea.Cmd {
 	m.review.Tracker = keptTracker(m.review.Tracker, project)
 	m.contentChanged()
 	m.moveTrackerCursor(0) // off a heading, onto a row (#432)
-	return tea.Batch(m.resizeIfWidthChanged(wasOpen), m.readTracker(project))
+	return tea.Batch(m.resizeIfWidthChanged(wasOpen), m.readTrackerNow(project))
 }
 
 // keptTracker points the tracker at project, keeping the cursor only when it is
@@ -107,16 +116,32 @@ func (m *Model) readTracker(project string) tea.Cmd {
 	return tea.Batch(m.pollProjectIssues(project), m.pollProjectPRs(project))
 }
 
+// readTrackerNow is readTracker asked for by the operator - r, or opening the
+// tracker - so it goes past what a poll respects: the thirty-second floor, a
+// stopped forge that may since have been fixed, and a forge that said it keeps
+// no issues (#658). Each refused r without a word, which read as "not
+// syncing". A read still in flight cannot be asked twice, and says so.
+func (m *Model) readTrackerNow(project string) tea.Cmd {
+	if m.issuePending[project] || m.prPending[project] {
+		m.notice = "still reading " + project + "'s issues and " + m.label(project).Change + "s"
+	}
+	m.retryForge(project)
+	delete(m.noTracker, project)
+	delete(m.issueAsked, project)
+	delete(m.prAsked, project)
+	return m.readTracker(project)
+}
+
 // onTrackerKey is the tracker's keymap, deliberately the diff's shape - j/k to
 // walk, r to read again, esc to leave - so the column's five faces do not each
 // need learning.
 func (m *Model) onTrackerKey(key string) tea.Cmd {
-	if m.trackerCursorKey(key) {
+	if m.trackerCursorKey(key) || m.trackerSectionKey(key) {
 		return nil
 	}
 	switch {
 	case is(key, trackerBind.Reload):
-		return m.readTracker(m.review.Tracker.Project)
+		return m.readTrackerNow(m.review.Tracker.Project)
 	case is(key, trackerBind.Read):
 		return m.openItemAtCursor()
 	}
@@ -138,6 +163,22 @@ func (m *Model) trackerCursorKey(key string) bool {
 		m.review.Focused = false
 	case is(key, trackerBind.Filter):
 		m.review.Filter.Active = true
+	default:
+		return false
+	}
+	return true
+}
+
+// trackerSectionKey is the keys that act on a whole section - jump to it
+// (#662) or fold it (#663) - reporting whether key was one.
+func (m *Model) trackerSectionKey(key string) bool {
+	switch {
+	case is(key, trackerBind.NextSection):
+		m.jumpTrackerSection(1)
+	case is(key, trackerBind.PrevSection):
+		m.jumpTrackerSection(-1)
+	case is(key, trackerBind.Fold):
+		m.toggleTrackerFold()
 	default:
 		return false
 	}
@@ -179,9 +220,48 @@ func (m *Model) moveTrackerCursor(delta int) {
 	// A narrowed list can be shorter than where the cursor stood (#399);
 	// move clamps it back onto the rows there are.
 	m.review.Tracker.move(delta, len(rows), m.reviewRows())
-	if len(rows) > 0 && rows[m.review.Tracker.Cursor].Kind == rowRule {
+	if len(rows) > 0 && !rows[m.review.Tracker.Cursor].stop() {
 		m.stepOffRule(rows, delta)
 	}
+}
+
+// jumpTrackerSection moves the cursor to the first item of the next section, or
+// the previous one (#662): with a hundred open issues the pull requests were a
+// walk past every one of them away. The diff's ] and [ between files work the
+// same way - [ inside a section goes to its first item, and neither wraps.
+func (m *Model) jumpTrackerSection(dir int) {
+	cursor, target := m.review.Tracker.Cursor, -1
+	for _, start := range sectionStarts(m.trackerRows()) {
+		if dir > 0 && start > cursor {
+			target = start
+			break
+		}
+		if dir < 0 && start < cursor {
+			target = start
+		}
+	}
+	if target >= 0 {
+		m.moveTrackerCursor(target - cursor)
+	}
+}
+
+// sectionStarts is where each section starts for the cursor: the row after
+// each heading, or a folded heading itself, which is all a folded section
+// shows (#663). A list with no heading has one section and no start to jump
+// to, and a list the filter emptied has no heading (#399), so it is never a
+// stop.
+func sectionStarts(rows []trackerRow) []int {
+	var starts []int
+	for i, r := range rows {
+		switch {
+		case r.Kind != rowRule:
+		case r.Folded:
+			starts = append(starts, i)
+		case i+1 < len(rows) && rows[i+1].Kind != rowRule:
+			starts = append(starts, i+1)
+		}
+	}
+	return starts
 }
 
 // stepOffRule moves the cursor to the nearest row that is not a rule, the way
@@ -195,7 +275,7 @@ func (m *Model) stepOffRule(rows []trackerRow, delta int) {
 	}
 	for _, dir := range []int{step, -step} {
 		for i := m.review.Tracker.Cursor + dir; i >= 0 && i < len(rows); i += dir {
-			if rows[i].Kind != rowRule {
+			if rows[i].stop() {
 				m.review.Tracker.move(i-m.review.Tracker.Cursor, len(rows), m.reviewRows())
 				return
 			}

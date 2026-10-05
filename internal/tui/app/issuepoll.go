@@ -55,7 +55,25 @@ func scheduleIssueTick() tea.Cmd {
 }
 
 // onIssueTick polls every project and re-arms the tick.
-func (m *Model) onIssueTick() tea.Cmd { return tea.Batch(m.pollIssues(), scheduleIssueTick()) }
+func (m *Model) onIssueTick() tea.Cmd { return tea.Batch(m.issueTickPolls(), scheduleIssueTick()) }
+
+// issueTickPolls is what one issue tick asks for: every project's issues, and
+// the pull requests the minute tick never reads - a project holding no session,
+// and a stopped one tried again (#658). A stop used to last the run, so one
+// refused token kept a project's lists away until omatty restarted.
+func (m *Model) issueTickPolls() tea.Cmd {
+	if !m.hasFocus {
+		return nil
+	}
+	m.retryStoppedForges()
+	cmds := []tea.Cmd{m.pollIssues()}
+	for _, p := range m.state.Projects {
+		if !m.holdsSessionsIn(p.Name) || m.forgeRetry[p.Name] {
+			cmds = append(cmds, m.pollProjectPRs(p.Name))
+		}
+	}
+	return tea.Batch(cmds...)
+}
 
 // pollIssues is one call per registered project. Nothing while omatty is
 // blurred (#314) - onWindowFocus polls on the way back in - and nothing for a
@@ -94,6 +112,7 @@ func (m *Model) onIssues(msg IssuesLoadedMsg) tea.Cmd {
 		return nil
 	}
 	delete(m.issueFailed, msg.Project)
+	m.forgeRecovered(msg.Project)
 	m.issues[msg.Project] = msg.Issues
 	m.settleTracker(msg.Project)
 	return nil
@@ -102,6 +121,7 @@ func (m *Model) onIssues(msg IssuesLoadedMsg) tea.Cmd {
 // issueFailure sorts a failed call into a forge that keeps no issues, a lost
 // forge, or an outage.
 func (m *Model) issueFailure(project string, err error) {
+	delete(m.forgeRetry, project)
 	if errors.Is(err, forge.ErrNoTracker) {
 		m.noTracker[project] = true // its pull requests still come (#460)
 		// Issues read before the tracker went away are not current: Gitea's
@@ -128,6 +148,7 @@ func (m *Model) withIssueMaps() *Model {
 	m.issueFailed = map[string]bool{}
 	m.issueAsked = map[string]time.Time{}
 	m.noTracker = map[string]bool{}
+	m.trackerFolds = map[string]map[trackerKind]bool{}
 	return m
 }
 
@@ -137,5 +158,6 @@ func (m *Model) forgetProjectIssues(name string) {
 	delete(m.issuePending, name)
 	delete(m.issueFailed, name)
 	delete(m.noTracker, name)
+	delete(m.trackerFolds, name)
 	delete(m.issueAsked, name)
 }

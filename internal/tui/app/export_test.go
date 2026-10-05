@@ -81,7 +81,7 @@ func ColumnBindings() map[string][]string {
 		"diff":    keysOf(d.Comment, d.CommentPart, d.Delete, d.Submit, d.Scope, d.Open, d.NextFile, d.PrevFile, d.NextHunk, d.PrevHunk, d.Fold, d.Reload),
 		"tree":    keysOf(tr.Enter, tr.Read, tr.Generated, tr.Filter, tr.Attach, tr.Open, tr.Reload, tr.Changed),
 		"gate":    keysOf(g.Fold, g.Send, g.Rerun, g.Search, g.NextMatch, g.PrevMatch),
-		"tracker": keysOf(tk.Read, tk.Filter, tk.Start, tk.Attach, tk.Browse, tk.Reload),
+		"tracker": keysOf(tk.Read, tk.Filter, tk.Start, tk.Attach, tk.Browse, tk.Reload, tk.NextSection, tk.PrevSection, tk.Fold),
 	}
 }
 
@@ -296,7 +296,11 @@ func (m *Model) PRFailed(project string) bool    { return m.prFailed[project] }
 // PollIssues is one issue tick without the tick that re-arms it, IssuesOf what
 // the model holds for a project and IssuesFailed whether its last poll failed
 // (#394).
-func (m *Model) PollIssues() tea.Cmd                   { return m.pollIssues() }
+func (m *Model) PollIssues() tea.Cmd { return m.pollIssues() }
+
+// IssueTickPolls is what the issue tick asks, without re-arming the tick: a
+// test that delivered the tick itself would wait out its five minutes.
+func (m *Model) IssueTickPolls() tea.Cmd               { return m.issueTickPolls() }
 func (m *Model) IssuesOf(project string) []forge.Issue { return m.issues[project] }
 func (m *Model) IssuesFailed(project string) bool      { return m.issueFailed[project] }
 
@@ -304,6 +308,19 @@ func (m *Model) IssuesFailed(project string) bool      { return m.issueFailed[pr
 // (#395), asserted directly because the sidebar is 28 cells and a repository
 // with four-digit counts cannot be built out of a fixture.
 func FitCounts(parts []string) string { return fitCounts(parts) }
+
+// TrackerAtCursor is the row under the tracker's cursor as drawn: an item's
+// reference, or a folded heading's title (#663).
+func (m *Model) TrackerAtCursor() string {
+	rows := m.trackerRows()
+	if m.review.Tracker.Cursor >= len(rows) {
+		return ""
+	}
+	if r := rows[m.review.Tracker.Cursor]; r.Kind == rowRule {
+		return r.Title
+	}
+	return rows[m.review.Tracker.Cursor].ref()
+}
 
 // TrackerRowCount is how many rows the tracker draws, the rule included (#396).
 func (m *Model) TrackerRowCount() int { return len(m.trackerRows()) }

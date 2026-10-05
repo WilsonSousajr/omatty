@@ -29,3 +29,18 @@ func TestClaude_CommandNeverReferencesTheUserSettings_issue3(t *testing.T) {
 		}
 	}
 }
+
+// codex takes no id from omatty: a fresh start is the binary alone, and
+// codex reports the id it chose (Reported, #523). A resume names that id to
+// `codex resume`. No settings file - codex's hooks are the launcher's
+// appended -c flags (#152).
+func TestCodex_CommandStartsFreshOrResumes_issue152(t *testing.T) {
+	fresh := strings.Join(agent.CodexCommand("codex", "pane-1", "/w", false, ""), " ")
+	resume := strings.Join(agent.CodexCommand("codex", "01a10652-4044", "/w", true, ""), " ")
+	if fresh != "codex" {
+		t.Errorf("fresh = %q, want the binary alone", fresh)
+	}
+	if resume != "codex resume 01a10652-4044" {
+		t.Errorf("resume = %q, want codex resume <id>", resume)
+	}
+}

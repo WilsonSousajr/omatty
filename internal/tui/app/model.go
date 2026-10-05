@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
@@ -36,7 +37,12 @@ type Model struct {
 	router  *keys.Router
 	leader  string // the key the router intercepts; DefaultLeader unless configured (#44)
 	create  CreateFunc
-	start   StartFunc
+	// agents, defaultAgent and setProjectAgent choose a session's agent (#524).
+	agents          func() []AgentOption
+	agentCaps       func(name string) (agent.Caps, bool) // the tier-aware surface (#526)
+	defaultAgent    string
+	setProjectAgent func(project, agent string) error
+	start           StartFunc
 	// starting is every session whose process is being started off the
 	// Update goroutine, so a second enter while one is on its way does not
 	// start another (migration step 5.6a, #653). Nil until the first start.
@@ -134,7 +140,9 @@ type Model struct {
 	issueFailed  map[string]bool
 	issueAsked   map[string]time.Time
 	forgeStopped map[string]error
-	noTracker    map[string]bool // the forge keeps no issues for it (#460)
+	forgeRetry   map[string]bool                 // a stopped project may be asked once more (#658)
+	noTracker    map[string]bool                 // the forge keeps no issues for it (#460)
+	trackerFolds map[string]map[trackerKind]bool // the tracker sections tab folded, per project (#663)
 	labelOf      LabelFunc
 	turnPending  map[string]bool
 	turnErr      map[string]error
@@ -169,6 +177,10 @@ type Model struct {
 	statFailed  map[string]bool
 	// filesPending guards one worktree listing in flight per session (#195).
 	filesPending map[string]bool
+	// workDirs is where each session's agent works, when that is not its
+	// launch directory (#659); follow resolves a reported directory.
+	workDirs map[string]workDir
+	follow   FollowFunc
 	// reviewed is, per session, the digest each file's diff had when the
 	// operator marked it read (#337). Keyed by session because the column
 	// keeps one Tree: a mark stored on the Tree would be dropped the moment
@@ -262,12 +274,12 @@ func NewModel(deps Deps) *Model {
 // withSources attaches the injected functions that reach outside ui: the
 // review column's readers (#21, #24) and the lifecycle commands (#40, #41).
 func (m *Model) withSources(d Deps) *Model {
-	m.diff, m.files, m.preview, m.highlighter = d.Diff, d.Files, d.Preview, d.Highlighter
+	m.diff, m.files, m.preview, m.highlighter, m.follow = d.Diff, d.Files, d.Preview, d.Highlighter, d.Follow
 	m.generatedFn, m.ship, m.tally = d.Generated, d.Ship, d.Tally
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse, m.labelOf = d.PRs, d.Issues, d.Item, d.Browse, d.Label
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
-	m.rebind = d.Rebind
+	m.rebind, m.agents, m.defaultAgent, m.setProjectAgent, m.agentCaps = d.Rebind, d.Agents, d.DefaultAgent, d.SetProjectAgent, d.AgentCaps
 	m.renameBranch = d.RenameBranch
 	m.modelNamer = d.ModelName
 	m.removeWorktree, m.tailStop = d.RemoveWorktree, d.TailStop
@@ -326,6 +338,7 @@ func (m *Model) withRuntimeMaps() *Model {
 func (m *Model) withReviewMaps() *Model {
 	m.reviewed = map[string]map[string]string{}
 	m.generated = map[string]map[string]bool{}
+	m.workDirs = map[string]workDir{} // #659
 	return m
 }
 

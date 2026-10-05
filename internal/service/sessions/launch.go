@@ -5,6 +5,7 @@
 package sessions
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -12,19 +13,18 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
 )
 
-// Launcher builds and starts the claude process for a session.
+// Launcher builds and starts the agent process for a session.
 //
-//	l := sessions.NewLauncher(profile, cfg.ClaudeBin, paths.HooksFile(home), home, detach.New(home))
+//	l := sessions.NewLauncher(agents, home, detach.New(home))
 //	launch, err := l.Launch(sess)
 //
-// One profile per Launcher because M7 has one agent. When a second arrives,
-// Start resolves sess.Agent and Command takes the profile as a parameter;
-// the change is local to this file, which is what the seam buys (#46).
+// The session's own agent is resolved through the injected catalog on every
+// launch, so two sessions side by side can run two agents (#521). It was one
+// profile per Launcher until M17; the change stayed local to this file, which
+// is what the seam bought (#46).
 type Launcher struct {
-	profile   agent.Profile
-	bin       string
-	hooksFile string
-	home      string
+	agents agent.Catalog
+	home   string
 	// holder keeps the process alive across omatty's own exit. It is a port,
 	// not the dtach type, because invariant 4 keeps the binary inside
 	// internal/infra/detach and because a machine without dtach gets the
@@ -32,12 +32,13 @@ type Launcher struct {
 	holder Holder
 }
 
-// NewLauncher returns a Launcher running profile's agent as bin with
-// hooksFile as its settings. home is where the agent keeps transcripts; it
-// decides between a fresh start and a resume. holder decides whether the
+// NewLauncher returns a Launcher running each session's agent from agents,
+// as the binary and with the settings file the catalog names for it.
+// home is where the agent keeps transcripts; it decides between a fresh start
+// and a resume. holder decides whether the
 // process survives quitting omatty.
-func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder Holder) *Launcher {
-	return &Launcher{profile: profile, bin: bin, hooksFile: hooksFile, home: home, holder: holder}
+func NewLauncher(agents agent.Catalog, home string, holder Holder) *Launcher {
+	return &Launcher{agents: agents, home: home, holder: holder}
 }
 
 // Launch returns what omatty starts for a session, built from the profile's
@@ -58,9 +59,17 @@ func NewLauncher(profile agent.Profile, bin, hooksFile, home string, holder Hold
 // names and what the hook reads back from the environment: after /clear the
 // two differ, and only the first moves (#316).
 func (l *Launcher) Launch(sess session.Session) (session.Launch, error) {
+	profile, err := l.agents.Lookup(sess.Agent)
+	if err != nil {
+		return session.Launch{}, fmt.Errorf("session %s: %w", sess.ID, err)
+	}
 	conv := sess.ConversationID()
-	resume := HasTranscript(l.profile, l.home, sess.Dir, conv)
-	argv, err := l.holder.Wrap(sess.ID, l.profile.Command(l.bin, conv, sess.Dir, resume, l.hooksFile))
+	resume := HasTranscript(profile, l.home, sess.Dir, conv)
+	argv := profile.Command(l.agents.Bin(profile), conv, sess.Dir, resume, l.agents.HooksFile(profile))
+	// An agent that takes its hooks as flags gets them last, after the
+	// subcommand its template chose: Codex's `-c` is accepted there by both
+	// `codex` and `codex resume <id>` (#152).
+	argv, err = l.holder.Wrap(sess.ID, append(argv, l.agents.HookArgs(profile)...))
 	if err != nil {
 		return session.Launch{}, err
 	}
@@ -85,6 +94,9 @@ func ownedEnv(env []string, id string) []string {
 // for the session, which is the condition under which it must be resumed
 // rather than started (#36, #46).
 func HasTranscript(profile agent.Profile, home, dir, sessionID string) bool {
+	if profile.TranscriptPath == nil {
+		return false // a generic agent keeps none omatty can find (#525)
+	}
 	info, err := os.Stat(profile.TranscriptPath(home, dir, sessionID))
 	return err == nil && !info.IsDir()
 }

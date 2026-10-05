@@ -10,6 +10,7 @@
   [38;5;245m▾ api-svc                 [m[38;5;75m│[m  [38;5;75mctrl+o A       [m  [38;5;250madopt a session claude already k[m
   [38;5;245m○[m [38;5;250mmain              [m [38;5;245m    [m [38;5;75m│[m  [38;5;75mctrl+o R       [m  [38;5;250mrename the selected session[m     
                             [38;5;75m│[m  [38;5;75mctrl+o B       [m  [38;5;250mrename a worktree session's bran[m
+                            [38;5;75m│[m  [38;5;75mctrl+o c       [m  [38;5;250mchoose the agent the selected pr[m
                             [38;5;75m│[m  [38;5;75mctrl+o x       [m  [38;5;250marchive the session, or forget a[m
                             [38;5;75m│[m  [38;5;75mctrl+o r       [m  [38;5;250mrestart a crashed session[m       
                             [38;5;75m│[m  [38;5;75mctrl+o s       [m  [38;5;250mstop the session's process, keep[m
@@ -19,6 +20,5 @@
                             [38;5;75m│[m  [38;5;75mctrl+o f       [m  [38;5;250mopen or close the file tree[m     
                             [38;5;75m│[m  [38;5;75mctrl+o g       [m  [38;5;250mopen or close the gate pane[m     
                             [38;5;75m│[m  [38;5;75mctrl+o i       [m  [38;5;250mopen or close this project's iss[m
-                            [38;5;75m│[m  [38;5;75mctrl+o z       [m  [38;5;250mzoom the review column over the [m
                             [38;5;75m│[m[38;5;245mj/k scroll  / filter  esc close  ctrl+c quit[m       
 [38;5;245m esc close  ctrl+c quit[m                                               [38;5;245m3 sessions[m

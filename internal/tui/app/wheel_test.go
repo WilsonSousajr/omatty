@@ -150,6 +150,7 @@ func TestUpdate_TheWheelScrollsTheReviewColumn_issue107(t *testing.T) {
 	m.Update(app.FilesLoadedMsg{SessionID: "s1", Paths: []string{
 		"internal/ui/model.go", "internal/ui/wheel.go", "README.md",
 	}})
+	openInternal(m) // closed since #593, and a closed tree has nothing to scroll
 	before := m.View().Content
 
 	x, y := overReview()

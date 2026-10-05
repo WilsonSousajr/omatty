@@ -20,7 +20,7 @@ func (m *Model) modalLines() []string {
 		return m.editorLines()
 	case modalConfirm, modalRevert:
 		return m.confirmLines()
-	case modalList, modalPicker, modalAdopt:
+	case modalList, modalPicker, modalAdopt, modalAgent, modalProjectAgent:
 		return m.pickLines()
 	case modalHelp:
 		return m.helpLines()
@@ -50,6 +50,7 @@ var leaderKeys = []keyHelp{
 	{"A", "adopt a session claude already knows"},
 	{"R", "rename the selected session"},
 	{"B", "rename a worktree session's branch"},
+	{"c", "choose the agent the selected project's new sessions run"},
 	{"x", "archive the session, or forget an empty project"},
 	{"r", "restart a crashed session"},
 	{"s", "stop the session's process, keeping it; enter resumes it"},
@@ -118,7 +119,7 @@ var gateKeys = rowsOf(gateBind.Fold, gateBind.Send, gateBind.Rerun, gateBind.Sea
 	gateBind.NextMatch, gateBind.PrevMatch)
 
 var trackerKeys = rowsOf(trackerBind.Read, trackerBind.Filter, trackerBind.Start,
-	trackerBind.Attach, trackerBind.Browse, trackerBind.Reload)
+	trackerBind.Attach, trackerBind.Browse, trackerBind.Reload, trackerBind.NextSection, trackerBind.Fold)
 
 // helpSection is one titled block of the help modal below the leader keys.
 type helpSection struct {
@@ -241,6 +242,7 @@ func (m *Model) editorLabel() string {
 var modalNames = map[modalKind]string{
 	modalRename: "rename", modalBranch: "rename branch", modalConfirm: "confirm", modalList: "switch",
 	modalPicker: "register project", modalAdopt: "adopt session", modalHelp: "keys",
+	modalAgent: "choose agent", modalProjectAgent: "project agent",
 }
 
 // modalName is the open surface's name: one per surface as opened. The
@@ -259,6 +261,15 @@ func modalName(md modal) string {
 // base footer is already truncated at 100 columns (issue #30), so a new key
 // earns its place here rather than lengthening that constant.
 func modalFooter(md modal) string {
+	if md.Kind == modalAgent || md.Kind == modalProjectAgent {
+		return agentFooter
+	}
+	return surfaceFooter(md)
+}
+
+// surfaceFooter is every other surface's footer, split from modalFooter when
+// the agent lists (#524) pushed it past the length limit.
+func surfaceFooter(md modal) string {
 	switch md.Kind {
 	case modalPrompt, modalRename, modalBranch:
 		return "enter confirm  esc cancel  ctrl+c quit"
@@ -283,3 +294,7 @@ func modalFooter(md modal) string {
 	}
 	return ""
 }
+
+// agentFooter is the agent lists' footer (#524): the switcher's movement,
+// because j and k are filter text here too.
+const agentFooter = "type to filter  ctrl+j/ctrl+k move  enter choose  esc cancel"

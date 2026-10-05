@@ -28,7 +28,7 @@ type generatedMsg struct {
 // the diff and gone from the listing, and a lockfile it has not touched is in
 // the listing and not in the diff; the queue and the tree each need their own.
 func (m *Model) detectGenerated(id string) tea.Cmd {
-	sess, ok := m.session(id)
+	sess, ok := m.reviewSession(id)
 	if !ok {
 		return nil
 	}

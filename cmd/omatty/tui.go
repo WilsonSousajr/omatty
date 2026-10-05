@@ -36,10 +36,10 @@ type tuiRuntime struct {
 // runtimeFor builds the lifecycle's half of the wiring from env.
 func runtimeFor(env tuiEnv) tuiRuntime {
 	return tuiRuntime{
-		Launch:  sessions.NewLauncher(env.Agent, env.Cfg.ClaudeBin, env.HooksFile, env.Home, env.Holder),
+		Launch:  sessions.NewLauncher(env.Agents.WithBins(env.Cfg.AgentBins()).WithHooksFiles(env.HooksFiles).WithHookArgs(env.HookArgs), env.Home, env.Holder),
 		Factory: terminal.Start,
 		Watch: status.WatchDeps{Home: env.Home, HookSocket: paths.HookSocket(env.Home), Clock: time.Now, OpenTranscript: openTranscript, ListenHooks: listenHooks,
-			Adapter: env.Agent.Status, TranscriptPath: env.Agent.TranscriptPath},
+			Agents: env.Agents},
 		// The gate's bound comes from the config; the Runner raises a zero to
 		// one, so an old config file without a [gate] section still works.
 		GateParallel: env.Cfg.Gate.MaxParallel, RunGate: gateexec.Run,

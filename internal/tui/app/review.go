@@ -48,6 +48,7 @@ type PreviewFunc func(dir, rel string) (dreview.Preview, error)
 // can send one.
 type FilesLoadedMsg struct {
 	SessionID string
+	Dir       string // the checkout listed, so a listing the review has moved off is not drawn (#659)
 	Paths     []string
 	Err       error
 }
@@ -298,7 +299,7 @@ func (m *Model) closeColumn() tea.Cmd {
 // loadFullDiff fetches the whole-session diff off the Update goroutine: git on
 // a large tree takes long enough to stall the frame.
 func (m *Model) loadFullDiff(id string) tea.Cmd {
-	sess, ok := m.session(id)
+	sess, ok := m.reviewSession(id)
 	if !ok {
 		return nil
 	}
@@ -323,7 +324,7 @@ func (m *Model) loadTurn(id string) tea.Cmd {
 	if !m.review.Open || m.review.Scope != scopeTurn || id != m.review.SessionID || m.hooksDown {
 		return nil
 	}
-	sess, ok := m.session(id)
+	sess, ok := m.reviewSession(id)
 	if !ok {
 		return nil
 	}

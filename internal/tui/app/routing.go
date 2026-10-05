@@ -252,7 +252,7 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 	// test and by no unit test - they send the legacy spelling. Rename carried
 	// the same gap, and a comment asserting the opposite of the one three lines
 	// below it (#87, #103, #122).
-	if m.renameCommand(key) {
+	if m.renameCommand(key) || m.projectCommand(key) {
 		return nil
 	}
 	switch key {
@@ -290,5 +290,16 @@ func (m *Model) renameCommand(key string) bool {
 	default:
 		return false
 	}
+	return true
+}
+
+// projectCommand opens a surface about the selected project and reports
+// whether the key was one. Split off modalCommand when ctrl+o c (#524) pushed
+// it past the length limit, as renameCommand was.
+func (m *Model) projectCommand(key string) bool {
+	if key != "c" {
+		return false
+	}
+	m.openProjectAgent()
 	return true
 }

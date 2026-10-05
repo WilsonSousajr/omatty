@@ -322,3 +322,37 @@ func TestCLI_ListFilesOnAnEmptyRepoIsEmpty_issue24(t *testing.T) {
 		t.Errorf("ListFiles(empty) = %v, %v; want none and nil", got, err)
 	}
 }
+
+// A worktree session forked from a feature branch keeps that branch's name as
+// its base; once the branch is deleted - what merging its pull request does -
+// merge-base fails on it for good, and CommitExists is how review tells that
+// apart from any other merge-base failure (#684).
+func TestCLI_CommitExistsIsFalseOnceTheBaseBranchIsDeleted_issue684(t *testing.T) {
+	repo := newRepo(t)
+	gitOut(t, repo, "branch", "feat/464")
+	wt := filepath.Join(t.TempDir(), "wt")
+	gitOut(t, repo, "worktree", "add", "-b", "chore", wt, "feat/464")
+	git := vcs.NewCLI()
+	if ok, err := git.CommitExists(wt, "feat/464"); !ok || err != nil {
+		t.Fatalf("CommitExists(live base) = %v, %v; want true, nil", ok, err)
+	}
+
+	gitOut(t, repo, "branch", "-D", "feat/464")
+
+	if _, err := git.MergeBase(wt, "feat/464"); err == nil {
+		t.Fatal("MergeBase(deleted base) succeeded; the premise of #684 no longer holds")
+	}
+	if ok, err := git.CommitExists(wt, "feat/464"); ok || err != nil {
+		t.Errorf("CommitExists(deleted base) = %v, %v; want false, nil", ok, err)
+	}
+}
+
+// A check git cannot run is an error, never a "no": review must not fall back
+// to another base because a directory went missing (#684).
+func TestCLI_CommitExistsInAMissingDirectoryIsAnError_issue684(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "gone")
+
+	if ok, err := vcs.NewCLI().CommitExists(missing, "main"); ok || err == nil {
+		t.Errorf("CommitExists(missing dir) = %v, %v; want false and an error", ok, err)
+	}
+}

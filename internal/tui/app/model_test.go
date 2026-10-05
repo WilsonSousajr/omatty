@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	"github.com/WilsonSousajr/omatty/internal/service/sessions"
 	"strings"
 	"testing"
 	"time"
@@ -13,8 +14,8 @@ import (
 	"github.com/WilsonSousajr/omatty/internal/tui/terminal"
 )
 
-func noCreate(_, title, branch string, worktree bool) (session.Session, error) {
-	return session.Session{ID: "created", Title: title, Branch: branch, Worktree: worktree}, nil
+func noCreate(req sessions.NewSession) (session.Session, error) {
+	return session.Session{ID: "created", Title: req.Title, Branch: req.Branch, Worktree: req.Worktree}, nil
 }
 
 func noStart(session.Session, int, int) (terminal.Terminal, error) { return terminal.NewFake(""), nil }

@@ -38,7 +38,6 @@ func TestModel_ANewFileAppearsWhenTheTurnEnds_issue195(t *testing.T) {
 func TestModel_AFoldedDirectoryStaysFoldedAcrossARelist_issue195(t *testing.T) {
 	m, _, lister, _ := modelWithTree(t)
 	leader(m, key('f'))
-	press(m, special(tea.KeyEnter)) // fold internal/, the first row (#194)
 	lister.Paths = append(lister.Paths, "internal/ui/b.go")
 
 	turn(m, time.Now())

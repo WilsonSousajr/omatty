@@ -27,7 +27,7 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := &fakeHolder{Wrapped: []string{"dtach", "-A", "/s.sock"}}
-	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", home, h)
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), home, h)
 
 	if _, err := l.Launch(session.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"}); err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func TestLauncher_ResumesTheReboundConversation_issue316(t *testing.T) {
 // names its pane (#316). It carries the row's ID, which never changes, so it
 // stays right across any number of clears.
 func TestLauncher_ExportsTheOwningSession_issue316(t *testing.T) {
-	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), t.TempDir(), &detach.Plain{})
 
 	cmd, err := l.Launch(session.Session{ID: "row-1", Dir: "/w", Conversation: "after-clear"})
 	if err != nil {
@@ -64,7 +64,7 @@ func TestLauncher_ExportsTheOwningSession_issue316(t *testing.T) {
 // in, the inner session's /clear would re-bind the outer pane (#316).
 func TestLauncher_ReplacesAnInheritedOwningSession_issue316(t *testing.T) {
 	t.Setenv(session.SessionEnv, "outer-pane")
-	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", t.TempDir(), &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), t.TempDir(), &detach.Plain{})
 
 	cmd, err := l.Launch(session.Session{ID: "row-1", Dir: "/w"})
 	if err != nil {

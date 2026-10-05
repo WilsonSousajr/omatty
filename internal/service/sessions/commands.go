@@ -440,15 +440,42 @@ func refuseKnownSession(st *session.State, id string) error {
 // State is saved only after the session is fully created, so a failed
 // worktree leaves nothing behind.
 func AddSession(ctx context.Context, s StateStore, c *Creator, project, title, branch string) (session.Session, error) {
+	return AddSessionAs(ctx, s, c, NewSession{Project: project, Title: title, Branch: branch, Worktree: branch != ""})
+}
+
+// AddSessionAs creates and persists the session req describes: the TUI's
+// ctrl+o n, which may have chosen its agent (#524). State is saved only after
+// the session is fully created, as AddSession's is.
+//
+//	sess, err := sessions.AddSessionAs(ctx, store, c, sessions.NewSession{Project: "omatty", Agent: "codex"})
+func AddSessionAs(ctx context.Context, s StateStore, c *Creator, req NewSession) (session.Session, error) {
 	st, err := s.Load(ctx)
 	if err != nil {
 		return session.Session{}, err
 	}
-	sess, err := c.Create(ctx, &st, project, title, branch)
+	sess, err := c.CreateAs(ctx, &st, req)
 	if err != nil {
 		return session.Session{}, err
 	}
 	return sess, s.Save(ctx, st)
+}
+
+// SetProjectAgent records the agent a project's new sessions run, so the
+// choice outlives omatty (#524). An empty agent goes back to the config's
+// default_agent.
+//
+//	err := sessions.SetProjectAgent(ctx, store, "omatty", "codex")
+func SetProjectAgent(ctx context.Context, s StateStore, project, agent string) error {
+	st, err := s.Load(ctx)
+	if err != nil {
+		return err
+	}
+	p, err := indexOfProject(&st, project)
+	if err != nil {
+		return err
+	}
+	st.Projects[p].Agent = agent
+	return s.Save(ctx, st)
 }
 
 // AddWorktreeSession registers a session on a fresh worktree and persists the
@@ -457,13 +484,5 @@ func AddSession(ctx context.Context, s StateStore, c *Creator, project, title, b
 //
 //	sess, err := sessions.AddWorktreeSession(ctx, store, c, "omatty", "", "")
 func AddWorktreeSession(ctx context.Context, s StateStore, c *Creator, project, title, branch string) (session.Session, error) {
-	st, err := s.Load(ctx)
-	if err != nil {
-		return session.Session{}, err
-	}
-	sess, err := c.CreateWorktree(ctx, &st, project, title, branch)
-	if err != nil {
-		return session.Session{}, err
-	}
-	return sess, s.Save(ctx, st)
+	return AddSessionAs(ctx, s, c, NewSession{Project: project, Title: title, Branch: branch, Worktree: true})
 }

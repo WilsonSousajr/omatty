@@ -31,15 +31,17 @@ type Naming struct {
 // caller can use directly: past Load there is no "unset" state, so no caller
 // needs a second default of its own (#44).
 type Config struct {
-	Leader       string   `toml:"leader"`
-	ClaudeBin    string   `toml:"claude_bin"`
-	WorktreeRoot string   `toml:"worktree_root"`
-	BaseBranch   string   `toml:"base_branch"`
-	Naming       Naming   `toml:"naming"`
-	Gate         Gate     `toml:"gate"`
-	Sessions     Sessions `toml:"sessions"`
-	UI           UI       `toml:"ui"`
-	Forge        Forge    `toml:"forge"`
+	Leader       string           `toml:"leader"`
+	ClaudeBin    string           `toml:"claude_bin"`
+	DefaultAgent string           `toml:"default_agent"`
+	Agents       map[string]Agent `toml:"agents"`
+	WorktreeRoot string           `toml:"worktree_root"`
+	BaseBranch   string           `toml:"base_branch"`
+	Naming       Naming           `toml:"naming"`
+	Gate         Gate             `toml:"gate"`
+	Sessions     Sessions         `toml:"sessions"`
+	UI           UI               `toml:"ui"`
+	Forge        Forge            `toml:"forge"`
 }
 
 // Forge is the [forge] table. Its one key, hosts, names a self-hosted forge
@@ -126,7 +128,7 @@ const (
 //	cfg := config.Defaults(home)
 func Defaults(home string) Config {
 	return Config{
-		Leader: "ctrl+o", ClaudeBin: "claude", WorktreeRoot: paths.DefaultWorktreeRoot(home),
+		Leader: "ctrl+o", ClaudeBin: "claude", DefaultAgent: "claude", WorktreeRoot: paths.DefaultWorktreeRoot(home),
 		Gate: Gate{MaxParallel: 2}, Sessions: Sessions{LazyStart: true}, UI: UI{Icons: IconsPlain},
 	}
 }
@@ -148,10 +150,7 @@ func Load(path, home string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("config %s: %w", path, err)
 	}
-	if err := refuseUnknownKeys(path, md); err != nil {
-		return Config{}, err
-	}
-	if err := refuseUntabledHosts(path, md, cfg.Forge.Hosts); err != nil {
+	if err := refuseBadShapes(path, md, cfg); err != nil {
 		return Config{}, err
 	}
 	if err := refuseBadValues(path, cfg); err != nil {
@@ -159,6 +158,20 @@ func Load(path, home string) (Config, error) {
 	}
 	cfg.WorktreeRoot = expandHome(cfg.WorktreeRoot, home)
 	return cfg, nil
+}
+
+// refuseBadShapes is every check that needs the decoder's metadata - which
+// keys were written, and as what - rather than the decoded values alone.
+// Split from Load when the agent blocks (#525) pushed it past the length
+// limit.
+func refuseBadShapes(path string, md toml.MetaData, cfg Config) error {
+	if err := refuseUnknownKeys(path, md); err != nil {
+		return err
+	}
+	if err := refuseUntabledHosts(path, md, cfg.Forge.Hosts); err != nil {
+		return err
+	}
+	return refuseBadAgentBlocks(path, md, cfg.Agents)
 }
 
 // knownKeys is the list an unknown-key error offers, so a typo is answered
@@ -203,6 +216,9 @@ func refuseBadValues(path string, cfg Config) error {
 		return err
 	}
 	if err := refuseUnknownIcons(path, cfg.UI.Icons); err != nil {
+		return err
+	}
+	if err := refuseBlankDefaultAgent(path, cfg.DefaultAgent); err != nil {
 		return err
 	}
 	return refuseBadForgeHosts(path, cfg.Forge.Hosts)

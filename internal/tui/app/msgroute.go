@@ -63,7 +63,7 @@ func (m *Model) onHeartbeat(msg tea.Msg) (tea.Cmd, bool) {
 func (m *Model) onInput(msg tea.Msg) (tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		return m.onKey(msg), true
+		return tea.Batch(m.focusFromKey(), m.onKey(msg)), true
 	case tea.MouseMsg:
 		return m.onMouse(msg), true
 	case tea.PasteMsg:
@@ -107,11 +107,14 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	return m.onPaneMsg(msg)
 }
 
-// onTurnMsg answers the turn baseline's two results: a snapshot taken, and a
-// turn diff loaded (#311). A table of its own, as onNamingMsg is, because the
-// two cases took onDataMsg past the length limit.
+// onTurnMsg answers what a turn leaves behind: the baseline's two results, a
+// snapshot taken and a turn diff loaded (#311), and the checkout the turn
+// ended in (#659). A table of its own, as onNamingMsg is, because the cases
+// took onDataMsg past the length limit.
 func (m *Model) onTurnMsg(msg tea.Msg) (tea.Cmd, bool) {
 	switch typed := msg.(type) {
+	case WorkTreeMsg:
+		return m.onWorkTree(typed), true
 	case TurnLoadedMsg:
 		return m.onTurnLoaded(typed), true
 	case TurnSnappedMsg:
@@ -247,15 +250,30 @@ func (m *Model) onForgeMsg(msg tea.Msg) (tea.Cmd, bool) {
 	return nil, false
 }
 
+// catchUp polls whatever changed while the polls were gated off, rather than
+// leaving stale cards up for the rest of the ten-second period.
+func (m *Model) catchUp() tea.Cmd { return tea.Batch(m.pollAll(), m.pollPRs(), m.pollIssues()) }
+
+// focusFromKey treats a key as focus. A terminal or a multiplexer that sends
+// the focus-out and loses the focus-in left every poll off for the rest of the
+// run (#658); a key reaches only the focused window, so it is the evidence the
+// lost focus-in would have been. Not the mouse: a wheel scrolls an unfocused
+// window on macOS.
+func (m *Model) focusFromKey() tea.Cmd {
+	if m.hasFocus {
+		return nil
+	}
+	m.hasFocus = true
+	return m.catchUp()
+}
+
 // onWindowFocus records whether omatty itself has the operator's attention,
 // which is what gates notifications, and otherwise broadcasts.
 func (m *Model) onWindowFocus(msg tea.Msg) tea.Cmd {
 	switch msg.(type) {
 	case tea.FocusMsg:
 		m.hasFocus = true
-		// Catch up on whatever changed while the poll was gated off, rather
-		// than leaving stale cards up for the rest of the ten-second period.
-		return tea.Batch(m.pollAll(), m.pollPRs(), m.pollIssues())
+		return m.catchUp()
 	case tea.BlurMsg:
 		m.hasFocus = false
 		return nil

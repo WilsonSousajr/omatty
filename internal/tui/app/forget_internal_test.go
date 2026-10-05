@@ -52,7 +52,7 @@ func sessionMaps(m *Model) map[string]reflect.Value {
 var skipSessionMaps = map[string]bool{
 	"prs": true, "prPending": true, "prFailed": true, "prAsked": true,
 	"issues": true, "issuePending": true, "issueFailed": true, "issueAsked": true,
-	"forgeStopped": true, "noTracker": true,
+	"forgeStopped": true, "forgeRetry": true, "noTracker": true, "trackerFolds": true,
 }
 
 // mapsHolding is the names of the session maps that still hold id, sorted so
@@ -110,6 +110,7 @@ func filledModel() *Model {
 	m.statPending[forgottenID] = true
 	m.statFailed[forgottenID] = true
 	m.filesPending[forgottenID] = true
+	m.workDirs[forgottenID] = workDir{Seen: "/wt"}
 	m.reviewed[forgottenID] = map[string]string{"a.go": "deadbeef"}
 	m.generated[forgottenID] = map[string]bool{"go.sum": true}
 	m.turnGated[forgottenID] = true

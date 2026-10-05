@@ -10,6 +10,7 @@
   ▾ api-svc                 │  ctrl+o A         adopt a session claude already knows                                    
   ○ main                    │  ctrl+o R         rename the selected session                                             
                             │  ctrl+o B         rename a worktree session's branch                                      
+                            │  ctrl+o c         choose the agent the selected project's new sessions run                
                             │  ctrl+o x         archive the session, or forget an empty project                         
                             │  ctrl+o r         restart a crashed session                                               
                             │  ctrl+o s         stop the session's process, keeping it; enter resumes it                
@@ -25,6 +26,5 @@
                             │  ctrl+o q         quit                                                                    
                             │                                                                                           
                             │anywhere in the review column                                                              
-                            │  j / k            move the cursor, or scroll a preview or an item                         
                             │j/k scroll  / filter  esc close  ctrl+c quit                                               
  esc close  ctrl+c quit                                                                                       3 sessions

@@ -59,6 +59,28 @@ type Project struct {
 	// across a restart; false is "unfolded", which is what every project was
 	// before, so the key is omitted and Version stays 1 (invariant 9).
 	Collapsed bool `json:"collapsed,omitempty"`
+	// Agent is the agent this project's new sessions run unless one is
+	// chosen for them (#524). Empty means the config's default_agent - not
+	// claude, as a Session's empty Agent does - because a project default is
+	// a preference that follows the config, where a session's agent is a fact
+	// about a process already running. Omitted when empty, so Version stays 1
+	// (invariant 9).
+	Agent string `json:"agent,omitempty"`
+}
+
+// ImplicitAgent is the agent a Session's empty Agent means: every row written
+// before #46 is claude's.
+const ImplicitAgent = "claude"
+
+// StoredAgent is name as a Session records it: claude as "", its one
+// spelling, and any other agent by name (#524).
+//
+//	sess.Agent = session.StoredAgent("claude") // ""
+func StoredAgent(name string) string {
+	if name == ImplicitAgent {
+		return ""
+	}
+	return name
 }
 
 // Session is one Claude Code process in one directory.

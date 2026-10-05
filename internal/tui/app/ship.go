@@ -48,7 +48,7 @@ func (m *Model) shipSelected() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	sess := *row.Session
+	sess, _ := m.reviewSession(row.Session.ID)
 	if pr, found := m.prFor(sess); found && pr.State == forge.Open {
 		return m.mergeIfGreen(sess, pr)
 	}

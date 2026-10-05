@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strconv"
 	"strings"
@@ -44,7 +45,17 @@ func plural(n int, noun string) string {
 	if n == 1 {
 		return "1 " + noun
 	}
-	return strconv.Itoa(n) + " " + noun + "s"
+	return windowed(n) + " " + noun + "s"
+}
+
+// windowed is a count as the window drew it: "100+" for a list that filled its
+// window, since the forge was asked for only that many and more may be open
+// (#658). Below the window a count is the whole list.
+func windowed(n int) string {
+	if n >= forge.ListWindow {
+		return strconv.Itoa(n) + "+"
+	}
+	return strconv.Itoa(n)
 }
 
 // renderTracker draws the rows, or says why there are none.
@@ -88,6 +99,16 @@ func (m *Model) trackerNote() string {
 	return ""
 }
 
+// ruleLine is a heading. A folded one the cursor rests on is drawn as the
+// cursor row, since tab there opens it (#663); an open one never holds it.
+func (m *Model) ruleLine(r trackerRow, selected bool, w int) string {
+	line := fitLine(labelledRule(r.Title, w), w)
+	if selected {
+		return theme.Cursor.Render(line)
+	}
+	return line
+}
+
 // trackerLine is one row: the number, one label or CI mark, the title, and how
 // long since it last moved. The cursor row is drawn in the accent, the way a
 // selected card's rail is (#174).
@@ -98,7 +119,7 @@ func (m *Model) trackerLine(r trackerRow, selected bool, numW int) string {
 		// its own column the way a diff's file header does (#291): panned right
 		// it went blank, and the smoke run showed the two lists merging into
 		// one with nothing to say where the issues stopped.
-		return fitLine(labelledRule(r.Title, w), w)
+		return m.ruleLine(r, selected, w)
 	}
 	// Only the lead pans. The age is pinned to the right edge, so a title
 	// longer than the column is what gets cut - not the age after it (#423).

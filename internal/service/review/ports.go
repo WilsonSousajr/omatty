@@ -14,9 +14,12 @@ import (
 //
 //	src := review.NewSource(vcs.NewCLI(), gitdiff.ParseDiff)
 type Git interface {
+	RepoRoot(dir string) (string, error)
+	MainCheckout(dir string) (string, error)
 	CurrentBranch(dir string) (string, error)
 	CommitsOnBranch(repoRoot, base, branch string) (int, error)
 	MergeBase(dir, ref string) (string, error)
+	CommitExists(dir, ref string) (bool, error)
 	Diff(dir, commit string) (string, error)
 	Shortstat(dir, commit string) (dreview.Shortstat, error)
 	Untracked(dir string) ([]string, error)

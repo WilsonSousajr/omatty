@@ -154,7 +154,7 @@ bubbleterm is itself a bubbletea component, so `terminal.Terminal` returns
 
 | Package | Owns |
 |---|---|
-| `internal/domain/agent` | What a coding agent is: a command template plus a status adapter. Claude is the only profile (#46), composed in `cmd/omatty/agents.go` with the implementations it carries. |
+| `internal/domain/agent` | What a coding agent is: a command template plus a status adapter (#46), its `Caps` and the tier derived from them (#520), and the `Catalog` that resolves each session's agent (#521). Two profiles so far, claude and codex (#152), composed in `cmd/omatty/agents.go` and `cmd/omatty/codex.go` with the implementations each carries. An agent's hooks reach it as a settings file (`RenderSettings`) or as flags appended to its argv (`RenderArgs`, codex's `-c`). |
 | `internal/domain/coverage` | A coverage profile as per-line verdicts. Three states: covered, uncovered, and no verdict at all for a line that is not a statement. It parses a reader. |
 | `internal/domain/crap` | Per-function complexity × coverage → a C.R.A.P. score, for the gate tool that holds the limit (#262). |
 | `internal/domain/depgraph` | The internal import graph → Ca, Ce, instability and the SDP check `check-deps.sh` runs (#263, #269). |
@@ -210,7 +210,7 @@ bubbleterm is itself a bubbletea component, so `terminal.Terminal` returns
 | `internal/cli` | The second driving adapter: `sessions --json`, `status --json`, and the flows behind `adopt`, `rm` and `gate --stats`. |
 | `cmd/omatty` | The binary and the one composition root. Flags, dependency construction, `omatty hook`. Thin by rule. |
 | `tools/`, `scripts/` | The gate's own tools - `crapcheck`, `depcheck`, `layercheck` - and the scripts that run them. Outside the hexagon. |
-| `testdata/` | `fake-claude`, `ptyrun`, `screen`, `dtachprobe`, `gateprobe`, `forgeprobe`: the harness for the real-PTY smoke test the gate cannot replace. |
+| `testdata/` | `fake-agent` (one shape per agent; `fake-claude` links to its claude shape, #527), `ptyrun`, `screen`, `dtachprobe`, `gateprobe`, `forgeprobe`: the harness for the real-PTY smoke test the gate cannot replace. |
 
 ## The twelve invariants, and why
 
@@ -238,10 +238,15 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
    rule is whether a wrong answer would mislead omatty about a session - a
    clipboard cannot.
 
-3. **omatty never writes `~/.claude/settings.json`.** Hooks are injected
-   per-process with `--settings ~/.omatty/hooks.json`. Zero footprint is a
-   feature: uninstalling omatty leaves Claude exactly as it was, and two
-   omatty versions cannot fight over one file.
+3. **omatty never writes any agent's user configuration, nor an agent config
+   file inside the project.** Hooks are injected per-process: claude's with
+   `--settings ~/.omatty/hooks.json`, every other agent's from its own
+   `~/.omatty/hooks-<agent>.json` (`paths.HooksFile`). Zero footprint is a
+   feature: uninstalling omatty leaves every agent exactly as it was, and two
+   omatty versions cannot fight over one file. M17 added the second half
+   (#522): a `.gemini/settings.json` or `.cursor/hooks.json` written into the
+   repository dirties the operator's tree and gets committed, so an agent
+   whose only hook route is such a file gets no hooks and drops a tier.
 
 4. **bubbleterm, git and dtach are reachable only through packages omatty
    owns.** bubbleterm is pre-1.0 and will break; the blast radius must be one
@@ -275,6 +280,17 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
    everything a relaunch needs is either persisted or derivable. A new
    session field is one or the other - `Agent` is empty for claude precisely
    so pre-#46 files stay at schema version 1.
+   M17 (#520) amended the rule to *everything the agent allows*: an agent
+   with no resume flag cannot be resumed from any file, so for it `state.json`
+   suffices to start fresh in `Dir`, and the surface says the conversation is
+   lost. Whether an agent resumes is `Caps.Resume`, a fact about the binary.
+   An identity omatty learns - Reported by a startup hook, or Scanned from the
+   agent's store by `service/status`'s binder - arrives as the same
+   `SessionRebound` a `/clear` sends, and is persisted as `Conversation` the
+   same way (#523). The binder binds only on exactly one candidate no other
+   row holds: two sessions started together in one directory stay unbound,
+   with both candidates logged, rather than risk one card showing another's
+   status (invariant 2's bug class).
 
 10. **`cmd/` stays thin.** Logic in `main` is logic without tests: the
     coverage gate measures `./internal/...` only, which is how a
@@ -288,7 +304,9 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
     in every case, writing nothing - a hook that hung or errored would stall
     every claude session on the machine. `main` dispatches to it before
     opening the log or reading config, so nothing that can fail sits in its
-    path (#54).
+    path (#54). `--agent <name>` (#522) adds no such thing: the payload
+    parser comes from the in-memory catalog, and an agent it cannot resolve
+    is a hook that sends nothing.
 
 12. **[M9] Gate verdicts come from exit status, never from output text.**
     Invariant 2 applied to the gate, and the same argument: a step's output is

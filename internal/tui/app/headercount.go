@@ -9,7 +9,6 @@
 package app
 
 import (
-	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -35,10 +34,10 @@ func (m *Model) forgeCounts(project string) string {
 	}
 	parts := make([]string, 0, 2)
 	if issues, polled := m.issues[project]; polled {
-		parts = append(parts, strconv.Itoa(len(issues))+"i")
+		parts = append(parts, windowed(len(issues))+"i")
 	}
 	if n, polled := m.openPRCount(project); polled {
-		parts = append(parts, strconv.Itoa(n)+countSuffix(m.label(project)))
+		parts = append(parts, windowed(n)+countSuffix(m.label(project)))
 	}
 	return fitCounts(parts)
 }

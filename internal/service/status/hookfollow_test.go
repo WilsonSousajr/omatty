@@ -23,8 +23,7 @@ func hookFed(t *testing.T, adapter dstatus.Adapter, clock func() time.Time, p ds
 	t.Helper()
 	var sink chan<- dstatus.HookPayload
 	w := status.Start(status.WatchDeps{
-		Home: t.TempDir(), Clock: clock, Adapter: adapter,
-		TranscriptPath: func(_, _, _ string) string { return os.DevNull },
+		Home: t.TempDir(), Clock: clock, Agents: status.AgentsOf(adapter, func(_, _, _ string) string { return os.DevNull }),
 		OpenTranscript: func(p string) status.Transcript { return transcript.NewReader(p) },
 		ListenHooks: func(_ string, s chan<- dstatus.HookPayload) (io.Closer, error) {
 			sink = s

@@ -41,18 +41,34 @@ func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
 	if err != nil {
 		return err
 	}
-	// Claude is the only profile today; an empty name resolves to it (#46).
-	profile, err := lookupAgent("")
+	agents, err := configuredAgents(cfg)
 	if err != nil {
 		return err
 	}
-	hooksFile, err := hooks.Install(profile, home)
-	if err != nil {
+	if err := checkDefaultAgent(agents, cfg.DefaultAgent); err != nil {
 		return err
 	}
-	w, h := windowSize()
-	env := tuiEnv{Home: home, Cfg: cfg, Agent: profile, HooksFile: hooksFile, Holder: detach.New(home), Width: w, Height: h}
+	env := tuiEnv{Home: home, Cfg: cfg, Agents: agents, Holder: detach.New(home)}
+	if env.HooksFiles, env.HookArgs, err = installHooks(agents, home); err != nil {
+		return err
+	}
+	env.Width, env.Height = windowSize()
 	return runWithNamer(tuiDeps(env, store, state), runtimeFor(env), cfg)
+}
+
+// installHooks gives every agent that takes hooks its route to `omatty
+// hook`: a settings file written under ~/.omatty, or flags rendered for its
+// argv, as codex's -c (#522, #152).
+func installHooks(agents agent.Catalog, home string) (map[string]string, map[string][]string, error) {
+	files, err := hooks.InstallAll(agents, home)
+	if err != nil {
+		return nil, nil, err
+	}
+	args, err := hooks.RenderAllArgs(agents)
+	if err != nil {
+		return nil, nil, err
+	}
+	return files, args, nil
 }
 
 // runWithNamer runs the TUI with the opt-in model namer attached, closing
@@ -65,14 +81,22 @@ func runWithNamer(deps app.Deps, rt tuiRuntime, cfg config.Config) error {
 }
 
 // tuiEnv is what the wiring needs before it can build app.Deps: where
-// things live, the hooks file claude is given, and the window to start at. A
+// things live, the hooks file each agent is given, and the window to start at. A
 // struct because the parameter list reached seven, five of them strings, and
 // M7's config, naming and agent seams each add one (#136).
 type tuiEnv struct {
-	Home      string
-	Cfg       config.Config
-	Agent     agent.Profile
-	HooksFile string
+	Home string
+	Cfg  config.Config
+	// Agents is every agent omatty can run; each session is resolved
+	// through it (#521). The binaries the config names join it in runtimeFor.
+	Agents agent.Catalog
+	// HooksFiles is the settings file omatty wrote for each agent that takes
+	// hooks, by agent name (#522).
+	HooksFiles map[string]string
+	// HookArgs is the hook flags rendered for each agent that takes its hooks
+	// as arguments rather than a file - codex's -c flags - by agent name
+	// (#152).
+	HookArgs map[string][]string
 	// Holder keeps sessions alive across quit. One holder, used twice: it
 	// wraps each launch and it ends an archived session's claude. Two would
 	// mean two PATH lookups that could disagree (#43).
@@ -127,14 +151,27 @@ func tuiDeps(env tuiEnv, store sessions.StateStore, state session.State) app.Dep
 		Notice:    holder.Notice(),
 		Create:    sessionCreator(env.Cfg, store),
 		Leader:    env.Cfg.Leader,
-		Name:      sessionNamer(home, env.Agent),
+		Name:      sessionNamer(home, env.Agents),
 		Diff:      src.Load,
 		Stat:      src.Stat,
 		Turn:      turnFuncs(src),
 		Files:     git.ListFiles,
+		Follow:    src.Follow,
 		Generated: src.Generated, Ship: shipFuncs(src, git, fg),
 	}
-	return withStoreDeps(withTableDeps(withForgeDeps(deps, fg), env.Cfg), store, home, git, git.Contextual())
+	return withAgentDeps(withStoreDeps(withTableDeps(withForgeDeps(deps, fg), env.Cfg), store, home, git, git.Contextual()), env, store)
+}
+
+// withAgentDeps is ctrl+o n's agent step and ctrl+o c (#524): which agents
+// there are and which are installed, the config's default, and where a
+// project's chosen agent is persisted.
+func withAgentDeps(deps app.Deps, env tuiEnv, store sessions.StateStore) app.Deps {
+	deps.Agents = agentOptions(env.Agents.WithBins(env.Cfg.AgentBins()), agentcli.Installed)
+	deps.DefaultAgent, deps.AgentCaps = env.Cfg.DefaultAgent, agentCaps(env.Agents)
+	deps.SetProjectAgent = func(project, agent string) error {
+		return sessions.SetProjectAgent(context.Background(), store, project, agent)
+	}
+	return deps
 }
 
 // withForgeDeps points every forge-backed call at one Router: the pull requests
@@ -372,11 +409,21 @@ func modelNamer(cfg config.Config) (app.ModelNameFunc, func()) {
 // can name a session from its transcript without reading one itself (#127).
 // The path is the agent's, not paths.Transcript's: claude files a transcript
 // under its resolved working directory, which differs behind a symlink (#564).
-func sessionNamer(home string, profile agent.Profile) app.NameFunc {
+func sessionNamer(home string, agents agent.Catalog) app.NameFunc {
 	return func(sess session.Session) (string, error) {
+		profile, err := agents.Lookup(sess.Agent)
+		if err != nil {
+			return "", err
+		}
+		if !profile.KeepsTranscript() || profile.PromptText == nil {
+			// Nothing to name it from (#525), or no way to tell a typed
+			// prompt in it (codex, #728): it keeps its title, and no
+			// transcript is located or read on every status event.
+			return "", nil
+		}
 		// The conversation, not the ID: after /clear the row's first
 		// transcript is the one it left behind (#316).
-		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()), status.PromptText)
+		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()), profile.PromptText)
 	}
 }
 
@@ -384,7 +431,8 @@ func sessionNamer(home string, profile agent.Profile) app.NameFunc {
 // options, so the TUI and `omatty new` cannot disagree about where a
 // worktree goes or what it forks from (#44).
 func creatorOpts(cfg config.Config) sessions.CreatorOpts {
-	return sessions.CreatorOpts{WorktreeRoot: cfg.WorktreeRoot, WorktreeDir: paths.WorktreeDir, BaseBranch: cfg.BaseBranch, Carry: statestore.CarryInto}
+	return sessions.CreatorOpts{WorktreeRoot: cfg.WorktreeRoot, WorktreeDir: paths.WorktreeDir, BaseBranch: cfg.BaseBranch, Carry: statestore.CarryInto,
+		DefaultAgent: cfg.DefaultAgent}
 }
 
 // sessionCreator adapts sessions.AddSession to app.CreateFunc. The project
@@ -395,14 +443,11 @@ func creatorOpts(cfg config.Config) sessions.CreatorOpts {
 // factory inside the running program, which M2 wires up along with status.
 func sessionCreator(cfg config.Config, store sessions.StateStore) app.CreateFunc {
 	c := sessions.NewCreator(vcs.NewCLI().Contextual(), creatorOpts(cfg), uuid.NewString)
-	return func(project, title, branch string, worktree bool) (session.Session, error) {
-		if project == "" {
+	return func(req sessions.NewSession) (session.Session, error) {
+		if req.Project == "" {
 			return session.Session{}, fmt.Errorf("no project selected; run `omatty add <dir>` first")
 		}
-		if worktree {
-			return sessions.AddWorktreeSession(context.Background(), store, c, project, title, branch)
-		}
-		return sessions.AddSession(context.Background(), store, c, project, title, branch)
+		return sessions.AddSessionAs(context.Background(), store, c, req)
 	}
 }
 

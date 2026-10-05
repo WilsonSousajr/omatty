@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-10-01, when v0.10.0 promoted `develop` to `main` (#708).
+Last revised 2026-10-05, when v0.11.0 promoted `develop` to `main` (#727).
 Every milestone is built; what is left is under "What is left", and how a
 release reaches `main` is under "Releases".
 
@@ -45,6 +45,8 @@ not only the coverage gate. See "Rules" at the end for why.
 | M16 | The Forges | **Done.** All seventeen slices #449-#465, built 2026-09-28/29 as PRs #573-#603, with ten defects the reviews and real runs found (#572, #574, #576, #579, #584, #586, #588, #590, #598, #599). Released in v0.9.0. Three it found stay in Backlog: #585, #594 and #596 (Azure DevOps Server). See the M16 section. |
 | — | **Released** | **v0.9.0**, 2026-09-29. M16, The Forges, promoted to `main` (#604). See "Releases". |
 | — | **Released** | **v0.10.0**, 2026-10-01. The ADR 0001 architecture migration (#615-#653), `sessions --json` and `status --json`, promoted to `main` (#708). See "Releases". |
+| — | **Released** | **v0.11.0**, 2026-10-05. M17's foundation (#519-#527), the Codex profile (#152) and the review and tracker fixes (#593, #658, #659, #662, #663, #684) promoted to `main` (#727). See "Releases". |
+| M17 | The Agents | **Planned** 2026-09-27; the foundation (#520-#527) started 2026-10-01 and released in v0.11.0: every coding agent in omatty, tiered by what each exposes - nine first-class profiles and a generic one, #520-#546 and #152. See the M17 section. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -606,7 +608,9 @@ what M7 left.
   running claude and the transcript path derived from it, which is #60. Dir and
   Branch have always been stored separately, so they were never required to
   agree. A typed branch now passes `registry.Slug` too, which it never did.
-- **#152 - a second agent profile, Codex first.** #46 built the seam with
+- **#152 - a second agent profile, Codex first.** *Moved to M17 (#519) on
+  2026-09-27: #152 is now the Codex profile, its spike is #528, and the two
+  costs below are #522 and #523.* #46 built the seam with
   claude as its only entry; the roadmap's original promise was Codex and
   opencode. Each is a profile in `cmd/omatty/agents.go` over `internal/domain/agent`: a command template, a
   transcript location, hook events (or none, degrading to transcript-only
@@ -1023,6 +1027,7 @@ in a hurry to make it.
 | v0.8.2 | 2026-09-27 | `curl -fsSL https://omatty.com/install.sh \| sh` (#517); the cask's install hook written as `postflight_steps` without waiting on GoReleaser (#369); a project behind a symlink finds its transcript (#564), found by the real Claude Code probe that closed #336 without code. 4 issues. (#567) |
 | v0.9.0 | 2026-09-29 | M16 The Forges: GitLab, Gitea/Forgejo/Codeberg, Bitbucket Cloud and Data Center and Azure DevOps beside GitHub, each through its CLI or its REST API with a token stored nowhere; `ctrl+o p` on every forge, pinned to the green head and the session's own base (#598, #599); the forge probe and the support matrix. 27 issues. (#604) |
 | v0.10.0 | 2026-10-01 | The architecture: the code rebuilt in ADR 0001's shape - domain, services, adapters, pubsub, the TUI and a CLI - with no screen, key, config key or `state.json` key changed (#615, #618, #620, #622, #624, #632, #635, #653); nothing waits on git or the disk inside the frame loop, and every git call has a deadline (#650); `omatty sessions --json` and `status --json`; the 500-line and layer gates (#609). 11 issues, 154 commits. (#708) |
+| v0.11.0 | 2026-10-05 | M17's foundation and its first profile: Codex at the Full tier with zero footprint (#152); any agent declared by its command, chosen per session, project or default, with a surface that shows only what its tier can know (#519-#527); the review follows claude's checkout (#659); the tree opens closed (#593); the tracker stays in sync and reaches its pull requests with `]`/`[` and `tab` (#658, #662, #663); a deleted base branch no longer stops the diff (#684); the Codex spike (#528). 17 issues, 18 commits. (#727) |
 
 ## M12 - The Field
 
@@ -1155,6 +1160,9 @@ omatty ticks once a second as M13 left it.
 - **Widening the agent seam to match `ccmanager`'s eight.** #152 stays the
   scope. `ccmanager`'s #82 and #107 are what each added profile costs: an
   escape-key bug per agent.
+  *Reversed by M17 (#519), 2026-09-27.* The cost named here comes from
+  per-agent key handling, which invariant 1 already refuses, and M17's tiers
+  cap each profile at what its agent actually exposes. See the M17 section.
 - **A full read of Orca's tracker.** 3,036 open issues; #297 probed it against
   omatty's own design and its document says plainly that a probe cannot support
   a claim about what its users complain about most. Nimbalyst and vibe-kanban
@@ -1584,6 +1592,71 @@ both Bitbucket backends, and open and merge on every forge but Azure DevOps.
 forge under a relative URL root; #594, Bitbucket Cloud's hourly request limit,
 reachable by two projects polled with no CI; #596, Azure DevOps Server.
 
+## M17 - The Agents
+
+**Delivers:** every terminal coding agent in omatty, not only claude. Nine get
+a first-class profile: Codex, OpenCode, Gemini CLI, Qwen Code, Antigravity
+(`agy`), GitHub Copilot CLI, cursor-agent, Amp and Kiro CLI. Anything else
+runs as a generic agent declared in `config.toml`.
+Design: `docs/superpowers/specs/2026-09-27-omatty-m17-agents-design.md` (#519).
+
+**Why here.** The pane, the diff, review, the gate, the tracker, ship and
+detach read the PTY, git and the forge, and none of them read the agent. They
+were always agent-agnostic, and only the launcher, the watcher and one hooks
+file assumed claude. #46 built the seam and #152 has waited on it since M7.
+Meanwhile the field has spread across a dozen agents, and a verification
+window that only watches one of them is narrower than it needs to be.
+
+**This reverses M12's cut** of "widening the agent seam to match `ccmanager`'s
+eight". That cut named the cost as an escape-key bug per agent. Those bugs come
+from per-agent key handling, and invariant 1 already refuses it. The tiers
+below cap every profile at what its agent actually exposes.
+
+**Decided with the user:**
+
+- **Support is tiered, and the tier is derived.** Every agent gets the
+  agent-agnostic surface. A profile declares capabilities (identity, status
+  source, waiting, resume, turn boundary), and the tier is computed from them:
+  **Full**, **Transcript** or **Process**. A lower tier shows what it cannot
+  know as absent, with a reason. It never shows a guess, and a Process-tier
+  session never looks idle.
+- **Zero footprint, for every agent.** Invariant 3 generalises to *never
+  write any agent's user config, nor an agent config file inside the
+  project*. An agent that takes hooks only from such a file gets none, and
+  drops a tier.
+- **A project default plus a per-session override** on `ctrl+o n`. The step
+  is skipped when only one agent is installed.
+- **Every slice sits in Backlog.** M17 is designed, not scheduled.
+
+**The foundation** comes first: capabilities and the derived tier, which
+amends invariant 9 to "suffices to do everything the agent allows" (#520);
+per-session dispatch through an injected catalog (#521); hooks per agent and
+invariant 3 generalised (#522); identity learned by report or by scan into
+`Conversation`, #316's path with a second caller (#523); choosing the agent
+(#524); the generic agent (#525); a tier-aware surface (#526); and a fake
+agent per shape (#527).
+
+**Then a spike and a profile per agent.** Each spike answers six questions
+against the real binary: identity, hooks without a footprint, transcript,
+resume, input, and tier. The spikes are Codex (#528, then #152), OpenCode
+(#529, #530), Gemini CLI (#531, #532), Qwen Code (#533, #534), agy (#535,
+#536), Copilot CLI (#537, #538), cursor-agent (#539, #540), Amp (#541, #542)
+and Kiro CLI (#543, #544).
+
+**Then the close-out:** `agentprobe`, each real binary inside omatty in a
+sized PTY, read by a person (#545). Then a support matrix that claims only
+what the probes showed, with generic recipes for Aider, Goose, Crush and Droid
+(#546).
+
+**Done when:** each of the nine runs at the tier its probe showed, a generic
+agent runs from a config block, and every matrix row comes from a probe a
+person read. Any agent not probed is named as untested, not claimed.
+
+**Deliberately out:** ACP, or any mode where omatty renders an agent's
+conversation itself (added to "Also cut" below); declarative transcript
+adapters in config; adopting another agent's existing sessions; writing any
+agent's config, even on request; and model or provider pickers.
+
 ## Not on the roadmap
 
 Considered and cut, so they do not creep back in through the side door.
@@ -1675,6 +1748,10 @@ faster pair.
 - Running N sessions on one task and comparing the results
 - Broadcasting one prompt to several sessions
 - SSH / remote sessions
+- Speaking ACP (Agent Client Protocol) to an agent instead of running its TUI
+  in a PTY. It would make status structured, but omatty would then render the
+  conversation itself, and the first line of the design is that it never
+  reimplements an agent's interactive surface. Refused in M17's design (#519).
 - Attaching to a `claude` already running in another terminal. omatty renders
   a PTY it owns; there is no supported way to adopt one it does not. M6's
   dtach sockets cover the case that matters - omatty's own sessions surviving

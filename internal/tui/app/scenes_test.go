@@ -98,11 +98,11 @@ func treeScene(t *testing.T, terms map[string]terminal.Terminal, w, h int) *app.
 	return leaderOn(sized(app.NewModel(d), w, h), 'f')
 }
 
-// previewScene folds internal/ and opens go.mod, the path
-// TestModel_EnterCollapsesADirectoryAndPreviewsAFile_issue24 walks.
+// previewScene opens go.mod, the path
+// TestModel_EnterCollapsesADirectoryAndPreviewsAFile_issue24 walks; internal/
+// starts closed since #593, so j alone reaches it.
 func previewScene(t *testing.T, terms map[string]terminal.Terminal, w, h int) *app.Model {
 	m := treeScene(t, terms, w, h)
-	press(m, special(tea.KeyEnter))
 	press(m, key('j'))
 	pressAndSettle(m, special(tea.KeyEnter))
 	return m

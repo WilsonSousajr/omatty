@@ -35,7 +35,7 @@ func (m *Model) relistFiles(id string) tea.Cmd {
 // per session, the way pollStat guards its read: two turn ends in quick
 // succession must not fork git twice for the same answer (#195).
 func (m *Model) listFiles(id string) tea.Cmd {
-	sess, ok := m.session(id)
+	sess, ok := m.reviewSession(id)
 	if !ok || m.filesPending[id] {
 		return nil
 	}
@@ -43,7 +43,7 @@ func (m *Model) listFiles(id string) tea.Cmd {
 	list := m.files
 	return func() tea.Msg {
 		paths, err := list(sess.Dir)
-		return FilesLoadedMsg{SessionID: id, Paths: paths, Err: err}
+		return FilesLoadedMsg{SessionID: id, Dir: sess.Dir, Paths: paths, Err: err}
 	}
 }
 
@@ -64,8 +64,8 @@ func (m *Model) loadFilesIfMissing(id string) tea.Cmd {
 // happened, so a failure never wedges the session's listing.
 func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
 	delete(m.filesPending, msg.SessionID)
-	if !m.review.Open || msg.SessionID != m.review.SessionID {
-		return nil
+	if cmd, stale := m.staleListing(msg); stale {
+		return cmd
 	}
 	if msg.Err != nil {
 		slog.Warn("listing files", "session", msg.SessionID, "err", msg.Err)
@@ -82,6 +82,19 @@ func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
 	m.contentChanged()
 	m.moveTreeCursor(0)
 	return m.detectGenerated(msg.SessionID)
+}
+
+// staleListing reports a listing that is not to be drawn: the column closed
+// or moved to another session while git ran, or the review moved to another
+// checkout of the session (#659), which is listed again in its place.
+func (m *Model) staleListing(msg FilesLoadedMsg) (tea.Cmd, bool) {
+	if !m.review.Open || msg.SessionID != m.review.SessionID {
+		return nil, true
+	}
+	if sess, _ := m.reviewSession(msg.SessionID); msg.Dir != sess.Dir {
+		return m.listFiles(msg.SessionID), true
+	}
+	return nil, false
 }
 
 // relistUnderCursor replaces the listing and keeps the cursor on the path it
@@ -182,7 +195,7 @@ func (m *Model) previewDeleted(rel string) {
 // previewFile reads synchronously rather than as a command: the read is
 // bounded to 256 KiB, which is faster than a frame.
 func (m *Model) previewFile(rel string) {
-	sess, ok := m.session(m.review.SessionID)
+	sess, ok := m.reviewSession(m.review.SessionID)
 	if !ok {
 		return
 	}

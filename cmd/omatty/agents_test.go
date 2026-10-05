@@ -2,11 +2,13 @@ package main
 
 import (
 	"github.com/WilsonSousajr/omatty/internal/domain/session"
+	"github.com/WilsonSousajr/omatty/internal/infra/config"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/WilsonSousajr/omatty/internal/domain/agent"
 	dstatus "github.com/WilsonSousajr/omatty/internal/domain/status"
 	"github.com/WilsonSousajr/omatty/internal/infra/detach"
 	"github.com/WilsonSousajr/omatty/internal/infra/paths"
@@ -17,19 +19,20 @@ import (
 // Invariant 9: every session row written before #46 has no agent, and it
 // still relaunches.
 func TestLookup_AnEmptyNameIsClaude_issue46(t *testing.T) {
-	p, err := lookupAgent("")
+	p, err := mustAgents(t).Lookup("")
 	if err != nil || p.Name != "claude" {
-		t.Fatalf("lookupAgent(\"\") = %q, %v; want claude", p.Name, err)
+		t.Fatalf("Lookup(\"\") = %q, %v; want claude", p.Name, err)
 	}
-	if byName, _ := lookupAgent("claude"); byName.Name != p.Name {
+	if byName, _ := mustAgents(t).Lookup("claude"); byName.Name != p.Name {
 		t.Errorf("Lookup(claude) = %q, want the same profile", byName.Name)
 	}
 }
 
 func TestLookup_UnknownAgentNamesItAndTheKnownOnes_issue46(t *testing.T) {
-	_, err := lookupAgent("codex")
-	if err == nil || !strings.Contains(err.Error(), "codex") || !strings.Contains(err.Error(), "claude") {
-		t.Fatalf("Lookup(codex) error = %v, want it to name codex and the known profiles", err)
+	// "nope", not "codex": codex is a profile since #152.
+	_, err := mustAgents(t).Lookup("nope")
+	if err == nil || !strings.Contains(err.Error(), "nope") || !strings.Contains(err.Error(), "claude") || !strings.Contains(err.Error(), "codex") {
+		t.Fatalf("Lookup(nope) error = %v, want it to name nope and the known profiles", err)
 	}
 }
 
@@ -39,8 +42,32 @@ func TestClaude_EveryProfileFieldIsSet_issue46(t *testing.T) {
 	if p.Command == nil || p.TranscriptPath == nil || p.HookEvents == nil || p.RenderSettings == nil || p.Status == nil || p.DefaultBin == "" {
 		t.Errorf("Claude() has a nil field: %+v", p)
 	}
-	if len(agentNames()) != 1 || agentNames()[0] != "claude" {
-		t.Errorf("Names() = %v, want [claude]", agentNames())
+	if names := mustAgents(t).Names(); len(names) == 0 || names[0] != "claude" {
+		t.Errorf("Names() = %v, want claude first", names)
+	}
+}
+
+// claude is the shape every tier is measured against (#520).
+func TestClaude_DerivesFullTier_issue520(t *testing.T) {
+	if got := claudeProfile().Caps.Tier(); got != agent.Full {
+		t.Errorf("claude's tier = %v, want full (caps %+v)", got, claudeProfile().Caps)
+	}
+}
+
+// A capability a profile declares and cannot serve would fail at session
+// start, not at build: hooks need their events and renderer, a transcript
+// its path and parser (#520).
+func TestCatalog_EveryDeclaredCapabilityHasItsFunc_issue520(t *testing.T) {
+	agents := mustAgents(t)
+	for _, name := range agents.Names() {
+		p, _ := agents.Lookup(name)
+		if p.Caps.Status >= agent.StatusTranscript && (p.TranscriptPath == nil || p.Status == nil) {
+			t.Errorf("%s declares a transcript and lacks its path or parser", name)
+		}
+		rendered := p.RenderSettings != nil || p.RenderArgs != nil // a file, or -c flags (#152)
+		if p.Caps.Status == agent.StatusHooks && (p.HookEvents == nil || !rendered) {
+			t.Errorf("%s declares hooks and lacks their events or renderer", name)
+		}
 	}
 }
 
@@ -120,7 +147,7 @@ func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
 	if err := os.WriteFile(transcript, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	l := sessions.NewLauncher(claudeProfile(), "claude", "/h.json", home, &detach.Plain{})
+	l := sessions.NewLauncher(catalogFor(t, claudeProfile(), "claude", "/h.json"), home, &detach.Plain{})
 
 	cmd, err := l.Launch(session.Session{ID: "abc-123", Dir: dir})
 	if err != nil {
@@ -128,5 +155,170 @@ func TestLauncher_ResumesASessionBehindASymlink_issue564(t *testing.T) {
 	}
 	if args := strings.Join(cmd.Argv, " "); !strings.Contains(args, "--resume abc-123") {
 		t.Errorf("args %q lack --resume for a session whose transcript is under its resolved directory", args)
+	}
+}
+
+// catalogFor is a one-profile catalog running bin with hooksFile as its
+// settings, for a launcher test (#521, #522).
+func catalogFor(t *testing.T, p agent.Profile, bin, hooksFile string) agent.Catalog {
+	t.Helper()
+	c, err := agent.NewCatalog(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c.WithBins(map[string]string{p.Name: bin}).WithHooksFiles(map[string]string{p.Name: hooksFile})
+}
+
+// mustAgents is cmd's own catalog, which building must not fail (#521).
+func mustAgents(t *testing.T) agent.Catalog {
+	t.Helper()
+	agents, err := agentCatalog()
+	if err != nil {
+		t.Fatalf("agentCatalog: %v", err)
+	}
+	return agents
+}
+
+// `omatty hook` with no flag is claude, which is every hooks.json written
+// before M17; `--agent <name>` reads that agent's shape; anything else -
+// an unknown agent, an agent without hooks, a malformed flag - yields no
+// parser, and the hook exits 0 having sent nothing (invariant 11, #522).
+func TestHookParser_ResolvesTheAgentsPayloadShape_issue522(t *testing.T) {
+	if _, ok := hookParser(nil); !ok {
+		t.Error("no flag: want claude's parser")
+	}
+	if _, ok := hookParser([]string{"--agent", "claude"}); !ok {
+		t.Error("--agent claude: want claude's parser")
+	}
+	for _, args := range [][]string{{"--agent", "nope"}, {"--agent"}, {"--bogus"}, {"--agent", ""}} {
+		if _, ok := hookParser(args); ok {
+			t.Errorf("hookParser(%q) = ok, want no parser", args)
+		}
+	}
+}
+
+// ctrl+o n's agent step lists every agent in the catalog, each with whether
+// its configured binary is installed (#524).
+func TestAgentOptions_ListsEveryAgentWithItsInstalledBin_issue524(t *testing.T) {
+	agents := mustAgents(t).WithBins(map[string]string{"claude": "/opt/claude"})
+	var asked []string
+	options := agentOptions(agents, func(bin string) bool {
+		asked = append(asked, bin)
+		return true
+	})()
+	if len(options) != 2 || options[0].Name != "claude" || !options[0].Installed || options[1].Name != "codex" {
+		t.Errorf("options = %+v, want claude installed, then codex", options)
+	}
+	if strings.Join(asked, ",") != "/opt/claude,codex" {
+		t.Errorf("asked about %v, want the configured /opt/claude, then codex's default", asked)
+	}
+}
+
+// A default_agent the catalog lacks would register sessions no launch can
+// start; omatty refuses to start on it and names it (#524).
+func TestCheckDefaultAgent_RefusesAnUnknownOne_issue524(t *testing.T) {
+	if err := checkDefaultAgent(mustAgents(t), "claude"); err != nil {
+		t.Errorf("claude: %v", err)
+	}
+	err := checkDefaultAgent(mustAgents(t), "codx")
+	if err == nil || !strings.Contains(err.Error(), "codx") || !strings.Contains(err.Error(), "default_agent") {
+		t.Errorf("error = %v, want one naming default_agent and codx", err)
+	}
+}
+
+// The config's generic agents join the catalog beside the built-ins, so the
+// picker lists them and a session can run one (#525).
+func TestConfiguredAgents_JoinsTheGenericOnes_issue525(t *testing.T) {
+	cfg := config.Defaults("/h")
+	cfg.Agents = map[string]config.Agent{"aider": {Command: []string{"aider", "-x"}}, "claude": {Bin: "/opt/claude"}}
+	agents, err := configuredAgents(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(agents.Names(), ","); got != "claude,codex,aider" {
+		t.Errorf("Names() = %s, want the built-ins, then aider", got)
+	}
+}
+
+// A generic block named after a built-in is refused, naming both: it would
+// silently replace claude's own profile (#525).
+func TestConfiguredAgents_RefusesAGenericNamedAfterABuiltIn_issue525(t *testing.T) {
+	cfg := config.Defaults("/h")
+	cfg.Agents = map[string]config.Agent{"claude": {Command: []string{"my-claude"}}}
+	_, err := configuredAgents(cfg)
+	if err == nil || !strings.Contains(err.Error(), "agents.claude") || !strings.Contains(err.Error(), "built-in") {
+		t.Errorf("error = %v, want one naming agents.claude and the built-in", err)
+	}
+}
+
+// A block that names neither a built-in nor a command names nothing to run.
+func TestConfiguredAgents_RefusesABinForAnUnknownAgent_issue525(t *testing.T) {
+	cfg := config.Defaults("/h")
+	cfg.Agents = map[string]config.Agent{"aidr": {Bin: "/opt/aider"}}
+	_, err := configuredAgents(cfg)
+	if err == nil || !strings.Contains(err.Error(), "aidr") {
+		t.Errorf("error = %v, want one naming aidr", err)
+	}
+}
+
+// A row naming a generic agent whose block has since been removed starts
+// nothing: the catalog no longer knows it, which the launcher reports as ✕
+// with the name (invariant 6, #521, #525).
+func TestConfiguredAgents_ARemovedBlockIsUnknown_issue525(t *testing.T) {
+	agents, err := configuredAgents(config.Defaults("/h"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := agents.Lookup("aider"); err == nil || !strings.Contains(err.Error(), "aider") {
+		t.Errorf("Lookup(aider) error = %v, want one naming aider", err)
+	}
+}
+
+// A Process-tier session has no transcript: status --json reads it as the
+// zero state and the namer leaves its title alone, rather than reaching for a
+// path the profile does not have (#525).
+func TestReads_AProcessAgentHasNoTranscript_issue525(t *testing.T) {
+	agents, err := agent.NewCatalog(claudeProfile(), agent.Generic("aider", []string{"aider"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess := session.Session{ID: "a1", Dir: "/w", Agent: "aider"}
+	if got := statusReader("/h", agents)(sess); got != (dstatus.SessionState{}) {
+		t.Errorf("status = %+v, want the zero state", got)
+	}
+	if title, err := sessionNamer("/h", agents)(sess); title != "" || err != nil {
+		t.Errorf("name = %q, %v; want none and no error", title, err)
+	}
+}
+
+// default_agent may name a generic agent: Aider as every new session's
+// agent is a choice the config makes, not one omatty refuses (#525).
+func TestKnownDefaultAgent_AcceptsAGenericOne_issue525(t *testing.T) {
+	cfg := config.Defaults("/h")
+	cfg.DefaultAgent = "aider"
+	cfg.Agents = map[string]config.Agent{"aider": {Command: []string{"aider"}}}
+	if err := knownDefaultAgent(cfg); err != nil {
+		t.Errorf("knownDefaultAgent(aider) = %v, want nil", err)
+	}
+}
+
+// The TUI reads each agent's capabilities from the catalog, so a generic
+// agent's card claims only the Process tier (#526).
+func TestAgentCaps_ComeFromTheCatalog_issue526(t *testing.T) {
+	cfg := config.Defaults("/h")
+	cfg.Agents = map[string]config.Agent{"aider": {Command: []string{"aider"}}}
+	agents, err := configuredAgents(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := agentCaps(agents)
+	if c, ok := caps("claude"); !ok || c.Tier() != agent.Full {
+		t.Errorf("claude = %+v, %v; want full", c, ok)
+	}
+	if c, ok := caps("aider"); !ok || c.Tier() != agent.Process {
+		t.Errorf("aider = %+v, %v; want process", c, ok)
+	}
+	if _, ok := caps("nope"); ok {
+		t.Error("an unknown agent reported capabilities")
 	}
 }

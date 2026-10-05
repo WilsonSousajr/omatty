@@ -25,6 +25,7 @@ func treeOnModelGo(t *testing.T) (*app.Model, *diffRecorder) {
 	m := app.NewModel(d)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	leader(m, key('f'))
+	openInternal(m)    // closed since #593
 	press(m, key('j')) // model.go, under the compacted internal/ui/ row (#430)
 	return m, rec
 }
@@ -134,6 +135,7 @@ func TestModel_marksSurviveALookAtAnotherSession_issue337(t *testing.T) {
 
 	leader(m, key('j'))
 	leader(m, key('k'))
+	openInternal(m) // the tree is rebuilt closed on the way back (#593)
 
 	if row := lineWith(t, m.View().Content, "M model.go"); !strings.Contains(row, "✓") {
 		t.Errorf("row = %q, want the mark still there after looking away and back", row)
