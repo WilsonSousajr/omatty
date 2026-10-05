@@ -74,9 +74,10 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.11.0**, 2026-10-05 — any agent, and a review that follows claude. A
-session can run any command you declare as an agent, and omatty shows only
-what that agent lets it know (#525, #526). The review column follows claude
+**v0.11.0**, 2026-10-05 — Codex, any agent, and a review that follows
+claude. Codex runs beside claude as a first-class agent (#152), a session can
+run any command you declare as an agent, and omatty shows only what that agent
+lets it know (#525, #526). The review column follows claude
 into the worktree it moved to (#659), the file tree opens closed (#593), and
 the tracker stays in sync, with `]`/`[` and `tab` to reach its pull requests
 (#658, #662, #663).

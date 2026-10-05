@@ -13,15 +13,21 @@ for each milestone and what was deliberately cut.
 
 ## [v0.11.0] — 2026-10-05
 
-More than claude, and a review that keeps up with it. A session can now run
-any agent you declare in `config.toml`, and omatty shows only what that agent
-lets it know — it never draws a status it cannot read. The review column
+More than claude, and a review that keeps up with it. Codex joins claude as a
+first-class agent, any other agent can run by its command, and omatty shows
+only what each agent lets it know — it never draws a status it cannot read. The review column
 follows claude into the worktree it moved to, the file tree opens closed, and
 the tracker's lists stay in sync, with keys to reach the pull requests under
 a long issue list.
 
 ### Added
 
+- **Codex, at the Full tier** (#152): the real `codex` binary in a pane, its
+  status, turn's end and token usage read from its hooks and its rollout, and
+  `--resume` after a crash. Its hooks and their trust go in on the command line
+  as `-c` flags, so omatty writes nothing to `~/.codex` (invariant 3, now
+  naming per-invocation config flags as a route). `ctrl+o` is Codex's copy key
+  as well as omatty's leader; the README says so.
 - **Any agent, declared by its command** (#525): `[agents.<name>] command =
   [...]` runs it in the session's directory at the Process tier — omatty knows
   whether it runs, and nothing more. `default_agent`, a per-project agent on
@@ -65,9 +71,11 @@ a long issue list.
 
 ### Not in this release
 
-- The first-class agent profiles - Codex (#152), OpenCode, Gemini and the rest
-  (#529-#544) - are M17's next step; until then a non-claude agent runs at the
+- The other first-class agent profiles - OpenCode, Gemini and the rest
+  (#529-#544) - are M17's next step; until then such an agent runs at the
   Process tier as a generic one.
+- A fast burst of keystrokes can reach the agent out of order (#725). It
+  affects every agent and predates this release.
 
 ## [v0.10.0] — 2026-10-01
 
