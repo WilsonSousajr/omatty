@@ -414,12 +414,15 @@ func sessionNamer(home string, agents agent.Catalog) app.NameFunc {
 		if err != nil {
 			return "", err
 		}
-		if !profile.KeepsTranscript() {
-			return "", nil // nothing to name it from: it keeps its title (#525)
+		if !profile.KeepsTranscript() || profile.PromptText == nil {
+			// Nothing to name it from (#525), or no way to tell a typed
+			// prompt in it (codex, #728): it keeps its title, and no
+			// transcript is located or read on every status event.
+			return "", nil
 		}
 		// The conversation, not the ID: after /clear the row's first
 		// transcript is the one it left behind (#316).
-		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()), status.PromptText)
+		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()), profile.PromptText)
 	}
 }
 

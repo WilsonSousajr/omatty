@@ -127,8 +127,56 @@ func TestCodex_HookKinds_issue152(t *testing.T) {
 // The events codex's -c hooks subscribe to are exactly the ones KindOf
 // maps, so the declaration and the listener cannot drift (#78).
 func TestCodexHookEventNames_AreTheMappedOnes_issue152(t *testing.T) {
-	want := []string{"Interrupt", "PermissionRequest", "SessionStart", "Stop", "UserPromptSubmit"}
+	want := []string{"Interrupt", "PermissionRequest", "PostToolUse", "PreToolUse", "SessionStart", "Stop", "UserPromptSubmit"}
 	if got := status.CodexHookEventNames(); !slices.Equal(got, want) {
 		t.Errorf("CodexHookEventNames = %v, want %v", got, want)
+	}
+}
+
+// After the operator approves a command, PostToolUse is what moves the card
+// off "waiting": PermissionRequest comes between codex's PreToolUse and
+// PostToolUse, as claude's does. Both fired on a real tool call in #152's
+// review (codex 0.160.0, -c trust, no review screen).
+func TestCodex_ToolHooksMoveTheCardOffWaiting_issue152(t *testing.T) {
+	for event, want := range map[string]dstatus.Kind{"PreToolUse": dstatus.ToolStarted, "PostToolUse": dstatus.ToolFinished} {
+		got, ok := status.CodexAdapter().KindOf(dstatus.HookPayload{HookEventName: event, ToolName: "Bash"})
+		if !ok || got != want {
+			t.Errorf("KindOf(%s) = %v, %v; want %v", event, got, ok, want)
+		}
+	}
+}
+
+// The rollout's own tool records give the tailer the same answer when a
+// hook is missed: a function_call is a tool running, its output is the
+// model thinking again.
+func TestCodex_TranscriptToolCallsAreToolStatus_issue152(t *testing.T) {
+	a := status.CodexAdapter()
+	call := []byte(`{"timestamp":"2026-10-04T09:51:20.000Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{}","call_id":"c1"}}`)
+	output := []byte(`{"timestamp":"2026-10-04T09:51:21.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"c1","output":"hello"}}`)
+	var entries []dstatus.Entry
+	for _, line := range [][]byte{call, output} {
+		e, ok := a.ParseEntry(line)
+		if !ok {
+			t.Fatalf("%s was not parsed", line)
+		}
+		entries = append(entries, e)
+	}
+	if kind, _, _ := a.DeriveKind(entries[:1]); kind != dstatus.ToolStarted {
+		t.Errorf("after function_call = %v, want ToolStarted", kind)
+	}
+	if kind, _, _ := a.DeriveKind(entries); kind != dstatus.PromptSubmitted {
+		t.Errorf("after its output = %v, want PromptSubmitted (thinking)", kind)
+	}
+}
+
+// A long turn writes a token_count per response, and the tailer keeps only
+// the newest entries: a ring of nothing but usage is a turn still running,
+// never "no status" (#152's review).
+func TestCodex_ARingOfUsageAloneIsBusy_issue152(t *testing.T) {
+	at := time.Date(2026, 10, 4, 9, 0, 0, 0, time.UTC)
+	ring := []dstatus.Entry{{Type: "assistant", At: at, MessageID: "codex-total-1"}, {Type: "assistant", At: at.Add(time.Second), MessageID: "codex-total-2"}}
+	kind, got, ok := status.CodexAdapter().DeriveKind(ring)
+	if !ok || kind != dstatus.PromptSubmitted || !got.Equal(at.Add(time.Second)) {
+		t.Errorf("DeriveKind = %v at %v, %v; want PromptSubmitted at the newest entry", kind, got, ok)
 	}
 }

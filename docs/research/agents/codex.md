@@ -270,9 +270,12 @@ said out loud.
 The subscription Full needs is `SessionStart`, `UserPromptSubmit`,
 `PermissionRequest`, `Stop` **and `Interrupt`**. `Stop` does not fire for an
 interrupted turn, so without `Interrupt` an Esc leaves the hook-driven status
-busy until the tailer reads `turn_aborted`. `PreToolUse` and `PostToolUse`
-exist too, but this spike did not subscribe to them. Whether they carry
-claude's tool status is for #152 to check before relying on it.
+busy until the tailer reads `turn_aborted`. #152 also subscribes to
+`PreToolUse` and `PostToolUse`, checked against the real binary in its
+review: both fire on a tool call, with `tool_name` (`Bash`), trusted through
+`-c` like the rest. `PostToolUse` is what moves a card off "waiting" once
+the operator approves a command, since `PermissionRequest` falls between
+the two.
 
 ## 7. Other things the profile must know
 

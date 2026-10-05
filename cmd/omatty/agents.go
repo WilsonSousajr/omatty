@@ -39,6 +39,7 @@ func claudeProfile() agent.Profile {
 		HookEvents:     status.HookEventNames,
 		RenderSettings: hooks.Render,
 		ParseHook:      hooks.ParsePayload,
+		PromptText:     status.PromptText,
 		Status:         status.ClaudeAdapter(),
 	}
 }

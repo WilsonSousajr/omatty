@@ -23,6 +23,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"io"
 	"time"
 
@@ -60,6 +61,11 @@ type Profile struct {
 	// Locate lists the conversations in the agent's store for dir begun at
 	// or after since: how a Scanned identity is found (#523).
 	Locate func(home, dir string, since time.Time) []string
+	// PromptText reads what the operator typed from one of this agent's
+	// transcript records, for naming a session from its first prompt (#127).
+	// nil when omatty cannot tell a typed prompt in this agent's transcript
+	// apart - codex until #728 - and the session keeps its title.
+	PromptText func(content json.RawMessage) (string, bool)
 	// ParseHook reads this agent's hook payload from the hook's stdin.
 	ParseHook func(stdin io.Reader) (status.HookPayload, bool)
 	// Status reads this agent's transcript lines and hook payloads into

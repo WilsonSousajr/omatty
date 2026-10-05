@@ -42,6 +42,12 @@ func codexProfile() agent.Profile {
 // store. One codex has not written - a pane nobody has typed into, or the
 // pane's own id before codex reported one - names a file that will never
 // exist, so the launcher starts codex fresh and the tailer reads nothing.
+//
+// The tailer resolves this once, when the SessionStart re-bind re-adds the
+// row, and the rollout is there by then: codex materialises it before it
+// runs SessionStart, to put its path in the payload (core/src/session,
+// hook_transcript_path -> ensure_rollout_materialized). #152's smoke test
+// showed the meter filling on a fresh pane.
 func codexTranscript(home, _, conversation string) string {
 	store := codexStore(home)
 	if path, ok := fsread.CodexRollout(store, conversation); ok {

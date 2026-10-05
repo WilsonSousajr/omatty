@@ -140,3 +140,23 @@ func TestRuntimeFor_PassesCodexItsHookArgs_issue152(t *testing.T) {
 		t.Errorf("argv = %q, want codex with the rendered hook flags", got)
 	}
 }
+
+// A placeholder title is re-checked on every status event. For an agent
+// with no first-prompt parser - codex, until #728 - the namer must answer
+// "" without locating or reading a transcript each time (#152's review).
+func TestSessionNamer_AnAgentWithoutAPromptParserReadsNothing_issue152(t *testing.T) {
+	codex := codexProfile()
+	located := 0
+	codex.TranscriptPath = func(_, _, _ string) string { located++; return "/nonexistent" }
+	agents, err := agent.NewCatalog(claudeProfile(), codex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	title, err := sessionNamer("/h", agents)(session.Session{ID: "pane-1", Dir: "/w", Agent: "codex"})
+	if title != "" || err != nil || located != 0 {
+		t.Errorf("namer = %q, %v after %d transcript lookups; want \"\", nil and none", title, err, located)
+	}
+	if claudeProfile().PromptText == nil {
+		t.Error("claude lost its first-prompt parser")
+	}
+}

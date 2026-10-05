@@ -16,9 +16,23 @@ func CodexRollout(store, conversation string) (string, bool) {
 	if conversation == "" || strings.ContainsAny(conversation, `*?[\/`) {
 		return "", false // an id, never a pattern or a path
 	}
-	matches, _ := filepath.Glob(filepath.Join(store, "sessions", "*", "*", "*", "rollout-*-"+conversation+".jsonl"))
+	pattern := filepath.Join(globLiteral(store), "sessions", "*", "*", "*", "rollout-*-"+conversation+".jsonl")
+	matches, _ := filepath.Glob(pattern)
 	if len(matches) == 0 {
 		return "", false
 	}
 	return matches[len(matches)-1], true
+}
+
+// globLiteral escapes path so filepath.Glob matches it as written: a store
+// under a directory named "[work]" is not a character class (#152's review).
+func globLiteral(path string) string {
+	var b strings.Builder
+	for _, r := range path {
+		if strings.ContainsRune(`*?[\`, r) {
+			b.WriteByte('\\')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }

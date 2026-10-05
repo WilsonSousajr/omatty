@@ -45,3 +45,20 @@ func TestCodexRollout_NoFileIsNotFound_issue152(t *testing.T) {
 		t.Errorf("CodexRollout(*) matched %q, want a glob character refused", got)
 	}
 }
+
+// A store under a directory whose name holds a glob character is still
+// searched as written: a miss would start codex fresh and lose the
+// conversation after a crash (invariant 9, #152's review).
+func TestCodexRollout_AStorePathWithGlobCharactersIsLiteral_issue152(t *testing.T) {
+	store := filepath.Join(t.TempDir(), "[work] *?", ".codex")
+	day := filepath.Join(store, "sessions", "2026", "10", "04")
+	if err := os.MkdirAll(day, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(day, "rollout-2026-10-04T06-50-16-c-1.jsonl")
+	mustWrite(t, want, "{}\n")
+
+	if got, ok := fsread.CodexRollout(store, "c-1"); !ok || got != want {
+		t.Errorf("CodexRollout = %q, %v; want %q", got, ok, want)
+	}
+}

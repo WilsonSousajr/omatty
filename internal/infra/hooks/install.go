@@ -21,9 +21,9 @@ import (
 // The events and the settings schema are the profile's (#46), and so is the
 // file: paths.HooksFile names one per agent (#522).
 func Install(profile agent.Profile, home string) (string, error) {
-	bin, err := os.Executable()
+	bin, err := omattyBinary()
 	if err != nil {
-		return "", fmt.Errorf("supervisor: locating the omatty binary: %w", err)
+		return "", err
 	}
 	content, err := profile.RenderSettings(bin, profile.HookEvents())
 	if err != nil {
@@ -125,9 +125,9 @@ func InstallAll(agents agent.Catalog, home string) (map[string]string, error) {
 //
 //	args, err := hooks.RenderAllArgs(agents)
 func RenderAllArgs(agents agent.Catalog) (map[string][]string, error) {
-	bin, err := os.Executable()
+	bin, err := omattyBinary()
 	if err != nil {
-		return nil, fmt.Errorf("supervisor: locating the omatty binary: %w", err)
+		return nil, err
 	}
 	out := map[string][]string{}
 	for _, name := range agents.Names() {
@@ -142,4 +142,14 @@ func RenderAllArgs(agents agent.Catalog) (map[string][]string, error) {
 		out[name] = args
 	}
 	return out, nil
+}
+
+// omattyBinary is the running omatty, which every hook route names by
+// absolute path: an agent runs its hooks with whatever PATH it inherited.
+func omattyBinary() (string, error) {
+	bin, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("supervisor: locating the omatty binary: %w", err)
+	}
+	return bin, nil
 }
