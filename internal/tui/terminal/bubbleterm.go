@@ -36,7 +36,10 @@ type bubble struct {
 	repaintDelay time.Duration
 	// clips lifts OSC 52 out of the child's output on its way to the
 	// emulator, which has no clipboard hook to wire (#212).
-	clips     *clipLift
+	clips *clipLift
+	// input runs every write to the child in the order it was made: keys,
+	// mouse events and SendInput (#725).
+	input     *inputQueue
 	closeOnce sync.Once
 	closeErr  error
 }
@@ -87,7 +90,8 @@ func startCmd(w, h int, cmd *exec.Cmd) (Terminal, error) {
 		closeBoth(ptmx, tty)
 		return nil, fmt.Errorf("termwrap: wrapping %q in a %dx%d emulator: %w", cmd.Path, w, h, err)
 	}
-	return &bubble{m: m, ptmx: ptmx, tty: tty, w: w, h: h, repaintDelay: repaintDelay, clips: clips}, nil
+	return &bubble{m: m, ptmx: ptmx, tty: tty, w: w, h: h, repaintDelay: repaintDelay, clips: clips,
+		input: newInputQueue()}, nil
 }
 
 // openPTY opens a pair sized w by h, pixels included as bubbleterm set them,
@@ -156,11 +160,19 @@ type nopCloser struct{ io.Writer }
 
 func (nopCloser) Close() error { return nil }
 
-func (b *bubble) Init() tea.Cmd              { return b.m.Init() }
-func (b *bubble) SendInput(s string) tea.Cmd { return b.m.SendInput(s) }
-func (b *bubble) Focus()                     { b.m.Focus() }
-func (b *bubble) Blur()                      { b.m.Blur() }
-func (b *bubble) Focused() bool              { return b.m.Focused() }
+func (b *bubble) Init() tea.Cmd { return b.m.Init() }
+
+// SendInput queues s behind every key already typed, so a paste cannot be
+// overtaken by, or overtake, the keys around it (#725, invariant 8). The
+// write happens on the queue's goroutine; there is no command to return.
+func (b *bubble) SendInput(s string) tea.Cmd {
+	b.input.push(b.m.SendInput(s))
+	return nil
+}
+
+func (b *bubble) Focus()        { b.m.Focus() }
+func (b *bubble) Blur()         { b.m.Blur() }
+func (b *bubble) Focused() bool { return b.m.Focused() }
 
 // Resize sizes the PTY here - the emulator skips that in pipe mode - and
 // then reflows the grid. The interface has no error to return, so a failed
@@ -202,6 +214,7 @@ func (b *bubble) Close() error {
 	b.closeOnce.Do(func() {
 		_ = b.m.Close()
 		b.closeErr = errors.Join(b.tty.Close(), b.ptmx.Close())
+		b.input.close() // after the PTY: a write blocked on it fails and returns
 	})
 	return b.closeErr
 }
@@ -244,11 +257,17 @@ func caretShape(s emulator.CursorStyle) tea.CursorShape {
 func (b *bubble) View() string { return b.m.View().Content }
 
 // Update folds bubbleterm's returned model back in, so callers keep a stable
-// Terminal reference across updates.
+// Terminal reference across updates. A key's or a mouse event's write goes
+// to the input queue rather than back to bubbletea, which would run it
+// concurrently with the next one (#725).
 func (b *bubble) Update(msg tea.Msg) tea.Cmd {
 	next, cmd := b.m.Update(msg)
 	if m, ok := next.(*bubbleterm.Model); ok {
 		b.m = m
+	}
+	if isInput(msg) {
+		b.input.push(cmd)
+		return nil
 	}
 	return cmd
 }
