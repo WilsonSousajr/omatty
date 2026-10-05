@@ -37,9 +37,9 @@ transcript it names:
 - **`codex resume <id>` keeps the id**: `SessionStart` fires with
   `"source": "resume"` and the same `session_id`, appending to the same file.
 - **`OMATTY_SESSION` reaches the hook.** Every hook process inherits the
-  environment of *its pane's* `codex`, even though threads run in a shared
-  app-server daemon (§7): two panes with `OMATTY_SESSION=pane-A` and `pane-B`
-  against one daemon each saw their own value. #523's Reported path finds the
+  environment of *its pane's* `codex`: two concurrent panes with
+  `OMATTY_SESSION=pane-A` and `pane-B` each saw their own value. (Both ran
+  with `-c`, so each ran its own embedded app-server; see §7.) #523's Reported path finds the
   pane, but it needs one filter: a background thread fires the same hooks
   from the same pane (§2, "the memories sub-session"), and its `SessionStart`
   must not re-bind the row.
@@ -106,12 +106,16 @@ fired, and that home's `config.toml` was byte-identical before and after the
 run. (§7's first-run write predates these runs and happened in another
 home.)
 
-**The `-c` hooks reach a daemon that was already running.** The daemon that
-served one of the hooked runs had been started by an earlier run that passed
-no hooks at all, and the hooks still fired with the second run's
-`OMATTY_SESSION`. Hook config travels with the thread a client starts; it is
-not fixed when the daemon starts. Folder trust (§7) is read differently, by
-the TUI asking the daemon's `config/read`.
+**`-c` keeps codex off the shared daemon.** Corrected by #152's smoke test,
+which read codex's own startup warning: "Running without the shared
+background server: command-line configuration overrides (-c, --enable,
+--disable, or --search) requires embedded mode." An earlier version of this
+paragraph said the `-c` hooks reached an already-running daemon. The daemon
+seen then had been started by a run *without* `-c`, and the hooked runs never
+used it. So a codex omatty starts always runs its own embedded app-server,
+and its hooks cannot be lost to a daemon started elsewhere. The cost is the
+warning (codex shows "⚠ 1 warning" in its footer on every start) and §7's
+"Run in background".
 
 The key is `/<session-flags>/config.toml:<event_label>:<group>:<handler>`,
 with the event in snake_case. The hash is `version_for_toml` over the
@@ -266,9 +270,12 @@ said out loud.
 The subscription Full needs is `SessionStart`, `UserPromptSubmit`,
 `PermissionRequest`, `Stop` **and `Interrupt`**. `Stop` does not fire for an
 interrupted turn, so without `Interrupt` an Esc leaves the hook-driven status
-busy until the tailer reads `turn_aborted`. `PreToolUse` and `PostToolUse`
-exist too, but this spike did not subscribe to them. Whether they carry
-claude's tool status is for #152 to check before relying on it.
+busy until the tailer reads `turn_aborted`. #152 also subscribes to
+`PreToolUse` and `PostToolUse`, checked against the real binary in its
+review: both fire on a tool call, with `tool_name` (`Bash`), trusted through
+`-c` like the rest. `PostToolUse` is what moves a card off "waiting" once
+the operator approves a command, since `PermissionRequest` falls between
+the two.
 
 ## 7. Other things the profile must know
 
@@ -284,13 +291,14 @@ claude's tool status is for #152 to check before relying on it.
 - **Codex writes its own config on first run.** The first TUI start added
   `[tui] screen_reader_detection_done = true`. Codex's business, recorded so
   nobody blames omatty for it.
-- **A persistent app-server daemon.** `codex` starts (or reuses)
-  `codex app-server --listen unix:// --managed-daemon` under
-  `$CODEX_HOME/packages/…`, and it outlives the TUI. Threads run there, and
-  "Run in background" leaves a task running after the pane exits. For omatty:
-  a Codex pane exiting does not prove the conversation stopped, so `exited`
-  means "the TUI exited". The process tier must not claim more. `--no-daemon`
-  keeps it in-process, at the cost of "Run in background".
+- **A persistent app-server daemon, which omatty's codex does not use.** A
+  plain `codex` starts (or reuses) `codex app-server --listen unix://
+  --managed-daemon` under `$CODEX_HOME/packages/…`, and it outlives the TUI.
+  Threads run there, and "Run in background" leaves a task running after the
+  pane exits. A codex started with `-c`, which is every codex omatty starts,
+  runs embedded instead (§2), so its pane exiting does end its thread.
+  Whether ctrl+c's *Run in background* is still offered in embedded mode was
+  not checked.
 - **Auth.** `codex login status` reports "Logged in" from the presence of
   `auth.json` alone. A stale refresh token shows up only as the TUI's sign-in
   screen. Not omatty's to fix; agentprobe should say so rather than time out.

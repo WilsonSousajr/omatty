@@ -39,6 +39,7 @@ func claudeProfile() agent.Profile {
 		HookEvents:     status.HookEventNames,
 		RenderSettings: hooks.Render,
 		ParseHook:      hooks.ParsePayload,
+		PromptText:     status.PromptText,
 		Status:         status.ClaudeAdapter(),
 	}
 }
@@ -50,7 +51,7 @@ func claudeProfile() agent.Profile {
 //
 //	agents, err := agentCatalog()
 func agentCatalog() (agent.Catalog, error) {
-	return agent.NewCatalog(claudeProfile())
+	return agent.NewCatalog(claudeProfile(), codexProfile())
 }
 
 // claudeTranscript is where claude writes the session's JSONL. claude names

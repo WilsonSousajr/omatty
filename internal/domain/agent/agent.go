@@ -3,10 +3,11 @@
 // its transcript, which hook events it reports, and how to read one line of
 // that transcript into omatty's neutral status vocabulary.
 //
-// Claude is the only profile today (#46). It exists as a profile rather than
-// as the hardcoded default it was, so a second agent is a new catalog entry and
-// not a simultaneous edit to the launcher, the watcher, paths and cmd. Each
-// session's agent is resolved through an injected Catalog (#521).
+// Claude was the first profile (#46) and codex the second (#152). Claude
+// became a profile rather than the hardcoded default it was, so a second
+// agent is a new catalog entry and not a simultaneous edit to the launcher,
+// the watcher, paths and cmd. Each session's agent is resolved through an
+// injected Catalog (#521).
 //
 // The catalog - which profiles exist, and the implementations each one
 // carries - is composed in cmd/omatty (ADR 0001, migration step 5.2b,
@@ -22,6 +23,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"io"
 	"time"
 
@@ -51,9 +53,19 @@ type Profile struct {
 	// RenderSettings is the settings-file content that makes the agent
 	// report to `omatty hook`.
 	RenderSettings func(binPath string, eventNames []string) ([]byte, error)
+	// RenderArgs is the alternative to RenderSettings for an agent that reads
+	// no file omatty may write: its hooks travel as arguments, which the
+	// launcher appends to Command's argv. Codex takes them as `-c` flags,
+	// trust included (#152).
+	RenderArgs func(binPath string, eventNames []string) ([]string, error)
 	// Locate lists the conversations in the agent's store for dir begun at
 	// or after since: how a Scanned identity is found (#523).
 	Locate func(home, dir string, since time.Time) []string
+	// PromptText reads what the operator typed from one of this agent's
+	// transcript records, for naming a session from its first prompt (#127).
+	// nil when omatty cannot tell a typed prompt in this agent's transcript
+	// apart - codex until #728 - and the session keeps its title.
+	PromptText func(content json.RawMessage) (string, bool)
 	// ParseHook reads this agent's hook payload from the hook's stdin.
 	ParseHook func(stdin io.Reader) (status.HookPayload, bool)
 	// Status reads this agent's transcript lines and hook payloads into
@@ -76,6 +88,21 @@ func ClaudeCommand(bin, sessionID, _ string, resume bool, settingsFile string) [
 		flag = "--resume"
 	}
 	return []string{bin, flag, sessionID, "--settings", settingsFile}
+}
+
+// CodexCommand is codex's argument list (#152). codex takes no id from
+// omatty: a fresh start is the binary alone, and the id codex chooses comes
+// back on its SessionStart hook (Reported, #523). A resume names that id,
+// the row's Conversation, to `codex resume`. There is no settings file -
+// codex reads hooks only from `-c` flags, which the launcher appends from
+// the profile's RenderArgs, and which `codex resume` accepts after the id.
+//
+//	argv := agent.CodexCommand("codex", conversation, dir, true, "") // codex resume <id>
+func CodexCommand(bin, sessionID, _ string, resume bool, _ string) []string {
+	if resume {
+		return []string{bin, "resume", sessionID}
+	}
+	return []string{bin}
 }
 
 // Generic is an agent declared in config.toml by its command alone (#525): it

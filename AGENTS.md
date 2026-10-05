@@ -279,7 +279,9 @@ not in the gate.
    agent config file inside the project** (#522). Per-session hooks are passed
    per invocation - claude's with `--settings ~/.omatty/hooks.json`, another
    agent's from `~/.omatty/hooks-<agent>.json` by a flag or by an env var
-   naming a file the agent *merges*. A route that replaces the user's config is
+   naming a file the agent *merges*, or as per-invocation config flags
+   naming no file at all - codex's `-c`, its hooks' trust included (#152). A
+   route that replaces the user's config is
    refused, because it hides their auth and settings. An agent whose only hook
    route is a global or project file gets no hooks and drops a tier. Zero
    footprint is a feature.

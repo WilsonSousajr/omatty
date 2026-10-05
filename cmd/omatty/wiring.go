@@ -48,13 +48,27 @@ func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
 	if err := checkDefaultAgent(agents, cfg.DefaultAgent); err != nil {
 		return err
 	}
-	hooksFiles, err := hooks.InstallAll(agents, home)
-	if err != nil {
+	env := tuiEnv{Home: home, Cfg: cfg, Agents: agents, Holder: detach.New(home)}
+	if env.HooksFiles, env.HookArgs, err = installHooks(agents, home); err != nil {
 		return err
 	}
-	w, h := windowSize()
-	env := tuiEnv{Home: home, Cfg: cfg, Agents: agents, HooksFiles: hooksFiles, Holder: detach.New(home), Width: w, Height: h}
+	env.Width, env.Height = windowSize()
 	return runWithNamer(tuiDeps(env, store, state), runtimeFor(env), cfg)
+}
+
+// installHooks gives every agent that takes hooks its route to `omatty
+// hook`: a settings file written under ~/.omatty, or flags rendered for its
+// argv, as codex's -c (#522, #152).
+func installHooks(agents agent.Catalog, home string) (map[string]string, map[string][]string, error) {
+	files, err := hooks.InstallAll(agents, home)
+	if err != nil {
+		return nil, nil, err
+	}
+	args, err := hooks.RenderAllArgs(agents)
+	if err != nil {
+		return nil, nil, err
+	}
+	return files, args, nil
 }
 
 // runWithNamer runs the TUI with the opt-in model namer attached, closing
@@ -79,6 +93,10 @@ type tuiEnv struct {
 	// HooksFiles is the settings file omatty wrote for each agent that takes
 	// hooks, by agent name (#522).
 	HooksFiles map[string]string
+	// HookArgs is the hook flags rendered for each agent that takes its hooks
+	// as arguments rather than a file - codex's -c flags - by agent name
+	// (#152).
+	HookArgs map[string][]string
 	// Holder keeps sessions alive across quit. One holder, used twice: it
 	// wraps each launch and it ends an archived session's claude. Two would
 	// mean two PATH lookups that could disagree (#43).
@@ -397,12 +415,15 @@ func sessionNamer(home string, agents agent.Catalog) app.NameFunc {
 		if err != nil {
 			return "", err
 		}
-		if !profile.KeepsTranscript() {
-			return "", nil // nothing to name it from: it keeps its title (#525)
+		if !profile.KeepsTranscript() || profile.PromptText == nil {
+			// Nothing to name it from (#525), or no way to tell a typed
+			// prompt in it (codex, #728): it keeps its title, and no
+			// transcript is located or read on every status event.
+			return "", nil
 		}
 		// The conversation, not the ID: after /clear the row's first
 		// transcript is the one it left behind (#316).
-		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()), status.PromptText)
+		return discovery.FirstPromptTitle(profile.TranscriptPath(home, sess.Dir, sess.ConversationID()), profile.PromptText)
 	}
 }
 

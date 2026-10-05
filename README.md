@@ -422,6 +422,10 @@ base_branch = ""           # fork worktrees from this branch; empty means the ch
 [agents.claude]             # one table per agent; bin is its binary, and here wins over claude_bin
 bin = "claude"
 
+# [agents.codex]           # built in: status, waiting and resume from codex's own hooks and
+# bin = "codex"            # rollout, passed per run as -c flags; nothing is written to ~/.codex.
+#                          # codex binds ctrl+o to copy - under omatty that key is the leader
+
 # [agents.aider]           # any other agent, declared by its command: it runs in the
 # command = ["aider", "--no-auto-commits"]   # session's directory, and omatty knows only whether it runs
 

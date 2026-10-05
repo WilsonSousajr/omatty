@@ -65,7 +65,11 @@ func (l *Launcher) Launch(sess session.Session) (session.Launch, error) {
 	}
 	conv := sess.ConversationID()
 	resume := HasTranscript(profile, l.home, sess.Dir, conv)
-	argv, err := l.holder.Wrap(sess.ID, profile.Command(l.agents.Bin(profile), conv, sess.Dir, resume, l.agents.HooksFile(profile)))
+	argv := profile.Command(l.agents.Bin(profile), conv, sess.Dir, resume, l.agents.HooksFile(profile))
+	// An agent that takes its hooks as flags gets them last, after the
+	// subcommand its template chose: Codex's `-c` is accepted there by both
+	// `codex` and `codex resume <id>` (#152).
+	argv, err = l.holder.Wrap(sess.ID, append(argv, l.agents.HookArgs(profile)...))
 	if err != nil {
 		return session.Launch{}, err
 	}

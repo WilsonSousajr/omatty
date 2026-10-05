@@ -21,9 +21,9 @@ import (
 // The events and the settings schema are the profile's (#46), and so is the
 // file: paths.HooksFile names one per agent (#522).
 func Install(profile agent.Profile, home string) (string, error) {
-	bin, err := os.Executable()
+	bin, err := omattyBinary()
 	if err != nil {
-		return "", fmt.Errorf("supervisor: locating the omatty binary: %w", err)
+		return "", err
 	}
 	content, err := profile.RenderSettings(bin, profile.HookEvents())
 	if err != nil {
@@ -106,8 +106,8 @@ func InstallAll(agents agent.Catalog, home string) (map[string]string, error) {
 	files := map[string]string{}
 	for _, name := range agents.Names() {
 		profile, _ := agents.Lookup(name)
-		if profile.Caps.Status != agent.StatusHooks {
-			continue
+		if profile.Caps.Status != agent.StatusHooks || profile.RenderSettings == nil {
+			continue // no hooks, or hooks that travel as arguments (#152)
 		}
 		path, err := Install(profile, home)
 		if err != nil {
@@ -116,4 +116,40 @@ func InstallAll(agents agent.Catalog, home string) (map[string]string, error) {
 		files[name] = path
 	}
 	return files, nil
+}
+
+// RenderAllArgs renders, for the running binary, the hook arguments of every
+// agent whose hooks travel as argv rather than a settings file, by agent
+// name. Codex is one: it reads no file omatty may write, only `-c` flags
+// (#152). Nothing is written.
+//
+//	args, err := hooks.RenderAllArgs(agents)
+func RenderAllArgs(agents agent.Catalog) (map[string][]string, error) {
+	bin, err := omattyBinary()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string][]string{}
+	for _, name := range agents.Names() {
+		profile, _ := agents.Lookup(name)
+		if profile.Caps.Status != agent.StatusHooks || profile.RenderArgs == nil {
+			continue
+		}
+		args, err := profile.RenderArgs(bin, profile.HookEvents())
+		if err != nil {
+			return nil, fmt.Errorf("supervisor: rendering %s's hook arguments for %q: %w", name, bin, err)
+		}
+		out[name] = args
+	}
+	return out, nil
+}
+
+// omattyBinary is the running omatty, which every hook route names by
+// absolute path: an agent runs its hooks with whatever PATH it inherited.
+func omattyBinary() (string, error) {
+	bin, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("supervisor: locating the omatty binary: %w", err)
+	}
+	return bin, nil
 }
