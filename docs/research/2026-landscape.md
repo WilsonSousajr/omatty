@@ -7,8 +7,9 @@
 > the script that produces them is in "Reproducing the table" so the next pass
 > re-runs rather than re-invents it.
 >
-> **Refreshed 2026-09-27 in §7** (#513). §1-6 are the 09-18 capture, unedited;
-> where §7 contradicts them, §7 is current.
+> **Refreshed 2026-09-27 in §7** (#513) **and 2026-10-05 in §8** (#735).
+> §1-6 are the 09-18 capture, unedited; where a later section contradicts an
+> earlier one, the later one is current.
 >
 > **Analysis only.** No implementation decision is made in this file, and no
 > recommendation in §5 binds the roadmap. What omatty should *do* about any of
@@ -635,6 +636,243 @@ gates appeared in fifteen days, and Orca gains most of a claude-squad every nine
 **R14. Search by shape, not by name.** Add `terminal agents`, `pty agents`,
 `agent runtime` and `worktree tui` to the candidate queries, and treat an
 awesome-list as a list of names to check, never as a source.
+
+## 8. Refresh, 2026-10-05
+
+> Captured **2026-10-05**, against `develop` at v0.11.0, eight days after §7.
+> Every load-bearing claim in this section was checked against a live primary
+> page on that date, not remembered. §7 asked for the next refresh in a month
+> (R13). This one is early because the first party shipped a plugin surface
+> in the window, and that changes more than any competitor did. Analysis only,
+> like the rest of the file: the recommendations below are inputs to
+> `docs/ROADMAP.md`.
+>
+> **Coverage.** The signal table and the five field-size probes were re-run
+> with the script under "Reproducing the table". Claude Code's
+> `CHANGELOG.md` was read from 2.1.284 to 2.1.289, with dates taken from the
+> npm registry's publish times. The mods documentation
+> (`code.claude.com/docs/en/plugins/mods/*`) and the built-in `/diff` mod's
+> source were read. New candidates came from `gh search repos` by shape
+> (R14), restricted to `created:>2026-09-26`, and from
+> `karanb192/awesome-claude-code-mods`, used as a list of names only. Gate
+> and review claims about mods were checked by opening the files named
+> below. About four hundred mod repositories appeared in four days. Fewer
+> than twenty were opened, so a review or gate mod with an unexpected name
+> would be missed.
+
+### 8.1 The signal table: Orca again, and two renames
+
+| Project | Stars 09-27 → 10-05 | Last push | Latest release | Open issues |
+|---|---:|---|---|---:|
+| `stablyai/orca` | 79,236 → **85,739** | 10-05 | v1.4.220 (10-04) | 3,708 |
+| `herdrdev/herdr` | 40,951 → 42,477 | 10-05 | v0.9.3 (09-29) | 300 |
+| `BloopAI/vibe-kanban` | 28,201 → 28,263 | 09-19 | v0.1.44 (04-24) | 389 |
+| `manaflow-ai/cmux` | 27,431 → 27,636 | 10-05 | v0.64.25 (09-17) | 1,605 |
+| `getpaseo/paseo` | 18,674 → 19,601 | 10-05 | v0.10.3 (10-02) | 563 |
+| `superset-sh/superset` | 14,670 → 14,902 | 10-05 | desktop-v1.35.0 (10-02) | 423 |
+| `NanmiCoder/cc-haha` | 14,730 → 14,868 | 10-05 | v0.6.8 (10-01) | 110 |
+| `OrchestratorInc/agent-orchestrator` | 12,412 → 12,785 | 10-05 | v0.13.3 (10-01) | 414 |
+| `smtg-ai/claude-squad` | 8,537 → 8,570 | 08-20 | v1.0.20 (08-20) | 16 |
+| `generalaction/emdash` | 5,850 → 5,912 | 10-02 | v1.2.7 (09-27) | 64 |
+| `dagger/container-use` | 4,046 → 4,057 | 09-21 | v0.4.2 (2025-08-19) | 47 |
+| `xintaofei/codeg` | 3,703 → 3,809 | 10-03 | v0.33.0 (10-02) | 162 |
+| `stravu/crystal` | 3,122 → 3,124 | 2026-02-26 | v0.3.5 (02-26) | 60 |
+| `nimbalyst/nimbalyst` | 1,785 → 1,840 | 10-05 | v0.79.1 (09-30) | 631 |
+| `akitaonrails/ai-jail` | 1,300 → 1,319 | 10-04 | v2.6.4 (10-04) | 0 |
+| `kbwo/ccmanager` | 1,250 → 1,258 | 09-27 | v4.4.4 (09-27) | 4 |
+| `persiyanov/herdr-reviewr` | 778 → 839 | 10-05 | v0.45.0 (10-05) | 22 |
+| `devflowinc/uzi` | 583 → 581 | 2025-06-04 | v0.0.2 | 6 |
+| `greenfield-inc/Pane` | 492 → 510 | 10-05 | v2.4.163 (10-05) | 111 |
+| `imbue-ai/sculptor` | 232 → 236 | 10-05 | v0.48.0 (09-21) | 0 |
+| `ykdojo/safeclaw` | 184 → 184 | 09-27 | v0.7.0 (07-24) | 0 |
+| `axonel/sentinel` | 52 → 65 | 09-30 | v0.1.1 (09-19) | 1 |
+| `brizzai/fleet` | 54 → 56 | 10-04 | v2.47.0 (10-04) | 13 |
+| `nccapo/stvena` | 10 → 10 | 09-29 | v0.4.1 (09-21) | 0 |
+| `jpolec/herdr-plugin-odysseus` | 4 → 6 | 09-25 | none | 0 |
+| `xseman/pando` | 5 → 5 | 10-05 | v0.4.0 (10-02) | 0 |
+| `shindakun/herdr-testrun` | 1 → 1 | 09-20 | v0.1.0 (09-20) | 0 |
+| `jesseduffield/lazygit` | 82,707 → 82,910 | 10-05 | v0.66.0 (10-05) | 864 |
+| `dandavison/delta` | 32,355 → 32,421 | 10-05 | 0.20.1 (10-04) | 314 |
+| `Wilfred/difftastic` | 25,938 → 25,979 | 10-02 | 0.71.0 (09-18) | 247 |
+| `WilsonSousajr/omatty` | 1 → 1 | 10-05 | v0.11.0 (10-05) | 34 |
+
+- **Two renames, not deaths** (the crystal trap again).
+  `Untrivial-ai/agent-orchestrator` now redirects to
+  `OrchestratorInc/agent-orchestrator`, and `axonel/axonel` to
+  `axonel/sentinel`, which §7.3 and §7.4 cite under the old name. Same
+  description, same history.
+- Orca added 6,503 stars in eight days, about the same rate as §7.1's nine.
+  herdr added 1,526. Nothing else in camp A moved by more than a few hundred.
+- claude-squad has now gone six and a half weeks without a commit.
+
+Field-size probes: `topic:parallel-agents` 200 → 215;
+`claude code parallel in:description stars:>10` 205 → 209;
+`coding agent orchestrator in:description stars:>10` 472 → 475;
+`multiple claude code sessions in:description` 451 → 456;
+`claude code worktree in:description` 1,370 → 1,463. Two new probes give
+a baseline for next time: `topic:claude-code-mods` 82 and
+`herdr plugin in:description` 866.
+
+### 8.2 First party: Claude Code became a host for panes
+
+This is the finding of the refresh. Claude Code 2.1.284 to 2.1.289
+(2026-09-28 to 10-03, `anthropics/claude-code` `CHANGELOG.md`; dates from
+`npm view @anthropic-ai/claude-code time`):
+
+- **2.1.287 (10-01): "Added Claude Mods: plugins may now modify deeper
+  behavior."** A mod is JavaScript or TypeScript running *inside* Claude
+  Code's process (`code.claude.com/docs/en/plugins/mods/overview`). It can
+  dock a pane beside the transcript or a band above the prompt, with buttons
+  and fields. It can draw a unified diff with Claude Code's own colours
+  (`Code` with `format: 'diff'`, `.../mods/gallery`). It can run processes
+  (`$.process.run`, 30 s by default and 10 min at most), read files, list the
+  session's agents with idle and waiting states (`$.agent.list`, 2.1.289), and
+  put text into the session as though the user typed it
+  (`$.prompt.submit({ text, asUser: true })`, `.../mods/reference`). Mods
+  draw in the terminal and the Desktop app's Code tab, and not in VS Code,
+  `-p` or cloud sessions.
+- **The built-in `/diff` is now a mod**, `cc-plugin-diff`, with its source
+  in `anthropics/claude-code` `mods/diff/`. From its `README.md`: the pane
+  docks beside the transcript and opens by itself on the session's first
+  edit when the terminal is wide enough. It compares the working tree with
+  HEAD *as of the session's start*, with HEAD, or with the merge base. "A
+  picker shows one earlier turn's edits instead of the working tree". It
+  refreshes after each edit and shell command, folds lockfiles and generated
+  files, and "a file's ask button arms that file: its hunks ride the next
+  prompt as context, once."
+- **2.1.286 (09-30)**: "when your project or user skills include one named
+  `verify`, Claude is now told to run it right before committing". That is
+  the agent checking its own work before it commits. It is not a verdict
+  the tool computes, and nothing in it reaches a person's screen as a
+  per-step result.
+- 2.1.288: Ctrl+F to find a session by name and Alt+↑/↓ to jump between
+  groups in the agents view. `--resume` reliability fixes, three of them.
+
+What this does to §7.5's "one remains": several of omatty's claims are now
+first-party *features*, not just first-party *possibilities*. Agent view
+already spanned projects and coloured each pull request by its checks. The
+`/diff` mod adds a docked, auto-opening diff of the session's own changes,
+scoped to the session's start or to one turn. That is the substance of #311's
+"review since the last turn", in the box. What it does not do: comment on a
+line. It works a file at a time, as context for the next prompt. It also has
+no check line, and it shows one session.
+
+What it makes possible matters more than what it ships. Every piece of
+omatty's review loop now has a first-party primitive: a pane, a diff
+renderer, a process runner, and a way to put text into the conversation.
+A gate pane needs no PTY, terminal emulator or hooks file of its own.
+§8.3 shows people have started.
+
+### 8.3 Mods: four hundred repositories in four days
+
+`claude code mod in:description created:>2026-09-30` returns 402
+repositories. Most are cost meters, themes, pets and games. The ones close
+to omatty's shape, from their own files:
+
+| Mod | Stars | Created | What it does, and the file it was read in |
+|---|---:|---|---|
+| `rudrasecure/claude-mods` `review-pane` | 0 | 10-02 | A side pane of Claude's changes; select lines, comment, and the comments go in with `$.prompt.submit({ text, asUser: true })`. Anchored by line number: a comment carries `L2-4` or `old L3` (`review-pane/hooks/register.tsx`, `commentRow`). |
+| `stefanoshea/diff-review` | 0 | 10-01 | A diff pane whose draft comments go to GitHub as a pending review (README). Not a loop back into the session. |
+| `BuddyLim/claude-code-mod-lens` | 0 | 10-05 | A review pane that runs language servers and `ruff`, `pyright`, `tsc`, `eslint` on the changed files and shows the diagnostics *the change brought*, by also checking the base's copy (`hooks/check.ts`). Verdicts are parsed diagnostics, not exit status. |
+| `OneWave-AI/claude-code-mods` `agent-race` | (collection, 2) | 10-02 | Several sessions on one track, scored partly on test runs. Tests are detected by command name and counted by regex over the runner's output (`agent-race/hooks/race.ts`, `parseTests`). That is the opposite of invariant 12. |
+| `Nongfsq/frank-claude-cockpit` `pr-pane` | 3 | 10-03 | "A pane beside the chat that tells you what every other session is doing" (README). |
+| `artemnovichkov/xcode-mods` | 17 | 10-02 | Xcode's build, run and test results in a pane, through Xcode's MCP server (README). One toolchain, not a project's own line. |
+
+Two observations, both about evidence rather than threats:
+
+- **The first content-anchoring question has already come up in the new
+  ecosystem, and been answered the old way.** `review-pane` anchors on line
+  numbers, as Orca and herdr-reviewr do. Invariant 7 is still a
+  distinction, and line-number anchoring is still the default an author
+  reaches for first.
+- **The first check-running mods parse output.** `mod-lens` and `agent-race`
+  both decide what failed from what a tool printed. Neither runs a
+  project's own multi-step line, and neither decides by exit code. Its idea
+  of "the diagnostics this change introduced", found by checking the base
+  too, is worth a look on its own terms; see R17.
+
+### 8.4 Outside the mods: new since 09-27
+
+| Project | Stars | Created | Lang | What it is, from its README |
+|---|---:|---|---|---|
+| `spatie/bloom` | 26 | 09-28 | Swift | Native macOS app: a worktree per workspace, conversations, terminals, a browser, a diff against the merge base, PRs. Hands a *failed CI check's* log to the agent (`Sources/Bloom/Views/Inspector/CheckFailureSender.swift`, through `gh`). Remote verdict only. |
+| `Perpeer/lazychat` | 20 | 10-02 | Go | "One terminal for all your AI coding agents": Claude Code and Codex side by side, "see which one needs you", Git and a shell per project. macOS, AGPL, Homebrew. Its `check.sh` is its own pre-commit script, not a product feature. The nearest new shape to omatty: a Go TUI, several projects, the real agent CLIs. |
+| `steventsvik/GhosttyEXTREME` | 16 | 09-27 | Zig | A Ghostty fork with agents in a vertical sidebar. Camp B's cmux shape. |
+| `eternaleclipse/gecko` | 0 | 10-03 | Go | "The terminal for running coding agents across all your machines". |
+
+herdr's plugins kept multiplying: `herdr-worktree-agents` (a panel of
+worktrees with agent state, PR/CI and git status), `agent-panel`,
+`herdr-council` and three attention-sorted agent sidebars, all created in
+the window. herdr v0.9.2 (09-29) added "Agents can report their own resume
+command", which brings herdr's resume close to what invariant 9 does by
+construction. herdr-reviewr went from v0.39 to v0.45 in the window, with
+Windows support, jump-to-line and safer sends ("Send refuses an agent at a
+permission prompt, which drops a paste"). It has no check runner: the only
+files that match `check` are its own CI and its forge code.
+
+### 8.5 The gate claim, re-checked
+
+§7.4's defensible form: no session manager or workspace above about a
+hundred stars runs the project's own multi-step check line per session and
+puts per-step verdicts on the session's card. **It still holds on
+2026-10-05.** The new projects in §8.3 and §8.4 were each checked. bloom
+shows CI, lazychat shows nothing, `mod-lens` and `agent-race` parse output,
+and `xcode-mods` shows one toolchain's results. None crosses a hundred stars
+with a local gate.
+
+The ground under it changed, though. Before 10-01, building omatty's gate
+into somebody else's tool meant a herdr plugin or a fork. Now it means a
+mod: no PTY, no terminal emulator, no hooks file, and an install of one
+`/plugin install` line for every Claude Code user. §7.4 said the claim had
+an expiry date. 2.1.287 brought the date forward.
+
+### 8.6 What this means for omatty
+
+Numbered on from §7.7. Inputs, not decisions.
+
+**R15. Re-state the review-loop claim against `/diff`, not only against
+Orca.** `comparison.md` says to come to omatty from `claude agents` for "a
+review loop". As of 2.1.287 the first party has a docked, per-turn diff of
+the session's changes, and a way to hand a file's hunks to the next
+prompt. What is still omatty's: comments on a *line*, anchored on content
+(invariant 7), batched into one bracketed paste (invariant 8); the same
+review across several live sessions; and the gate. The claim should name
+`/diff` and say that, or a reader who has just used `/diff` will not grant
+it.
+
+**R16. Decide in the open what a Claude Code mod is to omatty: a
+competitor's substrate, a distribution channel, or both.** Every feature
+that sets omatty apart now has a first-party primitive that a mod can use.
+Two readings follow, and the roadmap should pick one. The defensive
+reading: the moat is narrower, and the remaining distinctions are the ones
+no mod in §8.3 does yet. A *list* of other sessions is already a mod away:
+`frank-claude-cockpit` gets one from an MCP server's `list_sessions`
+(`pr-pane/hooks/register.tsx`). What none of them does is several live
+sessions side by side, each one typed into. The others are status from
+structured events across agents (M17) and content-anchored comments. The offensive reading: an omatty gate mod,
+one pane that runs a project's `gate` line under invariant 12's rules,
+would put the one unique feature in front of every Claude Code user
+without asking them to change terminals. This file does not choose.
+`docs/ROADMAP.md` should, and "Not on the roadmap" is where the answer
+goes if it is no.
+
+**R17. Read `mod-lens`'s "diagnostics this change brought" before M10's
+next change.** Checking the base's copy too, and showing only the
+difference, answers "did this session make it worse" rather than "is the
+tree clean". That is close to M10's coverage-on-the-diff argument, applied
+to lint. It is an idea, not evidence: the repository is a day old with no
+stars.
+
+**R18. Fix the two renamed citations.** §7.3, §7.4 and `comparison.md` name
+`Untrivial-ai/agent-orchestrator` and `axonel/axonel`. Both still
+redirect, but a reader following the link from a fork or a mirror will not
+get there.
+
+**R19. Keep the monthly cadence (R13), and add a first-party check between
+refreshes.** Claude Code ships about a release a day. This refresh found its
+most important fact in a changelog line, not in a competitor. Reading
+`CHANGELOG.md` since the last captured version costs minutes, and is the
+first step of the skill's "check the first party first".
 
 ## Reproducing the table
 
