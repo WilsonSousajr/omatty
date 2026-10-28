@@ -19,6 +19,9 @@ type Terminal interface {
 	Init() tea.Cmd
 	Update(msg tea.Msg) tea.Cmd
 	View() string
+	// SendInput writes s to the running process. The real terminal queues
+	// the write behind the keys typed before it and returns nil; a nil
+	// command is not a failure (#725, #734).
 	SendInput(s string) tea.Cmd
 	Resize(w, h int) tea.Cmd
 	Focus()
