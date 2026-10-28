@@ -36,7 +36,7 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 
 ## Technology stack
 
-- **Go 1.26.8**, module `github.com/WilsonSousajr/omatty`. Pinned exactly in
+- **Go 1.26.10**, module `github.com/WilsonSousajr/omatty`. Pinned exactly in
   both `go.mod` and `ci.yml`, not floated as `1.26`: setup-go resolves a
   floating minor to the newest patch, and it had silently drifted a patch
   ahead of `go.mod` (#261).
