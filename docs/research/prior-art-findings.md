@@ -213,3 +213,130 @@ else for and one of which is a hole in omatty's own thesis; four smaller ones;
 eight things to keep refusing, now with citations. And one sentence in
 `README.md` that is wrong twice over — false about the field, and written
 before the first party shipped the category's core.
+
+## Pass 4 additions, 2026-10-28
+
+> The projects `2026-landscape.md` §9 found, held against omatty on
+> `develop` at v0.11.0. Each competitor feature names the file or release
+> note it was read in on 2026-10-28; each omatty line names the package that
+> does it, read in this tree. Package paths are the ADR 0001 layout, not the
+> pre-migration paths the sections above use. **Analysis only**: the P
+> numbers continue the list above and are inputs to `docs/ROADMAP.md`.
+
+### Feature comparison
+
+| Feature | Who ships it, and where it was read | omatty |
+|---|---|---|
+| Undo a session's last turn | Tellurion: "**Undo last turn** puts your files back" (README) | **Has it.** `tui/app/revert.go` reverts to the turn baseline that `infra/vcs/turn.go` snapshots with `write-tree`. |
+| Line comments sent back to the session in one message | omux (`Changes.swift`, `sendNotes`), local-review (`hooks/register.tsx`), paseo 0.12.0 (#6455), herdr-reviewr | **Has it**, and anchored on content (`domain/review/anchor.go`, invariant 7) where all four use line numbers (`2026-landscape.md` §9.4). |
+| A comment on part of a line | local-review keeps `code` on the comment (`hooks/viewer.tsx`) | **Has it.** `Comment.Fragment` (`domain/review/comments.go`, #339). |
+| Pull request state on each worktree session | omux runs `gh pr view` "about once a minute" (README) | **Has it.** `tui/app/prpoll.go` over `infra/forge`, across four forges (M16). |
+| The gate must be green before the work ships | pullboard: "Submit needs a green gate" (`src/commands/submit.js`) | **Has it.** `tui/app/ship.go` refuses with "the gate is not green". |
+| Hooks passed at launch, user config untouched | gilvt: "injected through launch" (README) | **Has it.** Invariant 3; `infra/hooks`. |
+| Don't re-run a gate on a tree that already passed | pullboard: a green run of a clean tree writes `pullboard-gate-green` with the tree hash, and the next run on that tree returns `isCached` (`src/gate.js`, `isStampedGreen`) | **Gap, P1-5.** |
+| Refuse to send while the agent is at a permission prompt | herdr-reviewr v0.42.0: "Send refuses an agent at a permission prompt, which drops a paste, and keeps every comment" (release notes) | **Gap, P1-6.** |
+| Side-by-side diff | herdr-reviewr v0.47.0 `diff_view = "split"` (release notes); `neteye-platform/cc-split-diff-view` (mod) | **Gap, P2-5.** Unified only. |
+| The operator's own text above every review | herdr-reviewr v0.48.0 `review_prefix` (release notes, #129) | **Gap, P2-6.** |
+| Read the pull request draft before it is opened | praft: title (editable), description, size and commits in a pane, then approve (README) | **Gap, P2-7.** |
+| A session's subagents, live | omux reads `~/.claude/projects/<project>/<session>/subagents/agent-<id>.jsonl` (`Sources/omux/Agents.swift`) | **Gap, P2-8.** |
+| Parallel sessions colliding over ports and processes | claude-bulkhead: hooks that block `pkill node` and a second server on a taken port, and reap orphans (README) | **Gap, P2-9**, but not the way bulkhead fills it (see below). |
+
+### P1-5. The gate re-runs on a tree that has already passed
+
+`autoGate` (`tui/app/gaterun.go`) runs the gate whenever a turn ends, and
+`runGate` checks only that a run is not already going. A turn that answered a
+question and edited nothing runs the whole line again: on this repository,
+`go test -race` and the coverage and C.R.A.P. scripts. Pullboard keys a
+green result to the tree hash and skips the run when the tree has not
+changed (`src/gate.js`). omatty already computes that hash for the turn
+baseline (`infra/vcs/turn.go`, `write-tree` on a temporary index, which
+includes untracked files). So the input exists and only the comparison is
+missing.
+
+The design questions are omatty's, not pullboard's. A red result must never
+be cached, because flaky steps exist and a re-run is how you find them. The
+card must say "unchanged since it passed at 14:02", not show a fresh green
+it did not earn. Changing the gate's own definition must invalidate the
+cache. An explicit `ctrl+o g` should always run.
+
+### P1-6. A review or gate send can land in a permission prompt
+
+`submitReview` (`tui/app/reviewkeys.go`) and `submitGate`
+(`tui/app/gatepane.go`) check that the session has a terminal, and the gate
+send checks that it is not a repeat. Neither checks the session's status.
+omatty knows when claude is waiting on a permission: `PermissionRequested`
+is a status kind (`domain/status/event.go`). herdr-reviewr found that a
+paste into a permission prompt is dropped. If omatty behaves the same, the
+comments are marked sent (`cs.MarkSent`) when they never arrived. That
+would be a bug, not a missing feature.
+
+**This is unconfirmed.** It needs the real-binary smoke test, a session held
+at a permission prompt with `S` pressed, before an issue is filed. If it
+reproduces, it gets an issue labelled `regression` and a test named after it
+(AGENTS.md). The likely fix refuses the send and keeps the comments pending,
+as herdr-reviewr does.
+
+### P2-5. Side-by-side diff
+
+Two projects shipped it in the window. omatty's review column is unified. At
+the widths omatty's layout leaves for review, split may only be worth it in
+a zoomed review. That is a question for the ROADMAP, not evidence of demand.
+
+### P2-6. A review prefix
+
+One config key (`review_prefix`) puts the operator's standing text, such as
+"address each comment, then run the tests", above every composed review.
+`domain/review.Compose` is the one place it would go. herdr-reviewr's #129
+is one user asking. It is small, and it is cheap to say no to.
+
+### P2-7. Read the pull request before opening it
+
+`infra/forge/ship.go` opens the pull request with the session's title and
+`gh pr create --fill`, so the body is the branch's commit messages, and that
+choice is deliberate ("omatty composes nothing on their behalf"). praft
+shows the title, body, size and commits *before* the request exists and
+lets you edit the title. omatty would keep its refusal to write the body and
+show a preview of what `--fill` will produce, with the title editable. The
+ship path is where a wrong title is most expensive to take back.
+
+### P2-8. A session's subagents
+
+Claude Code writes each subagent's transcript to
+`<session>/subagents/agent-<id>.jsonl` beside the session's own (omux,
+`Agents.swift`, which also reads its `.meta.json`). That is structured
+data, so reading it is within invariant 2. The card could say "3 subagents
+· 1 running" where it now says only "working". omatty does not read the
+folder today: no file under `internal/` names it. Invariant 9 does not
+apply, because a subagent is not a session omatty resumes. The cost is a
+second tail per running subagent.
+
+### P2-9. Parallel sessions sharing one machine
+
+bulkhead cites Claude Code issues #11502 and #25180 for the problem:
+worktrees isolate files, not ports or processes. Several sessions in
+worktrees of one app is omatty's normal case. One thing omatty can do
+within its rules is give each session a stable, distinct environment
+variable at launch, such as a port base derived from the session, that a
+project's own `dev` script may read. That costs nothing for projects that
+ignore it. Blocking commands is the part not to copy (below).
+
+### Ideas Not To Copy, pass 4
+
+| Idea | Where it ships | Why not |
+|---|---|---|
+| A second agent verifies the commit, and the tool accepts or rejects the agent's submit | pullboard ("a different agent verifies that exact commit", README) | **"omatty is a window, not an orchestrator"** (`docs/ROADMAP.md`). The gate's verdict goes to a person's card, and the person decides what goes back. |
+| Waivers and flake quarantine keyed on test names parsed from output | pullboard (`tapTests`, `waivedFailures` in `src/gate.js`, `src/commands/gate.js`) | **Invariant 12.** A red run turned "waived, not green" by matching TAP rows lets output text change what a person reads as the verdict. If a step is flaky, the project changes its own line. |
+| "Quiet — check it" when the screen has not changed for five minutes | neurosquad-cli (README, `quietAfter`) | **Invariant 2.** The need is real: a prompt from `git`, `sudo` or ssh fires no hook. The admissible version is "working, and no transcript line for N minutes", from the transcript omatty already tails (`domain/status/idle.go`), with no claim about what the screen shows. |
+| Hooks that block an agent's commands (`pkill`, a second server on a taken port) | claude-bulkhead (README) | **Invariant 11.** omatty's hook must never block or fail an agent. A project that wants bulkhead can install it, and omatty passes its settings through untouched (invariant 3). |
+| Verdicts parsed from a tool's diagnostics or a runner's output | `claude-code-mod-lens`, `agent-race` (`2026-landscape.md` §8.3) | **Invariant 12.** R17's "only what this change brought" idea is separate, and stands. |
+| Approvals from a phone | Tellurion, pitupitu (READMEs) | **Refused: cloud, accounts, sync.** It also answers a permission prompt for a session the operator is not looking at, which is the half of the loop omatty keeps with the person. |
+
+### Bottom line, pass 4
+
+Most of what the new projects lead with, omatty already does: undo a turn,
+line comments back into the session, PR state on the card, a green gate
+before shipping, zero footprint. Its anchor is still the only one on
+content. Two gaps are worth an issue now. P1-5 saves the most common wasted
+gate run. P1-6 may be a real bug and gets a smoke test first. P2-5 to P2-9
+are small, independent, and each has someone else's users behind it. Six
+more ideas are refused, each with its rule.
