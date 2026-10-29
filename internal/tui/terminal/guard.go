@@ -87,7 +87,9 @@ func (g *Guard) Init() (cmd tea.Cmd) {
 	return cmd
 }
 
-// SendInput writes s to the pty.
+// SendInput hands s to the wrapped terminal, which queues the write and may
+// return nil (#734). The write itself runs on the terminal's input queue,
+// beyond this recover: a panic there comes back through View.
 func (g *Guard) SendInput(s string) (cmd tea.Cmd) {
 	g.guarded("while sending input", func() { cmd = g.Terminal.SendInput(s) })
 	return cmd

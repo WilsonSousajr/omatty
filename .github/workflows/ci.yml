@@ -18,7 +18,7 @@ env:
   # not cosmetic: govulncheck finds GO-2026-6088 reachable on 1.26.5 and
   # nothing on 1.26.8, so the same gate passed here and failed locally (#261).
   # Keep in step with go.mod; scripts/hygiene_test.go asserts they match.
-  GO_VERSION: "1.26.8"
+  GO_VERSION: "1.26.10"
   # Equal to release.yml's, so a pull request checks the release configuration
   # with the GoReleaser a tag will publish with (#327).
   GORELEASER_VERSION: v2.18.2

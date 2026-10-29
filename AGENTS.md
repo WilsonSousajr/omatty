@@ -36,7 +36,7 @@ Full design: `docs/superpowers/specs/2026-09-01-omatty-design.md`.
 
 ## Technology stack
 
-- **Go 1.26.8**, module `github.com/WilsonSousajr/omatty`. Pinned exactly in
+- **Go 1.26.10**, module `github.com/WilsonSousajr/omatty`. Pinned exactly in
   both `go.mod` and `ci.yml`, not floated as `1.26`: setup-go resolves a
   floating minor to the newest patch, and it had silently drifted a patch
   ahead of `go.mod` (#261).
@@ -308,7 +308,10 @@ not in the gate.
    hash)`. Claude edits files while you read them; line-number anchors silently
    attach feedback to the wrong code.
 8. **Review submission uses bracketed paste** (`ESC[200~ … ESC[201~`) then one
-   `\r`. Writing a multi-line prompt raw sends N premature messages.
+   `\r`. Writing a multi-line prompt raw sends N premature messages. The `\r`
+   is sent only to a session that is not waiting on a permission: at claude's
+   permission dialog it selects "Yes", so a send there approved the pending
+   tool call and lost what it carried (#745). `S` refuses and keeps it.
 9. **`state.json` must always suffice to do everything the session's agent
    allows** (#520): relaunch with `--resume <uuid>` where the agent's
    `Caps.Resume` is set, and a fresh start in the session's directory where it
