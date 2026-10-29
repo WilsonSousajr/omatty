@@ -48,6 +48,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | — | **Released** | **v0.11.1**, 2026-10-28. Fixes: `S` refuses at a permission prompt (#745), keys in order and a contained input queue (#725, #734), an interrupted turn stops spinning (#737), Go 1.26.10 (#738). Promoted to `main` (#748). See "Releases". |
 | — | **Released** | **v0.11.0**, 2026-10-05. M17's foundation (#519-#527), the Codex profile (#152) and the review and tracker fixes (#593, #658, #659, #662, #663, #684) promoted to `main` (#727). See "Releases". |
 | M17 | The Agents | **Planned** 2026-09-27; the foundation (#520-#527) started 2026-10-01 and released in v0.11.0: every coding agent in omatty, tiered by what each exposes - nine first-class profiles and a generic one, #520-#546 and #152. See the M17 section. |
+| M18 | The Experience | **Captured** 2026-10-28: a UI/UX audit of the whole window (#746) and its 34 issues, #747 and #749-#781, all in Backlog. See the M18 section. |
 
 The board at github.com/users/WilsonSousajr/projects/13 is the live view;
 this document is the reasoning behind its order.
@@ -1658,6 +1659,66 @@ person read. Any agent not probed is named as untested, not claimed.
 conversation itself (added to "Also cut" below); declarative transcript
 adapters in config; adopting another agent's existing sessions; writing any
 agent's config, even on request; and model or provider pickers.
+
+## M18 - The Experience
+
+**Delivers:** the whole window reads as one daily tool, not only the review
+column. You can reach your agent's own keys, a narrow window degrades instead
+of breaking, a message stays readable after the next keypress, the diff can be
+searched, numbered and widened, and the gate shows its progress while it runs.
+Research: `docs/research/2026-10-28-ux-audit.md` (#746).
+
+**Why here.** M15 made the column's four faces agree with each other. Nobody
+had read the rest of the window that way: the sidebar, the pane, the leader,
+the feedback, and each face's depth once you are reading in it. The audit
+found one gap that outranks the others. The default leader, `ctrl+o`, is
+Claude Code's own transcript-viewer key, and omatty has no way to send it
+through (#747). The rest is the distance between omatty and the tools its
+users already know: lazygit, tmux, delta, gh-dash, yazi.
+
+**The bugs land first.** Each needs a failing test before its fix:
+
+- **The leader and quitting:** #747 (no literal leader), #749 (`ctrl+c` in a
+  text field quits; `ctrl+o q` quits live sessions without asking).
+- **Layout:** #753 (the frame overflows below ~49 columns).
+- **Faces:** #761 (the tree's error is cut; one notice component), #762 ("no
+  changes" before the load), #763 (the cursor row loses its colours), #764
+  (per-hunk lexing), #765 (`t` loses your place), #776 (the tracker's bare
+  `?`), #777 (`n` starts a session in the tracker), #781 (the gate's cut error
+  and its count-less search).
+
+**Then the window:** the leader's help derived from its dispatch (#750), an
+unknown key that says so (#751), click to focus the pane (#752), a sidebar
+you can hide (#754) or widen (#755), a sticky project header (#756), unseen
+finished sessions (#757), a message log (#758), floating modals (#759), and
+a light-background palette (#760).
+
+**Then each face:**
+
+- **The diff:** search (#766), line numbers (#767), context and wrap (#768),
+  word diff (#769), an editor worth writing in plus a preview before `S`
+  (#770), "viewed" from the diff (#771), side-by-side when zoomed (#772), and
+  large diffs (#773).
+- **The tree:** `h`/`l` fold, plus a ranked filter (#774). **The preview:**
+  search, go-to-line, change marks (#775).
+- **The tracker:** closed and merged items, quick filters, PR labels (#778),
+  and an item header that answers "can this merge?" (#779).
+- **The gate:** live progress (#780).
+
+**#760 reopens one cut on purpose.** M15 kept "a second colour theme" cut.
+#760 is not a theme choice: it is the one palette, legible on the
+background the operator already picked, detected through bubbletea v2. It is
+accepted on that ground and no further. There are no user colours.
+
+**Invariants held.** #747 touches invariant 1 and keeps it. The literal
+leader is a route the router picks from its own state, never from inspecting
+the key. #752 keeps the pointer claude's whenever claude owns the keyboard.
+#770 keeps invariant 8's bracketed paste. #780 keeps invariant 12, because
+the streamed output is shown, never parsed. The new viewing states (the
+sidebar's mode, the unseen mark, context lines, wrap) are not persisted,
+which is the same reading of invariant 9 as zoom.
+
+**Every slice sits in Backlog.** M18 is captured, not scheduled.
 
 ## Not on the roadmap
 
