@@ -74,7 +74,11 @@ is to get you to the point of catching them sooner.
 
 ## Status
 
-**v0.11.0**, 2026-10-05 — Codex, any agent, and a review that follows
+**v0.11.1**, 2026-10-28 — fixes. `S` no longer answers claude's permission
+dialog "Yes" (#745), a burst of keys reaches the agent in order (#725, #734),
+and an interrupted turn stops spinning (#737). Built with Go 1.26.10 (#738).
+
+v0.11.0, 2026-10-05 — Codex, any agent, and a review that follows
 claude. Codex runs beside claude as a first-class agent (#152), a session can
 run any command you declare as an agent, and omatty shows only what that agent
 lets it know (#525, #526). The review column follows claude
