@@ -14,12 +14,12 @@ import (
 )
 
 // rawSink starts a child that puts its terminal in raw mode, says it is
-// ready, and copies exactly n bytes of input to a file: what the agent
-// would read, byte for byte.
+// ready, copies exactly n bytes of input to a file - what the agent would
+// read, byte for byte - and then says it is done.
 func rawSink(t *testing.T, n int) (terminal.Terminal, string) {
 	t.Helper()
 	out := filepath.Join(t.TempDir(), "got")
-	script := "stty raw -echo; printf ready; exec head -c " + strconv.Itoa(n) + " > " + out
+	script := "stty raw -echo; printf ready; head -c " + strconv.Itoa(n) + " > " + out + "; printf done"
 	term, err := terminal.Start(40, 10, session.Launch{Argv: []string{"sh", "-c", script}})
 	if err != nil {
 		t.Fatalf("Start: %v", err)
@@ -43,15 +43,13 @@ func runConcurrently(cmds []tea.Cmd) {
 	}
 }
 
-// waitForFile waits until path holds n bytes and returns them.
-func waitForFile(t *testing.T, path string, n int) string {
+// readSunk waits for the child to say it has read everything, then returns
+// what it read. The child's own "done" is the event, so nothing polls the
+// file on a timer (#734).
+func readSunk(t *testing.T, term terminal.Terminal, path string) string {
 	t.Helper()
-	stop := time.Now().Add(5 * time.Second)
-	for time.Now().Before(stop) {
-		if b, err := os.ReadFile(path); err == nil && len(b) >= n {
-			return string(b)
-		}
-		time.Sleep(10 * time.Millisecond)
+	if !strings.Contains(pump(t, term, "done", 5*time.Second), "done") {
+		t.Error("the child never finished reading")
 	}
 	b, _ := os.ReadFile(path)
 	return string(b)
@@ -73,7 +71,7 @@ func TestTerminal_ABurstOfKeysReachesTheChildInOrder_issue725(t *testing.T) {
 	}
 	runConcurrently(cmds)
 
-	if got := waitForFile(t, out, len(burst)); got != burst {
+	if got := readSunk(t, term, out); got != burst {
 		t.Errorf("the child read\n%q\nwant\n%q", got, burst)
 	}
 }
@@ -94,7 +92,7 @@ func TestTerminal_SendInputKeepsItsPlaceAmongKeys_issue725(t *testing.T) {
 	}
 	runConcurrently(cmds)
 
-	if got := waitForFile(t, out, len(want)); got != want {
+	if got := readSunk(t, term, out); got != want {
 		t.Errorf("the child read %q, want %q", got, want)
 	}
 }
