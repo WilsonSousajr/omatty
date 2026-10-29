@@ -308,7 +308,10 @@ not in the gate.
    hash)`. Claude edits files while you read them; line-number anchors silently
    attach feedback to the wrong code.
 8. **Review submission uses bracketed paste** (`ESC[200~ … ESC[201~`) then one
-   `\r`. Writing a multi-line prompt raw sends N premature messages.
+   `\r`. Writing a multi-line prompt raw sends N premature messages. The `\r`
+   is sent only to a session that is not waiting on a permission: at claude's
+   permission dialog it selects "Yes", so a send there approved the pending
+   tool call and lost what it carried (#745). `S` refuses and keeps it.
 9. **`state.json` must always suffice to do everything the session's agent
    allows** (#520): relaunch with `--resume <uuid>` where the agent's
    `Caps.Resume` is set, and a fresh start in the session's directory where it
