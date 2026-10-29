@@ -19,7 +19,10 @@ type Entry struct {
 	UserIsPrompt bool   // user: a typed prompt (a string, or text/image blocks)
 	ToolUse      bool   // assistant: a tool_use block is present
 	ToolResult   bool   // user: a tool_result block is present
-	Usage        Tokens // assistant
+	// Interrupted marks claude's own record of an interrupt (Esc mid-turn).
+	// No Stop hook follows one, so it is the only sign the turn ended (#737).
+	Interrupted bool
+	Usage       Tokens // assistant
 	// Cwd is the directory the agent was working in when it wrote the line,
 	// empty when the line does not say (#659).
 	Cwd string
