@@ -37,8 +37,8 @@ type bubble struct {
 	// clips lifts OSC 52 out of the child's output on its way to the
 	// emulator, which has no clipboard hook to wire (#212).
 	clips *clipLift
-	// input runs every write to the child in the order it was made: keys,
-	// mouse events and SendInput (#725).
+	// input runs every write to the child in the order it was made: keys
+	// and SendInput (#725). Mouse writes are bubbleterm's own (#734).
 	input     *inputQueue
 	closeOnce sync.Once
 	closeErr  error
@@ -91,7 +91,7 @@ func startCmd(w, h int, cmd *exec.Cmd) (Terminal, error) {
 		return nil, fmt.Errorf("termwrap: wrapping %q in a %dx%d emulator: %w", cmd.Path, w, h, err)
 	}
 	return &bubble{m: m, ptmx: ptmx, tty: tty, w: w, h: h, repaintDelay: repaintDelay, clips: clips,
-		input: newInputQueue()}, nil
+		input: newInputQueue(slog.Default())}, nil
 }
 
 // openPTY opens a pair sized w by h, pixels included as bubbleterm set them,
@@ -254,12 +254,21 @@ func caretShape(s emulator.CursorStyle) tea.CursorShape {
 
 // View returns the rendered cell grid. tea.View exposes no String method;
 // Content is the field holding the styled screen text.
-func (b *bubble) View() string { return b.m.View().Content }
+//
+// A panic the input queue caught on its own goroutine is raised again here,
+// on the render path, where Guard turns it into this session's crash frame
+// instead of it killing the app (invariant 6, #734).
+func (b *bubble) View() string {
+	if r := b.input.writePanic(); r != nil {
+		panic(fmt.Sprintf("writing input: %v", r))
+	}
+	return b.m.View().Content
+}
 
 // Update folds bubbleterm's returned model back in, so callers keep a stable
-// Terminal reference across updates. A key's or a mouse event's write goes
-// to the input queue rather than back to bubbletea, which would run it
-// concurrently with the next one (#725).
+// Terminal reference across updates. A key's write goes to the input queue
+// rather than back to bubbletea, which would run it concurrently with the
+// next one (#725).
 func (b *bubble) Update(msg tea.Msg) tea.Cmd {
 	next, cmd := b.m.Update(msg)
 	if m, ok := next.(*bubbleterm.Model); ok {

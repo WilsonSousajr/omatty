@@ -13,8 +13,11 @@ type rawEntry struct {
 	Type      string    `json:"type"`
 	Timestamp time.Time `json:"timestamp"`
 	IsMeta    bool      `json:"isMeta"`
-	Cwd       string    `json:"cwd"`
-	Message   struct {
+	// IsCompactSummary marks the summary /compact writes as a user entry;
+	// the compact SessionStart already reports it (#737).
+	IsCompactSummary bool   `json:"isCompactSummary"`
+	Cwd              string `json:"cwd"`
+	Message          struct {
 		ID         string          `json:"id"`
 		StopReason string          `json:"stop_reason"`
 		Content    json.RawMessage `json:"content"`
@@ -54,17 +57,25 @@ func ParseEntry(line []byte) (dstatus.Entry, bool) {
 
 // injectedPrefixes open the user-role entries Claude Code writes itself: a
 // finished background task, a local slash command and its output. None is a
-// typed prompt, so none may move the status to thinking (issue #61).
-var injectedPrefixes = []string{"<task-notification", "<command-", "<local-command-"}
+// typed prompt, so none may move the status to thinking (issue #61). Nor
+// may an interrupt's marker, which ends the turn instead (#737).
+var injectedPrefixes = []string{"<task-notification", "<command-", "<local-command-", interruptMarker}
+
+// interruptMarker opens the entry claude writes when the operator interrupts
+// a turn: "[Request interrupted by user]", or "... for tool use]" mid-tool.
+// No Stop hook fires on an interrupt, so this line is the turn's only end;
+// read as a prompt it left the card spinning (#737).
+const interruptMarker = "[Request interrupted by user"
 
 func parseUser(r rawEntry) dstatus.Entry {
 	e := dstatus.Entry{Type: "user", At: r.Timestamp}
-	if r.IsMeta {
+	if r.IsMeta || r.IsCompactSummary {
 		return e // context claude injected, not something the operator typed
 	}
 	var s string
 	if json.Unmarshal(r.Message.Content, &s) == nil {
 		e.UserIsPrompt = !isInjected(s)
+		e.Interrupted = strings.HasPrefix(s, interruptMarker)
 		return e
 	}
 	e.ToolResult = hasBlock(r.Message.Content, "tool_result")
@@ -72,9 +83,11 @@ func parseUser(r rawEntry) dstatus.Entry {
 	// string (issue #62). Claude Code writes injected entries in that shape
 	// too, so the prefix test has to reach the first text block as well, or
 	// #61's bug comes back through the other content shape.
+	text := firstText(r.Message.Content)
 	e.UserIsPrompt = !e.ToolResult &&
 		(hasBlock(r.Message.Content, "text") || hasBlock(r.Message.Content, "image")) &&
-		!isInjected(firstText(r.Message.Content))
+		!isInjected(text)
+	e.Interrupted = strings.HasPrefix(text, interruptMarker)
 	return e
 }
 
@@ -183,6 +196,8 @@ func DeriveKind(entries []dstatus.Entry) (dstatus.Kind, time.Time, bool) {
 	for i := len(entries) - 1; i >= 0; i-- {
 		e := entries[i]
 		switch {
+		case e.Type == "user" && e.Interrupted:
+			return dstatus.TurnEnded, e.At, true
 		case e.Type == "user" && (e.UserIsPrompt || e.ToolResult):
 			return dstatus.PromptSubmitted, e.At, true
 		case e.Type == "assistant" && e.ToolUse:
