@@ -270,11 +270,15 @@ paste into a permission prompt is dropped. If omatty behaves the same, the
 comments are marked sent (`cs.MarkSent`) when they never arrived. That
 would be a bug, not a missing feature.
 
-**This is unconfirmed.** It needs the real-binary smoke test, a session held
-at a permission prompt with `S` pressed, before an issue is filed. If it
-reproduces, it gets an issue labelled `regression` and a test named after it
-(AGENTS.md). The likely fix refuses the send and keeps the comments pending,
-as herdr-reviewr does.
+**Confirmed on 2026-10-28, and worse than a dropped paste: #745.** A PTY
+probe ran real `claude` 2.1.312 with `--permission-mode default` until it
+reached its dialog, then wrote `paste.BracketedPaste`'s exact bytes. The
+trailing `\r` selected "Yes", and the pending `touch` ran. The comments
+appear nowhere in the transcript. A control run that wrote nothing stayed
+blocked. So `S` at a permission prompt approves a tool call nobody approved
+and marks unsent comments sent. The fix refuses the send and keeps the
+comments pending, as herdr-reviewr does, with a regression test first
+(AGENTS.md).
 
 ### P2-5. Side-by-side diff
 
@@ -336,7 +340,8 @@ ignore it. Blocking commands is the part not to copy (below).
 Most of what the new projects lead with, omatty already does: undo a turn,
 line comments back into the session, PR state on the card, a green gate
 before shipping, zero footprint. Its anchor is still the only one on
-content. Two gaps are worth an issue now. P1-5 saves the most common wasted
-gate run. P1-6 may be a real bug and gets a smoke test first. P2-5 to P2-9
+content. Two gaps became issues. P1-5 (#744) saves the most common wasted
+gate run. P1-6 turned out to be a real bug (#745): a send at a permission
+prompt approves the tool call. P2-5 to P2-9
 are small, independent, and each has someone else's users behind it. Six
 more ideas are refused, each with its rule.
