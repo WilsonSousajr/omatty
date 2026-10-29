@@ -22,20 +22,21 @@ Concretely, and these are the claims worth checking first:
 - **A project carries its gate**: its own `fmt`/`vet`/`lint`/`test`/coverage
   line. omatty runs it in each session's own worktree, puts a verdict per step
   on that session's card, and sends the failures back into the session that
-  caused them with one keystroke (`internal/gate`, `internal/domain/coverage`).
+  caused them with one keystroke (`internal/domain/gate`, `internal/service/gate`,
+  `internal/infra/gateexec`, `internal/domain/coverage`).
   **As of 2026-09-27, no session manager or agent workspace above about a
   hundred stars does this.** The larger tools show the *remote* verdict, the
   pull request's CI, and so does `claude agents`. Four small tools each do part
   of it locally, judged by exit status as omatty is: `nccapo/stvena` (one
-  command), `axonel/axonel` (one command per mission), and two herdr plugins,
+  command), `axonel/sentinel` (one command per mission), and two herdr plugins,
   `herdr-plugin-odysseus` and `herdr-testrun` (`2026-landscape.md` §7.4). The
   claim is dated because it will not stay true.
 - **Comments anchor to the content of a line, not its number**
-  (`internal/review/anchor.go`, invariant 7). Claude edits files while you read
-  them. A line-number anchor silently attaches your feedback to the wrong code;
-  omatty re-resolves by content, and a comment it cannot place becomes an
-  orphan of its file rather than a wrong line. Orca and herdr-reviewr both
-  anchor by line number (`orca.md`; `herdr.md` §6).
+  (`internal/domain/review/anchor.go`, invariant 7). Claude edits files while
+  you read them. A line-number anchor silently attaches your feedback to the
+  wrong code; omatty re-resolves by content, and a comment it cannot place
+  becomes an orphan of its file rather than a wrong line. Orca and herdr-reviewr
+  both anchor by line number (`orca.md`; `herdr.md` §6).
 - **Status from hooks and the transcript, never from the screen**, and **no
   write to `~/.claude/settings.json`** (invariants 2 and 3). herdr reads
   Claude Code's state from a screen manifest and installs its hook into your
@@ -81,7 +82,7 @@ See "Is this just lazygit?" below, because it is the right question.
 
 - **Several live panes, each the real `claude` binary.** The binary runs in an
   embedded pane you type into, with every keystroke routed to it except the
-  `ctrl+o` leader (`internal/keys/router.go`, invariant 1). `claude agents`
+  `ctrl+o` leader (`internal/tui/keys/router.go`, invariant 1). `claude agents`
   attaches to one background session at a time.
 - **Status from hooks and the transcript, never from the screen**
   (`internal/infra/hooks`, `internal/service/status`, invariant 2). fleet is hook-driven
