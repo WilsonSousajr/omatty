@@ -276,9 +276,9 @@ reached its dialog, then wrote `paste.BracketedPaste`'s exact bytes. The
 trailing `\r` selected "Yes", and the pending `touch` ran. The comments
 appear nowhere in the transcript. A control run that wrote nothing stayed
 blocked. So `S` at a permission prompt approves a tool call nobody approved
-and marks unsent comments sent. The fix refuses the send and keeps the
-comments pending, as herdr-reviewr does, with a regression test first
-(AGENTS.md).
+and marks unsent comments sent. **Fixed in v0.11.1** (PR #783): `S` now
+refuses at a permission prompt instead of answering it, as herdr-reviewr
+does.
 
 ### P2-5. Side-by-side diff
 
@@ -342,6 +342,6 @@ line comments back into the session, PR state on the card, a green gate
 before shipping, zero footprint. Its anchor is still the only one on
 content. Two gaps became issues. P1-5 (#744) saves the most common wasted
 gate run. P1-6 turned out to be a real bug (#745): a send at a permission
-prompt approves the tool call. P2-5 to P2-9
+prompt approved the tool call. v0.11.1 fixed it. P2-5 to P2-9
 are small, independent, and each has someone else's users behind it. Six
 more ideas are refused, each with its rule.
