@@ -11,6 +11,40 @@ for each milestone and what was deliberately cut.
 
 ## [Unreleased]
 
+## [v0.11.1] — 2026-10-28
+
+A patch release of fixes. Send no longer answers claude's permission dialog,
+keys reach the agent in the order they were typed, and a card stops spinning
+when a turn is interrupted. Nothing in the key table, `config.toml` or
+`state.json` changed.
+
+### Fixed
+
+- **`S` at a permission prompt no longer approves the pending tool call**
+  (#745). The paste's closing `\r` selected "Yes" in claude's dialog, and the
+  review comments or gate failure it carried were lost while marked sent.
+  Both `S` paths now refuse while the session waits on a permission, keep
+  everything pending, and say why. Invariant 8 now says when the `\r` may be
+  sent.
+- **A fast burst of keystrokes reaches the agent in the order typed** (#725).
+  Each key was its own concurrent write to the PTY, so "word" could arrive
+  as "wodr". Writes now run one at a time on the terminal's input queue.
+- **That queue contains a write's panic** (#734). A pre-1.0 emulator
+  panicking mid-write now crashes only its own session, which shows its
+  crash frame, rather than the whole app (invariant 6). A failed write is
+  logged at Warn, and input queued for a closing terminal is dropped with a
+  log line instead of silently.
+- **An interrupt or a `/compact` no longer leaves the card spinning** (#737).
+  Claude's "[Request interrupted by user]" line now ends the turn (no `Stop`
+  hook follows one), and the compaction summary is not read as a prompt.
+
+### Changed
+
+- Built with **Go 1.26.10** (#738): 1.26.8 carried ten standard-library
+  advisories that `govulncheck` now reports.
+- The field capture is refreshed after Claude Code shipped mods and a docked
+  `/diff` (#735).
+
 ## [v0.11.0] — 2026-10-05
 
 More than claude, and a review that keeps up with it. Codex joins claude as a

@@ -1,6 +1,6 @@
 # omatty roadmap
 
-Last revised 2026-10-05, when v0.11.0 promoted `develop` to `main` (#727).
+Last revised 2026-10-28, when v0.11.1 promoted `develop` to `main` (#748).
 Every milestone is built; what is left is under "What is left", and how a
 release reaches `main` is under "Releases".
 
@@ -45,6 +45,7 @@ not only the coverage gate. See "Rules" at the end for why.
 | M16 | The Forges | **Done.** All seventeen slices #449-#465, built 2026-09-28/29 as PRs #573-#603, with ten defects the reviews and real runs found (#572, #574, #576, #579, #584, #586, #588, #590, #598, #599). Released in v0.9.0. Three it found stay in Backlog: #585, #594 and #596 (Azure DevOps Server). See the M16 section. |
 | — | **Released** | **v0.9.0**, 2026-09-29. M16, The Forges, promoted to `main` (#604). See "Releases". |
 | — | **Released** | **v0.10.0**, 2026-10-01. The ADR 0001 architecture migration (#615-#653), `sessions --json` and `status --json`, promoted to `main` (#708). See "Releases". |
+| — | **Released** | **v0.11.1**, 2026-10-28. Fixes: `S` refuses at a permission prompt (#745), keys in order and a contained input queue (#725, #734), an interrupted turn stops spinning (#737), Go 1.26.10 (#738). Promoted to `main` (#748). See "Releases". |
 | — | **Released** | **v0.11.0**, 2026-10-05. M17's foundation (#519-#527), the Codex profile (#152) and the review and tracker fixes (#593, #658, #659, #662, #663, #684) promoted to `main` (#727). See "Releases". |
 | M17 | The Agents | **Planned** 2026-09-27; the foundation (#520-#527) started 2026-10-01 and released in v0.11.0: every coding agent in omatty, tiered by what each exposes - nine first-class profiles and a generic one, #520-#546 and #152. See the M17 section. |
 
@@ -1028,6 +1029,7 @@ in a hurry to make it.
 | v0.9.0 | 2026-09-29 | M16 The Forges: GitLab, Gitea/Forgejo/Codeberg, Bitbucket Cloud and Data Center and Azure DevOps beside GitHub, each through its CLI or its REST API with a token stored nowhere; `ctrl+o p` on every forge, pinned to the green head and the session's own base (#598, #599); the forge probe and the support matrix. 27 issues. (#604) |
 | v0.10.0 | 2026-10-01 | The architecture: the code rebuilt in ADR 0001's shape - domain, services, adapters, pubsub, the TUI and a CLI - with no screen, key, config key or `state.json` key changed (#615, #618, #620, #622, #624, #632, #635, #653); nothing waits on git or the disk inside the frame loop, and every git call has a deadline (#650); `omatty sessions --json` and `status --json`; the 500-line and layer gates (#609). 11 issues, 154 commits. (#708) |
 | v0.11.0 | 2026-10-05 | M17's foundation and its first profile: Codex at the Full tier with zero footprint (#152); any agent declared by its command, chosen per session, project or default, with a surface that shows only what its tier can know (#519-#527); the review follows claude's checkout (#659); the tree opens closed (#593); the tracker stays in sync and reaches its pull requests with `]`/`[` and `tab` (#658, #662, #663); a deleted base branch no longer stops the diff (#684); the Codex spike (#528). 17 issues, 18 commits. (#727) |
+| v0.11.1 | 2026-10-28 | Fixes: `S` at a permission prompt refuses instead of approving the pending tool call (#745); a burst of keys reaches the agent in order (#725), on an input queue that contains a write's panic and logs its errors (#734); an interrupt or `/compact` no longer leaves the card spinning (#737); Go 1.26.10 past ten standard-library advisories (#738); the field refresh (#735). 6 issues. (#748) |
 
 ## M12 - The Field
 
