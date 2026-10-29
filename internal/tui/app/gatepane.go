@@ -317,9 +317,8 @@ func (m *Model) gateFeedback(id string) (string, terminal.Terminal, bool) {
 		m.lastErr = "the gate passed; there is nothing to send"
 		return "", nil, false
 	}
-	term := m.terms[id]
-	if term == nil {
-		m.lastErr = "session " + id + " has no terminal to send to"
+	term, ok := m.pasteTarget(id) // refuses at a permission prompt (#745)
+	if !ok {
 		return "", nil, false
 	}
 	return body, term, true

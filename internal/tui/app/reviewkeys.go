@@ -226,9 +226,8 @@ func (m *Model) submitReview() tea.Cmd {
 		m.lastErr = "no comments to submit; press c on a diff line first"
 		return nil
 	}
-	term := m.terms[m.review.SessionID]
-	if term == nil {
-		m.lastErr = "session " + m.review.SessionID + " has no terminal to send to"
+	term, ok := m.pasteTarget(m.review.SessionID)
+	if !ok {
 		return nil
 	}
 	body := dreview.Compose(m.review.Diff, pending)
