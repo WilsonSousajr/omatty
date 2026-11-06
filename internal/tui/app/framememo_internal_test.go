@@ -59,8 +59,8 @@ func freshFrame(m *Model) string {
 // is exactly what this cannot catch, which is why the memo is invalidated by
 // default and kept only on the one path proven not to touch model state.
 // paneX and paneY are a cell the session pane draws, in window coordinates.
-func paneX() int { x, _ := PaneOrigin(); return x + 2 }
-func paneY() int { _, y := PaneOrigin(); return y + 1 }
+func paneX() int { x, _ := PaneOrigin(DefaultWidth); return x + 2 }
+func paneY() int { _, y := PaneOrigin(DefaultWidth); return y + 1 }
 
 func TestFrame_MemoMatchesAFreshFrameAfterEveryMessage(t *testing.T) {
 	for _, tt := range []struct {

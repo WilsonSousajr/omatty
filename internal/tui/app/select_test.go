@@ -11,7 +11,7 @@ import (
 // paneCell turns a cell of the embedded terminal's grid into a window
 // position, the way the wheel and the caret already do.
 func paneCell(x, y int) (int, int) {
-	ox, oy := app.PaneOrigin()
+	ox, oy := app.PaneOrigin(app.DefaultWidth)
 	return ox + x, oy + y
 }
 
@@ -50,7 +50,7 @@ func TestModel_aDragAcrossARowCopiesOnlyThePane_issue360(t *testing.T) {
 func TestModel_aDragLeavingThePaneClampsToIt_issue360(t *testing.T) {
 	m, fakes := modelWithFakes(t)
 	fakes[m.Selected()].Grid = []string{"ABCDEF"}
-	ox, oy := app.PaneOrigin()
+	ox, oy := app.PaneOrigin(app.DefaultWidth)
 
 	m.Update(tea.MouseClickMsg{X: ox + 1, Y: oy, Button: tea.MouseLeft})
 	m.Update(tea.MouseMotionMsg{X: ox - 12, Y: oy, Button: tea.MouseLeft})
