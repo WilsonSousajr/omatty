@@ -97,3 +97,16 @@ func TestRateLimitError_NamesHostAndTime_issue594(t *testing.T) {
 		t.Errorf("Error() with no Until = %q, want the host and \"no time\"", got)
 	}
 }
+
+// #585: an ssh remote carries no root, so a host serving several rooted
+// forges cannot be told apart from it. The refusal is said - it unwraps to
+// ErrNoForge, which stops the project - and names the host and the way out.
+func TestAmbiguousHostError_IsANoForgeThatSaysWhy_issue585(t *testing.T) {
+	err := error(&forge.AmbiguousHostError{Host: "h.example"})
+	if !errors.Is(err, forge.ErrNoForge) {
+		t.Errorf("errors.Is(%v, ErrNoForge) = false, want true", err)
+	}
+	if !strings.Contains(err.Error(), "h.example") || !strings.Contains(err.Error(), "https") {
+		t.Errorf("Error() = %q, want the host and the https way out", err)
+	}
+}

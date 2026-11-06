@@ -312,3 +312,17 @@ func TestRouter_HostIsTheResolvedRemotes_issue594(t *testing.T) {
 		t.Errorf("Host = %q, want bitbucket.org", got)
 	}
 }
+
+// #585: the Router resolves through the rooted key, so a project under
+// https://h/gitlab is named GitLab rather than "not on a forge omatty reads".
+func TestRouter_ResolvesARootedRemote_issue585(t *testing.T) {
+	r := forge.NewTestRouter(forge.TestEnv{Options: forge.Options{
+		Remote: (&FakeRemote{URL: "https://h.example/gitlab/g/p.git"}).url,
+		Hosts:  forge.Hosts{"h.example/gitlab": forge.KindGitLab},
+	}})
+	root := t.TempDir()
+	_, _ = r.ListPRs(root)
+	if got := r.Label(root); got.Forge != "GitLab" {
+		t.Errorf("Label = %+v, want GitLab's", got)
+	}
+}

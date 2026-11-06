@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 // glBackend is the GitLab backend (#454): merge requests, issues and items
@@ -45,7 +46,7 @@ func (g glBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 	if err != nil {
 		return nil, err
 	}
-	finished, err := g.fin.read(ctx, g.remote.Host+"/"+g.remote.Slug(), open, func(ctx context.Context) ([]dforge.PR, error) {
+	finished, err := g.fin.read(ctx, g.remote.project(), open, func(ctx context.Context) ([]dforge.PR, error) {
 		return g.lists(ctx, glLists[1:])
 	})
 	if err != nil {
@@ -73,7 +74,7 @@ func (g glBackend) lists(ctx context.Context, lists []string) ([]dforge.PR, erro
 
 // ciKey names a merge request's head across every project the Router reads.
 func (g glBackend) ciKey(pr dforge.PR) string {
-	return g.remote.Host + "/" + g.remote.Slug() + "!" + strconv.Itoa(pr.Number) + "@" + pr.Head
+	return g.remote.project() + "!" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
 // pipelineCI is the merge request's own head_pipeline. Not the project's
@@ -163,7 +164,15 @@ func (g glBackend) browse(_ context.Context, _ string, number int, pr bool) erro
 // is ssh's, so only an http(s) remote keeps its own. An http remote stays
 // http: an http-only host does not answer https, and asking it there failed
 // every poll (#584). No token is sent over it - request refuses that.
+//
+// A forge served under a root keeps it (#585), so every API base and web link
+// built on this one is under the root too.
 func webBase(r Remote) string {
+	return webHostBase(r) + rootPath(r)
+}
+
+// webHostBase is the scheme, host and port of webBase.
+func webHostBase(r Remote) string {
 	switch {
 	case r.Scheme == "ssh":
 		return "https://" + r.Host
@@ -171,6 +180,14 @@ func webBase(r Remote) string {
 		return r.Scheme + "://" + r.Host
 	}
 	return r.Scheme + "://" + r.Host + ":" + r.Port
+}
+
+// rootPath is "/gitlab" for a forge served under that root, else "".
+func rootPath(r Remote) string {
+	if len(r.Root) == 0 {
+		return ""
+	}
+	return "/" + strings.Join(r.Root, "/")
 }
 
 // getJSON reads one path through f and decodes it.
