@@ -119,9 +119,9 @@ func (m *Model) helpFoot(width int, scrolls bool) string {
 		return editLine("filter", m.modal.HelpQuery, width)
 	}
 	if scrolls {
-		return theme.Muted.Render("j/k scroll  / filter  esc close  ctrl+c quit")
+		return theme.Muted.Render("j/k scroll  / filter  esc close")
 	}
-	return theme.Muted.Render("/ filter  esc close  ctrl+c quit")
+	return theme.Muted.Render("/ filter  esc close")
 }
 
 // editHelpFilter edits the query with the shared editline: enter keeps it,

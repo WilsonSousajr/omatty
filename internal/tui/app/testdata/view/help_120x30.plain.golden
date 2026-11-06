@@ -23,8 +23,8 @@
                             │  ctrl+o z         zoom the review column over the session, or back                        
                             │  ctrl+o m         hand the mouse back to your terminal, or take it back                   
                             │  ctrl+o ?         this list                                                               
-                            │  ctrl+o q         quit                                                                    
+                            │  ctrl+o q         quit; asks again while a session works or a note is unsent              
                             │  ctrl+o ctrl+o    send ctrl+o itself to the session (claude: transcript)                  
                             │                                                                                           
-                            │j/k scroll  / filter  esc close  ctrl+c quit                                               
- esc close  ctrl+c quit                                                                                       3 sessions
+                            │j/k scroll  / filter  esc close                                                            
+ esc close                                                                                                    3 sessions

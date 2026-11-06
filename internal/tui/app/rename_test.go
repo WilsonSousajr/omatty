@@ -204,16 +204,14 @@ func TestModel_editorsAcceptCapitalLetters_issue41(t *testing.T) {
 }
 
 // Issue #28, for the rename box: an open surface must never trap the operator.
-func TestModel_ctrlCQuitsWhileTheRenameBoxIsOpen_issue28(t *testing.T) {
+func TestModel_ctrlCEscapesWhileTheRenameBoxIsOpen_issue28(t *testing.T) {
 	m, _ := modelWithRename(t, &recordRename{})
 	press(m, ctrl('o'))
 	press(m, shift('r', "R"))
 
 	_, cmd := m.Update(ctrl('c'))
 
-	if !isQuit(cmd) {
-		t.Error("ctrl+c while the rename box is open did not quit")
-	}
+	assertEscaped(t, m, cmd, "the rename box")
 }
 
 // Invariant 1: while a surface owns the keyboard its keys build the buffer and
