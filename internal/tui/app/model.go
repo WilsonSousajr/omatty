@@ -235,6 +235,9 @@ type Model struct {
 	// quitPrimed says the key being handled is the one straight after it -
 	// the only key that may confirm it (#749).
 	quitArmed, quitPrimed bool
+	// scopeAnchor is where the cursor was when t flipped the diff's scope,
+	// held until the other scope has rows to put it back on (#765).
+	scopeAnchor *scopeAnchor
 	// wheel counts scroll notches so a momentum flick becomes a few pages of
 	// transcript rather than tens of them (#107).
 	wheel wheelAccumulator

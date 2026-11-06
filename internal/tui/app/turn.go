@@ -105,13 +105,15 @@ func (m *Model) dropTurn(sess dsession.Session, root string) tea.Cmd {
 	}
 }
 
-// toggleScope switches the diff between the whole session and this turn,
-// starting from the top: the two are different lists of rows.
+// toggleScope switches the diff between the whole session and this turn. The
+// two are different lists of rows, so the cursor is put back on the same line,
+// or the nearest file, rather than at the top (#765).
 func (m *Model) toggleScope() tea.Cmd {
 	if !m.turnBoundary(m.review.SessionID) {
 		m.notice = m.noTurnReason(m.review.SessionID) // #526
 		return nil
 	}
+	m.takeScopeAnchor()
 	if m.review.Scope == scopeTurn {
 		m.review.Scope = scopeSession
 	} else {
@@ -120,6 +122,7 @@ func (m *Model) toggleScope() tea.Cmd {
 	m.review.DiffList.Cursor, m.review.DiffList.Offset, m.review.ColOffset = 0, 0, 0
 	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = dreview.Diff{}, nil, false
 	m.rebuildEntries()
+	m.restoreScopeAnchor() // the session diff is in memory; the turn waits for its load
 	// Both diffs: the turn view places and anchors comments through the
 	// session diff, so that one must be as fresh as the turn.
 	return m.loadDiff(m.review.SessionID)

@@ -348,7 +348,7 @@ func (m *Model) onTurnLoaded(msg TurnLoadedMsg) tea.Cmd {
 		slog.Warn("loading a turn diff", "session", msg.SessionID, "err", msg.Err)
 	}
 	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = msg.Diff, msg.Err, true
-	m.rebuildEntries()
+	m.rebuildTurnEntries() // and the cursor back where t left it (#765)
 	return nil
 }
 
