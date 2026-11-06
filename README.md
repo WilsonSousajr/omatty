@@ -498,6 +498,7 @@ are for Azure DevOps Services, and a Server gets a token of its own in #596.
 "git.corp.example" = "gitlab"
 "code.internal"    = "forgejo"
 "ghe.corp.example" = "github"
+"host.corp.example/gitlab" = "gitlab"   # a forge served under https://host.corp.example/gitlab
 ```
 
 The kinds are `github`, `gitlab`, `azure`, `gitea` (or its alias `forgejo`) and
@@ -505,8 +506,19 @@ The kinds are `github`, `gitlab`, `azure`, `gitea` (or its alias `forgejo`) and
 public hosts - github.com, gitlab.com, dev.azure.com, codeberg.org, gitea.com,
 bitbucket.org - need no line here, and a line here overrides them. A host
 omatty does not know shows no pull requests or issues rather than a guess. An
-unknown kind, or a key that is not a bare host name (a scheme, a port or a
-path in it would never match), is refused at startup.
+unknown kind, or a key that is not a host name followed by plain path segments
+(a scheme, a port, a query, an empty segment or `..` would never match), is
+refused at startup.
+
+A key with a path names a forge served under that root, so its API is asked
+there and the root is not taken for a group (#585). Several roots may share a
+host; an https remote takes the longest one its path starts with. An ssh
+remote carries no root, so it takes the host's only rooted line - or, when
+there are several, the tracker asks for an https remote rather than guess. A
+GitLab under a root is read over its API with `GITLAB_TOKEN`, since `glab`
+cannot be pointed at a path, and a token variable that names an instance
+(`GITEA_INSTANCE_URL`, `BITBUCKET_DC_URL`) binds a rooted project only when its
+path is that root.
 
 A project that has no sessions yet is selectable too: `ctrl+o ]` reaches
 it, the pane says which project is empty, and `ctrl+o n` creates its first
