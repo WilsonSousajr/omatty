@@ -220,7 +220,7 @@ func (m *Model) scrollReview(direction int) tea.Cmd {
 // which is drawn flush to the window's right edge.
 func (m *Model) overReview(winX int) bool {
 	if m.zoomed() {
-		return winX >= sidebarContentCols // the column's hairline and everything right of it
+		return winX >= m.sidebarContent() // the column's hairline and everything right of it
 	}
 	w := ReviewWidth(m.width, m.review.Open)
 	return w > 0 && winX >= m.width-w
@@ -229,11 +229,11 @@ func (m *Model) overReview(winX int) bool {
 // overSidebar reports whether a window column falls inside the sidebar's
 // content. The hairline on its right belongs to no one: a click there does
 // nothing (#45, #174).
-func (m *Model) overSidebar(winX int) bool { return winX >= 0 && winX < sidebarContentCols }
+func (m *Model) overSidebar(winX int) bool { return winX >= 0 && winX < m.sidebarContent() }
 
 // inPane reports whether a window cell is one the embedded terminal draws. It
 // is the exact inverse of PaneOrigin.
 func (m *Model) inPane(winX, winY int) bool {
-	ox, oy := PaneOrigin()
+	ox, oy := PaneOrigin(m.width)
 	return m.inPaneGrid(winX-ox, winY-oy)
 }

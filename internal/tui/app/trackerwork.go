@@ -149,16 +149,18 @@ func (m *Model) trackerRowAtCursor() (trackerRow, bool) {
 // neither a ref nor a path (#127).
 func (m *Model) startSessionOnIssue(row trackerRow) tea.Cmd {
 	if row.Kind == rowPR {
-		m.lastErr = row.ref() + " already has a branch; n starts a session on an issue"
+		m.lastErr = row.ref() + " already has a branch; S starts a session on an issue"
 		return nil
 	}
-	project := m.review.Tracker.Project
-	title := row.ref() + " " + row.Title
+	// The prompt, not the session: a worktree, a branch and a running agent
+	// are the most expensive thing one key in the column can make, so S shows
+	// the branch it would make and enter makes it (#777). Pending carries what
+	// the prompt does not show - the project and the issue's title - to
+	// submitPrompt.
 	branch := session.Slug(strconv.Itoa(row.Number) + " " + row.Title)
-	// Created off the Update goroutine since #653; a failure lands in the
-	// footer through onSessionCreated, as any new session's does.
-	m.review.Focused = false
-	return m.createCmd(sessions.NewSession{Project: project, Title: title, Branch: branch, Worktree: true})
+	pending := sessions.NewSession{Project: m.review.Tracker.Project, Title: row.ref() + " " + row.Title}
+	m.openModal(modal{Kind: modalPrompt, Editor: lineEditor{Worktree: true, Buffer: branch}, Pending: pending})
+	return nil
 }
 
 // attachItem types the item's reference into the selected session's composer -
@@ -168,7 +170,7 @@ func (m *Model) attachItem(row trackerRow) tea.Cmd {
 	id := m.Selected()
 	term := m.terms[id]
 	if term == nil {
-		m.lastErr = "no session to type into in " + m.review.Tracker.Project + "; press n to start one"
+		m.lastErr = "no session to type into in " + m.review.Tracker.Project + "; press S to start one"
 		return nil
 	}
 	m.review.Focused = false

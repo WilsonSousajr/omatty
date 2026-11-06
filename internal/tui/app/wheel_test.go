@@ -13,17 +13,17 @@ import (
 // derived from the layout rather than written down, so a change to it moves
 // the tests with it.
 func overPane() (x, y int) {
-	ox, oy := app.PaneOrigin()
+	ox, oy := app.PaneOrigin(app.DefaultWidth)
 	return ox + 5, oy + 3
 }
 
 func overSidebar() (x, y int) {
-	_, oy := app.PaneOrigin()
+	_, oy := app.PaneOrigin(app.DefaultWidth)
 	return app.SidebarWidth / 2, oy + 3
 }
 
 func overReview() (x, y int) {
-	_, oy := app.PaneOrigin()
+	_, oy := app.PaneOrigin(app.DefaultWidth)
 	return app.DefaultWidth - app.ReviewWidth(app.DefaultWidth, true) + 1, oy + 3
 }
 
@@ -307,7 +307,7 @@ func TestUpdate_TheWheelTargetShrinksWithTheReviewColumn_issue107(t *testing.T) 
 
 	// A column that is inside the pane while the review column is closed, and
 	// outside it once the column takes its width.
-	ox, oy := app.PaneOrigin()
+	ox, oy := app.PaneOrigin(app.DefaultWidth)
 	wide, _ := app.PTYSize(120, 40, false)
 	narrow, _ := app.PTYSize(120, 40, true)
 	if narrow >= wide {

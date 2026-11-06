@@ -26,7 +26,7 @@ func (m *Model) paneCursor() *tea.Cursor {
 	if !c.Visible || !m.inPaneGrid(c.X, c.Y) {
 		return nil
 	}
-	x, y := PaneOrigin()
+	x, y := PaneOrigin(m.width)
 	cursor := tea.NewCursor(x+c.X, y+c.Y)
 	applyShape(cursor, c)
 	return cursor

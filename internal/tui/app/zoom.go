@@ -12,8 +12,9 @@ package app
 // zoomed reports whether the column is drawn over the pane now. Only while it
 // has the keys: esc hands them to claude, and a session taking keystrokes
 // while the zoom hid it would be typed into blind, so the split comes back.
+// A window too narrow for the split zooms whichever has the keys (#753).
 func (m *Model) zoomed() bool {
-	return m.review.Open && m.review.Focused && m.review.Zoomed
+	return m.review.Open && m.review.Focused && (m.review.Zoomed || !reviewFits(m.width))
 }
 
 // toggleZoom is ctrl+o z. It gives the column the keys as it zooms, since the

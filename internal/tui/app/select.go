@@ -83,7 +83,7 @@ func (m *Model) finishSelection(msg tea.MouseReleaseMsg) tea.Cmd {
 // inPaneGrid's question asked in window coordinates, which is what every
 // mouse message carries (#106, #107).
 func (m *Model) paneCellAt(winX, winY int) (x, y int, ok bool) {
-	ox, oy := PaneOrigin()
+	ox, oy := PaneOrigin(m.width)
 	x, y = winX-ox, winY-oy
 	return x, y, m.inPaneGrid(x, y)
 }
@@ -92,7 +92,7 @@ func (m *Model) paneCellAt(winX, winY int) (x, y int, ok bool) {
 // so a drag that leaves the pane stops at its edge instead of running into
 // the columns beside it.
 func (m *Model) clampToPane(winX, winY int) (x, y int) {
-	ox, oy := PaneOrigin()
+	ox, oy := PaneOrigin(m.width)
 	w, h := PTYSize(m.width, m.height, m.review.Open)
 	return clamp(winX-ox, 0, w-1), clamp(winY-oy, 0, h-1)
 }

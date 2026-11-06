@@ -112,9 +112,12 @@ var gateBind = struct {
 var trackerBind = struct {
 	Read, Filter, Start, Attach, Browse, Reload, NextSection, PrevSection, Fold key.Binding
 }{
-	Read:        bind("enter", "read the issue or pull request in full", "enter"),
-	Filter:      bind("/", "filter by number, title or label", "/"),
-	Start:       bind("n", "start a session named and branched after it", "n"),
+	Read:   bind("enter", "read the issue or pull request in full", "enter"),
+	Filter: bind("/", "filter by number, title or label", "/"),
+	// S, not n: n is "next" on every other face, and here it created a
+	// worktree, a branch and a running agent on one unconfirmed key. S opens
+	// the worktree prompt with the branch filled in; enter starts it (#777).
+	Start:       bind("S", "start a session on it: the worktree prompt, branch filled in", "S", "shift+s", "shift+S"),
 	Attach:      bind("a", "attach its reference to the prompt", "a"),
 	Browse:      bind("b", "open it in the browser", "b"),
 	Reload:      bind("r", "read the list, or the open item, again", "r"),

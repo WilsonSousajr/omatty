@@ -231,6 +231,10 @@ type Model struct {
 	// lastErr is: the keymap it displaces is worth more than a warning already
 	// read (#43).
 	notice string
+	// quitArmed is a first ctrl+o q that found something to lose, and
+	// quitPrimed says the key being handled is the one straight after it -
+	// the only key that may confirm it (#749).
+	quitArmed, quitPrimed bool
 	// wheel counts scroll notches so a momentum flick becomes a few pages of
 	// transcript rather than tens of them (#107).
 	wheel wheelAccumulator

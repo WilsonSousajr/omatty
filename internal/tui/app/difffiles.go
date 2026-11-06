@@ -87,7 +87,8 @@ func (m *Model) fileListRow(f dreview.File, current bool) string {
 // clickFileList moves the diff to the file clicked in the list, and reports
 // whether the click was on the list at all.
 func (m *Model) clickFileList(x, y int) bool {
-	if !m.listingFiles() || x < SidebarWidth || x >= SidebarWidth+fileListWidth {
+	left := sidebarCols(m.width)
+	if !m.listingFiles() || x < left || x >= left+fileListWidth {
 		return false
 	}
 	fi := m.fileListOffset(m.reviewRows()) + y - reviewTop()
