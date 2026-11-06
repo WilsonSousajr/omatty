@@ -96,7 +96,7 @@ func (m *Model) pollProjectPRs(project string) tea.Cmd {
 // per list - while forgeStopped is a fact about the checkout and the machine,
 // so it is shared.
 func (m *Model) mayAsk(pending map[string]bool, asked map[string]time.Time, project string) bool {
-	if (m.forgeStopped[project] != nil && !m.forgeRetry[project]) || pending[project] {
+	if m.forgeHeld(pending, project) {
 		return false
 	}
 	now := m.clock()
@@ -105,6 +105,14 @@ func (m *Model) mayAsk(pending map[string]bool, asked map[string]time.Time, proj
 	}
 	pending[project], asked[project] = true, now
 	return true
+}
+
+// forgeHeld is whether project may not be asked at all now: its forge is
+// stopped and not due a retry, a call is in flight, or its host is waiting
+// out a rate limit (#594).
+func (m *Model) forgeHeld(pending map[string]bool, project string) bool {
+	_, waiting := m.hostWaiting(project)
+	return (m.forgeStopped[project] != nil && !m.forgeRetry[project]) || pending[project] || waiting
 }
 
 // refreshPRs polls a session's project when a turn finishes, the moment a
@@ -134,6 +142,7 @@ func (m *Model) onPRs(msg PRsLoadedMsg) tea.Cmd {
 	}
 	delete(m.prFailed, msg.Project)
 	m.forgeRecovered(msg.Project)
+	m.hostAnswered(msg.Project)
 	m.prs[msg.Project] = msg.PRs
 	m.settleTracker(msg.Project)
 	return nil
@@ -142,6 +151,9 @@ func (m *Model) onPRs(msg PRsLoadedMsg) tea.Cmd {
 // prFailure sorts a failed call into a lost forge or an outage.
 func (m *Model) prFailure(project string, err error) {
 	delete(m.forgeRetry, project)
+	// A rate limit waits and is otherwise the outage it is: last list kept,
+	// marked unknown (#594).
+	m.waitHost(project, err)
 	if m.stopsForge(project, err) {
 		return
 	}
@@ -159,6 +171,7 @@ func (m *Model) withPRMaps() *Model {
 	m.prFailed = map[string]bool{}
 	m.forgeStopped = map[string]error{}
 	m.forgeRetry = map[string]bool{}
+	m.forgeWait = map[string]hostWait{}
 	m.prAsked = map[string]time.Time{}
 	return m
 }

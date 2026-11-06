@@ -31,6 +31,7 @@ type Router struct {
 	rest      restClient
 	open      func(url string) error
 	ci        *ciCache
+	fin       *finishedCache
 	timeout   time.Duration
 	azWait    time.Duration // how long az may take to issue a token
 
@@ -50,6 +51,9 @@ type Options struct {
 	// Transport is TransportAuto - CLI first, REST fallback - except in
 	// forgeprobe, which reads each transport by name (#463).
 	Transport Transport
+	// Now is the clock CI verdicts expire by and a rate limit's wait is read
+	// against (#594); nil is time.Now.
+	Now func() time.Time
 }
 
 // Transport is which way a Router may read a forge.
@@ -80,11 +84,15 @@ var labels = map[Kind]dforge.Label{
 
 // NewRouter builds a Router that runs each forge's own CLI from PATH.
 func NewRouter(o Options) *Router {
+	now := o.Now
+	if now == nil {
+		now = time.Now
+	}
 	return &Router{
 		remote: o.Remote, hosts: o.Hosts, transport: o.Transport,
 		bins: map[Kind]string{KindGitHub: "gh", KindGitLab: "glab", KindGitea: "tea", KindAzure: "az"}, sshBin: "ssh",
-		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(), open: openInBrowser,
-		ci: newCICache(), timeout: listTimeout, azWait: azTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{}, teaAPIs: map[string]bool{},
+		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(now), open: openInBrowser,
+		ci: newCICache(now), fin: newFinishedCache(), timeout: listTimeout, azWait: azTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{}, teaAPIs: map[string]bool{},
 	}
 }
 
@@ -137,6 +145,20 @@ func (r *Router) Label(repoRoot string) dforge.Label {
 		return dforge.Neutral
 	}
 	return labelOf(res)
+}
+
+// Host is the host repoRoot's remote is on - "bitbucket.org" - or "" when the
+// project has not been resolved yet. Like Label it never resolves: the TUI
+// keys a rate limit's wait by it, since the quota is the account's on that
+// host, shared by every project there (#594).
+//
+//	router.Host("/src/app") // "gitlab.com"
+func (r *Router) Host(repoRoot string) string {
+	res, ok := r.cached(repoRoot)
+	if !ok {
+		return ""
+	}
+	return res.remote.Host
 }
 
 // labelOf is a resolved project's words: its kind's, and for a Gitea host the
@@ -211,14 +233,14 @@ func (r *Router) pickGitLab(repoRoot string, remote Remote) (backend, error) {
 	} else {
 		return nil, &dforge.MissingToolError{Tool: "glab", TokenEnv: "GITLAB_TOKEN"}
 	}
-	return glBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
+	return glBackend{f: f, remote: remote, ci: r.ci, fin: r.fin, open: r.open}, nil
 }
 
 // pickGitHub is gh when it is installed, else GitHub's HTTP API with a token
 // gh itself would read, else the note naming both halves of the fix (#462).
 func (r *Router) pickGitHub(remote Remote) (backend, error) {
 	if bin, ok := r.cli(KindGitHub); ok {
-		return ghCLI{bin: bin, timeout: r.timeout}, nil
+		return ghCLI{bin: bin, timeout: r.timeout, fin: r.fin}, nil
 	}
 	envs := gitHubTokens(remote.Host)
 	if tok, env := r.borrow(envs); tok != "" && r.transport != TransportCLI {

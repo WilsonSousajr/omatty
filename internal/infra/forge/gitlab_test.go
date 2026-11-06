@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/infra/forge"
 )
@@ -347,13 +348,22 @@ func TestGitLab_CIIsEachMergeRequestsHeadPipeline_issue454(t *testing.T) {
 }
 
 // Regression, #454's review: a failed pipeline can be retried on the same
-// head, so a failure is asked again; only a pass is kept.
+// head, so a failure is asked again; only a pass is kept for good. Since #594
+// "again" is once its five minutes are up rather than on the very next poll -
+// asking every poll is what reached Bitbucket's hourly limit - so the clock
+// moves past them; the guarantee #454 asked for, never kept for good, stands.
 func TestGitLab_AFailedPipelineIsAskedAgain_issue454(t *testing.T) {
-	r, calls := gitLabRouter(t, "git@gitlab.com:gitlab-org/cli.git", nil)
+	bin, calls := fakeGlab(t)
+	clock := time.Date(2026, 11, 6, 15, 0, 0, 0, time.UTC)
+	r := forge.NewTestRouter(forge.TestEnv{
+		Options: forge.Options{Remote: (&FakeRemote{URL: "git@gitlab.com:gitlab-org/cli.git"}).url, Now: func() time.Time { return clock }},
+		Bins:    map[forge.Kind]string{forge.KindGitLab: bin},
+	})
 	root := t.TempDir()
 	_, _ = r.ListPRs(root)
 	before := len(glabCalls(t, calls))
 
+	clock = clock.Add(5 * time.Minute)
 	_, _ = r.ListPRs(root)
 
 	asked := strings.Join(glabCalls(t, calls)[before:], "\n")

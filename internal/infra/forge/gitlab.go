@@ -19,6 +19,7 @@ type glBackend struct {
 	f      fetcher
 	remote Remote
 	ci     *ciCache
+	fin    *finishedCache
 	open   func(url string) error
 }
 
@@ -37,16 +38,36 @@ var glLists = []string{
 // group/sub/project is one segment.
 func (g glBackend) project() string { return "projects/" + url.PathEscape(g.remote.Slug()) }
 
+// listPRs reads the open list, then the finished two only when the open set
+// has moved (#594).
 func (g glBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
+	open, err := g.lists(ctx, glLists[:1])
+	if err != nil {
+		return nil, err
+	}
+	finished, err := g.fin.read(ctx, g.remote.Host+"/"+g.remote.Slug(), open, func(ctx context.Context) ([]dforge.PR, error) {
+		return g.lists(ctx, glLists[1:])
+	})
+	if err != nil {
+		return nil, err
+	}
+	all := append(open, finished...)
+	if err := g.ci.fill(ctx, all, g.ciKey, g.pipelineCI); err != nil {
+		return nil, err
+	}
+	return all, nil
+}
+
+// lists reads each of lists, in order, into one.
+func (g glBackend) lists(ctx context.Context, lists []string) ([]dforge.PR, error) {
 	var all []dforge.PR
-	for _, list := range glLists {
+	for _, list := range lists {
 		mrs, err := getJSON[[]glMR](ctx, g.f, g.project()+"/merge_requests?"+list)
 		if err != nil {
 			return nil, repoMissing(err)
 		}
 		all = append(all, foldMRs(mrs)...)
 	}
-	g.ci.fill(ctx, all, g.ciKey, g.pipelineCI)
 	return all, nil
 }
 

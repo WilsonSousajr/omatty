@@ -49,6 +49,7 @@ const finishedWindow = "30"
 type ghCLI struct {
 	bin     string
 	timeout time.Duration
+	fin     *finishedCache
 }
 
 // listTimeout bounds one poll of gh. A stalled gh - a laptop waking, a
@@ -65,12 +66,18 @@ const listTimeout = 30 * time.Second
 // repoRoot's remote and uses the operator's own authentication; omatty holds
 // nothing. Both calls share ctx: the promise is an answer inside thirty
 // seconds, not thirty seconds for each half of it (#356).
+//
+// The finished call is made only when the open set has moved, or every
+// finishedEvery polls (#594), keyed by repoRoot: gh resolves the repository
+// itself, so the checkout is the project.
 func (c ghCLI) listPRs(ctx context.Context, repoRoot string) ([]dforge.PR, error) {
 	open, err := c.list(ctx, repoRoot, "open", "100", openFields)
 	if err != nil {
 		return nil, err
 	}
-	finished, err := c.list(ctx, repoRoot, "closed", finishedWindow, finishedFields)
+	finished, err := c.fin.read(ctx, repoRoot, open, func(ctx context.Context) ([]dforge.PR, error) {
+		return c.list(ctx, repoRoot, "closed", finishedWindow, finishedFields)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -129,13 +136,17 @@ func called(args []string) string {
 	return args[0] + " " + args[1]
 }
 
-// classify names a checkout that is not on GitHub, and carries gh's own
-// words for anything else.
+// classify names a checkout that is not on GitHub, and a rate limit - gh's
+// own lists carry no status, only its words, and this path is gh against
+// github.com alone (#594) - and carries gh's own words for anything else.
 func classify(repoRoot, call, stderr string, err error) error {
 	for _, s := range notGitHub {
 		if strings.Contains(stderr, s) {
 			return fmt.Errorf("forge: %s: %w", stderr, dforge.ErrNoForge)
 		}
+	}
+	if saysRateLimit(stderr) {
+		return &dforge.RateLimitError{Host: "github.com"}
 	}
 	return fmt.Errorf("forge: gh %s in %q: %s: %w", call, repoRoot, stderr, err)
 }

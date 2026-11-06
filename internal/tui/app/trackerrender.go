@@ -31,10 +31,10 @@ func (m *Model) trackerTitleParts() []titlePart {
 		// complete one (#285).
 		parts = append(parts, titlePart{text: "/" + q, priority: keepAlways})
 	}
-	if m.issueFailed[project] || m.prFailed[project] {
+	if m.issueFailed[project] || m.prFailed[project] || m.waitingOn(project) {
 		// keepFlag, as the card's "?" is: a stale list shown as current is this
 		// view's worst failure (Orca #18484).
-		parts = append(parts, titlePart{text: "?", priority: keepFlag})
+		parts = append(parts, titlePart{text: m.unknownMark(project), priority: keepFlag})
 	}
 	return parts
 }
@@ -79,6 +79,20 @@ func (m *Model) renderTracker(_, h int) []string {
 	return m.withPreview(list, h)
 }
 
+// heldNote is the tracker's line for a project its forge is not being asked
+// about: stopped, or its host waiting out a rate limit with nothing yet read
+// (#594). A wait with rows keeps them - it is not a stop - and says so in the
+// title instead (unknownMark).
+func (m *Model) heldNote(project string) (string, bool) {
+	if err := m.forgeStopped[project]; err != nil {
+		return m.stoppedNote(project, err), true
+	}
+	if len(m.trackerRows()) > 0 {
+		return "", false
+	}
+	return m.waitNote(project)
+}
+
 // trackerNote is the "nothing to show" state, or "" when there are rows. Each
 // state is distinct because each calls for something different from the
 // operator, which is renderGate's argument (#231).
@@ -86,9 +100,10 @@ func (m *Model) trackerNote() string {
 	project := m.review.Tracker.Project
 	_, issuesPolled := m.issues[project]
 	_, prsPolled := m.prs[project]
+	if note, held := m.heldNote(project); held {
+		return note
+	}
 	switch {
-	case m.forgeStopped[project] != nil:
-		return m.stoppedNote(project, m.forgeStopped[project])
 	case !issuesPolled && !prsPolled:
 		return "reading " + project + "'s issues and " + m.label(project).Change + "s..."
 	case len(m.trackerRows()) == 0 && m.review.Filter.Query != "":

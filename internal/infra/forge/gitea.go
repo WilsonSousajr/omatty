@@ -15,6 +15,7 @@ type gtBackend struct {
 	f      fetcher
 	remote Remote
 	ci     *ciCache
+	fin    *finishedCache
 	open   func(url string) error
 	// needsToken is what an anonymous REST read's refusal says is missing
 	// (#459): nil when a token or tea reads.
@@ -73,22 +74,29 @@ func refusedAnonymously(err error) bool {
 	return errors.Is(err, errNotFound) || errors.As(err, &refused) && (refused.Status == 401 || refused.Status == 403)
 }
 
+// listPRs reads the open pages, then the finished list only when the open
+// set has moved (#594) - no longer alongside, since it is usually skipped.
 func (g gtBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
-	var finished []gtPR
-	var finishedErr error
-	done := make(chan struct{})
-	go func() { // alongside the open pages: each can take seconds on a busy repository
-		defer close(done)
-		finished, finishedErr = getJSON[[]gtPR](ctx, g.f, g.repo()+"/pulls?state=closed&sort=recentupdate&limit="+finishedWindow)
-	}()
-	open, err := pages(ctx, 100, g.page(g.repo()+"/pulls?state=open"))
-	<-done
-	if err = errors.Join(err, finishedErr); err != nil {
+	page, err := pages(ctx, 100, g.page(g.repo()+"/pulls?state=open"))
+	if err != nil {
 		return nil, g.listErr(ctx, err)
 	}
-	prs := append(foldGTPRs(open), foldGTPRs(finished)...)
-	g.ci.fill(ctx, prs, g.ciKey, g.statusCI)
+	open := foldGTPRs(page)
+	finished, err := g.fin.read(ctx, g.remote.Host+"/"+g.remote.Slug(), open, g.finished)
+	if err != nil {
+		return nil, g.listErr(ctx, err)
+	}
+	prs := append(open, finished...)
+	if err := g.ci.fill(ctx, prs, g.ciKey, g.statusCI); err != nil {
+		return nil, err
+	}
 	return prs, nil
+}
+
+// finished is the most recently closed pull requests, merged among them.
+func (g gtBackend) finished(ctx context.Context) ([]dforge.PR, error) {
+	closed, err := getJSON[[]gtPR](ctx, g.f, g.repo()+"/pulls?state=closed&sort=recentupdate&limit="+finishedWindow)
+	return foldGTPRs(closed), err
 }
 
 func (g gtBackend) ciKey(pr dforge.PR) string {

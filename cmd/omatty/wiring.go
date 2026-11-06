@@ -179,7 +179,7 @@ func withAgentDeps(deps app.Deps, env tuiEnv, store sessions.StateStore) app.Dep
 // browser and the words the copy uses share a resolved forge per project, a
 // bound and the operator's own authentication (#452).
 func withForgeDeps(deps app.Deps, fg *forge.Router) app.Deps {
-	deps.PRs, deps.Issues, deps.Label = fg.ListPRs, fg.ListIssues, fg.Label
+	deps.PRs, deps.Issues, deps.Label, deps.Host = fg.ListPRs, fg.ListIssues, fg.Label, fg.Host
 	deps.Item = app.ForgeItemFuncs{Issue: fg.ViewIssue, PR: fg.ViewPR}
 	deps.Browse = app.ForgeBrowseFuncs{Issue: fg.BrowseIssue, PR: fg.BrowsePR}
 	return deps

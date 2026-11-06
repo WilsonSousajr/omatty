@@ -357,5 +357,9 @@ func GeneratedMsgFor(id string, gen map[string]bool) tea.Msg {
 	return generatedMsg{id: id, gen: gen}
 }
 
+// HostWaitUntil is when the wait on project's host ends, zero when there is
+// none (#594).
+func (m *Model) HostWaitUntil(project string) time.Time { return m.forgeWait[m.host(project)].until }
+
 // ModalOpen reports whether a modal surface owns the keyboard (#749).
 func (m *Model) ModalOpen() bool { return m.modalOpen() }

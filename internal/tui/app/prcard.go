@@ -51,7 +51,7 @@ func isThisWork(pr forge.PR, sess session.Session, head string) bool {
 func (m *Model) prLabel(pr forge.PR, project string) string {
 	label := m.changeRef(project, pr.Number)
 	switch {
-	case m.prFailed[project]:
+	case m.prFailed[project] || m.waitingOn(project):
 		return label + " ?"
 	case pr.State == forge.Merged:
 		return label + " merged"

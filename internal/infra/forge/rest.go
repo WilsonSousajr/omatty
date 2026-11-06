@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // bodyMax caps one REST answer. A page of a hundred pull requests from
@@ -47,9 +48,14 @@ func anonymous() auth { return func(*http.Request) {} }
 
 // restClient is the REST fallback's transport: one http.Client per Router,
 // bounded by the call's context and never retried, the CLI path's #356 bound.
-type restClient struct{ http *http.Client }
+type restClient struct {
+	http *http.Client
+	now  func() time.Time // for the time a rate limit names (#594)
+}
 
-func newREST() restClient { return restClient{http: &http.Client{CheckRedirect: sameHostRedirect}} }
+func newREST(now func() time.Time) restClient {
+	return restClient{http: &http.Client{CheckRedirect: sameHostRedirect}, now: now}
+}
 
 // sameHostRedirect follows a redirect only on the host it started on, over
 // https, and at most three times. GitHub answers a renamed repository with a
@@ -90,7 +96,7 @@ func (c restClient) send(ctx context.Context, method, url string, body io.Reader
 		return nil, fmt.Errorf("forge: %s %s gave no answer: %w", method, url, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if err := answerError(resp, tokenEnv); err != nil {
+	if err := answerError(resp, tokenEnv, c.now()); err != nil {
 		if quietSuccess(method, resp) {
 			return nil, nil
 		}
@@ -136,10 +142,14 @@ func carriesCredential(h http.Header) bool {
 // answerError sorts an answer that is not a body. 401, and a 403 that is not a
 // rate limit, are the token refused: a note the operator can act on. So is an
 // HTML page in place of JSON, which is how Azure answers a bad PAT (#457).
-// A 404 is errNotFound, for the backend to judge; anything else is an outage.
-func answerError(resp *http.Response, tokenEnv string) error {
+// A 404 is errNotFound, for the backend to judge; a 429, or a 403 that is a
+// rate limit, is a RateLimitError with the time the forge named (#594);
+// anything else is an outage.
+func answerError(resp *http.Response, tokenEnv string, now time.Time) error {
 	host, status := resp.Request.URL.Host, resp.StatusCode
 	switch {
+	case status == http.StatusTooManyRequests, status == http.StatusForbidden && rateLimited(resp):
+		return &dforge.RateLimitError{Host: host, Until: retryAt(resp.Header, now)}
 	case status == http.StatusNotFound:
 		return fmt.Errorf("forge: %s has no %s: %w", host, resp.Request.URL.Path, errNotFound)
 	case status == http.StatusUnauthorized, status == http.StatusForbidden && !rateLimited(resp):
@@ -179,7 +189,7 @@ func rateLimited(resp *http.Response) bool {
 		return true
 	}
 	head, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
-	return strings.Contains(strings.ToLower(string(head)), "rate limit")
+	return saysRateLimit(string(head))
 }
 
 // readBounded reads at most bodyMax bytes, and refuses a longer answer rather

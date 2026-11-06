@@ -3,7 +3,9 @@ package forge_test
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
 )
@@ -78,5 +80,20 @@ func TestSameCommit_issue331(t *testing.T) {
 		if got := forge.SameCommit(c.a, c.b); got != c.want {
 			t.Errorf("SameCommit(%q, %q) = %v, want %v", c.a, c.b, got, c.want)
 		}
+	}
+}
+
+// A rate limit names the host and when it may be asked again, so the note the
+// tracker shows and the line in the log say the same thing (#594). A forge
+// that named no time says so, rather than printing a zero time.
+func TestRateLimitError_NamesHostAndTime_issue594(t *testing.T) {
+	until := time.Date(2026, 11, 6, 15, 4, 0, 0, time.UTC)
+	got := (&forge.RateLimitError{Host: "bitbucket.org", Until: until}).Error()
+	if !strings.Contains(got, "bitbucket.org") || !strings.Contains(got, "15:04") {
+		t.Errorf("Error() = %q, want the host and 15:04", got)
+	}
+	got = (&forge.RateLimitError{Host: "bitbucket.org"}).Error()
+	if !strings.Contains(got, "bitbucket.org") || !strings.Contains(got, "no time") {
+		t.Errorf("Error() with no Until = %q, want the host and \"no time\"", got)
 	}
 }

@@ -23,6 +23,7 @@ type azBackend struct {
 	repo    string
 	host    string
 	ci      *ciCache
+	fin     *finishedCache
 	open    func(url string) error
 }
 
@@ -111,16 +112,40 @@ func azGet[T any](ctx context.Context, a azBackend, u string) (T, error) {
 	return out, nil
 }
 
+// azLists is each pull request list listPRs reads: the active, then the
+// recently finished of each kind (#358).
+var azLists = []string{"status=active&$top=100", "status=completed&$top=" + finishedWindow, "status=abandoned&$top=" + finishedWindow}
+
+// listPRs reads the active list, then the finished two only when the open set
+// has moved (#594).
 func (a azBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
+	open, err := a.lists(ctx, azLists[:1])
+	if err != nil {
+		return nil, err
+	}
+	finished, err := a.fin.read(ctx, a.host+"/"+a.project+"/"+a.repo, open, func(ctx context.Context) ([]dforge.PR, error) {
+		return a.lists(ctx, azLists[1:])
+	})
+	if err != nil {
+		return nil, err
+	}
+	all := append(open, finished...)
+	if err := a.ci.fill(ctx, all, a.ciKey, a.policyCI); err != nil {
+		return nil, err
+	}
+	return all, nil
+}
+
+// lists reads each of lists, in order, into one.
+func (a azBackend) lists(ctx context.Context, lists []string) ([]dforge.PR, error) {
 	var all []dforge.PR
-	for _, q := range []string{"status=active&$top=100", "status=completed&$top=" + finishedWindow, "status=abandoned&$top=" + finishedWindow} {
+	for _, q := range lists {
 		page, err := azGet[azList[azPR]](ctx, a, a.repoAPI("pullrequests?searchCriteria."+q))
 		if err != nil {
 			return nil, repoMissing(err)
 		}
 		all = append(all, foldAzPRs(page.Value)...)
 	}
-	a.ci.fill(ctx, all, a.ciKey, a.policyCI)
 	return all, nil
 }
 

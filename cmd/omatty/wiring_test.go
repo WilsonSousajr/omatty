@@ -121,7 +121,7 @@ func TestTuiDeps_WiresEveryForgeCallThroughTheRouter_issue452(t *testing.T) {
 		"PRs": deps.PRs == nil, "Issues": deps.Issues == nil,
 		"Item.Issue": deps.Item.Issue == nil, "Item.PR": deps.Item.PR == nil,
 		"Browse.Issue": deps.Browse.Issue == nil, "Browse.PR": deps.Browse.PR == nil,
-		"Label": deps.Label == nil, "Ship.CreatePR": deps.Ship.CreatePR == nil,
+		"Label": deps.Label == nil, "Host": deps.Host == nil, "Ship.CreatePR": deps.Ship.CreatePR == nil,
 		"Ship.MergePR": deps.Ship.MergePR == nil, "Ship.BranchProtected": deps.Ship.BranchProtected == nil,
 	} {
 		if missing {
@@ -130,6 +130,9 @@ func TestTuiDeps_WiresEveryForgeCallThroughTheRouter_issue452(t *testing.T) {
 	}
 	if got := deps.Label("/nowhere"); got != dforge.Neutral {
 		t.Errorf("Label(unresolved) = %+v, want the Router's neutral label", got)
+	}
+	if got := deps.Host("/nowhere"); got != "" {
+		t.Errorf("Host(unresolved) = %q, want \"\" from the Router (#594)", got)
 	}
 }
 

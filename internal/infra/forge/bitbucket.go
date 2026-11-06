@@ -18,6 +18,7 @@ type bbBackend struct {
 	f      fetcher
 	remote Remote
 	ci     *ciCache
+	fin    *finishedCache
 	open   func(url string) error
 }
 
@@ -45,23 +46,29 @@ func bbPages[T any](ctx context.Context, f fetcher, path string, most int) ([]T,
 	return all, nil
 }
 
+// listPRs reads the open pages, then the finished list only when the open
+// set has moved (#594) - so no longer alongside, since it is usually skipped.
 func (b bbBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
-	var finished bbPage[bbPR]
-	var finishedErr error
-	done := make(chan struct{})
-	go func() { // alongside the open pages, as Gitea's are
-		defer close(done)
-		finished, finishedErr = getJSON[bbPage[bbPR]](ctx, b.f,
-			b.repo()+"/pullrequests?state=MERGED&state=DECLINED&sort=-updated_on&pagelen="+finishedWindow)
-	}()
-	open, err := bbPages[bbPR](ctx, b.f, b.repo()+"/pullrequests?state=OPEN", 100)
-	<-done
-	if err := firstErr(err, finishedErr); err != nil {
+	page, err := bbPages[bbPR](ctx, b.f, b.repo()+"/pullrequests?state=OPEN", 100)
+	if err != nil {
 		return nil, bbListErr(err)
 	}
-	prs := append(foldBBPRs(open), foldBBPRs(finished.Values)...)
-	b.ci.fill(ctx, prs, b.ciKey, b.statusCI)
+	open := foldBBPRs(page)
+	finished, err := b.fin.read(ctx, b.remote.Host+"/"+b.remote.Slug(), open, b.finished)
+	if err != nil {
+		return nil, bbListErr(err)
+	}
+	prs := append(open, finished...)
+	if err := b.ci.fill(ctx, prs, b.ciKey, b.statusCI); err != nil {
+		return nil, err
+	}
 	return prs, nil
+}
+
+// finished is the most recently merged and declined pull requests.
+func (b bbBackend) finished(ctx context.Context) ([]dforge.PR, error) {
+	page, err := getJSON[bbPage[bbPR]](ctx, b.f, b.repo()+"/pullrequests?state=MERGED&state=DECLINED&sort=-updated_on&pagelen="+finishedWindow)
+	return foldBBPRs(page.Values), err
 }
 
 func (b bbBackend) ciKey(pr dforge.PR) string {
@@ -131,16 +138,6 @@ func (b bbBackend) browse(_ context.Context, _ string, number int, pr bool) erro
 	return b.open(webBase(b.remote) + "/" + b.remote.Slug() + "/pull-requests/" + strconv.Itoa(number))
 }
 
-// firstErr is the first of errs that is not nil.
-func firstErr(errs ...error) error {
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // pickBitbucket is Bitbucket's REST API; there is no CLI to try first.
 // bitbucket.org is Cloud, read with BITBUCKET_TOKEN - an API token with its
 // BITBUCKET_USER, the Atlassian account's email, as Basic auth, or an access
@@ -156,7 +153,7 @@ func (r *Router) pickBitbucket(remote Remote) (backend, error) {
 		return nil, &dforge.MissingToolError{TokenEnv: "BITBUCKET_TOKEN"}
 	}
 	f := restAPI{rest: r.rest, base: "https://api.bitbucket.org/2.0", auth: a, env: "BITBUCKET_TOKEN"}
-	return bbBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
+	return bbBackend{f: f, remote: remote, ci: r.ci, fin: r.fin, open: r.open}, nil
 }
 
 // bitbucketAuth is tokenEnv's token as Basic auth with userEnv's user, or as
@@ -191,7 +188,7 @@ func (r *Router) dataCenter(remote Remote) (backend, error) {
 		return nil, &dforge.MissingToolError{TokenEnv: "BITBUCKET_DC_TOKEN for " + web}
 	}
 	f := restAPI{rest: r.rest, base: web + "/rest", auth: a, env: "BITBUCKET_DC_TOKEN"}
-	return bdcBackend{f: f, remote: remote, web: web, key: key, slug: slug, ci: r.ci, open: r.open}, nil
+	return bdcBackend{f: f, remote: remote, web: web, key: key, slug: slug, ci: r.ci, fin: r.fin, open: r.open}, nil
 }
 
 // dcWebRoot is the instance's web root, and whether BITBUCKET_DC_URL names

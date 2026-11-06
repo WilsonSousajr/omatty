@@ -37,7 +37,7 @@ func (r *Router) teaBackend(bin, repoRoot string, remote Remote, missing *dforge
 		missing.Tool = "tea 0.12 or later"
 	default:
 		f := teaAPI{bin: bin, login: login, host: apiHost(remote), dir: repoRoot, timeout: r.timeout}
-		return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open}
+		return gtBackend{f: f, remote: remote, ci: r.ci, fin: r.fin, open: r.open}
 	}
 	return nil
 }
@@ -54,10 +54,10 @@ func (r *Router) giteaREST(remote Remote, missing *dforge.MissingToolError) (bac
 	}
 	if tok == "" {
 		f := restAPI{rest: r.rest, base: webBase(remote) + "/api/v1", auth: anonymous(), env: "GITEA_TOKEN"}
-		return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open, needsToken: missing}, nil
+		return gtBackend{f: f, remote: remote, ci: r.ci, fin: r.fin, open: r.open, needsToken: missing}, nil
 	}
 	f := restAPI{rest: r.rest, base: webBase(remote) + "/api/v1", auth: tokenAuth(tok), env: "GITEA_TOKEN"}
-	return gtBackend{f: f, remote: remote, ci: r.ci, open: r.open}, nil
+	return gtBackend{f: f, remote: remote, ci: r.ci, fin: r.fin, open: r.open}, nil
 }
 
 // giteaToken is GITEA_TOKEN when GITEA_INSTANCE_URL names remote's instance:
