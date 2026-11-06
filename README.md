@@ -518,7 +518,9 @@ there are several, the tracker asks for an https remote rather than guess. A
 GitLab under a root is read over its API with `GITLAB_TOKEN`, since `glab`
 cannot be pointed at a path, and a token variable that names an instance
 (`GITEA_INSTANCE_URL`, `BITBUCKET_DC_URL`) binds a rooted project only when its
-path is that root.
+path is that root. A `github` or `azure` line takes no root: neither is ever
+served under one, and Azure's organisation or collection is already in the
+remote's path.
 
 A project that has no sessions yet is selectable too: `ctrl+o ]` reaches
 it, the pane says which project is empty, and `ctrl+o n` creates its first

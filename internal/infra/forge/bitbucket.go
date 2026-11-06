@@ -54,7 +54,7 @@ func (b bbBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 		return nil, bbListErr(err)
 	}
 	open := foldBBPRs(page)
-	finished, err := b.fin.read(ctx, b.remote.Host+"/"+b.remote.Slug(), open, b.finished)
+	finished, err := b.fin.read(ctx, b.remote.project(), open, b.finished)
 	if err != nil {
 		return nil, bbListErr(err)
 	}
@@ -72,7 +72,7 @@ func (b bbBackend) finished(ctx context.Context) ([]dforge.PR, error) {
 }
 
 func (b bbBackend) ciKey(pr dforge.PR) string {
-	return b.remote.Host + "/" + b.remote.Slug() + "#" + strconv.Itoa(pr.Number) + "@" + pr.Head
+	return b.remote.project() + "#" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
 // statusCI is the worst of the head commit's statuses, which Pipelines and

@@ -59,7 +59,7 @@ func (b bdcBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) 
 	if err != nil {
 		return nil, err
 	}
-	finished, err := b.fin.read(ctx, b.remote.Host+"/"+b.key+"/"+b.slug, open, func(ctx context.Context) ([]dforge.PR, error) {
+	finished, err := b.fin.read(ctx, b.remote.Host+rootPath(b.remote)+"/"+b.key+"/"+b.slug, open, func(ctx context.Context) ([]dforge.PR, error) {
 		return b.lists(ctx, dcLists[1:])
 	})
 	if err != nil {
@@ -86,7 +86,7 @@ func (b bdcBackend) lists(ctx context.Context, lists []string) ([]dforge.PR, err
 }
 
 func (b bdcBackend) ciKey(pr dforge.PR) string {
-	return b.remote.Host + "/" + b.key + "/" + b.slug + "#" + strconv.Itoa(pr.Number) + "@" + pr.Head
+	return b.remote.Host + rootPath(b.remote) + "/" + b.key + "/" + b.slug + "#" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
 // buildCI is the worst of the head commit's builds, from the build-status API

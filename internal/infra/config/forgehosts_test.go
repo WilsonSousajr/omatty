@@ -155,3 +155,16 @@ func TestLoad_SameRootTwiceIsRefused_issue585(t *testing.T) {
 		t.Errorf("two roots differing in case = %v, want both kept: paths are case-sensitive", err)
 	}
 }
+
+// #585's review, M2: GitHub and Azure DevOps serve under no root of their own
+// - Azure's organisation and a Server's collection are path the remote
+// carries - so a root on either would read the wrong place, quietly.
+func TestLoad_ARootOnGitHubOrAzureIsRefused_issue585(t *testing.T) {
+	for _, kind := range []string{"github", "azure"} {
+		home := t.TempDir()
+		_, err := config.Load(writeConfig(t, home, "[forge.hosts]\n\"h.example/x\" = \""+kind+"\"\n"), home)
+		if err == nil || !strings.Contains(err.Error(), "h.example/x") || !strings.Contains(err.Error(), kind) {
+			t.Errorf("%s under a root: error = %v, want it refused, naming the key and the kind", kind, err)
+		}
+	}
+}

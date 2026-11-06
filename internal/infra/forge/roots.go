@@ -17,6 +17,13 @@ import (
 //	forge.Hosts{"h/gitlab": forge.KindGitLab}.Resolve(remote) // Root ["gitlab"]
 func (h Hosts) Resolve(r Remote) (Remote, Kind, error) {
 	roots := h.rootsOn(r.Host)
+	r, kind, err := h.resolveIn(r, roots)
+	r.Siblings = siblings(roots, r.Root)
+	return r, kind, err
+}
+
+// resolveIn is Resolve over roots, the rooted keys on r's host.
+func (h Hosts) resolveIn(r Remote, roots map[string][]string) (Remote, Kind, error) {
 	if r.Scheme != "ssh" {
 		if key, root, ok := longestRoot(roots, r.Path); ok {
 			r.Root, r.Path = root, r.Path[len(root):]
@@ -27,6 +34,19 @@ func (h Hosts) Resolve(r Remote) (Remote, Kind, error) {
 	}
 	kind, err := h.KindOf(r.Host)
 	return r, kind, err
+}
+
+// siblings is each of roots but own, joined, sorted so a remote compares the
+// same way twice.
+func siblings(roots map[string][]string, own []string) []string {
+	var out []string
+	for _, root := range roots {
+		if !slices.Equal(root, own) {
+			out = append(out, strings.Join(root, "/"))
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // rootsOn is each rooted key on host, by key, with its root.

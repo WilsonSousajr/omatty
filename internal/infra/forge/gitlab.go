@@ -46,7 +46,7 @@ func (g glBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 	if err != nil {
 		return nil, err
 	}
-	finished, err := g.fin.read(ctx, g.remote.Host+"/"+g.remote.Slug(), open, func(ctx context.Context) ([]dforge.PR, error) {
+	finished, err := g.fin.read(ctx, g.remote.project(), open, func(ctx context.Context) ([]dforge.PR, error) {
 		return g.lists(ctx, glLists[1:])
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func (g glBackend) lists(ctx context.Context, lists []string) ([]dforge.PR, erro
 
 // ciKey names a merge request's head across every project the Router reads.
 func (g glBackend) ciKey(pr dforge.PR) string {
-	return g.remote.Host + "/" + g.remote.Slug() + "!" + strconv.Itoa(pr.Number) + "@" + pr.Head
+	return g.remote.project() + "!" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
 // pipelineCI is the merge request's own head_pipeline. Not the project's

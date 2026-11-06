@@ -2,12 +2,15 @@ package forge
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
 	"regexp"
 	"strings"
 	"time"
+
+	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
 )
 
 // aliasTimeout bounds each local lookup - ssh -G, gh auth token - which read
@@ -31,7 +34,10 @@ var safeAlias = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 // handed to neither.
 func (r *Router) name(remote Remote) (Remote, Kind, error) {
 	resolved, kind, err := r.hosts.Resolve(remote)
-	if err == nil || !safeAlias.MatchString(remote.Host) {
+	var ambiguous *dforge.AmbiguousHostError
+	if err == nil || errors.As(err, &ambiguous) || !safeAlias.MatchString(remote.Host) {
+		// An ambiguous host is the operator's own table speaking: no alias or
+		// gh login may route around it (#585's review).
 		return resolved, kind, err
 	}
 	remote = r.unalias(remote)

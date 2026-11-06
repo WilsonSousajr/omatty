@@ -78,7 +78,7 @@ func (r *Router) giteaToken(remote Remote) string {
 // Kept once found; a remote with none is asked again, so a login added mid-run
 // is used on the next poll.
 func (r *Router) teaLogin(bin string, remote Remote) string {
-	key := remote.Scheme + "://" + apiHost(remote)
+	key := remote.Scheme + "://" + apiHost(remote) + rootPath(remote) // an instance is its root too (#585's review)
 	r.mu.Lock()
 	name, known := r.teaLogins[key]
 	r.mu.Unlock()
@@ -137,8 +137,15 @@ func loginFor(list []byte, remote Remote) string {
 // serves is whether the login reads the instance remote is on, however the
 // two write it (#458's review): by its URL, or for an ssh remote by the
 // login's own ssh host.
+//
+// The ssh host names a host, not a root: it answers only for a remote with no
+// root whose login is not another root's (#585's review).
 func (l teaLoginEntry) serves(remote Remote) bool {
-	return namesInstance(l.URL, remote) || remote.Scheme == "ssh" && strings.EqualFold(l.SSHHost, remote.Host)
+	if namesInstance(l.URL, remote) {
+		return true
+	}
+	bySSH := remote.Scheme == "ssh" && strings.EqualFold(l.SSHHost, remote.Host)
+	return bySSH && len(remote.Root) == 0 && !underSibling(l.URL, remote)
 }
 
 // namesInstance is whether rawURL is the instance remote is on: hosts in any
@@ -157,7 +164,28 @@ func namesInstance(rawURL string, remote Remote) bool {
 	if len(remote.Root) > 0 && strings.Trim(u.Path, "/") != strings.Join(remote.Root, "/") {
 		return false
 	}
+	if underSibling(rawURL, remote) {
+		// Another forge's root on the same host: its token is not this
+		// remote's (#585's review).
+		return false
+	}
 	return remote.Scheme == "ssh" || webPort(u.Scheme, u.Port()) == webPort(remote.Scheme, remote.Port)
+}
+
+// underSibling is whether rawURL's path is, or is under, a root another
+// [forge.hosts] key names on remote's host.
+func underSibling(rawURL string, remote Remote) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	path := strings.Trim(u.Path, "/")
+	for _, sib := range remote.Siblings {
+		if path == sib || strings.HasPrefix(path, sib+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // webPort is a port with a scheme's default written in.
