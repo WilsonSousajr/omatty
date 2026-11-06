@@ -170,15 +170,13 @@ func TestModel_switcherDoesNotOpenWithNoSessions_issue42(t *testing.T) {
 }
 
 // Issue #28, for the switcher.
-func TestModel_ctrlCQuitsWhileTheSwitcherIsOpen_issue28(t *testing.T) {
+func TestModel_ctrlCEscapesWhileTheSwitcherIsOpen_issue28(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	openSwitcher(m, "")
 
 	_, cmd := m.Update(ctrl('c'))
 
-	if !isQuit(cmd) {
-		t.Error("ctrl+c while the switcher is open did not quit")
-	}
+	assertEscaped(t, m, cmd, "the switcher")
 }
 
 // Invariant 1: the query is typed into omatty, never into Claude.

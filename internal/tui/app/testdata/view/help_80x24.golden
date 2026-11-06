@@ -20,5 +20,5 @@
                             [38;5;75m│[m  [38;5;75mctrl+o f       [m  [38;5;250mopen or close the file tree[m     
                             [38;5;75m│[m  [38;5;75mctrl+o g       [m  [38;5;250mopen or close the gate pane[m     
                             [38;5;75m│[m  [38;5;75mctrl+o i       [m  [38;5;250mopen or close this project's iss[m
-                            [38;5;75m│[m[38;5;245mj/k scroll  / filter  esc close  ctrl+c quit[m       
-[38;5;245m esc close  ctrl+c quit[m                                               [38;5;245m3 sessions[m
+                            [38;5;75m│[m[38;5;245mj/k scroll  / filter  esc close[m                    
+[38;5;245m esc close[m                                                            [38;5;245m3 sessions[m

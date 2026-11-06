@@ -77,7 +77,9 @@ func TestModel_releasingTheMouseLeavesTheKeyboardAlone_issue217(t *testing.T) {
 
 	leader(m, key('?'))
 
-	if !strings.Contains(m.View().Content, "quit") {
+	// Asked of the modal itself: the footer's "ctrl+c quit" used to stand in
+	// for it, and #749 took that phrase out of every modal.
+	if !m.ModalOpen() || !strings.Contains(m.View().Content, "esc close") {
 		t.Errorf("the help modal did not open while the mouse was released:\n%s", m.View().Content)
 	}
 }

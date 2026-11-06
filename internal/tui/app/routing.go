@@ -23,7 +23,9 @@ func (m *Model) onKey(msg tea.KeyPressMsg) tea.Cmd {
 	// has started working (#43).
 	m.lastErr, m.notice = "", ""
 	target, focused := m.focus()
-	switch m.router.Next(msg.Keystroke(), focused) {
+	route := m.router.Next(msg.Keystroke(), focused)
+	m.disarmQuit(route == keys.Swallow)
+	switch route {
 	case keys.ToTerminal:
 		return m.dispatch(target, msg)
 	case keys.ToOmatty:
@@ -104,12 +106,14 @@ func (m *Model) onPaneKey(key string) tea.Cmd {
 // because the text editors need msg.Text: the keystroke name spells a capital
 // "shift+f", which is not what belongs in a session title (#41).
 func (m *Model) command(msg tea.KeyPressMsg) tea.Cmd {
-	// ctrl+c is the unconditional escape hatch, checked before the modal so an
-	// open surface cannot trap the operator (issue #28). With a session focused
-	// this is never reached: ctrl+c belongs to Claude, which uses it to
-	// interrupt a turn (invariant 1).
+	// ctrl+c is the unconditional escape hatch, so an open surface cannot trap
+	// the operator (issue #28). Inside a modal it closes the modal, as esc
+	// does, because every shell and TUI reads ctrl+c in a field as "cancel
+	// this": quitting there threw away the layout and any unsent notes (#749).
+	// With a session focused this is never reached: ctrl+c belongs to Claude,
+	// which uses it to interrupt a turn (invariant 1).
 	if msg.Keystroke() == "ctrl+c" {
-		return tea.Quit
+		return m.escapeHatch()
 	}
 	if m.modalOpen() {
 		// The leader closes the surface and arms itself rather than being fed
@@ -124,6 +128,16 @@ func (m *Model) command(msg tea.KeyPressMsg) tea.Cmd {
 		return m.onModalKey(msg)
 	}
 	return m.navigate(msg.Keystroke())
+}
+
+// escapeHatch is ctrl+c on omatty's own path: it closes an open modal, and
+// quits only when nothing is open and no pane is focused (#28, #749).
+func (m *Model) escapeHatch() tea.Cmd {
+	if m.modalOpen() {
+		m.modal = modal{}
+		return nil
+	}
+	return tea.Quit
 }
 
 // openModal takes the keyboard for a surface, closing the note editor if one
@@ -192,7 +206,7 @@ func (m *Model) paneCommand(key string) tea.Cmd {
 	case "m":
 		return m.toggleMouse()
 	case "q":
-		return tea.Quit
+		return m.requestQuit()
 	}
 	return m.modalCommand(key)
 }

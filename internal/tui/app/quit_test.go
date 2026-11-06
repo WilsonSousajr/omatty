@@ -31,9 +31,24 @@ func TestModel_ctrlCQuitsWhenNoSessionIsFocused_issue28(t *testing.T) {
 	}
 }
 
+// assertEscaped is #28's guarantee as #749 restated it: ctrl+c inside a
+// surface gets the operator out of it. It used to quit omatty outright, and
+// these tests asserted that; but the guarantee was always "no surface traps
+// you", and closing the surface keeps it without throwing the window away.
+func assertEscaped(t *testing.T, m *app.Model, cmd tea.Cmd, what string) {
+	t.Helper()
+	if isQuit(cmd) {
+		t.Errorf("ctrl+c while %s was open quit omatty instead of closing it", what)
+	}
+	if m.ModalOpen() {
+		t.Errorf("ctrl+c while %s was open left it open: the operator is trapped", what)
+	}
+}
+
 // The same trap exists while a prompt is open: the terminal is deliberately
-// unfocused there, so ctrl+c must still be an escape hatch.
-func TestModel_ctrlCQuitsWhileAPromptIsOpen_issue28(t *testing.T) {
+// unfocused there, so ctrl+c must still be an escape hatch. Since #749 the
+// hatch closes the prompt rather than the window.
+func TestModel_ctrlCEscapesWhileAPromptIsOpen_issue28(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	press(m, ctrl('o'))
 	press(m, key('n'))
@@ -43,9 +58,7 @@ func TestModel_ctrlCQuitsWhileAPromptIsOpen_issue28(t *testing.T) {
 
 	_, cmd := m.Update(ctrl('c'))
 
-	if !isQuit(cmd) {
-		t.Error("ctrl+c did not quit while a prompt was open")
-	}
+	assertEscaped(t, m, cmd, "a prompt")
 }
 
 // Invariant 1 must not regress: with a session focused, ctrl+c belongs to

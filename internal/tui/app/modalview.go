@@ -63,7 +63,7 @@ var leaderKeys = []keyHelp{
 	{"z", "zoom the review column over the session, or back"},
 	{"m", "hand the mouse back to your terminal, or take it back"},
 	{"?", "this list"},
-	{"q", "quit"},
+	{"q", "quit; asks again while a session works or a note is unsent"},
 }
 
 // claudeKeys are keys omatty does not own. They reach the session untouched,
@@ -272,12 +272,12 @@ func modalFooter(md modal) string {
 func surfaceFooter(md modal) string {
 	switch md.Kind {
 	case modalPrompt, modalRename, modalBranch:
-		return "enter confirm  esc cancel  ctrl+c quit"
+		return "enter confirm  esc cancel"
 	case modalConfirm, modalRevert:
 		// The answers are listed in full in the pane directly above, and they
 		// differ between a worktree session and a main-checkout one, so
 		// repeating them here would only risk disagreeing with them.
-		return "answer above  esc cancel  ctrl+c quit"
+		return "answer above  esc cancel"
 	case modalList:
 		// ctrl+j/ctrl+k rather than j/k, which are filter text here. This is
 		// the one place M4 departs from the sidebar's keymap, so it is said
@@ -290,7 +290,7 @@ func surfaceFooter(md modal) string {
 	case modalHelp:
 		// The body already carries its own closing hint, so this names the way
 		// out that every other modal footer names and the body does not.
-		return "esc close  ctrl+c quit"
+		return "esc close"
 	}
 	return ""
 }

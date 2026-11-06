@@ -278,15 +278,13 @@ func TestModel_pickerUsesTheNameTheRegistryWrote_issue91(t *testing.T) {
 }
 
 // Issue #28, for the picker.
-func TestModel_ctrlCQuitsWhileThePickerIsOpen_issue28(t *testing.T) {
+func TestModel_ctrlCEscapesWhileThePickerIsOpen_issue28(t *testing.T) {
 	m, _ := modelWithDiscover(t, &recordDiscover{Proposed: threeProposals()})
 	openPicker(m)
 
 	_, cmd := m.Update(ctrl('c'))
 
-	if !isQuit(cmd) {
-		t.Error("ctrl+c while the picker is open did not quit")
-	}
+	assertEscaped(t, m, cmd, "the picker")
 }
 
 // Migration step 5.6c (#653): registering runs git per root and saves
