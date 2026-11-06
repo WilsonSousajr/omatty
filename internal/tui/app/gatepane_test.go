@@ -446,7 +446,7 @@ func TestModel_aShorterReportIsNotDrawnBlank_issue421(t *testing.T) {
 	m.SetGateReport("s1", gateReport(gate.Pass, gate.Pass))
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24}) // drop the memoised frame
 
-	if body := m.View().Content; !strings.Contains(body, "✓ fmt") {
+	if body := stripSGR(m.View().Content); !strings.Contains(body, "✓ fmt") { // a coloured cursor row since #763
 		t.Errorf("the shorter report was not drawn:\n%s", body)
 	}
 }

@@ -95,12 +95,19 @@ func (m *Model) renderEntries(w, rows int) []string {
 	return out
 }
 
-// renderEntry draws one row; the cursor row is reversed.
+// renderEntry draws one row; the cursor row keeps its colours on the cursor's
+// ground, where reverse video used to drop its syntax and changed words (#763).
 func (m *Model) renderEntry(e dreview.Entry, cursor bool, w int, comments []dreview.Comment) string {
-	text := m.fitRow(e, comments, w)
+	row := m.styledEntry(e, w, comments)
 	if cursor {
-		return theme.Cursor.Render(text)
+		return theme.UnderCursor(row, w)
 	}
+	return row
+}
+
+// styledEntry is one row in its own colours, cursor or not.
+func (m *Model) styledEntry(e dreview.Entry, w int, comments []dreview.Comment) string {
+	text := m.fitRow(e, comments, w)
 	if e.Kind == dreview.EntryComment && !comments[e.Comment].Sent.IsZero() {
 		return theme.Muted.Render(text) // sent: context for this turn, not a to-do (#335)
 	}
