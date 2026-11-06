@@ -69,12 +69,37 @@ const (
 	minReviewWidth = 24
 )
 
+// sidebarShown reports whether the window has room for the sidebar beside a
+// usable pane. Below it the sidebar goes and one pane takes the window: the
+// pane used to keep a 20-column floor next to a fixed 29-column sidebar, and
+// the frame came out wider than the screen (#753).
+//
+//	sidebarShown(48) // false
+func sidebarShown(width int) bool { return width >= SidebarWidth+minTermWidth }
+
+// sidebarCols is the sidebar's outer width in a window: SidebarWidth, or 0
+// where it does not fit (#753).
+func sidebarCols(width int) int {
+	if sidebarShown(width) {
+		return SidebarWidth
+	}
+	return 0
+}
+
+// reviewFits reports whether the review column fits beside the pane at its
+// floor. Below it the column and the pane take turns: whichever has the keys
+// is drawn, the column as though zoomed (#753).
+//
+//	reviewFits(72) // false
+func reviewFits(width int) bool { return width >= SidebarWidth+minReviewWidth+minTermWidth }
+
 // ReviewWidth is the review column's outer width, its left hairline included,
-// for a window; 0 while the column is closed.
+// for a window; 0 while the column is closed, or open in a window too narrow
+// to draw it beside the pane (#753).
 //
 //	app.ReviewWidth(100, true) // 28
 func ReviewWidth(width int, open bool) int {
-	if !open {
+	if !open || !reviewFits(width) {
 		return 0
 	}
 	w := (width - SidebarWidth) * reviewNum / reviewDen
@@ -94,23 +119,23 @@ func reviewContentWidth(width int) int { return ReviewWidth(width, true) - 1 - g
 // with the zoom everything right of the sidebar and its hairline (#427).
 func (m *Model) columnWidth() int {
 	if m.zoomed() {
-		return m.width - SidebarWidth - gutterCols
+		return m.width - sidebarCols(m.width) - gutterCols
 	}
 	return reviewContentWidth(m.width)
 }
 
 // PaneSize returns the terminal's content size for a window. No box spends
 // columns any more (#174): the window minus the sidebar, minus the review
-// column when it is open, is the pane; its rows are the window minus the
-// header row, the rule and the footer (issues #35, #21).
+// column when it is drawn, is the pane; its rows are the window minus the
+// header row, the rule and the footer (issues #35, #21). Neither the sidebar
+// nor the column is drawn where it would leave the pane under its floor, so
+// the pane is never wider than the window (#753).
 //
 //	w, h := app.PaneSize(120, 40, false) // 92, 37
 func PaneSize(width, height int, reviewOpen bool) (termW, termH int) {
-	termW = width - SidebarWidth - ReviewWidth(width, reviewOpen)
+	termW = width - sidebarCols(width) - ReviewWidth(width, reviewOpen)
 	termH = height - headerRows - ruleRows - footerRows
-	if termW < minTermWidth {
-		termW = minTermWidth
-	}
+	termW = max(termW, 1)
 	if termH < minTermHeight {
 		termH = minTermHeight
 	}
@@ -120,12 +145,17 @@ func PaneSize(width, height int, reviewOpen bool) (termW, termH int) {
 // PaneOrigin is the window cell the embedded terminal's top-left cell is
 // drawn at: past the sidebar and its hairline, and below the header row, the
 // rule and the title row (#174). Cursor placement (#106) and mouse
-// translation (#107) both need it, so it is derived here once.
+// translation (#107) both need it, so it is derived here once. It takes the
+// window's width because a narrow window has no sidebar to be past (#753).
 //
-//	x, y := app.PaneOrigin() // 28, 2
-func PaneOrigin() (x, y int) {
-	return SidebarWidth, headerRows + ruleRows + titleRows
+//	x, y := app.PaneOrigin(100) // 29, 2
+func PaneOrigin(width int) (x, y int) {
+	return sidebarCols(width), headerRows + ruleRows + titleRows
 }
+
+// sidebarContent is the sidebar's content width in this window: what it
+// draws in and what a click lands in, 0 where it is not drawn (#753).
+func (m *Model) sidebarContent() int { return max(sidebarCols(m.width)-1, 0) }
 
 // inPaneGrid reports whether a cell of the embedded terminal's own grid is
 // one the pane actually draws. fitBlock cuts everything past it, so both the

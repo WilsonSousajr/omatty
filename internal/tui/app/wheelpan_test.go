@@ -20,7 +20,7 @@ const fixtureWidth = 100
 // wide, so a fixture sized for its content can still find the column. The
 // no-argument overReview in wheel_test.go assumes DefaultWidth.
 func overReviewAt(width int) (x, y int) {
-	_, oy := app.PaneOrigin()
+	_, oy := app.PaneOrigin(app.DefaultWidth)
 	return width - app.ReviewWidth(width, true) + 1, oy + 3
 }
 

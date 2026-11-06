@@ -43,10 +43,10 @@ func TestView_PlacesTheEmbeddedCursorOnTheWindow_issue106(t *testing.T) {
 // no left border of the pane's own; under the header row and the rule (#128,
 // #174).
 func TestPaneOrigin_IsTheEmulatorsTopLeftCell_issue106(t *testing.T) {
-	x, y := app.PaneOrigin()
+	x, y := app.PaneOrigin(app.DefaultWidth)
 
 	if x != app.SidebarWidth || y != 2 {
-		t.Errorf("PaneOrigin() = (%d, %d), want (%d, 2)", x, y, app.SidebarWidth)
+		t.Errorf("PaneOrigin(DefaultWidth) = (%d, %d), want (%d, 2)", x, y, app.SidebarWidth)
 	}
 }
 

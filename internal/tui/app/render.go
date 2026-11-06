@@ -240,48 +240,6 @@ func joinColumns(cols []string) string {
 	return b.String()
 }
 
-// bodyColumns is every column with the hairline before each one but the
-// first, and one header segment per column. The accent hairline and the ink
-// title go to the same column: the one keyboardEdge names.
-func (m *Model) bodyColumns(termW, termH int, now time.Time) ([]string, []segment) {
-	edge := m.keyboardEdge()
-	if m.zoomed() {
-		return m.zoomedColumns(termH, now)
-	}
-	cols := []string{m.renderSidebar(termH, now), hairlineColumn(edge == edgePane, termH), m.renderTerminal(termW, termH)}
-	// termW-2: the leading space headerRow adds and one blank before the
-	// hairline, so the right-aligned usage never touches it (#177).
-	segs := []segment{
-		{title: m.sidebarSegment(), width: sidebarContentCols},
-		{title: m.paneSegment(now, termW-2, edge == edgePane), width: termW, owns: edge == edgePane},
-	}
-	if !m.review.Open {
-		return cols, segs
-	}
-	rw := m.columnWidth()
-	cols = append(cols, hairlineColumn(edge == edgeReview, termH), m.renderReview(rw, termH))
-	// rw+gutterCols, because renderReview draws the gutter as well as the
-	// content and the header row must span exactly what the body does (#498).
-	return cols, append(segs, m.columnSegment(rw+gutterCols, edge == edgeReview))
-}
-
-// zoomedColumns is the body with the column drawn over the session pane: the
-// sidebar, the column's own hairline, then the column to the edge (#427).
-func (m *Model) zoomedColumns(termH int, now time.Time) ([]string, []segment) {
-	rw := m.columnWidth()
-	cols := []string{m.renderSidebar(termH, now), hairlineColumn(true, termH), m.renderReview(rw, termH)}
-	return cols, []segment{{title: m.sidebarSegment(), width: sidebarContentCols}, m.columnSegment(rw+gutterCols, true)}
-}
-
-// columnSegment is the review column's header and rule segment.
-func (m *Model) columnSegment(rw int, owns bool) segment {
-	label := m.faceName()
-	if m.zoomed() {
-		label += " · zoomed"
-	}
-	return segment{title: m.reviewTitle(rw), width: rw, owns: owns, closable: true, label: label}
-}
-
 // renderSidebar draws the project/session rows in the sidebar's content
 // columns; the "projects" title is the header row's (#128, #174). The rows
 // scroll so the cursor is always drawn (#129). A project header scrolled off
@@ -357,6 +315,12 @@ func (m *Model) renderFooter() string {
 		// dtach - where the terminal pane owns ctrl+c and the footer is the
 		// only place the way out is written down (#28, #30, #43).
 		return theme.Footer.Render(fitLine(" "+exitKeyFor(m.leader)+"  "+m.notice, m.width))
+	}
+	if !sidebarShown(m.width) {
+		// The sidebar is what a narrow window gave up, and the keymap that
+		// would name its keys does not fit either: the exit, then how to get
+		// the sidebar back, as the startup notice does (#753).
+		return theme.Footer.Render(fitLine(" "+exitKeyFor(m.leader)+"  widen for the sidebar", m.width))
 	}
 	return joinEnds(theme.Footer.Render(" "+fitKeys(m.footerKeys(), m.width-1)), m.footerFacts(), m.width)
 }

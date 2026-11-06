@@ -27,16 +27,22 @@ func TestPaneSize_TheFrameSpendsTwoRowsAndNoColumns_issue174(t *testing.T) {
 	if w != 80-app.SidebarWidth || h != 24-3 {
 		t.Errorf("PaneSize(80,24) = %dx%d, want %dx21", w, h, 80-app.SidebarWidth)
 	}
-	if x, y := app.PaneOrigin(); x != app.SidebarWidth || y != 2 {
-		t.Errorf("PaneOrigin() = (%d,%d), want (%d,2)", x, y, app.SidebarWidth)
+	if x, y := app.PaneOrigin(app.DefaultWidth); x != app.SidebarWidth || y != 2 {
+		t.Errorf("PaneOrigin(DefaultWidth) = (%d,%d), want (%d,2)", x, y, app.SidebarWidth)
 	}
 }
 
+// A tiny window still gets a pane of positive size. Until #753 the width
+// floor was 20 columns beside a 29-column sidebar, which at 30 columns drew a
+// frame 49 wide; the sidebar now gives way, so the pane is the whole window.
 func TestPaneSize_FloorsOnATinyWindow_issue35(t *testing.T) {
 	w, h := app.PaneSize(30, 5, false)
 
-	if w != 20 || h != 4 {
-		t.Errorf("PaneSize(30, 5) = (%d, %d), want the floors (20, 4)", w, h)
+	if w != 30 || h != 4 {
+		t.Errorf("PaneSize(30, 5) = (%d, %d), want the whole width and the height floor (30, 4)", w, h)
+	}
+	if w, _ := app.PaneSize(3, 5, false); w < 1 || w > 3 {
+		t.Errorf("PaneSize(3, 5) width = %d, want a positive width inside the window", w)
 	}
 }
 
@@ -172,9 +178,15 @@ func TestPaneSize_ReviewColumnTakesTwoFifthsOfTheRest_issue21(t *testing.T) {
 	}
 }
 
+// Beside the pane the column never drops below its 24-column floor. At 60
+// columns that floor used to push the frame past the window (#753): there the
+// column is not drawn beside the pane at all, so its width there is 0.
 func TestReviewWidth_FloorsOnANarrowWindow_issue21(t *testing.T) {
-	if got := app.ReviewWidth(60, true); got != 24 {
-		t.Errorf("ReviewWidth(60) = %d, want the floor 24", got)
+	if got := app.ReviewWidth(73, true); got != 24 {
+		t.Errorf("ReviewWidth(73) = %d, want the floor 24", got)
+	}
+	if got := app.ReviewWidth(60, true); got != 0 {
+		t.Errorf("ReviewWidth(60) = %d, want 0: the column no longer fits beside the pane", got)
 	}
 }
 

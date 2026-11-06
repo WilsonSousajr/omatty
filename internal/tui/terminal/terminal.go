@@ -58,7 +58,7 @@ type Terminal interface {
 // is what turns one into the other.
 //
 //	c := term.Cursor()
-//	if c.Visible { x, y := ui.PaneOrigin(); draw(x+c.X, y+c.Y) }
+//	if c.Visible { x, y := ui.PaneOrigin(width); draw(x+c.X, y+c.Y) }
 //
 // Color is deliberately absent. The emulator carries one (OSC 12) and
 // tea.Cursor accepts one, but after an OSC 112 reset vt reports the *default*
