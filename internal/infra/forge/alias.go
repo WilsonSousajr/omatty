@@ -30,13 +30,13 @@ var safeAlias = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 // Neither touches the network, and a host that could read as an option is
 // handed to neither.
 func (r *Router) name(remote Remote) (Remote, Kind, error) {
-	kind, err := r.hosts.KindOf(remote.Host)
+	resolved, kind, err := r.hosts.Resolve(remote)
 	if err == nil || !safeAlias.MatchString(remote.Host) {
-		return remote, kind, err
+		return resolved, kind, err
 	}
 	remote = r.unalias(remote)
-	if aliased, aliasErr := r.hosts.KindOf(remote.Host); aliasErr == nil {
-		return remote, aliased, nil
+	if aliased, aliasKind, aliasErr := r.hosts.Resolve(remote); aliasErr == nil {
+		return aliased, aliasKind, nil
 	}
 	if r.ghKnows(remote.Host) {
 		return remote, KindGitHub, nil
