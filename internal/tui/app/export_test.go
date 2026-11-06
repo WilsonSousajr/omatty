@@ -356,3 +356,6 @@ func (m *Model) SpinArmed() bool       { return m.spinArmed }
 func GeneratedMsgFor(id string, gen map[string]bool) tea.Msg {
 	return generatedMsg{id: id, gen: gen}
 }
+
+// ModalOpen reports whether a modal surface owns the keyboard (#749).
+func (m *Model) ModalOpen() bool { return m.modalOpen() }

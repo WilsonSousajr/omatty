@@ -24,7 +24,7 @@
                             [38;5;75m│[m  [38;5;75mctrl+o m       [m  [38;5;250mhand the mouse back to your terminal, or take it back[m                   
                             [38;5;75m│[m  [38;5;75mctrl+o ?       [m  [38;5;250mthis list[m                                                               
                             [38;5;75m│[m  [38;5;75mctrl+o q       [m  [38;5;250mquit[m                                                                    
+                            [38;5;75m│[m  [38;5;75mctrl+o ctrl+o  [m  [38;5;250msend ctrl+o itself to the session (claude: transcript)[m                  
                             [38;5;75m│[m                                                                                           
-                            [38;5;75m│[m[1;38;5;253manywhere in the review column[m                                                              
                             [38;5;75m│[m[38;5;245mj/k scroll  / filter  esc close  ctrl+c quit[m                                               
 [38;5;245m esc close  ctrl+c quit[m                                                                                       [38;5;245m3 sessions[m
