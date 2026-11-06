@@ -301,15 +301,13 @@ func TestModel_archiveWOnAMainCheckoutDoesNothing_issue40(t *testing.T) {
 
 // Issue #28, for the confirmation: an open surface must never trap the
 // operator.
-func TestModel_ctrlCQuitsWhileTheConfirmationIsOpen_issue28(t *testing.T) {
+func TestModel_ctrlCEscapesWhileTheConfirmationIsOpen_issue28(t *testing.T) {
 	m, _ := modelWithArchive(t, &recordArchive{})
 	openArchive(t, m, "s1")
 
 	_, cmd := m.Update(ctrl('c'))
 
-	if !isQuit(cmd) {
-		t.Error("ctrl+c while the archive confirmation is open did not quit")
-	}
+	assertEscaped(t, m, cmd, "the archive confirmation")
 }
 
 // Invariant 1: the confirmation's keys are answers, not input for Claude.

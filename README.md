@@ -315,7 +315,7 @@ Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
 | `ctrl+o a` | register a project claude already knows you use |
 | `ctrl+o A` | adopt a claude session already in this project |
 | `ctrl+o ?` | show every key, starting with the ones for the face in front of you; `/` filters them |
-| `ctrl+o q` | quit |
+| `ctrl+o q` | quit; while a session works or a review note is unsent, it asks for a second `q` first. `ctrl+c` closes an open dialog rather than omatty |
 
 `ctrl+o s` ends a session's `claude` process and frees its memory (a few
 hundred MB each) without forgetting the session: its card keeps its status and

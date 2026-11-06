@@ -20,5 +20,5 @@
                             │  ctrl+o f         open or close the file tree     
                             │  ctrl+o g         open or close the gate pane     
                             │  ctrl+o i         open or close this project's iss
-                            │j/k scroll  / filter  esc close  ctrl+c quit       
- esc close  ctrl+c quit                                               3 sessions
+                            │j/k scroll  / filter  esc close                    
+ esc close                                                            3 sessions

@@ -337,14 +337,12 @@ func TestModel_theFooterShowsTheHelpKey_issue103(t *testing.T) {
 }
 
 // Issue #28, for the help modal.
-func TestModel_ctrlCQuitsWhileHelpIsOpen_issue28(t *testing.T) {
+func TestModel_ctrlCEscapesWhileHelpIsOpen_issue28(t *testing.T) {
 	m, _ := modelWithFakes(t)
 	press(m, ctrl('o'))
 	press(m, key('?'))
 
 	_, cmd := m.Update(ctrl('c'))
 
-	if !isQuit(cmd) {
-		t.Error("ctrl+c while the help modal is open did not quit")
-	}
+	assertEscaped(t, m, cmd, "the help modal")
 }
