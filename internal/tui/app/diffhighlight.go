@@ -81,7 +81,7 @@ func drawHunk(hl Highlighter, path string, lines []dreview.Line) hunkStyle {
 //
 // Each stream still starts at the hunk, not at the file: a hunk that opens
 // inside a raw string or a block comment is lexed as code. Priming the lexer
-// from the file's start is the follow-up the issue names.
+// from the file's start is #800.
 func lexSides(hl Highlighter, path string, lines []dreview.Line, plain []string) []string {
 	styled := append([]string(nil), plain...)
 	lexSide(hl, path, sideLines(lines, dreview.LineRemoved), plain, styled)
