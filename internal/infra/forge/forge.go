@@ -49,6 +49,7 @@ const finishedWindow = "30"
 type ghCLI struct {
 	bin     string
 	timeout time.Duration
+	fin     *finishedCache
 }
 
 // listTimeout bounds one poll of gh. A stalled gh - a laptop waking, a
@@ -65,12 +66,18 @@ const listTimeout = 30 * time.Second
 // repoRoot's remote and uses the operator's own authentication; omatty holds
 // nothing. Both calls share ctx: the promise is an answer inside thirty
 // seconds, not thirty seconds for each half of it (#356).
+//
+// The finished call is made only when the open set has moved, or every
+// finishedEvery polls (#594), keyed by repoRoot: gh resolves the repository
+// itself, so the checkout is the project.
 func (c ghCLI) listPRs(ctx context.Context, repoRoot string) ([]dforge.PR, error) {
 	open, err := c.list(ctx, repoRoot, "open", "100", openFields)
 	if err != nil {
 		return nil, err
 	}
-	finished, err := c.list(ctx, repoRoot, "closed", finishedWindow, finishedFields)
+	finished, err := c.fin.read(ctx, repoRoot, open, func(ctx context.Context) ([]dforge.PR, error) {
+		return c.list(ctx, repoRoot, "closed", finishedWindow, finishedFields)
+	})
 	if err != nil {
 		return nil, err
 	}

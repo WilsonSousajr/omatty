@@ -21,6 +21,7 @@ type bdcBackend struct {
 	key    string // the project key
 	slug   string // the repository slug
 	ci     *ciCache
+	fin    *finishedCache
 	open   func(url string) error
 }
 
@@ -47,17 +48,39 @@ func (b bdcBackend) repo() string {
 	return "api/1.0/projects/" + b.key + "/repos/" + b.slug
 }
 
+// dcLists is each pull request list listPRs reads: the open, then the
+// recently finished of each kind (#358).
+var dcLists = []string{"state=OPEN&limit=100", "state=MERGED&limit=" + finishedWindow, "state=DECLINED&limit=" + finishedWindow}
+
+// listPRs reads the open list, then the finished two only when the open set
+// has moved (#594).
 func (b bdcBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
+	open, err := b.lists(ctx, dcLists[:1])
+	if err != nil {
+		return nil, err
+	}
+	finished, err := b.fin.read(ctx, b.remote.Host+"/"+b.key+"/"+b.slug, open, func(ctx context.Context) ([]dforge.PR, error) {
+		return b.lists(ctx, dcLists[1:])
+	})
+	if err != nil {
+		return nil, err
+	}
+	all := append(open, finished...)
+	if err := b.ci.fill(ctx, all, b.ciKey, b.buildCI); err != nil {
+		return nil, err
+	}
+	return all, nil
+}
+
+// lists reads each of lists, in order, into one.
+func (b bdcBackend) lists(ctx context.Context, lists []string) ([]dforge.PR, error) {
 	var all []dforge.PR
-	for _, q := range []string{"state=OPEN&limit=100", "state=MERGED&limit=" + finishedWindow, "state=DECLINED&limit=" + finishedWindow} {
+	for _, q := range lists {
 		page, err := getJSON[bbPage[dcPR]](ctx, b.f, b.repo()+"/pull-requests?"+q+"&order=NEWEST")
 		if err != nil {
 			return nil, repoMissing(err)
 		}
 		all = append(all, foldDCPRs(page.Values)...)
-	}
-	if err := b.ci.fill(ctx, all, b.ciKey, b.buildCI); err != nil {
-		return nil, err
 	}
 	return all, nil
 }

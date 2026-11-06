@@ -29,10 +29,10 @@ func TestCICache_AsksTheLeastRecentlyAskedFirst_issue454(t *testing.T) {
 		return dforge.CIRunning, nil
 	}
 
-	c.fill(context.Background(), prs, key, ask)
+	_ = c.fill(context.Background(), prs, key, ask)
 	first := len(asked)
 	asked = nil
-	c.fill(context.Background(), prs, key, ask)
+	_ = c.fill(context.Background(), prs, key, ask)
 
 	seen := map[int]bool{}
 	for _, n := range asked {

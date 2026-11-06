@@ -38,7 +38,7 @@ func (r *Router) pickAzure(remote Remote) (backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	return azBackend{rest: r.rest, auth: a, env: env, base: base, project: project, repo: repo, host: remote.Host, ci: r.ci, open: r.open}, nil
+	return azBackend{rest: r.rest, auth: a, env: env, base: base, project: project, repo: repo, host: remote.Host, ci: r.ci, fin: r.fin, open: r.open}, nil
 }
 
 // azureAuth is how Azure DevOps is read: the PAT az devops itself reads, as
