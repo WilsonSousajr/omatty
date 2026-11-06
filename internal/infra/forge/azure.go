@@ -120,7 +120,9 @@ func (a azBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 		}
 		all = append(all, foldAzPRs(page.Value)...)
 	}
-	a.ci.fill(ctx, all, a.ciKey, a.policyCI)
+	if err := a.ci.fill(ctx, all, a.ciKey, a.policyCI); err != nil {
+		return nil, err
+	}
 	return all, nil
 }
 

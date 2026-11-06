@@ -56,7 +56,9 @@ func (b bdcBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) 
 		}
 		all = append(all, foldDCPRs(page.Values)...)
 	}
-	b.ci.fill(ctx, all, b.ciKey, b.buildCI)
+	if err := b.ci.fill(ctx, all, b.ciKey, b.buildCI); err != nil {
+		return nil, err
+	}
 	return all, nil
 }
 

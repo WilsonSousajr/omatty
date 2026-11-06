@@ -50,6 +50,9 @@ type Options struct {
 	// Transport is TransportAuto - CLI first, REST fallback - except in
 	// forgeprobe, which reads each transport by name (#463).
 	Transport Transport
+	// Now is the clock CI verdicts expire by and a rate limit's wait is read
+	// against (#594); nil is time.Now.
+	Now func() time.Time
 }
 
 // Transport is which way a Router may read a forge.
@@ -80,11 +83,15 @@ var labels = map[Kind]dforge.Label{
 
 // NewRouter builds a Router that runs each forge's own CLI from PATH.
 func NewRouter(o Options) *Router {
+	now := o.Now
+	if now == nil {
+		now = time.Now
+	}
 	return &Router{
 		remote: o.Remote, hosts: o.Hosts, transport: o.Transport,
 		bins: map[Kind]string{KindGitHub: "gh", KindGitLab: "glab", KindGitea: "tea", KindAzure: "az"}, sshBin: "ssh",
-		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(time.Now), open: openInBrowser,
-		ci: newCICache(), timeout: listTimeout, azWait: azTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{}, teaAPIs: map[string]bool{},
+		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(now), open: openInBrowser,
+		ci: newCICache(now), timeout: listTimeout, azWait: azTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{}, teaAPIs: map[string]bool{},
 	}
 }
 

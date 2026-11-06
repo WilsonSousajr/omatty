@@ -46,7 +46,9 @@ func (g glBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 		}
 		all = append(all, foldMRs(mrs)...)
 	}
-	g.ci.fill(ctx, all, g.ciKey, g.pipelineCI)
+	if err := g.ci.fill(ctx, all, g.ciKey, g.pipelineCI); err != nil {
+		return nil, err
+	}
 	return all, nil
 }
 

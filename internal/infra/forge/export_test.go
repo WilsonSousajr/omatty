@@ -132,7 +132,7 @@ func NewTestRouter(e TestEnv) *Router {
 	if e.API == "" {
 		e.API = "http://127.0.0.1:1"
 	}
-	r.rest = restTo(e.API)
+	r.rest = restTo(e.API, r.ci.now)
 	if e.Open != nil {
 		r.open = e.Open
 	}
@@ -147,12 +147,12 @@ func NewTestRouter(e TestEnv) *Router {
 
 // restTo is the REST client with every request sent to api, so production
 // keeps no base-URL override and a test still sees the host it was meant for.
-func restTo(api string) restClient {
+func restTo(api string, now func() time.Time) restClient {
 	base, err := url.Parse(api)
 	if err != nil {
 		panic(err)
 	}
-	c := newREST(time.Now)
+	c := newREST(now)
 	c.http.Transport = toServer{base: base}
 	return c
 }

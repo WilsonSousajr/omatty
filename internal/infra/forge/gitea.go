@@ -87,7 +87,9 @@ func (g gtBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 		return nil, g.listErr(ctx, err)
 	}
 	prs := append(foldGTPRs(open), foldGTPRs(finished)...)
-	g.ci.fill(ctx, prs, g.ciKey, g.statusCI)
+	if err := g.ci.fill(ctx, prs, g.ciKey, g.statusCI); err != nil {
+		return nil, err
+	}
 	return prs, nil
 }
 

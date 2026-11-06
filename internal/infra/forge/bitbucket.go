@@ -60,7 +60,9 @@ func (b bbBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 		return nil, bbListErr(err)
 	}
 	prs := append(foldBBPRs(open), foldBBPRs(finished.Values)...)
-	b.ci.fill(ctx, prs, b.ciKey, b.statusCI)
+	if err := b.ci.fill(ctx, prs, b.ciKey, b.statusCI); err != nil {
+		return nil, err
+	}
 	return prs, nil
 }
 

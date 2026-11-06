@@ -202,3 +202,14 @@ func TestBitbucket_SpeaksAndBrowses_issue460(t *testing.T) {
 		t.Errorf("opened %v, want %v", opened, want)
 	}
 }
+
+// A statuses read that meets the hourly limit fails the list with the limit,
+// so the TUI waits rather than showing every pull request as having no CI.
+func TestBitbucket_ListReturnsRateLimitFromCI_issue594(t *testing.T) {
+	api := &FakeBitbucketAPI{First: []giteaAnswer{{match: "/statuses", status: 429, body: `{}`}}}
+	_, err := bitbucketRouter(t, bitbucketToken, api).ListPRs(t.TempDir())
+	var limited *dforge.RateLimitError
+	if !errors.As(err, &limited) {
+		t.Errorf("ListPRs = %v, want a RateLimitError", err)
+	}
+}
