@@ -129,13 +129,17 @@ func called(args []string) string {
 	return args[0] + " " + args[1]
 }
 
-// classify names a checkout that is not on GitHub, and carries gh's own
-// words for anything else.
+// classify names a checkout that is not on GitHub, and a rate limit - gh's
+// own lists carry no status, only its words, and this path is gh against
+// github.com alone (#594) - and carries gh's own words for anything else.
 func classify(repoRoot, call, stderr string, err error) error {
 	for _, s := range notGitHub {
 		if strings.Contains(stderr, s) {
 			return fmt.Errorf("forge: %s: %w", stderr, dforge.ErrNoForge)
 		}
+	}
+	if saysRateLimit(stderr) {
+		return &dforge.RateLimitError{Host: "github.com"}
 	}
 	return fmt.Errorf("forge: gh %s in %q: %s: %w", call, repoRoot, stderr, err)
 }

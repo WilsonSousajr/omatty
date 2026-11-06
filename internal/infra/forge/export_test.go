@@ -83,7 +83,7 @@ const BodyMax = bodyMax
 func RESTGet(srv *httptest.Server, url string, a Auth, tokenEnv string, bound time.Duration) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), bound)
 	defer cancel()
-	c := newREST()
+	c := newREST(time.Now)
 	c.http.Transport = srv.Client().Transport
 	return c.get(ctx, url, a, tokenEnv)
 }
@@ -152,7 +152,7 @@ func restTo(api string) restClient {
 	if err != nil {
 		panic(err)
 	}
-	c := newREST()
+	c := newREST(time.Now)
 	c.http.Transport = toServer{base: base}
 	return c
 }
@@ -166,3 +166,19 @@ func (t toServer) RoundTrip(req *http.Request) (*http.Response, error) {
 	out.URL.Scheme, out.URL.Host, out.Host = t.base.Scheme, t.base.Host, t.base.Host
 	return http.DefaultTransport.RoundTrip(out)
 }
+
+// RESTGetAt is RESTGet on a client whose clock reads now, for the time a
+// rate limit names (#594).
+func RESTGetAt(srv *httptest.Server, url string, a Auth, tokenEnv string, now time.Time) ([]byte, error) {
+	c := newREST(func() time.Time { return now })
+	c.http.Transport = srv.Client().Transport
+	return c.get(context.Background(), url, a, tokenEnv)
+}
+
+// RetryAt, StatusError and Classify are the three places a forge's answer
+// becomes a rate limit (#594).
+var (
+	RetryAt     = retryAt
+	StatusError = statusError
+	Classify    = classify
+)

@@ -85,8 +85,14 @@ func apiFailure(host, bin, stderr string, err error) error {
 
 // statusError is a CLI's HTTP status sorted the way answerError sorts a REST
 // one: 404 is errNotFound for the backend to judge, 401 and 403 a login the
-// forge refused, anything else an outage carrying the CLI's own words.
+// forge refused, anything else an outage carrying the CLI's own words. A 429,
+// or a 401/403 whose words name a rate limit, is a RateLimitError with no time:
+// the CLI keeps the headers to itself (#594).
 func statusError(host, bin string, status int, said string) error {
+	switch {
+	case status == 429, (status == 401 || status == 403) && saysRateLimit(said):
+		return &dforge.RateLimitError{Host: host}
+	}
 	switch status {
 	case 404:
 		return fmt.Errorf("forge: %s: %s: %w", host, said, errNotFound)

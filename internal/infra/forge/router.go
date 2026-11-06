@@ -83,7 +83,7 @@ func NewRouter(o Options) *Router {
 	return &Router{
 		remote: o.Remote, hosts: o.Hosts, transport: o.Transport,
 		bins: map[Kind]string{KindGitHub: "gh", KindGitLab: "glab", KindGitea: "tea", KindAzure: "az"}, sshBin: "ssh",
-		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(), open: openInBrowser,
+		lookPath: exec.LookPath, getenv: os.Getenv, rest: newREST(time.Now), open: openInBrowser,
 		ci: newCICache(), timeout: listTimeout, azWait: azTimeout, seen: map[string]resolved{}, teaLogins: map[string]string{}, teaAPIs: map[string]bool{},
 	}
 }
