@@ -185,3 +185,6 @@ var (
 
 // WebBase is the remote as a browser reaches it (#585).
 var WebBase = webBase
+
+// NamesInstance is whether a URL names the instance a remote is on (#585).
+var NamesInstance = namesInstance

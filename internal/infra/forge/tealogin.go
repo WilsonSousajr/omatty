@@ -144,10 +144,17 @@ func (l teaLoginEntry) serves(remote Remote) bool {
 // namesInstance is whether rawURL is the instance remote is on: hosts in any
 // case; an ssh remote by host alone, since its port is ssh's; an http(s)
 // remote by host and port, a scheme's default port written or not. A tea
-// login (#458) and BITBUCKET_DC_URL (#461) are matched the same way.
+// login (#458) and BITBUCKET_DC_URL (#461) are matched the same way. A remote
+// under a rooted [forge.hosts] key is matched by its root too (#585): one host
+// can serve two forges, and a token is for one of them. A remote with no root
+// keeps the host-and-port rule, so a context path in BITBUCKET_DC_URL - which
+// an ssh clone reads its own from - still binds.
 func namesInstance(rawURL string, remote Remote) bool {
 	u, err := url.Parse(rawURL)
 	if err != nil || !strings.EqualFold(u.Hostname(), remote.Host) {
+		return false
+	}
+	if len(remote.Root) > 0 && strings.Trim(u.Path, "/") != strings.Join(remote.Root, "/") {
 		return false
 	}
 	return remote.Scheme == "ssh" || webPort(u.Scheme, u.Port()) == webPort(remote.Scheme, remote.Port)
