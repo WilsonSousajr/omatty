@@ -21,6 +21,25 @@ type LabelFunc func(projectRoot string) forge.Label
 // machine whose gh is missing, so the words are gh's forge's too.
 func unwiredLabel(string) forge.Label { return forge.GitHub }
 
+// HostFunc names the host a project's forge is on, "" when it is not known
+// yet (#594).
+//
+//	d.Host = func(string) string { return "gitlab.com" }
+type HostFunc func(projectRoot string) string
+
+// unwiredHost is the Deps.Host default: no host known, so each project waits
+// out a rate limit alone.
+func unwiredHost(string) string { return "" }
+
+// host is the key a project's rate-limit wait is kept under: its forge's host,
+// or the project itself while the host is not known.
+func (m *Model) host(project string) string {
+	if h := m.hostOf(m.projectRoot(project)); h != "" {
+		return h
+	}
+	return project
+}
+
 // label is the project's forge words, looked up by its name.
 func (m *Model) label(project string) forge.Label { return m.labelOf(m.projectRoot(project)) }
 

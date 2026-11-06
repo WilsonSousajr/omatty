@@ -144,6 +144,7 @@ type Model struct {
 	noTracker    map[string]bool                 // the forge keeps no issues for it (#460)
 	trackerFolds map[string]map[trackerKind]bool // the tracker sections tab folded, per project (#663)
 	labelOf      LabelFunc
+	hostOf       HostFunc
 	turnPending  map[string]bool
 	turnErr      map[string]error
 	// covers is each session's coverage overlay, read when its gate finishes
@@ -278,6 +279,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.generatedFn, m.ship, m.tally = d.Generated, d.Ship, d.Tally
 	m.turn, m.hooksDown = d.Turn, d.HooksDown
 	m.prList, m.issueList, m.itemFuncs, m.browse, m.labelOf = d.PRs, d.Issues, d.Item, d.Browse, d.Label
+	m.hostOf = d.Host
 	m.rename, m.name, m.archive = d.Rename, d.Name, d.Archive
 	m.rebind, m.agents, m.defaultAgent, m.setProjectAgent, m.agentCaps = d.Rebind, d.Agents, d.DefaultAgent, d.SetProjectAgent, d.AgentCaps
 	m.renameBranch = d.RenameBranch

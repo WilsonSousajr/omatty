@@ -158,6 +158,10 @@ type Deps struct {
 	// Label names each project's forge and its unit of change for the copy
 	// (#449). Unwired, it is GitHub's, matching the missing gh above.
 	Label LabelFunc
+	// Host names the host each project's forge is on, so a rate limit waits
+	// for every project on it (#594). Unwired, it is "": each project waits
+	// alone.
+	Host HostFunc
 	// Rename persists a session's new title (#41), and Name reads the first
 	// prompt that titles a session created without one (#127).
 	Rename RenameFunc
@@ -269,6 +273,9 @@ func (d Deps) withPRDefaults() Deps {
 		d.Issues = noIssues
 	}
 	d.Item, d.Browse = d.Item.orUnwired(), d.Browse.orUnwired()
+	if d.Host == nil {
+		d.Host = unwiredHost
+	}
 	if d.Label == nil {
 		d.Label = unwiredLabel
 	}

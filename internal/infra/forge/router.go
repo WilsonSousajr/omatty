@@ -147,6 +147,20 @@ func (r *Router) Label(repoRoot string) dforge.Label {
 	return labelOf(res)
 }
 
+// Host is the host repoRoot's remote is on - "bitbucket.org" - or "" when the
+// project has not been resolved yet. Like Label it never resolves: the TUI
+// keys a rate limit's wait by it, since the quota is the account's on that
+// host, shared by every project there (#594).
+//
+//	router.Host("/src/app") // "gitlab.com"
+func (r *Router) Host(repoRoot string) string {
+	res, ok := r.cached(repoRoot)
+	if !ok {
+		return ""
+	}
+	return res.remote.Host
+}
+
 // labelOf is a resolved project's words: its kind's, and for a Gitea host the
 // name the operator knows it by.
 func labelOf(res resolved) dforge.Label {

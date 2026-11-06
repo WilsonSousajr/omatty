@@ -296,3 +296,19 @@ func TestRouter_AHostGhDoesNotKnowIsErrNoForge_issue579(t *testing.T) {
 		}
 	}
 }
+
+// The TUI waits out a rate limit per host, since the quota is the account's
+// (#594): it asks the Router which host a project is on. Never resolving -
+// Label's rule - so a project not polled yet is "" rather than a git call
+// from the render path.
+func TestRouter_HostIsTheResolvedRemotes_issue594(t *testing.T) {
+	r := bitbucketRouter(t, bitbucketToken, &FakeBitbucketAPI{})
+	root := t.TempDir()
+	if got := r.Host(root); got != "" {
+		t.Errorf("Host before any call = %q, want \"\"", got)
+	}
+	_, _ = r.ListPRs(root)
+	if got := r.Host(root); got != "bitbucket.org" {
+		t.Errorf("Host = %q, want bitbucket.org", got)
+	}
+}
