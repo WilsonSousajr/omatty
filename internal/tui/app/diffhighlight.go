@@ -64,12 +64,58 @@ func drawHunk(hl Highlighter, path string, lines []dreview.Line) hunkStyle {
 	for i, l := range lines {
 		plain[i] = expandTabs(l.Text)
 	}
-	styled, spans := hl.Lines(path, plain), wordSpans(lines, plain)
+	styled, spans := lexSides(hl, path, lines, plain), wordSpans(lines, plain)
 	drawn := make([]string, len(lines))
 	for i, l := range lines {
 		drawn[i] = drawLine(styled[i], plain[i], spans[i], l.Kind)
 	}
 	return hunkStyle{drawn: drawn}
+}
+
+// lexSides colours a hunk as the two files it compares. The new side - context
+// and added lines - and the old side - context and removed lines - are each
+// one stream to the lexer, and each line takes its colours from its own side.
+// Lexed together, a quote a removed line left open turned every line after it
+// into a string (#764). Context lines are lexed in both and drawn from the
+// new side, the file as it reads now.
+//
+// Each stream still starts at the hunk, not at the file: a hunk that opens
+// inside a raw string or a block comment is lexed as code. Priming the lexer
+// from the file's start is the follow-up the issue names.
+func lexSides(hl Highlighter, path string, lines []dreview.Line, plain []string) []string {
+	styled := append([]string(nil), plain...)
+	lexSide(hl, path, sideLines(lines, dreview.LineRemoved), plain, styled)
+	lexSide(hl, path, sideLines(lines, dreview.LineAdded), plain, styled) // second: context is drawn from the new side
+	return styled
+}
+
+// lexSide lexes the lines at idx as one stream and writes their colours into
+// styled. A highlighter that answers with a different number of lines leaves
+// them plain rather than shifting one line's colours onto another.
+func lexSide(hl Highlighter, path string, idx []int, plain, styled []string) {
+	text := make([]string, len(idx))
+	for k, i := range idx {
+		text[k] = plain[i]
+	}
+	out := hl.Lines(path, text)
+	if len(out) != len(idx) {
+		return
+	}
+	for k, i := range idx {
+		styled[i] = out[k]
+	}
+}
+
+// sideLines is the indexes of the lines one side of the hunk holds: its own
+// kind and the context the two share.
+func sideLines(lines []dreview.Line, side dreview.LineKind) []int {
+	var idx []int
+	for i, l := range lines {
+		if l.Kind == side || l.Kind == dreview.LineContext {
+			idx = append(idx, i)
+		}
+	}
+	return idx
 }
 
 // drawLine is one line's text as drawn: its changed words on the emphasis
