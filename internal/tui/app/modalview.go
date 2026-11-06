@@ -251,6 +251,9 @@ func modalName(md modal) string {
 	if md.Kind != modalPrompt {
 		return modalNames[md.Kind]
 	}
+	if md.Pending.Title != "" {
+		return "new worktree session for " + md.Pending.Title // from the tracker (#777)
+	}
 	if md.Editor.Worktree {
 		return "new worktree session"
 	}

@@ -55,14 +55,25 @@ func (m *Model) submitPrompt() tea.Cmd {
 		branch = m.modal.Editor.Buffer
 	}
 	m.lastErr = ""
-	project := m.SelectedProject()
-	title := m.modal.Editor.Buffer
+	project, title := m.promptTarget()
 	m.modal = modal{}
 	// Registering the session, then starting its terminal, then rebuilding
 	// the sidebar so it is visible and focused (issue #32) - each off the
 	// Update goroutine since #653, answered by onSessionCreated and
 	// onSessionStarted.
 	return m.askAgent(sessions.NewSession{Project: project, Title: title, Branch: branch, Worktree: worktree})
+}
+
+// promptTarget is the project and title a committed prompt creates. A prompt
+// the tracker opened carries both in Pending, with the buffer only the branch,
+// and hands the keys to the new session the way the tracker always did (#777);
+// any other prompt is the selected project, titled by what was typed.
+func (m *Model) promptTarget() (project, title string) {
+	if p := m.modal.Pending; p.Title != "" {
+		m.review.Focused = false
+		return p.Project, p.Title
+	}
+	return m.SelectedProject(), m.modal.Editor.Buffer
 }
 
 // foldInSession brings a session omatty has just learned about into the running
