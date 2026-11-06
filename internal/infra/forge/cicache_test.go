@@ -137,3 +137,25 @@ func TestCIFill_RateLimitStopsAsks_issue594(t *testing.T) {
 		}
 	}
 }
+
+// #594's review: a verdict's time is the poll's, not the answer's. Kept from
+// when a slow answer landed, a running change outlived the next tick - a
+// minute after the last - and was asked every second poll, not every poll.
+func TestCICache_KeepIsCountedFromThePoll_issue594(t *testing.T) {
+	clock := &fakeClock{at: time.Date(2026, 11, 6, 15, 0, 0, 0, time.UTC)}
+	c := newCICache(clock.now)
+	prs, key, _, _ := oneOpen(dforge.CIRunning)
+	asks := 0
+	slow := func(context.Context, dforge.PR) (dforge.CIState, error) {
+		asks++
+		clock.at = clock.at.Add(5 * time.Second) // the answer's latency
+		return dforge.CIRunning, nil
+	}
+	start := clock.at
+	_ = c.fill(context.Background(), prs, key, slow)
+	clock.at = start.Add(ciKeepRunning)
+	_ = c.fill(context.Background(), prs, key, slow)
+	if asks != 2 {
+		t.Errorf("asks = %d, want 2: the next poll, a minute after the first began, asks again", asks)
+	}
+}

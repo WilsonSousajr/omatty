@@ -31,7 +31,7 @@ func (m *Model) trackerTitleParts() []titlePart {
 		// complete one (#285).
 		parts = append(parts, titlePart{text: "/" + q, priority: keepAlways})
 	}
-	if m.issueFailed[project] || m.prFailed[project] {
+	if m.issueFailed[project] || m.prFailed[project] || m.waitingOn(project) {
 		// keepFlag, as the card's "?" is: a stale list shown as current is this
 		// view's worst failure (Orca #18484).
 		parts = append(parts, titlePart{text: m.unknownMark(project), priority: keepFlag})

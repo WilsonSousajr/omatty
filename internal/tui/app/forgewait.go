@@ -33,7 +33,9 @@ func (m *Model) waitHost(project string, err error) bool {
 	}
 	host := m.host(project)
 	w := m.forgeWait[host]
-	if limited.Until.IsZero() {
+	// A time already past - Retry-After: 0, or a clock ahead of the forge's -
+	// is no wait at all, so it backs off as if none was named.
+	if !limited.Until.After(m.clock()) {
 		w.backoff = min(max(w.backoff*2, waitFirst), waitMost)
 		w.until = m.clock().Add(w.backoff)
 	} else {
@@ -48,6 +50,13 @@ func (m *Model) waitHost(project string, err error) bool {
 func (m *Model) hostWaiting(project string) (time.Time, bool) {
 	w, ok := m.forgeWait[m.host(project)]
 	return w.until, ok && m.clock().Before(w.until)
+}
+
+// waitingOn is whether project's host is waiting out a rate limit: nothing on
+// it is being read, so what it last read is not current (#594's review).
+func (m *Model) waitingOn(project string) bool {
+	_, waiting := m.hostWaiting(project)
+	return waiting
 }
 
 // hostAnswered lifts the wait on project's host once it is over, and resets

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/WilsonSousajr/omatty/internal/domain/forge"
+	"github.com/WilsonSousajr/omatty/internal/service/review"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
 )
 
@@ -160,5 +161,36 @@ func TestTracker_AWaitKeepsTheRowsAndTitlesTheTime_issue594(t *testing.T) {
 	body := stripSGR(trackerBody(t, m))
 	if !strings.Contains(body, "#399") || !strings.Contains(body, "? until 12:10") {
 		t.Errorf("want #399 kept and the title saying \"? until 12:10\":\n%s", body)
+	}
+}
+
+// Final review of #594: a project held for its sibling's rate limit is not
+// being read either, so its card and its tracker title say "?" rather than
+// show the last verdict as current - the failure the card's "?" exists for
+// (Orca #18484).
+func TestPRPoll_AHeldSiblingShowsUnknown_issue594(t *testing.T) {
+	m, _, fp, clock := onHosts(t)
+	size(m)
+	m.SetRepoStat("s3", review.Stat{Branch: "fix"})
+	fp.Lists["/p/api-svc"] = []forge.PR{{Number: 12, Branch: "fix", State: forge.Open, CI: forge.CIPassing}}
+	deliver(m, m.PollPRs())
+	fp.Errs["/p/omatty"] = limited(fixedNow.Add(10 * time.Minute))
+	*clock = fixedNow.Add(time.Minute)
+	deliver(m, m.PollPRs())
+
+	if card := stripSGR(strings.Join(m.CardOf("s3"), "\n")); !strings.Contains(card, "#12 ?") {
+		t.Errorf("api-svc's card = %q, want \"#12 ?\" while its host waits", card)
+	}
+}
+
+// A time the forge named that is already past - Retry-After: 0, or a clock
+// ahead of the forge's - is no wait at all; it backs off as if none was named.
+func TestPRPoll_APastTimeBacksOff_issue594(t *testing.T) {
+	m, _, fp, clock := onHosts(t)
+	*clock = fixedNow.Add(time.Hour)
+	fp.Errs["/p/omatty"] = limited(fixedNow)
+	deliver(m, m.PollPRs())
+	if got := m.HostWaitUntil("omatty").Sub(*clock); got != 5*time.Minute {
+		t.Errorf("wait = %v, want the 5m backoff for a time already past", got)
 	}
 }

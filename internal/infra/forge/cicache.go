@@ -65,6 +65,10 @@ const ciParallel = 6
 func (c *ciCache) fill(ctx context.Context, prs []dforge.PR, key func(dforge.PR) string, ask func(context.Context, dforge.PR) (dforge.CIState, error)) error {
 	var wg sync.WaitGroup
 	var limit limitSeen
+	// A verdict's time is the poll's: kept from when a slow answer landed, a
+	// running change outlived the next tick and was asked every second poll
+	// (#594's review).
+	at := c.now()
 	slots := make(chan struct{}, ciParallel)
 	for _, i := range c.unknown(prs, key) {
 		slots <- struct{}{}
@@ -74,15 +78,16 @@ func (c *ciCache) fill(ctx context.Context, prs []dforge.PR, key func(dforge.PR)
 		}
 		wg.Go(func() {
 			defer func() { <-slots }()
-			c.askOne(ctx, &prs[i], key, ask, &limit)
+			c.askOne(ctx, &prs[i], key, ask, at, &limit)
 		})
 	}
 	wg.Wait()
 	return limit.get()
 }
 
-// askOne reads one change's CI into pr, keeping a rate limit in limit.
-func (c *ciCache) askOne(ctx context.Context, pr *dforge.PR, key func(dforge.PR) string, ask func(context.Context, dforge.PR) (dforge.CIState, error), limit *limitSeen) {
+// askOne reads one change's CI into pr as of at, keeping a rate limit in
+// limit.
+func (c *ciCache) askOne(ctx context.Context, pr *dforge.PR, key func(dforge.PR) string, ask func(context.Context, dforge.PR) (dforge.CIState, error), at time.Time, limit *limitSeen) {
 	state, err := ask(ctx, *pr)
 	var limited *dforge.RateLimitError
 	switch {
@@ -90,7 +95,7 @@ func (c *ciCache) askOne(ctx context.Context, pr *dforge.PR, key func(dforge.PR)
 		limit.set(err)
 	case err == nil:
 		pr.CI = state
-		c.remember(key(*pr), state)
+		c.remember(key(*pr), state, at)
 	}
 }
 
@@ -116,9 +121,9 @@ func (l *limitSeen) get() error {
 
 // unknown fills in every verdict already known and returns the changes still
 // to ask, at most ciAsks of them: the least recently asked first, and among
-// those the most recently updated. A running change is never kept, so without
-// the rotation the same thirty would be asked every poll and the rest never
-// (#454's review).
+// those the most recently updated. A running change is kept only a minute
+// (#594), so without the rotation the same thirty would be asked on every
+// expiry and the rest never (#454's review).
 func (c *ciCache) unknown(prs []dforge.PR, key func(dforge.PR) string) []int {
 	var ask []int
 	for _, i := range byRecency(prs) {
@@ -155,10 +160,10 @@ func (c *ciCache) known(key string) (dforge.CIState, bool) {
 // while and then asked again: a flaky job retried, or a pipeline run again,
 // changes the verdict on the same head (#454's review). Running and none are
 // kept a while too (#594).
-func (c *ciCache) remember(key string, state dforge.CIState) {
+func (c *ciCache) remember(key string, state dforge.CIState, at time.Time) {
 	v := ciVerdict{state: state}
 	if keep := ciKeep(state); keep > 0 {
-		v.until = c.now().Add(keep)
+		v.until = at.Add(keep)
 	}
 	c.mu.Lock()
 	c.done[key] = v
