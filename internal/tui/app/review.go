@@ -90,10 +90,12 @@ type ReviewPane struct {
 	// turn scope draws, TurnErr its last load's error (ErrNoTurn is a notice,
 	// not a failure), and TurnReady whether a load has answered since the
 	// scope was entered - until it has, the column says it is reading.
+	// DiffReady is TurnReady for the whole session; no "no changes" before it (#762).
 	Scope     reviewScope
 	TurnDiff  dreview.Diff
 	TurnErr   error
 	TurnReady bool
+	DiffReady bool
 	DiffList  listWindow // the cursor over Entries (#424)
 	Err       string
 	Note      noteEditor
@@ -362,7 +364,7 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 		return nil
 	}
 	m.review.Err = ""
-	m.review.Diff = msg.Diff
+	m.review.Diff, m.review.DiffReady = msg.Diff, true
 	// Only a diff that actually loaded may prune: rebuildEntries also runs
 	// before the first load, against an empty diff every comment misses.
 	m.commentsFor(msg.SessionID).PruneSent(msg.Diff)
