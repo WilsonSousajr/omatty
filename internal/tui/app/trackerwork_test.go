@@ -58,15 +58,17 @@ func workModel(t *testing.T) (*app.Model, *recordCreate, *FakeBrowse, map[string
 	return m, create, browse, fakes
 }
 
-// n on an issue is the whole point of showing them: a worktree session named
-// and branched from the issue, without typing either.
-func TestTrackerWork_NStartsAWorktreeSessionOnTheIssue_issue398(t *testing.T) {
+// S on an issue is the whole point of showing them: a worktree session named
+// and branched from the issue, without typing either. It was n until #777, and
+// since #777 it opens the worktree prompt with the branch filled in, so the
+// session starts on enter rather than on one key.
+func TestTrackerWork_SStartsAWorktreeSessionOnTheIssue_issue398(t *testing.T) {
 	m, create, _, _ := workModel(t)
 
-	pressDeliver(m, key('n'))
+	startFromTracker(m)
 
 	if create.Calls != 1 {
-		t.Fatalf("n created %d sessions, want 1", create.Calls)
+		t.Fatalf("S and enter created %d sessions, want 1", create.Calls)
 	}
 	if create.Project != "omatty" || !create.Worktree {
 		t.Errorf("created in %q worktree=%v, want omatty on a worktree", create.Project, create.Worktree)
@@ -83,30 +85,30 @@ func TestTrackerWork_NStartsAWorktreeSessionOnTheIssue_issue398(t *testing.T) {
 
 // The keys go to the new session, so the next thing typed is a prompt to it -
 // what attachPath does after pasting (#199).
-func TestTrackerWork_NHandsTheKeysToTheNewSession_issue398(t *testing.T) {
+func TestTrackerWork_SHandsTheKeysToTheNewSession_issue398(t *testing.T) {
 	m, _, _, _ := workModel(t)
 
-	pressDeliver(m, key('n'))
+	startFromTracker(m)
 
 	if m.ReviewFocused() {
-		t.Error("after n the tracker still owns the keyboard; want the new session to")
+		t.Error("after S and enter the tracker still owns the keyboard; want the new session to")
 	}
 }
 
-// n on a pull request row refuses and says why: it already has a branch, and
+// S on a pull request row refuses and says why: it already has a branch, and
 // checking one out is a different operation from starting work on an issue.
-func TestTrackerWork_NOnAPullRequestSaysWhyNot_issue398(t *testing.T) {
+func TestTrackerWork_SOnAPullRequestSaysWhyNot_issue398(t *testing.T) {
 	m, create, _, _ := workModel(t)
 	pressDeliver(m, key('j')) // over the rule
 	pressDeliver(m, key('j'))
 
-	pressDeliver(m, key('n'))
+	pressDeliver(m, shiftS)
 
-	if create.Calls != 0 {
-		t.Errorf("n on a pull request created %d sessions, want none", create.Calls)
+	if create.Calls != 0 || m.ModalOpen() {
+		t.Errorf("S on a pull request created %d sessions, modal open %v; want neither", create.Calls, m.ModalOpen())
 	}
 	if body := trackerBody(t, m); !strings.Contains(body, "already has a branch") {
-		t.Errorf("the footer does not say why n refused:\n%s", body)
+		t.Errorf("the footer does not say why S refused:\n%s", body)
 	}
 }
 
@@ -197,7 +199,7 @@ func TestTrackerWork_TheKeysWorkFromAnOpenItem_issue398(t *testing.T) {
 	}
 
 	pressDeliver(m, key('b'))
-	pressDeliver(m, key('n'))
+	startFromTracker(m)
 
 	if len(browse.Asked) != 1 || create.Calls != 1 {
 		t.Errorf("from an item: browsed %v, created %d; want one of each", browse.Asked, create.Calls)

@@ -127,12 +127,13 @@ func TestTrackerWork_AAttachesAChangeInItsForgesWords_issue449(t *testing.T) {
 	}
 }
 
-// n on a change refuses in the forge's words too.
-func TestTrackerWork_NOnAChangeNamesItWithItsSigil_issue449(t *testing.T) {
+// S on a change refuses in the forge's words too. It was n until #777 moved
+// starting a session to S.
+func TestTrackerWork_SOnAChangeNamesItWithItsSigil_issue449(t *testing.T) {
 	m, _ := gitLabTracker(t, nil)
 	onTheChange(m)
 
-	pressDeliver(m, key('n'))
+	pressDeliver(m, shiftS)
 
 	if body := trackerBody(t, m); !strings.Contains(body, "!400 already has a branch") {
 		t.Errorf("the refusal does not name !400:\n%s", body)
