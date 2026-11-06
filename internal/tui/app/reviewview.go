@@ -67,6 +67,9 @@ func (m *Model) reviewBody(w, rows int) []string {
 			return noticeLines(lines, isErr, w)
 		}
 	}
+	if m.review.Scope != scopeTurn && !m.review.DiffReady {
+		return noticeLines([]string{"loading the diff..."}, false, w)
+	}
 	if len(m.review.Entries) == 0 {
 		return []string{theme.Muted.Render(m.noChanges())}
 	}
