@@ -96,7 +96,7 @@ func gateWindowOffset(offset, lines, h int) int {
 
 // gateView is the report's rows in the window, panned like every face's
 // (#447: it was the one face whose rows ignored h and l) and with the cursor's
-// row in reverse video (#424).
+// row on the cursor's ground (#424, #763).
 func (m *Model) gateView(report gate.Report, h int) []string {
 	plain, styled := m.gateLines(report), m.gateLinesWith(report, m.glyphs.cell)
 	off := gateWindowOffset(m.review.GateOffset, len(plain), h)
@@ -110,7 +110,7 @@ func (m *Model) gateView(report gate.Report, h int) []string {
 		if !rows[i] {
 			row = highlightMatches(row, m.review.GateSearch.Query) // output, not a step (#429)
 		}
-		out = append(out, m.gateRow(plain[i], row, i == cursor, w))
+		out = append(out, m.gateRow(row, i == cursor, w))
 	}
 	return out
 }
@@ -124,14 +124,16 @@ func stepRows(spans []gateSpan) map[int]bool {
 	return rows
 }
 
-// gateRow is one drawn line of the gate, panned and fitted to the column: its
-// verdict coloured (#425), or plain in reverse video on the cursor row, where a
-// colour run inside would end the reverse part-way along it.
-func (m *Model) gateRow(plain, styled string, cursor bool, w int) string {
+// gateRow is one drawn line of the gate, panned and fitted to the column, its
+// verdict coloured (#425). The cursor row keeps the colour on the cursor's
+// ground: reverse video had to drop it, since a colour run inside would end
+// the reverse part-way along (#763).
+func (m *Model) gateRow(styled string, cursor bool, w int) string {
+	row := m.fitStyled(styled, w)
 	if cursor {
-		return theme.Cursor.Render(m.fitContent(plain, w))
+		return theme.UnderCursor(row, w)
 	}
-	return m.fitStyled(styled, w)
+	return row
 }
 
 // pageGate moves the gate by delta presses of j or k, bounded by how many

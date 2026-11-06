@@ -119,7 +119,7 @@ func (m *Model) trackerNote() string {
 func (m *Model) ruleLine(r trackerRow, selected bool, w int) string {
 	line := fitLine(labelledRule(r.Title, w), w)
 	if selected {
-		return theme.Cursor.Render(line)
+		return theme.UnderCursor(line, w) // one cursor on every face (#424, #763)
 	}
 	return line
 }
@@ -141,7 +141,7 @@ func (m *Model) trackerLine(r trackerRow, selected bool, numW int) string {
 	lead, age := trackerParts(r, m.clock(), w, numW)
 	text := m.fitContent(lead, w-len(trackerAgeGap)-trackerAgeCols) + trackerAgeGap + age
 	if selected {
-		return theme.Cursor.Render(text)
+		return theme.UnderCursor(text, w)
 	}
 	return text
 }

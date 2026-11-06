@@ -56,7 +56,11 @@ func (m *Model) treeLines(nodes []dreview.TreeNode, w, rows int) []string {
 		mark := m.reviewMark(nodes[i].Path, nodes[i].IsDir)
 		collapsed := m.review.Tree.Collapsed(nodes[i].Path)
 		text := m.fitContent(treeText(nodes[i], collapsed, mark, m.treeIcon(nodes[i], collapsed)), w)
-		out = append(out, treeStyle(nodes[i], i == m.review.Files.Cursor, mark).Render(text))
+		row := treeStyle(nodes[i], mark).Render(text)
+		if i == m.review.Files.Cursor {
+			row = theme.UnderCursor(row, w) // its change colour kept (#763)
+		}
+		out = append(out, row)
 	}
 	return out
 }
@@ -105,12 +109,10 @@ func changeLetter(c dreview.Change) string {
 // treeStyle colours a row by its change in the hues the diff already gives
 // those states - green added, red removed - and amber for a modified or
 // renamed file, the operator's-attention hue; that is what keeps style.go's
-// one-hue-one-meaning rule with no new colour (#196). The cursor's reverse
-// wins over all of them so the row is found at a glance.
-func treeStyle(n dreview.TreeNode, cursor bool, mark string) lipgloss.Style {
+// one-hue-one-meaning rule with no new colour (#196). The cursor row keeps
+// its colour on the cursor's ground; reverse video used to win over it (#763).
+func treeStyle(n dreview.TreeNode, mark string) lipgloss.Style {
 	switch {
-	case cursor:
-		return theme.Cursor
 	// A file read and unchanged since is the one row worth making quieter
 	// than the rest: it is done, and the point of the mark is to stop the eye
 	// going back to it. A changed-since row keeps its change colour, because
