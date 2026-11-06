@@ -1593,7 +1593,12 @@ both Bitbucket backends, and open and merge on every forge but Azure DevOps.
 
 **What it left**, each in Backlog with the `M16` label: #585, a self-managed
 forge under a relative URL root; #594, Bitbucket Cloud's hourly request limit,
-reachable by two projects polled with no CI; #596, Azure DevOps Server.
+reachable by two projects polled with no CI; #596, Azure DevOps Server. The
+close-out (`docs/superpowers/specs/2026-11-06-omatty-m16-closeout-design.md`)
+takes them in that order. **#594 is fixed** for every forge: a CI verdict
+other than a pass is kept for minutes rather than asked every poll, the
+finished list is read only when the open set moves, and a 429 is waited out
+per host, for the time it named or a backoff of five minutes to an hour.
 
 ## M17 - The Agents
 

@@ -839,8 +839,13 @@ omatty reads each project's pull requests - the open ones, then the thirty most
 recently finished - when omatty regains focus, when a session finishes a turn,
 and every minute while it has focus - never while it is in the background,
 never more than once in thirty seconds for one project, and never for longer
-than thirty seconds. A check verdict that is final is kept for its commit and
-not asked again. For a repository on no forge omatty reads, the card shows the
+than thirty seconds. A passing check is kept for its commit and not asked
+again; a failing or missing one is asked again after five minutes, a running
+one after one. The recently finished list is read again only when the open
+ones change, or every ten polls. A forge that answers "too many requests"
+is not asked again - for any project on that host - until the time it named,
+or, when it named none, for five minutes, doubling up to an hour; the
+tracker's title says until when. For a repository on no forge omatty reads, the card shows the
 branch as before and says so once in the log. A pull request from a fork is
 never taken for the session's, whatever its branch is called; a session on the
 main checkout shows open pull requests only, and a merged or closed one shows
