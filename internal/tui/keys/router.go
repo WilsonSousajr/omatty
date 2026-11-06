@@ -5,6 +5,7 @@
 // every key reaches the PTY except the leader. Never inspect a key and guess
 // whether Claude wants it - guessing is what broke the earlier LazyVim
 // attempt, because Claude Code binds esc, shift+tab, ctrl+r and ctrl+c.
+// The leader pressed twice sends the leader itself through (#747).
 package keys
 
 // Route is what omatty does with a keystroke.
@@ -57,6 +58,18 @@ func (r *Router) Pending() bool { return r.pending }
 //	m.router.Arm() // the next key is a command
 func (r *Router) Arm() { r.pending = true }
 
+// afterLeader routes the key that completes a leader pair. The leader again
+// is tmux's send-prefix: it reaches the terminal, so an agent's own binding on
+// the leader key - claude's transcript viewer is ctrl+o - stays reachable
+// (#747). That is decided from the router's state, never by guessing what the
+// agent wants, so invariant 1 holds.
+func (r *Router) afterLeader(key string) Route {
+	if key == r.leader {
+		return ToTerminal
+	}
+	return ToOmatty
+}
+
 // Next returns the route for key and advances the router's state.
 //
 // Losing focus disarms a pending leader: otherwise a leader pressed in the
@@ -68,7 +81,7 @@ func (r *Router) Next(key string, terminalFocused bool) Route {
 	}
 	if r.pending {
 		r.pending = false
-		return ToOmatty
+		return r.afterLeader(key)
 	}
 	if key == r.leader {
 		r.pending = true

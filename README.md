@@ -288,7 +288,10 @@ A step can be anything your shell runs, including a hostile review by a model:
 about the three things that makes awkward - it is not deterministic, it costs
 money on every run, and the diff it reads is untrusted input.
 
-Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader:
+Inside the TUI every keystroke goes to Claude except the `ctrl+o` leader.
+Pressing the leader twice, `ctrl+o ctrl+o`, sends one `ctrl+o` through to the
+session, so Claude Code's own transcript viewer stays reachable; a custom
+`leader` passes itself through the same way:
 
 | Key | Action |
 |---|---|

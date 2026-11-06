@@ -37,15 +37,29 @@ func TestRouter_leaderIsSwallowedThenNextKeyIsACommand(t *testing.T) {
 	}
 }
 
-func TestRouter_leaderTwiceIsACommandNotASecondLeader(t *testing.T) {
-	r := keys.NewRouter("ctrl+o")
-	r.Next("ctrl+o", true)
+// Regression, issue #747: the second leader used to route to omatty, where it
+// matched no command and was dropped, so claude's own ctrl+o - its transcript
+// viewer - could not be reached with the default leader. Leader leader now
+// sends the leader through, tmux's send-prefix. The router decides it from its
+// own state (pending, and the key is the leader it was built with), so
+// nothing inspects a key to guess what the agent wants: invariant 1 holds.
+//
+// The second leader is still not a second leader: it does not re-arm.
+func TestRouter_doubleLeaderReachesTerminal_issue747(t *testing.T) {
+	for _, leader := range []string{"ctrl+o", "ctrl+a"} {
+		t.Run(leader, func(t *testing.T) {
+			r := keys.NewRouter(leader)
+			if got := r.Next(leader, true); got != keys.Swallow {
+				t.Fatalf("Next(leader) = %v, want Swallow", got)
+			}
 
-	if got := r.Next("ctrl+o", true); got != keys.ToOmatty {
-		t.Errorf("Next(leader) while pending = %v, want ToOmatty", got)
-	}
-	if r.Pending() {
-		t.Error("Pending() = true after the second leader, want false")
+			if got := r.Next(leader, true); got != keys.ToTerminal {
+				t.Errorf("Next(leader) while pending = %v, want ToTerminal", got)
+			}
+			if r.Pending() {
+				t.Error("Pending() = true after the second leader, want false")
+			}
+		})
 	}
 }
 

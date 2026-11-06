@@ -16,7 +16,7 @@ import (
 // keys after it: the same ? teaches whatever is in front of you (lazygit,
 // diffview's g?). The leader's own keys lead otherwise, as they always did.
 func (m *Model) helpOrder() []helpSection {
-	leader := helpSection{Title: "after " + m.leader, Keys: leaderKeys, Prefix: m.leader + " "}
+	leader := helpSection{Title: "after " + m.leader, Keys: leaderTable(m.leader), Prefix: m.leader + " "}
 	if !m.review.Open {
 		return append([]helpSection{leader}, helpSections...)
 	}
@@ -86,12 +86,22 @@ func helpRow(key, does string, gutter, width int) string {
 	return fitLine("  "+theme.Accent.Render(padRight(key, gutter))+"  "+theme.Text.Render(does), width)
 }
 
+// leaderTable is the leader's keys plus the leader pressed twice, which can
+// only be written once the leader is known: it is configurable, and the row
+// names it (#747). A fresh slice, so leaderKeys is never appended to.
+//
+//	leaderTable("ctrl+o") // ..., {"ctrl+o", "send ctrl+o itself to the session ..."}
+func leaderTable(leader string) []keyHelp {
+	passthrough := keyHelp{leader, "send " + leader + " itself to the session (claude: transcript)"}
+	return append(append([]keyHelp(nil), leaderKeys...), passthrough)
+}
+
 // helpGutter is the key column's width: the longest key in any table, so a
 // new binding widens the column instead of pushing its description out of line
 // with every other one (#103).
 func helpGutter(leader string) int {
 	w := 0
-	for _, k := range leaderKeys {
+	for _, k := range leaderTable(leader) {
 		w = max(w, lipgloss.Width(leader+" "+k.Key))
 	}
 	for _, section := range helpSections {
