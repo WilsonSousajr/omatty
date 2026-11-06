@@ -3,6 +3,7 @@ package forge_test
 import (
 	"errors"
 	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -111,5 +112,22 @@ func TestKind_UnmarshalTextIsParseKind_issue451(t *testing.T) {
 	}
 	if err := k.UnmarshalText([]byte("svn")); err == nil {
 		t.Error("UnmarshalText(svn) = nil error, want a refusal")
+	}
+}
+
+// #585: a [forge.hosts] key is a host, then the root a forge is served under.
+func TestSplitHostKey_issue585(t *testing.T) {
+	for key, want := range map[string]struct {
+		host string
+		root []string
+	}{
+		"host.corp":          {"host.corp", nil},
+		"host.corp/gitlab":   {"host.corp", []string{"gitlab"}},
+		"host.corp/gitlab/x": {"host.corp", []string{"gitlab", "x"}},
+	} {
+		host, root := forge.SplitHostKey(key)
+		if host != want.host || !reflect.DeepEqual(root, want.root) {
+			t.Errorf("SplitHostKey(%q) = %q, %q, want %q, %q", key, host, root, want.host, want.root)
+		}
 	}
 }
