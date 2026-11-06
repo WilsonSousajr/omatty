@@ -8,6 +8,7 @@ package forge
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // MissingToolError is a forge omatty cannot reach from this machine: its CLI
@@ -100,3 +101,26 @@ func (e *AuthError) Error() string {
 //
 //	if errors.Is(err, forge.ErrNoTracker) { /* show pull requests alone */ }
 var ErrNoTracker = errors.New("forge: this forge keeps no issues for the project")
+
+// RateLimitError is a forge that said "later": a 429, or a 403 that carries
+// a rate limit's marks. It is a wait, not a stop - the quota comes back on its
+// own - and the quota is the account's, so every project on Host waits with
+// it (#594). Until is when the forge said to ask again; zero when it named no
+// time, which the caller answers with a backoff of its own.
+//
+//	var limited *forge.RateLimitError
+//	if errors.As(err, &limited) { waitUntil(limited.Host, limited.Until) }
+type RateLimitError struct {
+	// Host is the forge that refused, with its port when it has one.
+	Host string
+	// Until is the time the forge named, or zero.
+	Until time.Time
+}
+
+// Error names the host and the time, or says there was none.
+func (e *RateLimitError) Error() string {
+	if e.Until.IsZero() {
+		return "forge: " + e.Host + " is rate-limiting omatty and named no time to ask again"
+	}
+	return "forge: " + e.Host + " is rate-limiting omatty until " + e.Until.UTC().Format("15:04") + " UTC"
+}
