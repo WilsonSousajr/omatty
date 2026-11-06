@@ -48,11 +48,13 @@ func sessionMaps(m *Model) map[string]reflect.Value {
 
 // skipSessionMaps names the string-keyed Model maps that are NOT keyed by a
 // session id, and so are none of archive's business: the pull request state is
-// keyed by project (#310), and the issue state beside it (#394).
+// keyed by project (#310), and the issue state beside it (#394); a rate
+// limit's wait is keyed by host (#594).
 var skipSessionMaps = map[string]bool{
 	"prs": true, "prPending": true, "prFailed": true, "prAsked": true,
 	"issues": true, "issuePending": true, "issueFailed": true, "issueAsked": true,
 	"forgeStopped": true, "forgeRetry": true, "noTracker": true, "trackerFolds": true,
+	"forgeWait": true,
 }
 
 // mapsHolding is the names of the session maps that still hold id, sorted so

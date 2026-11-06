@@ -113,6 +113,7 @@ func (m *Model) onIssues(msg IssuesLoadedMsg) tea.Cmd {
 	}
 	delete(m.issueFailed, msg.Project)
 	m.forgeRecovered(msg.Project)
+	m.hostAnswered(msg.Project)
 	m.issues[msg.Project] = msg.Issues
 	m.settleTracker(msg.Project)
 	return nil
@@ -122,6 +123,7 @@ func (m *Model) onIssues(msg IssuesLoadedMsg) tea.Cmd {
 // forge, or an outage.
 func (m *Model) issueFailure(project string, err error) {
 	delete(m.forgeRetry, project)
+	m.waitHost(project, err) // a wait, then the outage path (#594)
 	if errors.Is(err, forge.ErrNoTracker) {
 		m.noTracker[project] = true // its pull requests still come (#460)
 		// Issues read before the tracker went away are not current: Gitea's
