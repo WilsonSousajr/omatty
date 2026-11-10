@@ -69,7 +69,7 @@ func (m *Model) onFilesLoaded(msg FilesLoadedMsg) tea.Cmd {
 	}
 	if msg.Err != nil {
 		slog.Warn("listing files", "session", msg.SessionID, "err", msg.Err)
-		m.review.TreeErr = msg.Err.Error()
+		m.review.TreeErr = causeOf(msg.Err) // the whole chain is in the log line above
 		return nil
 	}
 	m.review.TreeErr = ""

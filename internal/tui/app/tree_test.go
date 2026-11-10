@@ -335,3 +335,28 @@ func TestModel_LeaderFOnAPreviewClosesTheColumn_issue124(t *testing.T) {
 		t.Error("ctrl+o f on a preview left the column open")
 	}
 }
+
+// errLongListing is a listing failure whose cause is at its end, the way git's
+// stderr puts it: "fatal: ..." first, then why.
+var errLongListing = errors.New("fatal: not a git repository (or any of the parent directories): .git, so the worktree was removed underneath this session")
+
+// A listing error longer than the column wraps instead of losing its tail at
+// the edge (#761): the tail is what said what went wrong, which is #351's
+// argument for the diff, and the tree had been left out of it.
+func TestTree_listingErrorWraps_issue761(t *testing.T) {
+	terms, _ := fakeTerms(t)
+	d := baseDeps(twoProjectState(), terms)
+	d.Diff = (&diffRecorder{Diff: sampleDiffParsed(t)}).fn
+	d.Files = (&fileLister{Err: errLongListing}).fn
+	m := app.NewModel(d)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	leader(m, key('f'))
+
+	frame := stripSGR(m.View().Content)
+	for _, want := range []string{"underneath", "full error in the log"} {
+		if !strings.Contains(frame, want) {
+			t.Errorf("the tree's error lost %q at the column's edge:\n%s", want, frame)
+		}
+	}
+}
