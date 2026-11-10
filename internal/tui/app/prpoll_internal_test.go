@@ -12,8 +12,8 @@ func TestForgetProject_clearsItsForgeState_issue310(t *testing.T) {
 	m := filledModel()
 	m.prs["omatty"] = []forge.PR{{Number: 7}}
 	m.issues["omatty"] = []forge.Issue{{Number: 399}}
-	m.prPending["omatty"], m.prFailed["omatty"], m.forgeStopped["omatty"] = true, true, forge.ErrNoForge
-	m.issuePending["omatty"], m.issueFailed["omatty"] = true, true
+	m.prPending["omatty"], m.prFailed["omatty"], m.forgeStopped["omatty"] = true, forge.ErrNoForge, forge.ErrNoForge
+	m.issuePending["omatty"], m.issueFailed["omatty"] = true, forge.ErrNoForge
 	m.prAsked["omatty"], m.issueAsked["omatty"] = m.clock(), m.clock()
 	m.noTracker["omatty"] = true // and a forge that keeps no issues (#460)
 
@@ -21,10 +21,10 @@ func TestForgetProject_clearsItsForgeState_issue310(t *testing.T) {
 
 	for name, held := range map[string]bool{
 		"prs": m.prs["omatty"] != nil, "prPending": m.prPending["omatty"],
-		"prFailed": m.prFailed["omatty"], "forgeStopped": m.forgeStopped["omatty"] != nil,
+		"prFailed": m.prFailed["omatty"] != nil, "forgeStopped": m.forgeStopped["omatty"] != nil,
 		"prAsked": !m.prAsked["omatty"].IsZero(),
 		"issues":  m.issues["omatty"] != nil, "issuePending": m.issuePending["omatty"],
-		"issueFailed": m.issueFailed["omatty"], "issueAsked": !m.issueAsked["omatty"].IsZero(),
+		"issueFailed": m.issueFailed["omatty"] != nil, "issueAsked": !m.issueAsked["omatty"].IsZero(),
 		"noTracker": m.noTracker["omatty"],
 	} {
 		if held {
@@ -46,11 +46,11 @@ func TestIssueTick_isSlowerThanThePullRequestTick_issue394(t *testing.T) {
 // before is cleared, so its header shows no "?" (#460's review).
 func TestIssueFailure_noTrackerIsNotAnOutage_issue460(t *testing.T) {
 	m := filledModel()
-	m.issueFailed["omatty"] = true
+	m.issueFailed["omatty"] = forge.ErrNoForge
 
 	m.issueFailure("omatty", forge.ErrNoTracker)
 
-	if m.issueFailed["omatty"] || !m.noTracker["omatty"] {
+	if m.issueFailed["omatty"] != nil || !m.noTracker["omatty"] {
 		t.Errorf("issueFailed = %v, noTracker = %v; want the outage cleared and no tracker kept", m.issueFailed["omatty"], m.noTracker["omatty"])
 	}
 }

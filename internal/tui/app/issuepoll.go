@@ -111,9 +111,7 @@ func (m *Model) onIssues(msg IssuesLoadedMsg) tea.Cmd {
 		m.issueFailure(msg.Project, msg.Err)
 		return nil
 	}
-	delete(m.issueFailed, msg.Project)
-	m.forgeRecovered(msg.Project)
-	m.hostAnswered(msg.Project)
+	m.listAnswered(msg.Project, m.issueFailed, m.issueRead)
 	m.issues[msg.Project] = msg.Issues
 	m.settleTracker(msg.Project)
 	return nil
@@ -135,10 +133,10 @@ func (m *Model) issueFailure(project string, err error) {
 	if m.stopsForge(project, err) {
 		return
 	}
-	if !m.issueFailed[project] {
+	if m.issueFailed[project] == nil {
 		slog.Warn("reading issues", "project", project, "err", err)
 	}
-	m.issueFailed[project] = true
+	m.issueFailed[project] = err
 }
 
 // withIssueMaps allocates the issue state (#394). Keyed by project, like the
@@ -147,7 +145,8 @@ func (m *Model) issueFailure(project string, err error) {
 func (m *Model) withIssueMaps() *Model {
 	m.issues = map[string][]forge.Issue{}
 	m.issuePending = map[string]bool{}
-	m.issueFailed = map[string]bool{}
+	m.issueFailed = map[string]error{}
+	m.issueRead = map[string]time.Time{}
 	m.issueAsked = map[string]time.Time{}
 	m.noTracker = map[string]bool{}
 	m.trackerFolds = map[string]map[trackerKind]bool{}
@@ -159,6 +158,7 @@ func (m *Model) forgetProjectIssues(name string) {
 	delete(m.issues, name)
 	delete(m.issuePending, name)
 	delete(m.issueFailed, name)
+	delete(m.issueRead, name)
 	delete(m.noTracker, name)
 	delete(m.trackerFolds, name)
 	delete(m.issueAsked, name)

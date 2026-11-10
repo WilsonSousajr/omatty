@@ -31,7 +31,7 @@ func (m *Model) trackerTitleParts() []titlePart {
 		// complete one (#285).
 		parts = append(parts, titlePart{text: "/" + q, priority: keepAlways})
 	}
-	if m.issueFailed[project] || m.prFailed[project] || m.waitingOn(project) {
+	if m.issueFailed[project] != nil || m.prFailed[project] != nil || m.waitingOn(project) {
 		// keepFlag, as the card's "?" is: a stale list shown as current is this
 		// view's worst failure (Orca #18484).
 		parts = append(parts, titlePart{text: m.unknownMark(project), priority: keepFlag})
@@ -75,8 +75,13 @@ func (m *Model) renderTracker(_, h int) []string {
 	for i, r := range rows {
 		lines = append(lines, m.trackerLine(r, i == m.review.Tracker.Cursor, numW))
 	}
-	list := m.withFilterLine(window(lines, m.review.Tracker.Offset, h), m.trackerListWidth(), h)
-	return m.withPreview(list, h)
+	// A failed refresh's notice stands over the list and takes its rows
+	// (#776); the window is recomputed for what is left, as reviewRowDelta's is.
+	lead := m.staleLines()
+	h -= len(lead)
+	off := ScrollOffset(m.review.Tracker.Cursor, m.review.Tracker.Offset, m.trackerRowsShown())
+	list := m.withFilterLine(window(lines, off, h), m.trackerListWidth(), h)
+	return append(lead, m.withPreview(list, h)...)
 }
 
 // heldNote is the tracker's line for a project its forge is not being asked

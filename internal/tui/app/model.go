@@ -127,7 +127,8 @@ type Model struct {
 	prList       PRListFunc
 	prs          map[string][]forge.PR
 	prPending    map[string]bool
-	prFailed     map[string]bool
+	prFailed     map[string]error     // the last failed read's error, for the tracker's notice (#776)
+	prRead       map[string]time.Time // when the list last answered, for the age it shows (#776)
 	prAsked      map[string]time.Time
 	issueList    IssueListFunc
 	itemFuncs    ForgeItemFuncs
@@ -137,7 +138,8 @@ type Model struct {
 	itemFailed   map[itemKey]bool
 	issues       map[string][]forge.Issue
 	issuePending map[string]bool
-	issueFailed  map[string]bool
+	issueFailed  map[string]error
+	issueRead    map[string]time.Time
 	issueAsked   map[string]time.Time
 	forgeStopped map[string]error
 	forgeRetry   map[string]bool                 // a stopped project may be asked once more (#658)

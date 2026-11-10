@@ -51,8 +51,8 @@ func sessionMaps(m *Model) map[string]reflect.Value {
 // keyed by project (#310), and the issue state beside it (#394); a rate
 // limit's wait is keyed by host (#594).
 var skipSessionMaps = map[string]bool{
-	"prs": true, "prPending": true, "prFailed": true, "prAsked": true,
-	"issues": true, "issuePending": true, "issueFailed": true, "issueAsked": true,
+	"prs": true, "prPending": true, "prFailed": true, "prAsked": true, "prRead": true,
+	"issues": true, "issuePending": true, "issueFailed": true, "issueAsked": true, "issueRead": true,
 	"forgeStopped": true, "forgeRetry": true, "noTracker": true, "trackerFolds": true,
 	"forgeWait": true,
 }

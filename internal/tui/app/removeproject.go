@@ -70,6 +70,7 @@ func (m *Model) forgetProject(name string) {
 	delete(m.prs, name) // the project's pull requests (#310)
 	delete(m.prPending, name)
 	delete(m.prFailed, name)
+	delete(m.prRead, name)
 	delete(m.forgeStopped, name)
 	delete(m.forgeRetry, name)
 	delete(m.prAsked, name)
