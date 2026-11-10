@@ -102,7 +102,7 @@ type ReviewPane struct {
 	// Filter is the tree's type-to-filter line (#198): Active while it has
 	// the keys, Query the text in force after enter kept it.
 	Filter filterLine
-	// GateSearch is the gate's / search over opened output (#429). Its own,
+	// GateSearch is the gate's / search over every step's output (#429, #781). Its own,
 	// not Filter: a tree filter left in place must never become a search of
 	// the gate's output, nor a gate search narrow the tree.
 	GateSearch filterLine

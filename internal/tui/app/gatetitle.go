@@ -32,7 +32,7 @@ func (m *Model) gateTitle(budget int) string {
 // be marks nobody can account for (#285, #429) - so the finding's parts go
 // first, the last of them first, until the head fits.
 func (m *Model) gateHead(budget int) string {
-	marker, found := m.filterMarker(), m.gateSummary()
+	marker, found := m.filterMarker()+m.searchCount(), m.gateSummary()
 	for n := len(found); n > 0; n-- {
 		if head := "gate · " + strings.Join(found[:n], " · ") + marker; lipgloss.Width(head) <= budget {
 			return head
@@ -82,6 +82,7 @@ func verdictCounts(results []gate.StepResult) []string {
 func (m *Model) openFirstFailure(report gate.Report) {
 	m.review.GateOpen = map[int]bool{}
 	m.review.GateCursor, m.review.GateOffset = 0, 0
+	m.gateHit = -1 // a kept search's shown match was in the last report (#781)
 	for i, r := range report.Results {
 		if r.Verdict == gate.Fail {
 			m.review.GateOpen[i], m.review.GateCursor = true, i
