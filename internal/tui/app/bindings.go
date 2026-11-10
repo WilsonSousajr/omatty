@@ -103,7 +103,7 @@ var gateBind = struct {
 	Fold:      bind("enter", "fold a step's output open or shut", "enter"),
 	Send:      bind("S", "send the failures to the session; S twice more resends", "S", "shift+s", "shift+S"),
 	Rerun:     bind("r", "run the gate again", "r"),
-	Search:    bind("/", "search the opened output; enter keeps it, esc clears it", "/"),
+	Search:    bind("/", "search every step's output; enter keeps it, esc clears it", "/"),
 	NextMatch: bind("n / N", "the next search match, or the one before", "n"),
 	PrevMatch: also("N", "shift+n", "shift+N"),
 }
