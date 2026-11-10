@@ -128,7 +128,11 @@ func stoppedPhrase(err error) (string, bool) {
 	var missing *forge.MissingToolError
 	var refused *forge.AuthError
 	var plain *forge.PlainHTTPError
+	var ambiguous *forge.AmbiguousHostError
 	switch {
+	case errors.As(err, &ambiguous):
+		// A checkout's own fact, like ErrNoForge, but one with a fix (#585).
+		return ambiguous.Host + " serves several forges under different paths (clone over https to say which)", true
 	case errors.As(err, &missing):
 		return missingPhrase(missing), true
 	case errors.As(err, &refused):

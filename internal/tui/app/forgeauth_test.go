@@ -90,3 +90,20 @@ func TestModel_APlainHTTPRemoteStopsItsProject_issue584(t *testing.T) {
 		t.Errorf("the second poll asked %q, want only /p/api-svc", got)
 	}
 }
+
+// #585: an ssh remote on a host serving several rooted forges is refused,
+// and the tracker says why and what to do rather than "not on a forge".
+func TestTracker_AnAmbiguousHostSaysCloneOverHTTPS_issue585(t *testing.T) {
+	m, fi, fp := modelWithBothLists(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	ambiguous := &forge.AmbiguousHostError{Host: "h.example"}
+	for _, root := range []string{"/p/omatty", "/p/api-svc", "/p/empty"} {
+		fi.Errs[root], fp.Errs[root] = ambiguous, ambiguous
+	}
+
+	openTracker(m)
+
+	if got := columnText(m); !strings.Contains(got, "h.example serves several forges under different paths") || !strings.Contains(got, "https") {
+		t.Errorf("the tracker reads %q, want the host and the https way out", got)
+	}
+}

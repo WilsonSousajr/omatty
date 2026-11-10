@@ -57,10 +57,11 @@ func TestLoad_AnEmptyForgeHostsSectionIsFine_issue451(t *testing.T) {
 	}
 }
 
-// A key is a host name as a remote's URL carries it: a scheme, a port or a
-// path in it would never match, and a silent no-match is the #44 failure.
+// A key is a host name as a remote's URL carries it: a scheme or a port in it
+// would never match, and a silent no-match is the #44 failure. A path is no
+// longer on this list: since #585 it names the forge's root, and matches.
 func TestLoad_AForgeHostThatIsNotAHostNameIsRefused_issue451(t *testing.T) {
-	for _, key := range []string{"https://git.corp.example", "git.corp.example:8443", "git.corp.example/group", ""} {
+	for _, key := range []string{"https://git.corp.example", "git.corp.example:8443", ""} {
 		home := t.TempDir()
 		path := writeConfig(t, home, "[forge.hosts]\n\""+key+"\" = \"gitlab\"\n")
 
@@ -113,6 +114,57 @@ func TestLoad_AForgeHostMustBeAHostName_issue451(t *testing.T) {
 
 		if _, err := config.Load(path, home); err == nil {
 			t.Errorf("key %q loaded, want it refused", key)
+		}
+	}
+}
+
+// #585: a forge served under a path - https://host/gitlab - is named by its
+// root in the key, so the API is asked there and the slug leaves it out.
+func TestLoad_AcceptsARootInAHostKey_issue585(t *testing.T) {
+	home := t.TempDir()
+	got, err := config.Load(writeConfig(t, home, "[forge.hosts]\n\"host.corp.example/gitlab\" = \"gitlab\"\n\"host.corp.example/a/b\" = \"forgejo\"\n"), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Forge.Hosts["host.corp.example/gitlab"] != forge.KindGitLab || got.Forge.Hosts["host.corp.example/a/b"] != forge.KindGitea {
+		t.Errorf("forge.hosts = %v, want both rooted keys", got.Forge.Hosts)
+	}
+}
+
+// A root is plain path segments. Anything else would never match a remote,
+// or would match somewhere the operator did not mean.
+func TestLoad_RefusesABadRoot_issue585(t *testing.T) {
+	for _, key := range []string{"https://h.example/x", "h.example:8443/x", "h.example/x/../y", "h.example//x", "h.example/x?y", "h.example/", "h.example/./x"} {
+		home := t.TempDir()
+		_, err := config.Load(writeConfig(t, home, "[forge.hosts]\n\""+key+"\" = \"gitlab\"\n"), home)
+		if err == nil || !strings.Contains(err.Error(), `"`+key+`"`) || !strings.Contains(err.Error(), "want") {
+			t.Errorf("key %q: error = %v, want the key named and the shape wanted", key, err)
+		}
+	}
+}
+
+// Hosts compare without case, as DNS does; a path is the server's and does.
+func TestLoad_SameRootTwiceIsRefused_issue585(t *testing.T) {
+	home := t.TempDir()
+	_, err := config.Load(writeConfig(t, home, "[forge.hosts]\n\"H.example/gitlab\" = \"gitlab\"\n\"h.example/gitlab\" = \"gitlab\"\n"), home)
+	if err == nil || !strings.Contains(err.Error(), "twice") {
+		t.Errorf("error = %v, want one host and root named twice refused", err)
+	}
+	home = t.TempDir()
+	if _, err := config.Load(writeConfig(t, home, "[forge.hosts]\n\"h.example/gitlab\" = \"gitlab\"\n\"h.example/GitLab\" = \"gitlab\"\n"), home); err != nil {
+		t.Errorf("two roots differing in case = %v, want both kept: paths are case-sensitive", err)
+	}
+}
+
+// #585's review, M2: GitHub and Azure DevOps serve under no root of their own
+// - Azure's organisation and a Server's collection are path the remote
+// carries - so a root on either would read the wrong place, quietly.
+func TestLoad_ARootOnGitHubOrAzureIsRefused_issue585(t *testing.T) {
+	for _, kind := range []string{"github", "azure"} {
+		home := t.TempDir()
+		_, err := config.Load(writeConfig(t, home, "[forge.hosts]\n\"h.example/x\" = \""+kind+"\"\n"), home)
+		if err == nil || !strings.Contains(err.Error(), "h.example/x") || !strings.Contains(err.Error(), kind) {
+			t.Errorf("%s under a root: error = %v, want it refused, naming the key and the kind", kind, err)
 		}
 	}
 }

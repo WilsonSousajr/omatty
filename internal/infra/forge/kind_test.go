@@ -3,6 +3,7 @@ package forge_test
 import (
 	"errors"
 	dforge "github.com/WilsonSousajr/omatty/internal/domain/forge"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -111,5 +112,107 @@ func TestKind_UnmarshalTextIsParseKind_issue451(t *testing.T) {
 	}
 	if err := k.UnmarshalText([]byte("svn")); err == nil {
 		t.Error("UnmarshalText(svn) = nil error, want a refusal")
+	}
+}
+
+// #585: a [forge.hosts] key is a host, then the root a forge is served under.
+func TestSplitHostKey_issue585(t *testing.T) {
+	for key, want := range map[string]struct {
+		host string
+		root []string
+	}{
+		"host.corp":          {"host.corp", nil},
+		"host.corp/gitlab":   {"host.corp", []string{"gitlab"}},
+		"host.corp/gitlab/x": {"host.corp", []string{"gitlab", "x"}},
+	} {
+		host, root := forge.SplitHostKey(key)
+		if host != want.host || !reflect.DeepEqual(root, want.root) {
+			t.Errorf("SplitHostKey(%q) = %q, %q, want %q, %q", key, host, root, want.host, want.root)
+		}
+	}
+}
+
+// mustRemote is raw parsed, or the test stops.
+func mustRemote(t *testing.T, raw string) forge.Remote {
+	t.Helper()
+	r, err := forge.ParseRemote(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+// #585: the longest root that prefixes the remote's path wins, and its
+// segments leave the path for Root, so the slug is the repository's alone.
+func TestHosts_LongestRootWins_issue585(t *testing.T) {
+	hosts := forge.Hosts{"h.example/a": forge.KindGitLab, "h.example/a/b": forge.KindGitea}
+	got, kind, err := hosts.Resolve(mustRemote(t, "https://h.example/a/b/g/p.git"))
+	if err != nil || kind != forge.KindGitea || !reflect.DeepEqual(got.Root, []string{"a", "b"}) || got.Slug() != "g/p" {
+		t.Errorf("Resolve(a/b/g/p) = %+v, %q, %v; want gitea, root a/b, slug g/p", got, kind, err)
+	}
+	got, kind, err = hosts.Resolve(mustRemote(t, "https://H.example/a/g/p"))
+	if err != nil || kind != forge.KindGitLab || !reflect.DeepEqual(got.Root, []string{"a"}) || got.Slug() != "g/p" {
+		t.Errorf("Resolve(a/g/p) = %+v, %q, %v; want gitlab, root a, slug g/p", got, kind, err)
+	}
+}
+
+// A root that would leave no repository is not a match: "https://h/a" is a
+// repository named a on the host, not the root of one.
+func TestHosts_RootMustLeaveARepository_issue585(t *testing.T) {
+	hosts := forge.Hosts{"h.example/a": forge.KindGitLab}
+	if _, _, err := hosts.Resolve(mustRemote(t, "https://h.example/a")); err == nil {
+		t.Error("Resolve(https://h.example/a) = nil error, want no match: the root leaves no repository")
+	}
+}
+
+// A root is the server's path and keeps its case.
+func TestHosts_RootIsCaseSensitive_issue585(t *testing.T) {
+	hosts := forge.Hosts{"h.example/gitlab": forge.KindGitLab}
+	if _, _, err := hosts.Resolve(mustRemote(t, "https://h.example/GitLab/g/p")); err == nil {
+		t.Error("Resolve(/GitLab/...) matched /gitlab, want a path compared as the server compares it")
+	}
+}
+
+// An ssh remote has no root in its path; a host with one rooted key uses it.
+func TestHosts_SSHUsesTheOnlyRoot_issue585(t *testing.T) {
+	got, kind, err := forge.Hosts{"h.example/gitlab": forge.KindGitLab}.Resolve(mustRemote(t, "git@h.example:g/p.git"))
+	if err != nil || kind != forge.KindGitLab || !reflect.DeepEqual(got.Root, []string{"gitlab"}) || got.Slug() != "g/p" {
+		t.Errorf("Resolve = %+v, %q, %v; want gitlab under root gitlab, slug g/p", got, kind, err)
+	}
+}
+
+// A bare key says the ssh host is that forge, at its root: it wins.
+func TestHosts_SSHPrefersABareKey_issue585(t *testing.T) {
+	hosts := forge.Hosts{"h.example": forge.KindGitea, "h.example/gitlab": forge.KindGitLab}
+	got, kind, err := hosts.Resolve(mustRemote(t, "git@h.example:g/p.git"))
+	if err != nil || kind != forge.KindGitea || len(got.Root) != 0 {
+		t.Errorf("Resolve = %+v, %q, %v; want the bare key's gitea with no root", got, kind, err)
+	}
+}
+
+// Two rooted forges on one host cannot be told apart over ssh: refused aloud,
+// never guessed.
+func TestHosts_SSHWithTwoRootsRefusesAloud_issue585(t *testing.T) {
+	hosts := forge.Hosts{"h.example/gitlab": forge.KindGitLab, "h.example/gitea": forge.KindGitea}
+	_, _, err := hosts.Resolve(mustRemote(t, "git@h.example:g/p.git"))
+	var ambiguous *dforge.AmbiguousHostError
+	if !errors.As(err, &ambiguous) || !errors.Is(err, dforge.ErrNoForge) {
+		t.Errorf("Resolve = %v, want an AmbiguousHostError that is ErrNoForge", err)
+	}
+}
+
+// With no rooted key the answer is the host table's, as before.
+func TestHosts_UnrootedIsUnchanged_issue585(t *testing.T) {
+	got, kind, err := forge.Hosts{"git.corp.example": forge.KindGitLab}.Resolve(mustRemote(t, "https://git.corp.example/group/sub/p"))
+	if err != nil || kind != forge.KindGitLab || len(got.Root) != 0 || got.Slug() != "group/sub/p" {
+		t.Errorf("Resolve = %+v, %q, %v; want gitlab, no root, the whole path", got, kind, err)
+	}
+}
+
+// The root goes back into every web and API URL, through webBase.
+func TestRemote_WebBaseKeepsTheRoot_issue585(t *testing.T) {
+	r := forge.Remote{Scheme: "ssh", Host: "h.example", Root: []string{"gitlab"}, Path: []string{"g", "p"}}
+	if got := forge.WebBase(r); got != "https://h.example/gitlab" {
+		t.Errorf("WebBase = %q, want https://h.example/gitlab", got)
 	}
 }

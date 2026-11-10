@@ -22,12 +22,27 @@ type Remote struct {
 	// loses its "v3" prefix, so all three Azure shapes end org/project/repo
 	// or project/_git/repo as their forge writes them.
 	Path []string
+	// Root is the path the forge itself is served under - ["gitlab"] for
+	// https://host/gitlab - when a rooted [forge.hosts] key names one (#585).
+	// It is not part of the repository: Slug leaves it out and webBase puts it
+	// back.
+	Root []string
+	// Siblings is every other root a [forge.hosts] key names on this host
+	// (#585's review): another forge's, so a token or a login bound to one of
+	// them is not this remote's, though host and port agree.
+	Siblings []string
 }
 
-// Slug is the repository's path as its forge's API addresses it.
+// Slug is the repository's path as its forge's API addresses it, without the
+// root the forge is served under (#585).
 //
 //	forge.Remote{Path: []string{"group", "sub", "project"}}.Slug() // "group/sub/project"
 func (r Remote) Slug() string { return strings.Join(r.Path, "/") }
+
+// project names the repository across every forge the Router reads: host,
+// the root a forge is served under, and slug - two forges on one host may hold
+// the same slug (#585's review).
+func (r Remote) project() string { return r.Host + rootPath(r) + "/" + r.Slug() }
 
 // remoteShapes is what ParseRemote reads, for the error that refuses the rest.
 const remoteShapes = "want https://host/owner/repo, ssh://git@host/owner/repo or git@host:owner/repo"

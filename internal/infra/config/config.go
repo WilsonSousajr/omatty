@@ -229,21 +229,56 @@ func refuseBadValues(path string, cfg Config) error {
 // digit. A scheme, a port, a path, an "@" or a trailing dot never matches.
 var hostName = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$`)
 
-// refuseBadForgeHosts rejects a key that is not a host name, and two keys that
-// name one host - DNS ignores case, so "Git.Corp" and "git.corp" are the same
-// host, and which kind won would be map order, changing between polls. A line
-// that silently matches nothing, or matches differently each time, is the
-// failure #44 exists to prevent.
+// rootSegment is one segment of a forge's root path (#585): what a URL path
+// segment holds unescaped, never "." or "..", which no server serves under.
+var rootSegment = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
+
+// refuseBadForgeHosts rejects a key that is not a host name, optionally
+// followed by a root path (#585), and two keys that name one host and root -
+// DNS ignores case, so "Git.Corp" and "git.corp" are the same host, and which
+// kind won would be map order, changing between polls. A path is the server's
+// and keeps its case. A line that silently matches nothing, or matches
+// differently each time, is the failure #44 exists to prevent.
 func refuseBadForgeHosts(path string, hosts forge.Hosts) error {
 	seen := map[string]string{}
-	for host := range hosts {
-		if !hostName.MatchString(host) {
-			return fmt.Errorf("config %s: forge.hosts key %q is not a host name, want one such as \"git.corp.example\"", path, host)
+	for key := range hosts {
+		host, root := forge.SplitHostKey(key)
+		if err := refuseBadHostKey(path, key, host, root); err != nil {
+			return err
 		}
-		if other, dup := seen[strings.ToLower(host)]; dup {
-			return fmt.Errorf("config %s: forge.hosts names %q twice, as %q and %q, want one line per host", path, strings.ToLower(host), other, host)
+		if err := refuseUnrootedKind(path, key, hosts[key], root); err != nil {
+			return err
 		}
-		seen[strings.ToLower(host)] = host
+		same := strings.ToLower(host) + "/" + strings.Join(root, "/")
+		if other, dup := seen[same]; dup {
+			return fmt.Errorf("config %s: forge.hosts names %q twice, as %q and %q, want one line per host and root", path, same, other, key)
+		}
+		seen[same] = key
+	}
+	return nil
+}
+
+// refuseUnrootedKind rejects a root on a forge kind that is never served under
+// one (#585's review): GitHub's API is the host's, and Azure DevOps's
+// organisation or a Server's collection is path the remote itself carries, so
+// a root would quietly read the wrong place.
+func refuseUnrootedKind(path, key string, kind forge.Kind, root []string) error {
+	if root == nil || (kind != forge.KindGitHub && kind != forge.KindAzure) {
+		return nil
+	}
+	return fmt.Errorf("config %s: forge.hosts key %q gives %s a root, which %s is never served under; want the bare host, such as %q", path, key, kind, kind, strings.SplitN(key, "/", 2)[0])
+}
+
+// refuseBadHostKey rejects one key whose host is not a host name, or whose
+// root is not plain path segments.
+func refuseBadHostKey(path, key, host string, root []string) error {
+	if !hostName.MatchString(host) {
+		return fmt.Errorf("config %s: forge.hosts key %q is not a host name, want one such as \"git.corp.example\"", path, key)
+	}
+	for _, seg := range root {
+		if !rootSegment.MatchString(seg) || seg == "." || seg == ".." {
+			return fmt.Errorf("config %s: forge.hosts key %q has a root %q that is not a plain URL path, want one such as \"host.corp.example/gitlab\"", path, key, strings.Join(root, "/"))
+		}
 	}
 	return nil
 }

@@ -182,3 +182,12 @@ var (
 	StatusError = statusError
 	Classify    = classify
 )
+
+// WebBase is the remote as a browser reaches it (#585).
+var WebBase = webBase
+
+// NamesInstance is whether a URL names the instance a remote is on (#585).
+var NamesInstance = namesInstance
+
+// LoginFor is the tea login in list that serves remote (#585).
+var LoginFor = loginFor
