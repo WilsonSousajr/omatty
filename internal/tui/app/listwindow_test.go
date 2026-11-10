@@ -10,6 +10,7 @@ import (
 
 	"github.com/WilsonSousajr/omatty/internal/domain/gate"
 	"github.com/WilsonSousajr/omatty/internal/tui/app"
+	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 )
 
 // columnFace opens one face of the review column on a model wide enough that
@@ -67,11 +68,12 @@ func titlePosition(t *testing.T, m *app.Model) (n, total int) {
 	return n, total
 }
 
-// cursorRow is the review column's part of the reverse-video row, unstyled, or
-// "" when no row is drawn reversed: reverse video is the cursor on every face.
+// cursorRow is the review column's part of the cursor row, unstyled, or ""
+// when no row carries the cursor's ground: the one cursor on every face
+// (#424), a ground rather than reverse video since #763.
 func cursorRow(m *app.Model) string {
 	for _, line := range frameLines(m) {
-		if strings.Contains(line, "\x1b[7m") {
+		if strings.Contains(line, theme.CursorGround) {
 			plain := stripSGR(line)
 			return plain[strings.LastIndex(plain, "│")+len("│"):]
 		}
@@ -126,13 +128,15 @@ func TestColumn_CtrlDAndCtrlUMoveHalfAPage_issue424(t *testing.T) {
 	}
 }
 
-// The cursor is reverse video on every face: the gate drew "▸ " and the tracker
-// an accent colour, so the same thing looked different on each face.
-func TestColumn_TheCursorIsReverseVideoOnEveryFace_issue424(t *testing.T) {
+// The cursor is the same on every face: the gate drew "▸ " and the tracker
+// an accent colour, so the same thing looked different on each face. It was
+// reverse video until #763 made it a ground that keeps each row's colours;
+// one look on every face is the guarantee, and that is unchanged.
+func TestColumn_TheCursorIsTheSameOnEveryFace_issue424(t *testing.T) {
 	for _, face := range cursorFaces {
 		m := face.open(t)
 		if cursorRow(m) == "" {
-			t.Errorf("%s: no row is drawn in reverse video:\n%s", face.name, m.View().Content)
+			t.Errorf("%s: no row carries the cursor's ground:\n%s", face.name, m.View().Content)
 		}
 	}
 	m := cursorFaces[2].open(t)

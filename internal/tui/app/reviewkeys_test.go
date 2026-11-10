@@ -55,7 +55,7 @@ func TestModel_CQueuesANoteOnTheCurrentLine_issue22(t *testing.T) {
 	if m.PendingComments() != 1 {
 		t.Fatalf("pending = %d, want 1", m.PendingComments())
 	}
-	view := m.View().Content
+	view := stripSGR(m.View().Content) // the cursor row is coloured since #763
 	bLine := strings.Index(view, "b := 3")
 	note := strings.Index(view, ">> Use a match here")
 	if bLine < 0 || note < 0 || note < bLine {
