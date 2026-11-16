@@ -161,6 +161,7 @@ type Model struct {
 	profiles     sgate.ProfileReader // reads a gate's coverage profile (#254, #653)
 	gateAuto     bool
 	gateStarted  map[string]time.Time // when the run in flight began, for its title (#428)
+	gateHit      int                  // the gate search's shown match, an index into gateHits (#781)
 	glyphs       glyphSet             // every state mark, plain or Nerd Font (#425)
 	previewArmed itemKey              // the row the tracker's preview is waiting to rest on (#434)
 	nerdIcons    bool                 // [ui] icons = "nerd": file-type icons in the tree too (#431)

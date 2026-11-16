@@ -121,3 +121,75 @@ func TestGate_APasteIntoTheSearchSearches_issue429(t *testing.T) {
 		t.Errorf("a pasted query did not search:\n%s", stripSGR(body))
 	}
 }
+
+// foldedNeedleReport has "needle" only in a step that passed, which a landing
+// report leaves folded: the failed step is the one it opens (#428).
+func foldedNeedleReport() gate.Report {
+	rep := landedReport()
+	rep.Results[0].Output = "ok  omatty/internal/one\nneedle in a passing step\n"
+	return rep
+}
+
+// / searches every step's output, not just the opened ones: a match in a
+// folded step was skipped, so "no match" and "there, but folded" looked the
+// same (#781). Reaching it opens the step.
+func TestGate_searchFindsAMatchInAFoldedStep_issue781(t *testing.T) {
+	m := openGateAndLand(t, 200, foldedNeedleReport())
+
+	press(m, key('/'))
+	typeInto(m, "needle")
+	press(m, special(tea.KeyEnter))
+
+	if body := m.View().Content; !strings.Contains(body, app.SearchHit("needle")+" in a passing step") {
+		t.Errorf("the match in a folded step was not found and shown:\n%s", stripSGR(body))
+	}
+}
+
+// The title says which match is shown of how many, as less and vim do, and
+// says so when there is none (#781).
+func TestGate_searchTitleCountsTheMatches_issue781(t *testing.T) {
+	m := openGateAndLand(t, 200, needleReport())
+	press(m, key('/'))
+	typeInto(m, "needle")
+	press(m, special(tea.KeyEnter))
+	if title := columnTitle(m); !strings.Contains(title, "/needle [1/2]") {
+		t.Errorf("the title does not count the matches: %q", title)
+	}
+
+	press(m, key('n'))
+	if title := columnTitle(m); !strings.Contains(title, "/needle [2/2]") {
+		t.Errorf("n did not move the count: %q", title)
+	}
+}
+
+// A query that matches nothing says so, rather than looking like a match
+// somewhere off screen (#781).
+func TestGate_searchSaysNoMatch_issue781(t *testing.T) {
+	m := openGateAndLand(t, 200, needleReport())
+	press(m, key('/'))
+	typeInto(m, "absent")
+	press(m, special(tea.KeyEnter))
+
+	if title := columnTitle(m); !strings.Contains(title, "/absent no match") {
+		t.Errorf("the title does not say there is no match: %q", title)
+	}
+}
+
+// A fresh report under a kept search has no match shown yet: the title counts
+// them, and n shows the first (#781).
+func TestGate_aNewReportKeepsTheSearchCounted_issue781(t *testing.T) {
+	m := openGateAndLand(t, 200, needleReport())
+	press(m, key('/'))
+	typeInto(m, "needle")
+	press(m, special(tea.KeyEnter))
+	press(m, key('n'))
+
+	m.Update(app.GateMsg(needleReport()))
+	if title := columnTitle(m); !strings.Contains(title, "/needle [2 matches]") {
+		t.Errorf("a fresh report's matches are not counted: %q", title)
+	}
+	press(m, key('n'))
+	if title := columnTitle(m); !strings.Contains(title, "/needle [1/2]") {
+		t.Errorf("n after a fresh report did not show the first match: %q", title)
+	}
+}
