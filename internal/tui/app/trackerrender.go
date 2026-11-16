@@ -67,7 +67,7 @@ func (m *Model) renderTracker(_, h int) []string {
 	// Wrapped, not cut: a note drawn as fixed lines lost its tail at the
 	// column's edge, and the tail was the part that said what to do (#572).
 	if note := m.trackerNote(); note != "" {
-		return m.withFilterLine(wrapBlock(note, m.columnWidth()), m.columnWidth(), h)
+		return m.withFilterLine(noticeLines([]string{note}, false, m.columnWidth()), m.columnWidth(), h)
 	}
 	rows := m.trackerRows()
 	numW := trackerNumberWidth(rows)

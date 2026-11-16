@@ -473,3 +473,18 @@ func TestModel_gatePansItsRows_issue447(t *testing.T) {
 		t.Errorf("panned right, the gate still does not show the end of the command:\n%s", body)
 	}
 }
+
+// A run error longer than the column wraps instead of being cut at the edge
+// (#781, through #761's one notice): a bad [gate] config says what is wrong in
+// its last words.
+func TestGate_runErrorWraps_issue781(t *testing.T) {
+	m, _, _ := modelWithDiff(t)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.SetGateReport("s1", gate.Report{ID: "s1", Err: errRun("sh: the gate's working directory /p/omatty/.omatty/wt/feat-long-branch-name is gone, so nothing ran")})
+
+	leader(m, key('g'))
+
+	if frame := stripSGR(m.View().Content); !strings.Contains(frame, "so nothing ran") {
+		t.Errorf("the gate's run error lost its tail at the column's edge:\n%s", frame)
+	}
+}

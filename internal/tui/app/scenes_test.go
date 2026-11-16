@@ -47,6 +47,8 @@ var scenes = []scene{
 	{"tree", fresh(treeScene)},
 	{"preview", fresh(previewScene)},
 	{"gate", fresh(gateScene)},
+	{"tree_error", fresh(treeErrorScene)},
+	{"gate_error", fresh(gateErrorScene)},
 	{"tracker", fresh(trackerScene)},
 	{"tracker_item", fresh(trackerItemScene)},
 	{"help", fresh(then(terminalScene, '?'))},
@@ -111,6 +113,21 @@ func previewScene(t *testing.T, terms map[string]terminal.Terminal, w, h int) *a
 func gateScene(t *testing.T, terms map[string]terminal.Terminal, w, h int) *app.Model {
 	m := diffScene(t, terms, w, h)
 	m.SetGateReport("s1", gateReport(gate.Pass, gate.Pass, gate.Fail, gate.Pending))
+	return leaderOn(m, 'g')
+}
+
+// treeErrorScene and gateErrorScene pin #761's notice: an error longer than
+// the column, wrapped rather than cut.
+func treeErrorScene(t *testing.T, terms map[string]terminal.Terminal, w, h int) *app.Model {
+	d := sceneDeps(twoProjectState(), terms)
+	d.Diff = (&diffRecorder{Diff: sampleDiffParsed(t)}).fn
+	d.Files = (&fileLister{Err: errLongListing}).fn
+	return leaderOn(sized(app.NewModel(d), w, h), 'f')
+}
+
+func gateErrorScene(t *testing.T, terms map[string]terminal.Terminal, w, h int) *app.Model {
+	m := diffScene(t, terms, w, h)
+	m.SetGateReport("s1", gate.Report{ID: "s1", Err: errRun("sh: the gate's working directory is gone, so nothing ran")})
 	return leaderOn(m, 'g')
 }
 

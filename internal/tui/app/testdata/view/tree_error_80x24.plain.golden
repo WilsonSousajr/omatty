@@ -1,0 +1,24 @@
+ projects · 2               │ omatty ▎ main             │ files · main          
+────────────────────────────┼───────────────────────────┼─ files ──────────────×
+  ▾ omatty                  │session one                │ listing files failed: 
+▎ ○ main                    │                           │ fatal: not a git      
+▎                           │                           │ repository (or any of 
+▎                           │                           │ the parent            
+  ○ parser-fix              │                           │ directories): .git, so
+                            │                           │ the worktree was      
+                            │                           │ removed underneath    
+  ▾ api-svc                 │                           │ this session          
+  ○ main                    │                           │ full error in the log 
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+                            │                           │                       
+ h/l/0 pan  enter open  / filter  a attach  o diff  esc back  ctrl+o ? keys     

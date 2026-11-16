@@ -1,0 +1,30 @@
+ projects · 2               │ omatty ▎ main                                         │ files · main                      
+────────────────────────────┼───────────────────────────────────────────────────────┼─ files ──────────────────────────×
+  ▾ omatty                  │session one                                            │ listing files failed:             
+▎ ○ main                    │                                                       │ fatal: not a git repository (or   
+▎                           │                                                       │ any of the parent directories):   
+▎                           │                                                       │ .git, so the worktree was removed 
+  ○ parser-fix              │                                                       │ underneath this session           
+                            │                                                       │ full error in the log             
+                            │                                                       │                                   
+  ▾ api-svc                 │                                                       │                                   
+  ○ main                    │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+                            │                                                       │                                   
+ h/l/0 pan  enter open  / filter  a attach  o diff  esc back  ctrl+o ? keys                                   3 sessions

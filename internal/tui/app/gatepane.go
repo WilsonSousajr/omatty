@@ -25,10 +25,10 @@ import (
 // renderGate draws the column's gate view: one row per step, with the output
 // of any step folded open beneath it.
 //
-// The width is unused: fitBlock cuts every view to the column, and a step's
-// command is more useful truncated at the edge than wrapped onto a second row
-// that the cursor would then have to account for.
-func (m *Model) renderGate(_, h int) []string {
+// A step's command is cut at the column's edge by fitBlock rather than wrapped
+// onto a second row the cursor would then have to account for. The notices -
+// a run that failed, no gate at all - have no cursor, so they wrap (#761).
+func (m *Model) renderGate(w, h int) []string {
 	id := m.review.SessionID
 	// A report is real data and outranks everything: it says what the gate
 	// actually found, even if the project's gate has since been changed or
@@ -40,13 +40,13 @@ func (m *Model) renderGate(_, h int) []string {
 	case m.gateRunning[id]:
 		return m.pendingGateLines(id)
 	case ran && report.Err != nil:
-		return []string{"the gate could not run:", "  " + report.Err.Error()}
+		return noticeLines([]string{"the gate could not run:", report.Err.Error()}, true, w)
 	case ran:
 		return m.gateView(report, h)
 	case len(m.gateFor(id)) > 0:
 		return m.pendingGateLines(id)
 	}
-	return m.noGateLines()
+	return noticeLines(m.noGateLines(), false, w)
 }
 
 // pendingGateLines covers the two states before a verdict exists: a run in

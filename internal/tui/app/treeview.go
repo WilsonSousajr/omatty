@@ -13,16 +13,17 @@ import (
 // window after the cursor last moved.
 func (m *Model) renderTree(w, rows int) []string {
 	if m.review.TreeErr != "" {
-		return []string{theme.Error.Render(fitLine(m.review.TreeErr, w))}
+		// Wrapped, with the cause and the log's pointer, as the diff's (#761).
+		return noticeLines([]string{"listing files failed:", m.review.TreeErr, logHint}, true, w)
 	}
 	// Three states, told apart explicitly: no *Tree is "not listed yet", a
 	// *Tree with no rows is "listed, and there is nothing" (#131).
 	if m.review.Tree == nil {
-		return []string{theme.Muted.Render("listing files...")}
+		return noticeLines([]string{"listing files..."}, false, w)
 	}
 	nodes := m.treeRows()
 	if len(nodes) == 0 {
-		return m.withFilterLine([]string{theme.Muted.Render(fitLine(m.emptyTreeText(), w))}, w, rows)
+		return m.withFilterLine(noticeLines([]string{m.emptyTreeText()}, false, w), w, rows)
 	}
 	return m.withFilterLine(m.treeLines(nodes, w, rows), w, rows)
 }

@@ -4,8 +4,6 @@ import (
 	dreview "github.com/WilsonSousajr/omatty/internal/domain/review"
 	"github.com/WilsonSousajr/omatty/internal/tui/theme"
 	"strings"
-
-	"github.com/charmbracelet/x/ansi"
 )
 
 // tabWidth is what a tab becomes before a row is measured. Tabs are expanded
@@ -71,7 +69,7 @@ func (m *Model) reviewBody(w, rows int) []string {
 		return noticeLines([]string{"loading the diff..."}, false, w)
 	}
 	if len(m.review.Entries) == 0 {
-		return []string{theme.Muted.Render(m.noChanges())}
+		return noticeLines([]string{m.noChanges()}, false, w)
 	}
 	if !m.review.Note.Active {
 		return m.renderEntries(w, rows)
@@ -186,23 +184,6 @@ func (m *Model) noChanges() string {
 		return "no changes this turn"
 	}
 	return "no changes"
-}
-
-// noticeLines draws a notice wrapped to the column rather than cut at its
-// edge: a cut line lost the part of an error that says what went wrong
-// (#351), and git's stderr can be several lines of its own.
-func noticeLines(lines []string, isErr bool, w int) []string {
-	style := theme.Muted
-	if isErr {
-		style = theme.Error
-	}
-	var out []string
-	for _, l := range lines {
-		for _, part := range strings.Split(ansi.Wrap(l, w, " "), "\n") {
-			out = append(out, style.Render(fitLine(part, w)))
-		}
-	}
-	return out
 }
 
 // noteLabel says which of the note editor's two prompts is showing (#339).
