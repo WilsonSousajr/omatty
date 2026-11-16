@@ -71,11 +71,41 @@ func TestCaskSteps_writesTheHookAsPostflightSteps_issue369(t *testing.T) {
 	if binary := strings.Index(after, `binary "omatty"`); binary < 0 || binary > at {
 		t.Errorf("postflight_steps is not after the binary stanza:\n%s", after)
 	}
-	if zap := strings.Index(after, "# No zap stanza required"); zap < at {
+	if zap := strings.Index(after, "zap :not_required"); zap < at { // #808 replaced the comment
 		t.Errorf("postflight_steps is not before the closing stanzas:\n%s", after)
 	}
 	if strings.Contains(after, "postflight do") {
 		t.Errorf("the cask still has a deprecated postflight block:\n%s", after)
+	}
+}
+
+// Homebrew's Cask/ZapNotRequired cop refuses the comment GoReleaser renders
+// where a zap stanza would go, and asks for the stanza that says the same
+// (#808). The comment is replaced, never kept beside it.
+func TestCaskSteps_writesZapNotRequired_issue808(t *testing.T) {
+	after, out, err := caskSteps(t, renderedCask(t))
+	if err != nil {
+		t.Fatalf("cask-steps.sh: %v\n%s", err, out)
+	}
+	if !strings.Contains(after, "\n  zap :not_required\nend\n") {
+		t.Errorf("the cask does not end with zap :not_required:\n%s", after)
+	}
+	if strings.Contains(after, "# No zap stanza required") {
+		t.Errorf("the cask keeps the comment brew style refuses:\n%s", after)
+	}
+}
+
+// A cask with neither the comment nor a zap stanza means GoReleaser renders
+// it differently now; the script says so rather than publishing a cask the
+// cop refuses (#808).
+func TestCaskSteps_refusesACaskWithNoZapComment_issue808(t *testing.T) {
+	cask := strings.Replace(renderedCask(t), "  # No zap stanza required\n", "", 1)
+	after, out, err := caskSteps(t, cask)
+	if err == nil {
+		t.Errorf("cask-steps.sh accepted a cask with no zap comment:\n%s", after)
+	}
+	if !strings.Contains(out, "zap") {
+		t.Errorf("the refusal does not name the zap stanza: %q", out)
 	}
 }
 
