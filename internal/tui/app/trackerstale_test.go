@@ -89,3 +89,25 @@ func TestTracker_aClickUnderTheCauseSelectsThatRow_issue776(t *testing.T) {
 		t.Errorf("a click on #396, the second issue, left the cursor at %d", got)
 	}
 }
+
+// The cause is a forge CLI's stderr, which can carry a server's words: an
+// escape sequence in it is drawn as text, never handed to the terminal, where
+// it could retitle the window, move the cursor or rewrite the screen (#776's
+// review).
+func TestTracker_refreshCauseCannotDrawEscapes_issue776(t *testing.T) {
+	m, fi, fp := trackerModel(t)
+	openTracker(m)
+	hostile := errors.New("HTTP 502 \x1b]0;owned\x07\x1b[2J\x9b31m\rgone")
+	fi.Errs["/p/omatty"], fp.Errs["/p/omatty"] = hostile, hostile
+	pressDeliver(m, key('r'))
+
+	frame := m.View().Content
+	for _, bad := range []string{"\x1b]0;", "\x07", "\x1b[2J", "\x9b", "\r"} {
+		if strings.Contains(frame, bad) {
+			t.Errorf("the frame carries the cause's control sequence %q", bad)
+		}
+	}
+	if !strings.Contains(stripSGR(frame), "HTTP 502") {
+		t.Errorf("the cause's words are gone with its escapes:\n%s", stripSGR(frame))
+	}
+}
