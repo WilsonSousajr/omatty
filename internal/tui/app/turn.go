@@ -121,6 +121,7 @@ func (m *Model) toggleScope() tea.Cmd {
 	}
 	m.review.DiffList.Cursor, m.review.DiffList.Offset, m.review.ColOffset = 0, 0, 0
 	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = dreview.Diff{}, nil, false
+	m.review.HunkStyles = nil // the other diff's hunks are shown now (#435, #773)
 	m.rebuildEntries()
 	m.restoreScopeAnchor() // the session diff is in memory; the turn waits for its load
 	// Both diffs: the turn view places and anchors comments through the

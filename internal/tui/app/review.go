@@ -349,7 +349,7 @@ func (m *Model) onTurnLoaded(msg TurnLoadedMsg) tea.Cmd {
 	}
 	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = msg.Diff, msg.Err, true
 	m.rebuildTurnEntries() // and the cursor back where t left it (#765)
-	return m.loadSides(msg.SessionID, msg.Diff, true, msg.Seq)
+	return m.diffReplaced(msg.SessionID, msg.Diff, true, msg.Seq)
 }
 
 // onDiffLoaded paints a freshly loaded diff, unless the pane closed or moved
@@ -370,7 +370,7 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 	m.commentsFor(msg.SessionID).PruneSent(msg.Diff)
 	m.rebuildEntries()
 	m.retouchTree()
-	return tea.Batch(m.classifyAfterDiff(msg.SessionID), m.loadSides(msg.SessionID, msg.Diff, false, msg.Seq))
+	return tea.Batch(m.classifyAfterDiff(msg.SessionID), m.diffReplaced(msg.SessionID, msg.Diff, false, msg.Seq))
 }
 
 // rebuildEntries re-places the comments against the current diff and keeps the
@@ -383,8 +383,8 @@ func (m *Model) rebuildEntries() {
 		// does not place is elsewhere in the session, not moved (#311).
 		placed = dreview.PlaceIn(m.review.Diff, d, comments)
 	}
+	m.foldByDefault(d) // a large or generated file arrives folded (#773)
 	m.review.Entries = m.withoutFolded(dreview.Flatten(d, placed), d)
-	m.review.HunkStyles = nil // the hunks may be another diff's now (#435)
 	m.contentChanged()
 	if m.review.DiffList.Cursor >= len(m.review.Entries) {
 		m.review.DiffList.Cursor = max(len(m.review.Entries)-1, 0)

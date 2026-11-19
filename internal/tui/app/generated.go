@@ -88,6 +88,9 @@ func (m *Model) onGenerated(msg generatedMsg) {
 	}
 	m.generated[msg.id] = msg.gen
 	m.applyGenerated()
+	if msg.id == m.review.SessionID {
+		m.rebuildEntries() // and fold them in the diff (#773)
+	}
 }
 
 // applyGenerated hands the shown session's detection to its tree.
