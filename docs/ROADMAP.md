@@ -1599,6 +1599,10 @@ takes them in that order. **#594 is fixed** for every forge: a CI verdict
 other than a pass is kept for minutes rather than asked every poll, the
 finished list is read only when the open set moves, and a 429 is waited out
 per host, for the time it named or a backoff of five minutes to an hour.
+**#585 is fixed:** a `[forge.hosts]` key may carry the root a forge is served
+under (`"host/gitlab" = "gitlab"`); the root leaves the slug and stays in every
+API and web URL, a rooted GitLab is read over REST, and an ssh remote on a host
+with several roots is refused aloud.
 
 ## M17 - The Agents
 

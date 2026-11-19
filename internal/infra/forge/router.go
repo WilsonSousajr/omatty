@@ -218,6 +218,9 @@ func (r *Router) pick(repoRoot string, res resolved) (backend, error) {
 // a token glab itself reads (#455) - the same paths either way, so the same
 // fold.
 func (r *Router) pickGitLab(repoRoot string, remote Remote) (backend, error) {
+	if len(remote.Root) > 0 {
+		return r.rootedGitLab(remote)
+	}
 	var f fetcher
 	if bin, ok := r.cli(KindGitLab); ok {
 		// The bare host: glab refuses a --hostname with a port ("invalid
@@ -233,6 +236,20 @@ func (r *Router) pickGitLab(repoRoot string, remote Remote) (backend, error) {
 	} else {
 		return nil, &dforge.MissingToolError{Tool: "glab", TokenEnv: "GITLAB_TOKEN"}
 	}
+	return glBackend{f: f, remote: remote, ci: r.ci, fin: r.fin, open: r.open}, nil
+}
+
+// rootedGitLab is a GitLab served under a root (#585), read over REST alone:
+// glab's --hostname takes no path, so it would ask the host's own root for
+// the project. Without a token - or with the CLI forced - there is no way in,
+// and the note names the token alone.
+func (r *Router) rootedGitLab(remote Remote) (backend, error) {
+	tok, env := r.borrow([]string{"GITLAB_TOKEN", "GITLAB_ACCESS_TOKEN"})
+	if tok == "" || r.transport == TransportCLI {
+		return nil, &dforge.MissingToolError{TokenEnv: "GITLAB_TOKEN"}
+	}
+	// Over plain http the REST client refuses to send the token (#584).
+	f := restAPI{rest: r.rest, base: webBase(remote) + "/api/v4", auth: privateToken(tok), env: env}
 	return glBackend{f: f, remote: remote, ci: r.ci, fin: r.fin, open: r.open}, nil
 }
 

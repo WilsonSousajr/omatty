@@ -124,3 +124,23 @@ func (e *RateLimitError) Error() string {
 	}
 	return "forge: " + e.Host + " is rate-limiting omatty until " + e.Until.UTC().Format("15:04") + " UTC"
 }
+
+// AmbiguousHostError is an ssh remote on a host that serves several forges
+// under different roots (#585): an ssh path carries no root, so nothing says
+// which one the repository is on, and omatty refuses rather than guess. It is
+// ErrNoForge - the checkout's, no poll changes it - said aloud.
+//
+//	var ambiguous *forge.AmbiguousHostError
+//	if errors.As(err, &ambiguous) { note := ambiguous.Error() }
+type AmbiguousHostError struct {
+	// Host is the ssh host the rooted [forge.hosts] keys share.
+	Host string
+}
+
+// Error names the host and the way out.
+func (e *AmbiguousHostError) Error() string {
+	return "forge: " + e.Host + " serves several forges under different paths; clone over https so omatty can tell which"
+}
+
+// Unwrap makes it ErrNoForge, so it stops the project as one does.
+func (e *AmbiguousHostError) Unwrap() error { return ErrNoForge }

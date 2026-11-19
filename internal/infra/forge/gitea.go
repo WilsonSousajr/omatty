@@ -82,7 +82,7 @@ func (g gtBackend) listPRs(ctx context.Context, _ string) ([]dforge.PR, error) {
 		return nil, g.listErr(ctx, err)
 	}
 	open := foldGTPRs(page)
-	finished, err := g.fin.read(ctx, g.remote.Host+"/"+g.remote.Slug(), open, g.finished)
+	finished, err := g.fin.read(ctx, g.remote.project(), open, g.finished)
 	if err != nil {
 		return nil, g.listErr(ctx, err)
 	}
@@ -100,7 +100,7 @@ func (g gtBackend) finished(ctx context.Context) ([]dforge.PR, error) {
 }
 
 func (g gtBackend) ciKey(pr dforge.PR) string {
-	return g.remote.Host + "/" + g.remote.Slug() + "#" + strconv.Itoa(pr.Number) + "@" + pr.Head
+	return g.remote.project() + "#" + strconv.Itoa(pr.Number) + "@" + pr.Head
 }
 
 // statusCI is the head commit's combined status, which Gitea and Forgejo

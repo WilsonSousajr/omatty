@@ -117,3 +117,17 @@ func (h Hosts) KindOf(host string) (Kind, error) {
 	}
 	return KindOf(host)
 }
+
+// SplitHostKey reads a [forge.hosts] key: the host, then the root path the
+// forge is served under, when it has one - https://host/gitlab is
+// "host/gitlab" (#585). One parser, so the config's check and the Router's
+// match read a key the same way.
+//
+//	forge.SplitHostKey("host.corp/gitlab") // "host.corp", ["gitlab"]
+func SplitHostKey(key string) (string, []string) {
+	host, root, rooted := strings.Cut(key, "/")
+	if !rooted {
+		return host, nil
+	}
+	return host, strings.Split(root, "/")
+}
