@@ -40,6 +40,11 @@ type Profile struct {
 	// Caps is what the agent offers, and so what omatty may claim about its
 	// sessions: the tier is derived from it, never declared (#520).
 	Caps Caps
+	// Env is extra KEY=VALUE pairs the launcher sets on this agent's process,
+	// replacing any value inherited from the shell. Claude's names omatty in
+	// its exit hint (CLAUDE_CODE_RESUME_HINT_COMMAND, #815). Per invocation,
+	// so it writes no config (invariant 3).
+	Env []string
 	// Command is the argument list, bin included, for one session. resume is
 	// true once the agent has written a transcript for the id: claude refuses
 	// --session-id then, because the transcript itself is the claim (#36).

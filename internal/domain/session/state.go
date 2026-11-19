@@ -136,6 +136,20 @@ func (s Session) ConversationID() string {
 	return s.ID
 }
 
+// SessionByConversation is the row whose current conversation is id: the
+// conversation claude names in its exit hint (#815). A row a /clear moved
+// owns only its new conversation, so its old one finds nothing (#316).
+//
+//	sess, ok := st.SessionByConversation("3f2a…")
+func (st State) SessionByConversation(id string) (Session, bool) {
+	for _, s := range st.Sessions {
+		if s.ConversationID() == id {
+			return s, true
+		}
+	}
+	return Session{}, false
+}
+
 // State is the whole persisted registry.
 type State struct {
 	Version  int       `json:"version"`

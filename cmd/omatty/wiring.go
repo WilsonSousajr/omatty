@@ -36,7 +36,7 @@ import (
 	"io"
 )
 
-func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
+func runTUI(home string, cfg config.Config, store sessions.StateStore, focus string) error {
 	state, err := store.Load(context.Background())
 	if err != nil {
 		return err
@@ -53,7 +53,9 @@ func runTUI(home string, cfg config.Config, store sessions.StateStore) error {
 		return err
 	}
 	env.Width, env.Height = windowSize()
-	return runWithNamer(tuiDeps(env, store, state), runtimeFor(env), cfg)
+	deps := tuiDeps(env, store, state)
+	deps.Focus = focus // the row `omatty --resume` named, or "" (#815)
+	return runWithNamer(deps, runtimeFor(env), cfg)
 }
 
 // installHooks gives every agent that takes hooks its route to `omatty

@@ -282,7 +282,18 @@ func NewModel(deps Deps) *Model {
 		reattached: d.Reattached,
 	}
 	m.glyphs, m.nerdIcons = glyphsFor(d.NerdIcons), d.NerdIcons
-	return m.withSources(d).withGate(d).withWindow().withRuntimeMaps().withSweep(d)
+	// withFocus is last: revealing a row in a folded project persists the
+	// unfold through the store the sources wire (#505, #815).
+	return m.withSources(d).withGate(d).withWindow().withRuntimeMaps().withSweep(d).withFocus(d.Focus)
+}
+
+// withFocus puts the cursor on id, the row `omatty --resume` named (#815).
+// An empty id, or one the sidebar does not show, leaves the first row.
+func (m *Model) withFocus(id string) *Model {
+	if id != "" {
+		m.revealSession(id)
+	}
+	return m
 }
 
 // withSources attaches the injected functions that reach outside ui: the

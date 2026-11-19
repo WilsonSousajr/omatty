@@ -41,8 +41,17 @@ func dispatch(cmd string, args []string, home string, cfg config.Config, store s
 	case "sessions", "status":
 		return readCommand(cmd, args, home, store, os.Stdout)
 	default:
-		return dispatchSettings(cmd, args, store, newRouter(cfg, vcs.NewCLI()).ListPRs)
+		return dispatchMore(cmd, args, home, cfg, store)
 	}
+}
+
+// dispatchMore is dispatch's overflow, split to stay inside funlen: the
+// TUI opened on one session (#815), then the per-project settings.
+func dispatchMore(cmd string, args []string, home string, cfg config.Config, store sessions.StateStore) error {
+	if cmd == "--resume" {
+		return resumeSession(home, cfg, store, args)
+	}
+	return dispatchSettings(cmd, args, store, newRouter(cfg, vcs.NewCLI()).ListPRs)
 }
 
 // dispatchSettings runs the per-project settings subcommands, and owns the
@@ -56,8 +65,23 @@ func dispatchSettings(cmd string, args []string, store sessions.StateStore, prs 
 		return carryCommand(store, args)
 	default:
 		return fmt.Errorf(
-			"unknown command %q (want add, rm, new, discover, adopt, gate, carry, sessions, status, --version, or no argument)", cmd)
+			"unknown command %q (want add, rm, new, discover, adopt, gate, carry, sessions, status, --resume, --version, or no argument)", cmd)
 	}
+}
+
+// resumeSession is `omatty --resume <conversation>`, what claude's exit hint
+// names (#815): the TUI, opened on the row that owns the conversation and
+// with that row started.
+func resumeSession(home string, cfg config.Config, store sessions.StateStore, args []string) error {
+	state, err := store.Load(context.Background())
+	if err != nil {
+		return err
+	}
+	id, err := cli.ResumeTarget(state, args)
+	if err != nil {
+		return err
+	}
+	return runTUI(home, cfg, store, id)
 }
 
 // adoptPorts is what `omatty adopt` reads and writes through: the real git

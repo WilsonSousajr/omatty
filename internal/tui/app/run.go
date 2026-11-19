@@ -65,6 +65,24 @@ func SessionsToStart(lazy bool, st session.State, held map[string]bool) map[stri
 	return all
 }
 
+// WithFocus is want with the session `omatty --resume` named added, so it
+// starts even under lazy start (#815). It returns a copy: under lazy start
+// want is the held set itself, which the boot also hands the model as
+// Reattached, and a focus added there would nudge a fresh pane (#191).
+//
+//	want := app.WithFocus(app.SessionsToStart(lazy, st, held), focus)
+func WithFocus(want map[string]bool, focus string) map[string]bool {
+	if focus == "" {
+		return want
+	}
+	out := make(map[string]bool, len(want)+1)
+	for id, ok := range want {
+		out[id] = ok
+	}
+	out[focus] = true
+	return out
+}
+
 // HeldSessions is the set of sessions whose claude is already running from
 // an earlier omatty, so the boot can tell a pane that will come back blank
 // from one that will paint itself (#191). A failed liveness check is logged
