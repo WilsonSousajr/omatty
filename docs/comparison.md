@@ -4,8 +4,8 @@ For anyone evaluating omatty against another way of running several coding
 agents, or migrating from one. This page aims to be **fair and specific**:
 what each approach does well, where omatty differs, and where others are
 ahead. The analysis behind it is in [`docs/research/`](research/), captured
-2026-09-18 and refreshed 2026-09-27 from primary sources
-(`2026-landscape.md` §7, `herdr.md`); every number and every competitor claim
+2026-09-18 and refreshed from primary sources, most recently on 2026-11-18
+(`2026-landscape.md` §7-§10, `herdr.md`); every number and every competitor claim
 here traces to a file path or an issue number there.
 
 Where a claim about omatty appears below, it names the package that implements
@@ -24,13 +24,21 @@ Concretely, and these are the claims worth checking first:
   on that session's card, and sends the failures back into the session that
   caused them with one keystroke (`internal/domain/gate`, `internal/service/gate`,
   `internal/infra/gateexec`, `internal/domain/coverage`).
-  **As of 2026-09-27, no session manager or agent workspace above about a
-  hundred stars does this.** The larger tools show the *remote* verdict, the
-  pull request's CI, and so does `claude agents`. Four small tools each do part
-  of it locally, judged by exit status as omatty is: `nccapo/stvena` (one
-  command), `axonel/sentinel` (one command per mission), and two herdr plugins,
-  `herdr-plugin-odysseus` and `herdr-testrun` (`2026-landscape.md` §7.4). The
-  claim is dated because it will not stay true.
+  **Running that line is no longer omatty's alone. Who reads the verdict
+  still is.** `pullboard-dev/pullboard`, an orchestrator, runs the project's
+  own line in each agent's worktree. It splits the line into stages and judges
+  each one by exit status, as omatty does. It then lands the work on that
+  verdict with no reviewer (`packages/gate/src/io/run/shell.js`).
+  `muaaz9329/cheap-ag` runs a task's checks the same way, to decide whether a
+  cheaper model's patch reaches the frontier model (`src/verify.ts`). Both hand
+  the verdict to an agent. omatty puts it on the card of a session a person is
+  watching, and the person decides what goes back. **As of 2026-11-18, no
+  session manager or agent workspace above about a hundred stars does that**
+  (`2026-landscape.md` §9.3, §10.4). The larger tools
+  show the *remote* verdict, the pull request's CI, and so does
+  `claude agents`. Four small tools do part of it locally: `nccapo/stvena`,
+  `axonel/sentinel`, and two herdr plugins, `herdr-plugin-odysseus` and
+  `herdr-testrun` (§7.4). The claim is dated because it will not stay true.
 - **Comments anchor to the content of a line, not its number**
   (`internal/domain/review/anchor.go`, invariant 7). Claude edits files while
   you read them. A line-number anchor silently attaches your feedback to the
@@ -47,7 +55,7 @@ the rest of this page is about it.
 
 ## By camp
 
-**Terminal session managers**: `herdrdev/herdr` (Rust, ~41k stars, owns the
+**Terminal session managers**: `herdrdev/herdr` (Rust, ~52k stars, owns the
 PTYs, many agents, several machines, plugins), `smtg-ai/claude-squad` (tmux +
 `gh`, AGPL), `kbwo/ccmanager` (no tmux, nine agent CLIs, Windows),
 `brizzai/fleet` (Go, tmux, Claude Code, Codex and OpenCode, PR state on the
@@ -56,11 +64,27 @@ sessions. herdr, with its `herdr-reviewr` plugin, also has a review loop that
 sends comments back, anchored by line number. None of them has a gate in
 core.
 
+herdr is the camp's largest member, but its own work has moved into a desktop
+app. Since 2026-10-16 it has been three repositories:
+
+- the TUI above;
+- `herdrdev/herdr-core` (`hc`), which keeps the terminals running and "draws
+  nothing";
+- `herdrdev/herdr-app`, "a desktop app for terminals and coding agents" (Rust
+  on GPUI, macOS, Linux and Windows).
+
+The app's panels are JavaScript mods; its shipped `changes` mod is a read-only
+diff. The TUI had no commit on its default branch after 2026-10-29 and no
+release after v0.9.5 (2026-10-14), while the app tagged thirteen versions by
+2026-11-14 (`2026-landscape.md` §10.3). The TUI carries no deprecation notice,
+and this page does not call it one.
+
 **Desktop and hybrid workspaces**: `stablyai/orca` (the field's largest by
 far; runs any CLI agent), `nimbalyst/nimbalyst` (formerly Crystal),
-`imbue-ai/sculptor`, Conductor. Better rendering, mobile companions, cloud
-sessions. Orca also runs headless (`orca serve`,
-`docs/reference/headless-linux-server.md`) and has SSH worktrees.
+`imbue-ai/sculptor`, Conductor, and now `herdrdev/herdr-app`. Better
+rendering, mobile companions, cloud sessions. Orca also runs headless
+(`orca serve`, `docs/reference/headless-linux-server.md`) and has SSH
+worktrees.
 
 **Boards and queues**: the camp `BloopAI/vibe-kanban` led, which is an order
 of magnitude larger than the terminal camp. vibe-kanban itself is sunsetting
@@ -171,7 +195,10 @@ above). You gain the gate, comments that stay on the right line while Claude
 edits, status that does not depend on Claude's screen, and nothing written to
 your Claude settings. You give up other agents, Windows, several machines in
 one window, plugins, and general-purpose panes. If you do not want a gate,
-stay.
+stay. If you are on the herdr app rather than the TUI, add one more line on
+each side. You gain a tool with no telemetry: herdr-app's README says "usage
+telemetry is on by default in releases". You give up a desktop window, which
+omatty, a terminal program, will not become.
 
 **From claude-squad**: the clearest case. You gain status that does not break
 when tmux does, several repositories in one view (its #56, #299 and #238 are
@@ -205,7 +232,8 @@ card.
 ## Honest summary
 
 omatty's differentiation is **one feature and two properties**: the gate,
-content-anchored comments, and status that never reads the screen. It is
+read by a person rather than by another agent, content-anchored comments, and
+status that never reads the screen. It is
 worth having at several sessions across several repositories. Most of the
 rest is parity with a camp that has independently converged on the same
 shape, and part of it (the session list across projects) is now shipped by
