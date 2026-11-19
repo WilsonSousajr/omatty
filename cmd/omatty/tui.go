@@ -55,7 +55,7 @@ func runProgram(deps app.Deps, rt tuiRuntime) error {
 	// Asked before the terminals start: once a client is attached the socket
 	// exists whether or not a claude was already behind it (#191).
 	held := app.HeldSessions(rt.Launch, deps.State)
-	terms := app.StartTerminals(deps.State, app.SessionsToStart(rt.LazyStart, deps.State, held), rt.Launch, rt.Factory, rt.Width, rt.Height, deps.Leader)
+	terms := app.StartTerminals(deps.State, app.WithFocus(app.SessionsToStart(rt.LazyStart, deps.State, held), deps.Focus), rt.Launch, rt.Factory, rt.Width, rt.Height, deps.Leader)
 	defer app.CloseTerminals(terms)
 	watch := status.Start(rt.Watch, deps.State.Sessions)
 	defer watch.Close()

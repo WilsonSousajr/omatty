@@ -73,21 +73,34 @@ func (l *Launcher) Launch(sess session.Session) (session.Launch, error) {
 	if err != nil {
 		return session.Launch{}, err
 	}
-	return session.Launch{Argv: argv, Env: ownedEnv(os.Environ(), sess.ID), Dir: sess.Dir}, nil
+	env := ownedEnv(os.Environ(), append([]string{session.SessionEnv + "=" + sess.ID}, profile.Env...))
+	return session.Launch{Argv: argv, Env: env, Dir: sess.Dir}, nil
 }
 
-// ownedEnv is env with session.SessionEnv set to id. A value inherited from an
-// outer omatty pane is dropped rather than shadowed, so an omatty running
-// inside omatty cannot re-bind the pane it runs in (#316).
-func ownedEnv(env []string, id string) []string {
-	prefix := session.SessionEnv + "="
-	out := make([]string, 0, len(env)+1)
+// ownedEnv is env with each of set's KEY=VALUE pairs in place: session.SessionEnv
+// for the row, and the profile's own (#815). A value inherited from the shell
+// or an outer omatty pane is dropped rather than shadowed, so an omatty running
+// inside omatty cannot re-bind the pane it runs in (#316), and an inherited
+// hint cannot outvote the profile's.
+func ownedEnv(env, set []string) []string {
+	out := make([]string, 0, len(env)+len(set))
 	for _, kv := range env {
-		if !strings.HasPrefix(kv, prefix) {
+		if !setsKey(set, kv) {
 			out = append(out, kv)
 		}
 	}
-	return append(out, prefix+id)
+	return append(out, set...)
+}
+
+// setsKey reports whether one of set's pairs names kv's key.
+func setsKey(set []string, kv string) bool {
+	key, _, _ := strings.Cut(kv, "=")
+	for _, s := range set {
+		if k, _, _ := strings.Cut(s, "="); k == key {
+			return true
+		}
+	}
+	return false
 }
 
 // HasTranscript reports whether the profile's agent has written a transcript

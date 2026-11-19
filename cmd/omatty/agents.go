@@ -34,6 +34,10 @@ func claudeProfile() agent.Profile {
 		DefaultBin: "claude",
 		Caps: agent.Caps{Identity: agent.Assigned, Status: agent.StatusHooks,
 			Waiting: true, Resume: true, TurnBoundary: true},
+		// claude's exit hint then reads `omatty --resume <id>`, which reopens
+		// the row rather than resuming around it (#815). claude ignores any
+		// value that is not a bare word, so this is the name, never a path.
+		Env:            []string{"CLAUDE_CODE_RESUME_HINT_COMMAND=omatty"},
 		Command:        agent.ClaudeCommand,
 		TranscriptPath: claudeTranscript,
 		HookEvents:     status.HookEventNames,

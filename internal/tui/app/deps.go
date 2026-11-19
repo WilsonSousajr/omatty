@@ -213,6 +213,9 @@ type Deps struct {
 	// omatty started: their panes come back blank and are asked to repaint
 	// once at boot (#191). Nil means none.
 	Reattached map[string]bool
+	// Focus is the session the cursor opens on: the row `omatty --resume`
+	// resolved from claude's exit hint (#815). Empty opens on the first row.
+	Focus string
 }
 
 // withDefaults fills the optional fields: the wall clock, the real timer and

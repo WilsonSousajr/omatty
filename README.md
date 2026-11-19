@@ -230,8 +230,18 @@ omatty carry my-app                   # show that list
 omatty sessions --json                # every session, for a script
 omatty status --json                  # each session's status and tokens, read from its transcript
 omatty                                # run the TUI
+omatty --resume <conversation>        # the TUI, opened on the session that owns it
 omatty --version                      # which build is this
 ```
+
+`omatty --resume` is the command Claude Code's own exit hint names. omatty
+starts claude with `CLAUDE_CODE_RESUME_HINT_COMMAND=omatty`, so a session that
+exits says `Resume this session with: omatty --resume <id>` rather than
+`claude --resume <id>`, which would carry on outside omatty and leave its row
+behind. It opens omatty with the cursor on that session and the session
+started. A conversation no session owns is refused with its id; `omatty adopt`
+is how one omatty did not start gets a row. Older claudes ignore the variable
+and print their own hint.
 
 `omatty carry` is what makes a fresh worktree able to run the project. A
 worktree is a clean checkout, so nothing git ignores is in it: `.env`, local

@@ -107,7 +107,7 @@ func run() error {
 		// After the TUI has stopped, so the profile describes a settled
 		// heap rather than one mid-frame.
 		defer writeHeapProfile()
-		return runTUI(home, cfg, store)
+		return runTUI(home, cfg, store, "")
 	}
 	return dispatch(os.Args[1], os.Args[2:], home, cfg, store)
 }
