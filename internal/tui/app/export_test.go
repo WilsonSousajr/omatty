@@ -363,3 +363,6 @@ func (m *Model) HostWaitUntil(project string) time.Time { return m.forgeWait[m.h
 
 // ModalOpen reports whether a modal surface owns the keyboard (#749).
 func (m *Model) ModalOpen() bool { return m.modalOpen() }
+
+// LeaderOwns is leaderOwns, for the drift test (#750).
+func LeaderOwns(k string) bool { return leaderOwns(k) }
