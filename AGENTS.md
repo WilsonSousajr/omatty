@@ -272,8 +272,13 @@ not in the gate.
    every keystroke goes to the PTY except the `Ctrl+O` leader. Never inspect a
    key and guess whether Claude wants it — that is what broke the prior LazyVim
    attempt.
-2. **Status comes from JSONL and hooks, never from the rendered screen.** No
-   package may parse the terminal cell grid to infer session state.
+2. **Status comes from JSONL, hooks, and status signals the agent emits on
+   purpose, never from the rendered screen.** No package may parse the
+   terminal cell grid, or text the agent draws, to infer session state. A
+   status escape sequence the agent sends to its terminal as a protocol,
+   such as Claude Code's OSC 7501, is a structured channel like a hook, not a
+   rendering. It may be read, and only in `internal/tui/terminal`, which owns
+   the PTY (ADR 0002, #816).
 3. **omatty never writes any agent's user configuration** (`~/.claude`,
    `~/.codex`, `~/.gemini`, `~/.config/opencode`, ...), **and never writes an
    agent config file inside the project** (#522). Per-session hooks are passed
@@ -552,6 +557,8 @@ Nothing is merged straight to `main`; it moves only by promotion (#134).
   and the architecture decisions it led to. `0001-architecture.md` (#618) is
   the layout: `domain/`, `service/`, `infra/`, `pubsub`, `tui/`, `cli`.
   `docs/MIGRATION_PLAN.md` is how the code got there (#653, done 2026-10-01).
+  `0002-program-status-osc-7501.md` (#816) admits Claude Code's OSC 7501
+  status as a third status source, and is why invariant 2 reads as it does.
 - `internal/domain/agent` package doc — the agent seam (#46): an agent is a
   command template plus a status adapter; the catalog of profiles is composed
   in `cmd/omatty/agents.go`, and the adapter interface lives in

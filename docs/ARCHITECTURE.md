@@ -223,12 +223,19 @@ AGENTS.md lists them as rules. Each one is here with the failure it prevents.
    but the leader. Four modal surfaces were added in M4 without the router
    learning anything about them (ROADMAP, M4).
 
-2. **Status comes from JSONL and hooks, never from the screen.** A cell grid
+2. **Status comes from JSONL, hooks and the agent's own status signals, never from the screen.** A cell grid
    is a rendering, not a fact: it changes with width, theme and scrollback.
    The structured sources are exact, which is also why `paths.TranscriptSlug`
    must match Claude's own directory transform character for character - #60
    was a path with a space the old mapping missed, which left the tailer
    blind and every restart starting a fresh session instead of resuming.
+
+   A status escape sequence the agent emits as a protocol does not breach it
+   either. Claude Code's OSC 7501 report has no width, theme or scrollback:
+   it is a fact the agent states, lifted from the byte stream before the
+   emulator draws anything. ADR 0002 (#816) admits it as a third source,
+   under conditions. It refines hooks and the transcript, and never
+   overrides them.
 
    `terminal.Text` reads that grid, and does not breach this. The invariant
    forbids *inferring session state* from a rendering, because the JSONL
