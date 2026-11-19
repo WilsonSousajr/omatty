@@ -9,6 +9,10 @@
 # Delete this script, and give the hook back to .goreleaser.yaml, once a
 # GoReleaser release can emit install steps itself (goreleaser#6873).
 #
+# It also writes `zap :not_required` where GoReleaser renders the comment
+# "# No zap stanza required": Homebrew's Cask/ZapNotRequired cop refuses the
+# comment and asks for the stanza, which says the same thing (#808).
+#
 # The hook exists because the binary is unsigned: without it Gatekeeper
 # refuses a freshly installed copy. `{{staged_path}}` is a token rather than a
 # path because a step's args are plain strings, never resolved against the
@@ -30,9 +34,12 @@ grep -q '^  postflight_steps do$' "$cask" &&
 	refuse "already has postflight_steps; if GoReleaser writes them now, delete this script"
 grep -q '^  binary "omatty"$' "$cask" ||
 	refuse 'has no binary "omatty" stanza to put the hook after'
+grep -q '^  # No zap stanza required$' "$cask" ||
+	refuse 'has no "# No zap stanza required" comment to write zap :not_required for'
 
 patched="$cask.steps"
 awk '
+	$0 == "  # No zap stanza required" { print "  zap :not_required"; next }
 	{ print }
 	$0 == "  binary \"omatty\"" {
 		print ""
