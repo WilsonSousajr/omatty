@@ -29,6 +29,7 @@ type FakeGit struct {
 	HeadOut                string            // Head result (#310)
 	AttrOut                map[string]bool   // Attr result (#338)
 	Restored               []string          // trees RestoreTree was given (#334)
+	Blobs                  map[string]string // Blob's file per "rev:path"; absent is over the bound (#800)
 	// GoneRefs are refs that no longer resolve, like a merged and deleted
 	// base branch (#684): MergeBase fails on them as git does, and
 	// CommitExists reports them absent.
@@ -147,6 +148,17 @@ func (f *FakeGit) DeleteTurnRef(dir, id string) error {
 
 func (f *FakeGit) DiffTrees(dir, from, to string) (string, error) {
 	return f.DiffTreesOut, f.record("DiffTrees", dir, from, to)
+}
+
+func (f *FakeGit) Blob(dir, rev, path string, _ int) ([]byte, bool, error) {
+	if err := f.record("Blob", dir, rev, path); err != nil {
+		return nil, false, err
+	}
+	text, ok := f.Blobs[rev+":"+path]
+	if !ok {
+		return nil, false, nil
+	}
+	return []byte(text), true, nil
 }
 
 func (f *FakeGit) Head(dir string) (string, error) {

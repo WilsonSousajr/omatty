@@ -23,8 +23,8 @@ func TestDiffHighlight_removedLineDoesNotBleedIntoAdded_issue764(t *testing.T) {
 	}
 	newSide := []dreview.Line{hunk[0], hunk[2], hunk[3]}
 
-	got := drawHunk(highlight.Chroma{}, "p.go", hunk).drawn
-	want := drawHunk(highlight.Chroma{}, "p.go", newSide).drawn
+	got := drawHunk(highlight.Chroma{}, "p.go", hunk, nil).drawn
+	want := drawHunk(highlight.Chroma{}, "p.go", newSide, nil).drawn
 
 	if got[2] != want[1] {
 		t.Errorf("the context line is coloured by the removed line before it:\ngot  %q\nwant %q", got[2], want[1])
@@ -44,8 +44,8 @@ func TestDiffHighlight_removedLinesAreLexedAsTheOldFile_issue764(t *testing.T) {
 	}
 	oldSide := []dreview.Line{hunk[1]}
 
-	got := drawHunk(highlight.Chroma{}, "p.go", hunk).drawn
-	want := drawHunk(highlight.Chroma{}, "p.go", oldSide).drawn
+	got := drawHunk(highlight.Chroma{}, "p.go", hunk, nil).drawn
+	want := drawHunk(highlight.Chroma{}, "p.go", oldSide, nil).drawn
 
 	if got[1] != want[0] {
 		t.Errorf("the removed line is coloured by the quote an added line opened:\ngot  %q\nwant %q", got[1], want[0])

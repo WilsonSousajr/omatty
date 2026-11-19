@@ -86,6 +86,8 @@ type Model struct {
 	ship        ShipFuncs
 	tally       TallyFunc
 	preview     PreviewFunc
+	oldFile     OldFileFunc // a diff's old side, read whole to prime its highlighter (#800)
+	primed      primedDiffs // the shown diffs' files lexed whole (#800)
 	rename      RenameFunc
 	rebind      RebindFunc // follows a /clear onto its new conversation (#316)
 	// renameBranch renames a worktree session's branch once its first prompt
@@ -299,7 +301,7 @@ func (m *Model) withSources(d Deps) *Model {
 	m.discover, m.registerProjects = d.Discover, d.AddProject
 	m.adoptPropose, m.adoptCommit = d.AdoptPropose, d.AdoptCommit
 	m.stop, m.notice = d.Stop, d.Notice
-	m.stat = d.Stat
+	m.stat, m.oldFile = d.Stat, d.OldFile
 	return m
 }
 

@@ -49,7 +49,7 @@ func (m *Model) hunkStyleAt(p dreview.Position) hunkStyle {
 		return hs
 	}
 	f := m.shownDiff().Files[p.File]
-	hs := drawHunk(m.highlighter, f.Path, f.Hunks[p.Hunk].Lines)
+	hs := drawHunk(m.highlighter, f.Path, f.Hunks[p.Hunk].Lines, m.primed.of(m.review.Scope == scopeTurn)[f.Path])
 	if m.review.HunkStyles == nil {
 		m.review.HunkStyles = map[hunkKey]hunkStyle{}
 	}
@@ -59,12 +59,13 @@ func (m *Model) hunkStyleAt(p dreview.Position) hunkStyle {
 
 // drawHunk finishes every line of a hunk once: syntax colours from chroma,
 // the line's one colour where chroma had none, and a pair's changed words.
-func drawHunk(hl Highlighter, path string, lines []dreview.Line) hunkStyle {
+func drawHunk(hl Highlighter, path string, lines []dreview.Line, lf *lexedFile) hunkStyle {
 	plain := make([]string, len(lines))
 	for i, l := range lines {
 		plain[i] = expandTabs(l.Text)
 	}
 	styled, spans := lexSides(hl, path, lines, plain), wordSpans(lines, plain)
+	lf.prime(styled, plain, lines)
 	drawn := make([]string, len(lines))
 	for i, l := range lines {
 		drawn[i] = drawLine(styled[i], plain[i], spans[i], l.Kind)
@@ -79,9 +80,10 @@ func drawHunk(hl Highlighter, path string, lines []dreview.Line) hunkStyle {
 // into a string (#764). Context lines are lexed in both and drawn from the
 // new side, the file as it reads now.
 //
-// Each stream still starts at the hunk, not at the file: a hunk that opens
-// inside a raw string or a block comment is lexed as code. Priming the lexer
-// from the file's start is #800.
+// Each stream starts at the hunk, not at the file, so a hunk that opens inside
+// a raw string or a block comment is lexed as code: this is the fallback, for
+// a file whose sides were not read. lexedFile.prime takes each line from its
+// side lexed whole where they were (#800).
 func lexSides(hl Highlighter, path string, lines []dreview.Line, plain []string) []string {
 	styled := append([]string(nil), plain...)
 	lexSide(hl, path, sideLines(lines, dreview.LineRemoved), plain, styled)

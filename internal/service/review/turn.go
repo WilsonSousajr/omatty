@@ -50,7 +50,9 @@ func (s *Source) LoadTurn(sess session.Session, _ string) (dreview.Diff, error) 
 	if err != nil {
 		return dreview.Diff{}, fmt.Errorf("review: diffing session %s's turn: %w", sess.ID, err)
 	}
-	return s.parse(strings.NewReader(raw))
+	d, err := s.parse(strings.NewReader(raw))
+	d.Base = base // the old side, for the highlighter to read whole (#800)
+	return d, err
 }
 
 // DropTurn deletes sess's baseline when the session is archived. From

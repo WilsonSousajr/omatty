@@ -121,6 +121,10 @@ type Deps struct {
 	// for the tree view (#24).
 	Files   ListFilesFunc
 	Preview PreviewFunc
+	// OldFile reads a file as it was at the diff's Base, so the diff's
+	// highlighter starts at the file's first line rather than the hunk's
+	// (#800). Unwired, each hunk is lexed alone, as it always was.
+	OldFile OldFileFunc
 	// Follow resolves the directory claude reports working in to the
 	// checkout the review should read (#659). Unwired, the review stays on
 	// the session's own directory, as it always did.

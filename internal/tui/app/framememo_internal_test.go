@@ -73,6 +73,7 @@ func TestFrame_MemoMatchesAFreshFrameAfterEveryMessage(t *testing.T) {
 		{"repo stat", RepoStatMsg{SessionID: "s1", Stat: review.Stat{Branch: "topic", Added: 9, Removed: 4}}},
 		{"diff loaded", DiffLoadedMsg{SessionID: "s1"}},
 		{"files loaded", FilesLoadedMsg{SessionID: "s1", Paths: []string{"a.go"}}},
+		{"sides loaded", SidesLoadedMsg{SessionID: "s1"}},
 		{"named", NamedMsg{SessionID: "s1", Title: "a new title"}},
 		{"model named", ModelNamedMsg{SessionID: "s1", Title: "a better title"}},
 		{"branch named", BranchNamedMsg{SessionID: "s1", Branch: "topic"}},

@@ -30,6 +30,7 @@ type Git interface {
 	DeleteTurnRef(dir, id string) error
 	DiffTrees(dir, from, to string) (string, error)
 	Head(dir string) (string, error)
+	Blob(dir, rev, path string, limit int) ([]byte, bool, error)
 	Attr(dir, attr string, paths []string) (map[string]bool, error)
 	RestoreTree(dir, tree string) error
 }

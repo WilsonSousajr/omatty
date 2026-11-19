@@ -60,7 +60,9 @@ func (s *Source) Load(sess session.Session, projectRoot string) (dreview.Diff, e
 	// Two readers, not raw+extra: the concatenation allocated a second copy
 	// of the whole diff, and a session that touches a lockfile or generated
 	// code makes that copy large. ParseDiff only ever reads forward.
-	return s.parse(io.MultiReader(strings.NewReader(raw), strings.NewReader(extra)))
+	d, err := s.parse(io.MultiReader(strings.NewReader(raw), strings.NewReader(extra)))
+	d.Base = ref // the old side, for the highlighter to read whole (#800)
+	return d, err
 }
 
 // baseCommit is HEAD for a main-checkout session, else the merge-base with the
