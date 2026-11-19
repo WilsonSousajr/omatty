@@ -77,10 +77,10 @@ var httpStatusIn = regexp.MustCompile(`\(HTTP (\d{3})\)`)
 func apiFailure(host, bin, stderr string, err error) error {
 	m := httpStatusIn.FindStringSubmatch(stderr)
 	if m == nil {
-		return fmt.Errorf("forge: %s api on %s: %s: %w", bin, host, stderr, err)
+		return &CLIError{Call: bin + " api", Where: "on " + host, Said: said(stderr), Err: err} // #804
 	}
 	status, _ := strconv.Atoi(m[1])
-	return statusError(host, bin, status, stderr)
+	return statusError(host, bin, status, said(stderr)) // cleaned, as tea's is (#804)
 }
 
 // statusError is a CLI's HTTP status sorted the way answerError sorts a REST
@@ -137,7 +137,7 @@ func teaVerdict(host string, out []byte, stderr string, err error) ([]byte, erro
 	m := statusLine.FindStringSubmatch(stderr)
 	switch {
 	case err != nil:
-		return nil, fmt.Errorf("forge: tea api on %s: %s: %w", host, said(stderr), err)
+		return nil, &CLIError{Call: "tea api", Where: "on " + host, Said: said(stderr), Err: err} // #804
 	case m == nil:
 		return nil, fmt.Errorf("forge: tea api on %s printed no status line: %s", host, said(stderr))
 	}
