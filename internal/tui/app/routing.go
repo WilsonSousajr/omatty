@@ -158,16 +158,14 @@ func (m *Model) navigate(key string) tea.Cmd {
 	if move, ok := m.cursorMove(key); ok {
 		return m.moveCursor(move)
 	}
-	switch key {
-	case "n":
+	// The keys are leaderBind's, which carry every spelling a shifted letter
+	// arrives in (#87, #750).
+	switch {
+	case is(key, leaderBind.New):
 		m.openModal(modal{Kind: modalPrompt})
-	// Keystroke() spells a shifted letter with the base key in lower case, so
-	// a terminal reporting the modifier gives "shift+n"; the bare "N" is
-	// accepted too, because a legacy terminal cannot report shift at all. The
-	// upper-case "shift+N" spelling never occurs and was dead (issue #87).
-	case "shift+n", "shift+N", "N":
+	case is(key, leaderBind.NewWorktree):
 		m.openModal(modal{Kind: modalPrompt, Editor: lineEditor{Worktree: true}})
-	case "tab":
+	case is(key, leaderBind.Fold):
 		return m.toggleFold(m.sidebar.CursorProject())
 	default:
 		return m.paneCommand(key)
@@ -181,14 +179,14 @@ func (m *Model) navigate(key string) tea.Cmd {
 // unshifted on a US layout, which is why they were chosen over J/K
 // (#87, #122).
 func (m *Model) cursorMove(key string) (func(), bool) {
-	switch key {
-	case "j":
+	switch {
+	case is(key, leaderBind.Down):
 		return m.sidebar.MoveDown, true
-	case "k":
+	case is(key, leaderBind.Up):
 		return m.sidebar.MoveUp, true
-	case "]":
+	case is(key, leaderBind.NextProject):
 		return m.sidebar.NextProject, true
-	case "[":
+	case is(key, leaderBind.PrevProject):
 		return m.sidebar.PrevProject, true
 	}
 	return nil, false
@@ -202,10 +200,10 @@ func (m *Model) paneCommand(key string) tea.Cmd {
 	if cmd, ok := m.columnCommand(key); ok {
 		return cmd
 	}
-	switch key {
-	case "m":
+	switch {
+	case is(key, leaderBind.Mouse):
 		return m.toggleMouse()
-	case "q":
+	case is(key, leaderBind.Quit):
 		return m.requestQuit()
 	}
 	return m.modalCommand(key)
@@ -215,16 +213,16 @@ func (m *Model) paneCommand(key string) tea.Cmd {
 // Split off paneCommand when the tracker pushed it past the statement limit,
 // and the four belong together: one column, four faces (#396).
 func (m *Model) columnCommand(key string) (tea.Cmd, bool) {
-	switch key {
-	case "d":
+	switch {
+	case is(key, leaderBind.Diff):
 		return m.toggleView(ViewDiff), true
-	case "f":
+	case is(key, leaderBind.Files):
 		return m.toggleView(ViewTree), true
-	case "g":
+	case is(key, leaderBind.Gate):
 		return m.toggleView(ViewGate), true
-	case "i":
+	case is(key, leaderBind.Tracker):
 		return m.toggleTracker(), true
-	case "z":
+	case is(key, leaderBind.Zoom):
 		m.toggleZoom()
 		return nil, true
 	}
@@ -238,14 +236,14 @@ func (m *Model) columnCommand(key string) (tea.Cmd, bool) {
 // statement limit, and they belong together - each one throws something away
 // and asks first or says so.
 func (m *Model) lifecycleCommand(key string) (tea.Cmd, bool) {
-	switch key {
-	case "r":
+	switch {
+	case is(key, leaderBind.Restart):
 		return m.restartSelected(), true
-	case "s":
+	case is(key, leaderBind.Stop):
 		return m.stopSelected(), true
-	case "u":
+	case is(key, leaderBind.Revert):
 		return m.askRevert(), true
-	case "p":
+	case is(key, leaderBind.Ship):
 		return m.shipSelected(), true
 	}
 	return nil, false
@@ -256,34 +254,53 @@ func (m *Model) lifecycleCommand(key string) (tea.Cmd, bool) {
 // the first place: M4's keys would push one switch past gocyclo's limit.
 func (m *Model) modalCommand(key string) tea.Cmd {
 	// Every shifted key here takes three spellings, and all three occur.
-	// Keystroke() spells a shifted letter with the base key in LOWER case, so a
-	// terminal reporting the modifier sends "shift+r"; a legacy one that cannot
-	// report shift sends the bare "R"; and one that shifts the base key too
-	// sends "shift+R".
-	//
 	// Matching any two of the three is how the help key and then the adoption
 	// key each shipped opening nothing on a modern terminal, found by the smoke
 	// test and by no unit test - they send the legacy spelling. Rename carried
-	// the same gap, and a comment asserting the opposite of the one three lines
-	// below it (#87, #103, #122).
-	if m.renameCommand(key) || m.projectCommand(key) {
+	// the same gap (#87, #103, #122). The spellings live in leaderBind now, one
+	// list per command (#750).
+	if m.renameCommand(key) || m.projectCommand(key) || m.openCommand(key) {
 		return nil
 	}
-	switch key {
-	case "x":
-		m.openConfirm()
-	case "/":
+	switch {
+	case is(key, leaderBind.Switcher):
 		return m.openSwitcher()
-	case "a":
+	case is(key, leaderBind.Discover):
 		return m.openDiscovery()
-	case "shift+a", "shift+A", "A":
+	case is(key, leaderBind.Adopt):
 		return m.openAdoption()
-	// "?" is shift+/ on a US layout, so it takes the same three spellings.
-	// Matching "?" alone left the whole keymap unreachable (#103).
-	case "shift+/", "shift+?", "?":
-		m.openModal(modal{Kind: modalHelp})
 	}
+	m.unknownLeaderKey(key)
 	return nil
+}
+
+// openCommand opens one of the two surfaces that need nothing read first -
+// the archive confirmation and the keymap - and reports whether the key was
+// one. Split off modalCommand when #751's fall-through pushed it past the
+// length limit, as renameCommand was.
+func (m *Model) openCommand(key string) bool {
+	switch {
+	case is(key, leaderBind.Archive):
+		m.openConfirm()
+	case is(key, leaderBind.Help):
+		m.openModal(modal{Kind: modalHelp})
+	default:
+		return false
+	}
+	return true
+}
+
+// unknownLeaderKey is the end of the leader's tables: a key none of them
+// took. It says so, rather than looking like a command that ran and showed
+// nothing (#751), tmux's "Unknown key". The key is still swallowed: the
+// router gave it to omatty, and it never reaches the session (invariant 1).
+//
+// esc is let go quietly: after a prefix it is backing out, not a typo.
+func (m *Model) unknownLeaderKey(key string) {
+	if key == "esc" {
+		return
+	}
+	m.notice = m.leader + " " + key + ": no such command · " + m.leader + " ? lists them"
 }
 
 // renameCommand opens one of the two rename boxes and reports whether the key
@@ -292,12 +309,12 @@ func (m *Model) modalCommand(key string) tea.Cmd {
 // the two belong together - one names a session, the other names the branch it
 // is on.
 func (m *Model) renameCommand(key string) bool {
-	switch key {
-	case "shift+r", "shift+R", "R":
+	switch {
+	case is(key, leaderBind.Rename):
 		// Lower-case r is restart, so a missed spelling here is silent: it
 		// restarts nothing rather than failing to rename.
 		m.openRename()
-	case "shift+b", "shift+B", "B":
+	case is(key, leaderBind.RenameBranch):
 		// The branch rather than the title: a worktree's branch is a name git
 		// and the filesystem hold too, so it gets a key of its own (#151).
 		m.openBranchRename()
@@ -311,7 +328,7 @@ func (m *Model) renameCommand(key string) bool {
 // whether the key was one. Split off modalCommand when ctrl+o c (#524) pushed
 // it past the length limit, as renameCommand was.
 func (m *Model) projectCommand(key string) bool {
-	if key != "c" {
+	if !is(key, leaderBind.Agent) {
 		return false
 	}
 	m.openProjectAgent()

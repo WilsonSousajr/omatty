@@ -36,35 +36,11 @@ type keyHelp struct {
 	Does string
 }
 
-// leaderKeys is every leader binding, in the order an operator meets them.
+// leaderKeys is every leader binding, in the order an operator meets them,
+// built from leaderBind so the help cannot drift from the dispatch (#750).
 // This is the one place the full keymap is written down: the footer shows a
 // working subset, because it is truncated to the window (#30, #103).
-var leaderKeys = []keyHelp{
-	{"j / k", "next / previous session, wrapping"},
-	{"] / [", "next / previous project"},
-	{"tab", "fold or unfold the project, keeping its sessions"},
-	{"/", "jump to a session by name or project"},
-	{"n", "new session on the main checkout"},
-	{"N", "new session on a fresh worktree"},
-	{"a", "register a project claude already knows"},
-	{"A", "adopt a session claude already knows"},
-	{"R", "rename the selected session"},
-	{"B", "rename a worktree session's branch"},
-	{"c", "choose the agent the selected project's new sessions run"},
-	{"x", "archive the session, or forget an empty project"},
-	{"r", "restart a crashed session"},
-	{"s", "stop the session's process, keeping it; enter resumes it"},
-	{"u", "put the session's worktree back to the start of its last turn"},
-	{"p", "ship a green session: push and open its pull request, or merge a green one"},
-	{"d", "open or close the diff pane"},
-	{"f", "open or close the file tree"},
-	{"g", "open or close the gate pane"},
-	{"i", "open or close this project's issues and pull requests"},
-	{"z", "zoom the review column over the session, or back"},
-	{"m", "hand the mouse back to your terminal, or take it back"},
-	{"?", "this list"},
-	{"q", "quit; asks again while a session works or a note is unsent"},
-}
+var leaderKeys = rowsOf(leaderBindings()...)
 
 // claudeKeys are keys omatty does not own. They reach the session untouched,
 // and they are listed because nothing else says so: pgup/pgdn always scrolled
