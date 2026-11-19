@@ -61,8 +61,8 @@ func (m *Model) reviewCloseX() int { return m.width - 1 }
 // rather than trusted the way sidebarRowAt does (#45, #129). The preview
 // has no cursor.
 func (m *Model) reviewRowDelta(winY int) (int, bool) {
-	line := winY - reviewTop()
-	rows := m.reviewRows()
+	line := winY - reviewTop() - m.listLead() // below the tracker's notice (#776)
+	rows := m.reviewRows() - m.listLead()
 	if line < 0 || line >= rows {
 		return 0, false
 	}

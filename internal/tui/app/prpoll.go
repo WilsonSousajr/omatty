@@ -140,12 +140,20 @@ func (m *Model) onPRs(msg PRsLoadedMsg) tea.Cmd {
 		m.prFailure(msg.Project, msg.Err)
 		return nil
 	}
-	delete(m.prFailed, msg.Project)
-	m.forgeRecovered(msg.Project)
-	m.hostAnswered(msg.Project)
+	m.listAnswered(msg.Project, m.prFailed, m.prRead)
 	m.prs[msg.Project] = msg.PRs
 	m.settleTracker(msg.Project)
 	return nil
+}
+
+// listAnswered is what a good answer to either list says about the project's
+// forge: that list is not failing, it is current as of now (#776), and a stop
+// or a rate limit is over.
+func (m *Model) listAnswered(project string, failed map[string]error, read map[string]time.Time) {
+	delete(failed, project)
+	read[project] = m.clock()
+	m.forgeRecovered(project)
+	m.hostAnswered(project)
 }
 
 // prFailure sorts a failed call into a lost forge or an outage.
@@ -157,10 +165,10 @@ func (m *Model) prFailure(project string, err error) {
 	if m.stopsForge(project, err) {
 		return
 	}
-	if !m.prFailed[project] {
+	if m.prFailed[project] == nil {
 		slog.Warn("reading pull requests", "project", project, "err", err)
 	}
-	m.prFailed[project] = true
+	m.prFailed[project] = err
 }
 
 // withPRMaps allocates the pull request state (#310). Keyed by project, so
@@ -168,7 +176,8 @@ func (m *Model) prFailure(project string, err error) {
 func (m *Model) withPRMaps() *Model {
 	m.prs = map[string][]forge.PR{}
 	m.prPending = map[string]bool{}
-	m.prFailed = map[string]bool{}
+	m.prFailed = map[string]error{}
+	m.prRead = map[string]time.Time{}
 	m.forgeStopped = map[string]error{}
 	m.forgeRetry = map[string]bool{}
 	m.forgeWait = map[string]hostWait{}

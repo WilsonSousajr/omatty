@@ -219,7 +219,7 @@ func (m *Model) moveTrackerCursor(delta int) {
 	rows := m.trackerRows()
 	// A narrowed list can be shorter than where the cursor stood (#399);
 	// move clamps it back onto the rows there are.
-	m.review.Tracker.move(delta, len(rows), m.reviewRows())
+	m.review.Tracker.move(delta, len(rows), m.trackerRowsShown())
 	if len(rows) > 0 && !rows[m.review.Tracker.Cursor].stop() {
 		m.stepOffRule(rows, delta)
 	}
@@ -276,7 +276,7 @@ func (m *Model) stepOffRule(rows []trackerRow, delta int) {
 	for _, dir := range []int{step, -step} {
 		for i := m.review.Tracker.Cursor + dir; i >= 0 && i < len(rows); i += dir {
 			if rows[i].stop() {
-				m.review.Tracker.move(i-m.review.Tracker.Cursor, len(rows), m.reviewRows())
+				m.review.Tracker.move(i-m.review.Tracker.Cursor, len(rows), m.trackerRowsShown())
 				return
 			}
 		}
