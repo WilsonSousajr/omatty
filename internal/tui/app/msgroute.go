@@ -90,9 +90,10 @@ func (m *Model) onDataMsg(msg tea.Msg) tea.Cmd {
 	if cmd, handled := m.onStreamMsg(msg); handled {
 		return cmd
 	}
+	if cmd, handled := m.onDiffMsg(msg); handled {
+		return cmd
+	}
 	switch typed := msg.(type) {
-	case DiffLoadedMsg:
-		return m.onDiffLoaded(typed)
 	case FilesLoadedMsg:
 		return m.onFilesLoaded(typed)
 	case WorktreeRemovedMsg:
@@ -119,6 +120,18 @@ func (m *Model) onTurnMsg(msg tea.Msg) (tea.Cmd, bool) {
 		return m.onTurnLoaded(typed), true
 	case TurnSnappedMsg:
 		return m.onTurnSnapped(typed), true
+	}
+	return nil, false
+}
+
+// onDiffMsg answers a diff load and the files it then reads whole (#800): a
+// table of its own because the second took onDataMsg past the length limit.
+func (m *Model) onDiffMsg(msg tea.Msg) (tea.Cmd, bool) {
+	switch typed := msg.(type) {
+	case DiffLoadedMsg:
+		return m.onDiffLoaded(typed), true
+	case SidesLoadedMsg:
+		return m.onSidesLoaded(typed), true
 	}
 	return nil, false
 }

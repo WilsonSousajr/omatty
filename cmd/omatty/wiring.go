@@ -156,6 +156,7 @@ func tuiDeps(env tuiEnv, store sessions.StateStore, state session.State) app.Dep
 		Stat:      src.Stat,
 		Turn:      turnFuncs(src),
 		Files:     git.ListFiles,
+		OldFile:   src.OldFile, // a diff's old side, to prime its highlighter (#800)
 		Follow:    src.Follow,
 		Generated: src.Generated, Ship: shipFuncs(src, git, fg),
 	}

@@ -77,6 +77,10 @@ func count(k LineKind, added, removed int) (int, int) {
 //	d, err := review.ParseDiff(strings.NewReader(raw))
 type Diff struct {
 	Files []File
+	// Base is the revision the old side was read at - a commit, or a turn
+	// baseline's tree - so a file's old text can be read whole to prime the
+	// highlighter (#800). Empty when the diff does not say.
+	Base string
 }
 
 // Position indexes a line: Files[File].Hunks[Hunk].Lines[Line].

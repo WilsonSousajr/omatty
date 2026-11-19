@@ -349,7 +349,7 @@ func (m *Model) onTurnLoaded(msg TurnLoadedMsg) tea.Cmd {
 	}
 	m.review.TurnDiff, m.review.TurnErr, m.review.TurnReady = msg.Diff, msg.Err, true
 	m.rebuildTurnEntries() // and the cursor back where t left it (#765)
-	return nil
+	return m.loadSides(msg.SessionID, msg.Diff, true, msg.Seq)
 }
 
 // onDiffLoaded paints a freshly loaded diff, unless the pane closed or moved
@@ -370,7 +370,7 @@ func (m *Model) onDiffLoaded(msg DiffLoadedMsg) tea.Cmd {
 	m.commentsFor(msg.SessionID).PruneSent(msg.Diff)
 	m.rebuildEntries()
 	m.retouchTree()
-	return m.classifyAfterDiff(msg.SessionID)
+	return tea.Batch(m.classifyAfterDiff(msg.SessionID), m.loadSides(msg.SessionID, msg.Diff, false, msg.Seq))
 }
 
 // rebuildEntries re-places the comments against the current diff and keeps the
