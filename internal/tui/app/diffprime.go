@@ -89,11 +89,17 @@ func (p *primedDiffs) set(turn bool, files map[string]*lexedFile) {
 // are lexed by hunk, as before.
 const primeFiles = 64
 
-// loadSides reads and lexes the changed files of a diff that just landed, off
-// the Update goroutine: two file reads and two lexes a file, which a frame
-// cannot wait on (#197's budget). Until they land the diff is drawn from its
-// hunks, and the last diff's sides are dropped, since its lines may have moved.
-func (m *Model) loadSides(id string, d dreview.Diff, turn bool, seq uint64) tea.Cmd {
+// diffReplaced is a diff that just landed. Its hunks are another diff's now,
+// so their colours go (#435) - here, and not on every rebuildEntries, which a
+// comment or a fold runs without changing a hunk: clearing them there
+// re-lexed every visible hunk on each comment (#773).
+//
+// Then it reads and lexes the diff's changed files, off the Update goroutine:
+// two file reads and two lexes a file, which a frame cannot wait on (#197's
+// budget). Until they land the diff is drawn from its hunks, and the last
+// diff's sides are dropped, since its lines may have moved (#800).
+func (m *Model) diffReplaced(id string, d dreview.Diff, turn bool, seq uint64) tea.Cmd {
+	m.review.HunkStyles = nil
 	m.primed.set(turn, nil)
 	sess, ok := m.reviewSession(id)
 	if !ok || m.oldFile == nil || d.Base == "" {

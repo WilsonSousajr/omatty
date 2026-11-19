@@ -121,6 +121,10 @@ func TestModel_aGeneratedFileGetsNoCoverageMarkers_issue338(t *testing.T) {
 	}
 
 	m.Update(app.GeneratedMsgFor("s1", map[string]bool{"internal/ui/model.go": true}))
+	// A generated file arrives folded since #773; what this test holds is
+	// that its lines carry no marker once they are drawn, so open it.
+	press(m, key('g'))
+	press(m, special(tea.KeyEnter))
 
 	view := m.View().Content
 	if got := plainLineWith(t, view, "b := 3"); strings.Contains(got, "!") {

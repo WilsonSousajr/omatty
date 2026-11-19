@@ -73,12 +73,20 @@ func (m *Model) withoutFolded(entries []dreview.Entry, d dreview.Diff) []dreview
 	return out
 }
 
-// foldNote is what a folded header adds to its never-given-up note.
+// foldNote is what a folded header adds to its never-given-up note: why it
+// arrived folded and how to open it, for a file folded by default (#773), and
+// that it is folded otherwise.
 func (m *Model) foldNote(fi int) string {
-	if m.review.FoldedFiles[m.shownDiff().Files[fi].Path] {
-		return " · folded"
+	f := m.shownDiff().Files[fi]
+	switch {
+	case !m.review.FoldedFiles[f.Path]:
+		return ""
+	case m.isGenerated(f.Path):
+		return " · generated · enter to load"
+	case diffLines(f) > largeFileLines:
+		return " · " + strconv.Itoa(diffLines(f)) + " lines · enter to load"
 	}
-	return ""
+	return " · folded"
 }
 
 // headerWithPlace is a file's header with its place among the diff's files,
