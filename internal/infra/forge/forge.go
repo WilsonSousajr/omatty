@@ -142,11 +142,11 @@ func called(args []string) string {
 func classify(repoRoot, call, stderr string, err error) error {
 	for _, s := range notGitHub {
 		if strings.Contains(stderr, s) {
-			return fmt.Errorf("forge: %s: %w", stderr, dforge.ErrNoForge)
+			return fmt.Errorf("forge: %s: %w", said(stderr), dforge.ErrNoForge) // cleaned (#804)
 		}
 	}
 	if saysRateLimit(stderr) {
 		return &dforge.RateLimitError{Host: "github.com"}
 	}
-	return fmt.Errorf("forge: gh %s in %q: %s: %w", call, repoRoot, stderr, err)
+	return &CLIError{Call: "gh " + call, Where: fmt.Sprintf("in %q", repoRoot), Said: said(stderr), Err: err} // #804
 }

@@ -122,3 +122,28 @@ func sameDir(t *testing.T, a, b string) bool {
 	rb, errB := filepath.EvalSymlinks(b)
 	return errA == nil && errB == nil && ra == rb
 }
+
+// detailer is what the TUI asks an error for: the part worth a narrow
+// surface. Asked by behaviour, as the TUI asks it.
+type detailer interface{ Detail() string }
+
+// A failed gh call's Detail is gh's own words, cleaned and on one line: the
+// tracker's notice showed the command, the path and "exit status 1" around
+// them (#804). Error() stays the whole account, for the log.
+func TestForge_cliFailureDetailIsTheCLIsWords_issue804(t *testing.T) {
+	bin, _ := fakeGH(t, "", "HTTP 502: Bad Gateway\x1b]0;owned\x07\n(https://api.github.com/graphql)", 1)
+	root := t.TempDir()
+
+	_, err := forge.NewCLIWithBin(bin).ListPRs(root)
+
+	var d detailer
+	if !errors.As(err, &d) {
+		t.Fatalf("error = %v, want one with a Detail", err)
+	}
+	if got := d.Detail(); !strings.HasPrefix(got, "HTTP 502: Bad Gateway") || strings.ContainsAny(got, "\x1b\x07\n") || strings.Contains(got, root) {
+		t.Errorf("Detail = %q, want gh's words alone, cleaned, on one line", got)
+	}
+	if !strings.Contains(err.Error(), root) || strings.ContainsAny(err.Error(), "\x1b\x07") {
+		t.Errorf("Error = %q, want the whole account, cleaned, for the log", err)
+	}
+}
