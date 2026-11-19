@@ -7,7 +7,8 @@
 > the script that produces them is in "Reproducing the table" so the next pass
 > re-runs rather than re-invents it.
 >
-> **Refreshed 2026-09-27 in §7** (#513) **and 2026-10-05 in §8** (#735).
+> **Refreshed 2026-09-27 in §7** (#513), **2026-10-05 in §8** (#735),
+> **2026-10-28 in §9** (#742) **and 2026-11-18 in §10** (#810).
 > §1-6 are the 09-18 capture, unedited; where a later section contradicts an
 > earlier one, the later one is current.
 >
@@ -1124,6 +1125,305 @@ anything reads it.
 **R24. Finish §8 before §10.** PR #736 has been open for twenty-three days,
 and this section stacks on it. Each refresh assumes the last one has been
 read and acted on. R15 to R19 have not been yet.
+
+## 10. Refresh, 2026-11-18
+
+> Captured **2026-11-18**, against `develop` at v0.11.1 plus the M18 fixes
+> merged through #806, twenty-one days after §9. Every load-bearing claim in
+> this section was checked against a live primary page on that date, not
+> remembered. This is the monthly refresh R13 and R19 asked for. Analysis
+> only, like the rest of the file: the recommendations below are inputs to
+> `docs/ROADMAP.md`.
+>
+> **Coverage.** The signal table and the field-size probes were re-run with
+> the script under "Reproducing the table". Four open-issue counts hit the
+> search API's rate limit and were re-fetched a minute later. Claude Code's
+> `CHANGELOG.md` was read from 2.1.314 to 2.1.327, with dates from the npm
+> registry's publish times. 2.1.313 and 2.1.320 were never published, and
+> 2.1.328 went out on 11-18 without a changelog entry yet. Gate-related
+> lines in the release notes of Orca, paseo, Paradev, herdr-reviewr, codeg
+> and agent-orchestrator since 10-28 were grepped, not read end to end.
+> pullboard's five releases since 10-28 were read in full. New candidates
+> came from `gh search repos` by shape and by topic (`claude-code`,
+> `coding-agents`, `agentic-coding`, `claude-code-mods`), restricted to
+> `created:>2026-10-27`. Fourteen new repositories were opened. The gate and
+> anchoring claims below name the file they were read in.
+
+### 10.1 The signal table: herdr split in two
+
+| Project | Stars 10-28 → 11-18 | Last push | Latest release | Open issues |
+|---|---:|---|---|---:|
+| `stablyai/orca` | 108,989 → **128,882** | 11-19 | v1.4.263 (11-18) | 4,785 |
+| `herdrdev/herdr` | 46,349 → 51,754 | 11-07 | v0.9.5 (10-14) | 498 |
+| `herdrdev/herdr-app` (new) | — → 3,167 | 11-18 | tag v0.1.16 (11-14) | 507 |
+| `herdrdev/herdr-core` (new) | — → 799 | 11-16 | tag v0.1.21 (11-12) | 144 |
+| `BloopAI/vibe-kanban` | 28,491 → 28,738 | 11-15 | v0.1.46 (11-15) | 382 |
+| `manaflow-ai/cmux` | 28,585 → 28,827 | 11-19 | v0.65.2.2 (10-27) | **4,535** |
+| `getpaseo/paseo` | 22,294 → 24,384 | 11-18 | v0.16.2 (11-18) | 1,042 |
+| `ParadevAI/Paradev` | 15,684 → 16,391 | 11-19 | desktop-v2.0.9 (11-15) | 557 |
+| `NanmiCoder/cc-haha` | 15,215 → 15,490 | 11-18 | v0.7.8 (11-10) | 104 |
+| `OrchestratorInc/agent-orchestrator` | 13,837 → 14,894 | 11-19 | v0.15.3 (11-16) | 454 |
+| `smtg-ai/claude-squad` | 8,693 → 8,829 | 11-13 | v1.0.20 (08-20) | 15 |
+| `generalaction/emdash` | 6,104 → 6,278 | 11-18 | v1.2.11 (11-06) | 47 |
+| `spacering-net/codeg` | 4,193 → 4,530 | 11-18 | v0.46.0 (11-18) | 220 |
+| `dagger/container-use` | 4,079 → 4,099 | 11-14 | v0.4.2 (2025-08-19) | 47 |
+| `stravu/crystal` | 3,130 → 3,128 | 2026-02-26 | v0.3.5 (02-26) | 60 |
+| `nimbalyst/nimbalyst` | 1,995 → 2,093 | 11-18 | v0.83.0 (11-10) | 777 |
+| `akitaonrails/ai-jail` | 1,429 → 1,520 | 11-18 | v3.5.0 (11-18) | 4 |
+| `kbwo/ccmanager` | 1,274 → 1,279 | 10-27 | v4.4.11 (10-27) | 4 |
+| `persiyanov/herdr-reviewr` | 955 → 1,009 | 11-15 | v0.52.2 (11-15) | 24 |
+| `pullboard-dev/pullboard` | 427 → **846** | 11-15 | v0.9.4 (11-15) | 9 |
+| `greenfield-inc/Pane` | 583 → 662 | 11-19 | v2.4.243 (11-18) | 188 |
+| `devflowinc/uzi` | 582 → 584 | 2025-06-04 | v0.0.2 | 6 |
+| `imbue-ai/sculptor` | 241 → 266 | 11-19 | sculptor-v0.50.0 (11-16) | 0 |
+| `onurozcan/omux` | 49 → 175 | 11-18 | v0.12.3 (11-18) | 0 |
+| `steventsvik/Tellurion` | 134 → 141 | 11-18 | extreme-1.9.4 (11-12) | 0 |
+| `Gilvt-WTJ/gilvt` | 127 → 128 | 11-02 | v0.5.0 (10-15) | 0 |
+| `glmn-ai/neurosquad-cli` | 67 → 90 | 10-26 | neurosquad@0.6.0 (10-13) | 0 |
+| `ykdojo/safeclaw` | 186 → 187 | 09-27 | v0.7.0 (07-24) | 0 |
+| `brizzai/fleet` | 59 → 61 | 11-10 | v2.48.1 (11-08) | 18 |
+| `spatie/bloom` | 34 → 53 | 11-17 | v1.41.1 (11-12) | 0 |
+| `Perpeer/lazychat` | 30 → 30 | 10-20 | v1.0.32 (10-20) | 0 |
+| `axonel/sentinel` | 28 → 29 | 11-18 | v0.1.1 (09-19) | 1 |
+| `jpolec/herdr-plugin-odysseus` | 9 → 14 | 09-25 | none | 0 |
+| `nccapo/stvena` | 10 → 10 | 09-29 | v0.4.1 (09-21) | 0 |
+| `xseman/pando` | 6 → 9 | 11-15 | v0.12.0 (11-13) | 0 |
+| `shindakun/herdr-testrun` | 1 → 1 | 09-20 | v0.1.0 (09-20) | 0 |
+| `jesseduffield/lazygit` | 83,483 → 83,957 | 11-18 | v0.66.3 (11-07) | 883 |
+| `dandavison/delta` | 32,604 → 32,759 | 11-18 | 0.20.1 (10-04) | 321 |
+| `Wilfred/difftastic` | 26,073 → 26,200 | 11-19 | 0.72.0 (10-29) | 238 |
+| `WilsonSousajr/omatty` | 1 → 1 | 11-19 | v0.11.1 (10-29) | 61 |
+
+- **herdr is now three repositories.** `herdrdev/herdr-app` ("herdr desktop
+  app", Rust, created 10-16) and `herdrdev/herdr-core` ("terminals for
+  coding agents", created 10-16) appeared beside the TUI. The TUI repository
+  has no commit on its default branch after 10-29 and no release after
+  10-14, while the app tagged thirteen versions between 10-23 and 11-14 and
+  the core twelve. The TUI's README is unchanged and makes no deprecation
+  notice, so this file does not call it abandoned (the `stravu/crystal`
+  trap). §10.3 reads what the app is.
+- **cmux's open issues more than doubled, from 1,926 to 4,535.** Its tracker
+  got 3,920 new issues between 11-01 and 11-18, against 501 in the same days
+  of October. Of the fifteen newest, fourteen were opened by two of its
+  maintainers and read as work items ("Land #43242 ...", "Handoff: #46286
+  ..."). This is a team running its own work through the tracker, not users
+  reporting pain. A pass that mines cmux's tracker has to filter by author
+  first.
+- Orca added 19,893 stars in twenty-one days, a little under a thousand a
+  day, the pace of §8 and §9. pullboard nearly doubled. omux more than
+  tripled. claude-squad committed for the first time in twelve weeks: one
+  fix, no release.
+- `YeonwooSung/my-claude-code-mods`, the `verify-board` repository §9.3
+  mentioned, fell from 1,098 stars to 878.
+
+Field-size probes, 10-28 → 11-18: `topic:parallel-agents` 265 → 296;
+`claude code parallel in:description stars:>10` 235 → 251;
+`coding agent orchestrator in:description stars:>10` 509 → 538;
+`multiple claude code sessions in:description` 463 → 479;
+`claude code worktree in:description` 1,797 → 2,131;
+`topic:claude-code-mods` 279 → 342; `herdr plugin in:description`
+1,190 → 1,382; `claude code mod in:description` 2,419 → 3,472, of which
+1,059 were created after 10-28. Every probe grew. The mod count kept its
+§9 pace of about fifty a day.
+
+### 10.2 First party: still no gate, and a resume hint for hosts
+
+Claude Code 2.1.314 to 2.1.327 (2026-10-30 to 11-17) is thirteen published
+releases. Nothing in them runs a project's checks or shows a verdict.
+`/verify`, `/code-review` and `/ultrareview` got permission and trust
+fixes, nothing new. The lines that touch omatty, from `CHANGELOG.md`:
+
+- **`CLAUDE_CODE_RESUME_HINT_COMMAND` (2.1.323)**: "a program that starts
+  Claude Code can set [it] to have the exit hint name its own resume
+  command". omatty is such a program. Today a session that exits in an
+  omatty pane prints claude's own hint, which resumes outside omatty and
+  leaves the session's row behind.
+- **OSC 7501 got richer (2.1.326)**: "background commands, monitors and MCP
+  tasks are listed, and a session waiting on them shows as working instead
+  of done". §9.2's point stands, with more weight: it is a signal Claude Code
+  emits on purpose, and it now knows something the transcript tail has to
+  infer. R23 has not been filed.
+- **Ctrl+O gained a third job (2.1.326)**: "show hidden startup notices",
+  beside the transcript view. Since #747 (PR #792), `ctrl+o ctrl+o`
+  sends claude its own ctrl+o, so this costs nothing new. It
+  is the same key carrying more of claude's surface each month.
+- **A hook's `"decision": "block"` holds in more cases (2.1.326)**: "a hook
+  that always prints one may start blocking calls". omatty's hook prints
+  nothing (invariant 11; `internal/infra/hooks` writes nothing to stdout),
+  so this cannot reach it. PostToolUse hooks now also run, with ten seconds
+  to finish, on calls that complete after an interrupt (2.1.319). That is
+  more payloads, not a new shape.
+- The mod surface kept filling in: `isPromptCovered` for a pane (2.1.323),
+  `overflowX="scroll"` and `maxLines` (2.1.326), `effort` on `$.model.fork`
+  (2.1.318), and `engines["claude-code"]` version ranges for plugins
+  (2.1.323). `/diff` got a "to close" hint (2.1.323). The agents view and
+  `claude rm` now say a session is "removed from the list, not deleted"
+  (2.1.323). `/tasks` keeps finished subagents in an "Earlier in this
+  session" row (2.1.319). Code Mode arrived as an experimental opt-in
+  (2.1.323).
+
+§8.2's conclusion holds for the third refresh running: every part of
+omatty's review loop has a first-party primitive, and none for the gate.
+
+### 10.3 herdr's desktop app
+
+`herdrdev/herdr-app` is "a desktop app for terminals and coding agents.
+Keep work in spaces, see which agents need you, and leave terminals running
+when you close the window" (README). It is Rust on GPUI, not Electron, and
+runs on macOS, Linux and Windows. `herdr-core` (`hc`) holds the terminals
+and "draws nothing" (its README). The window can close and the terminals
+keep running, which is what dtach gives omatty in M6. An agents sidebar
+marks each agent Working, Blocked, Done or Idle. SSH machines join as
+spaces.
+
+The window is built from **mods**, "small JavaScript programs that draw its
+panels, menus and dialogs". Twenty-one ship in `defaults/mods/`, among them
+`changes`, `files`, `worktree` and `agents`. The shipped `changes` mod is a
+read-only diff (`defaults/mods/changes/main.js`, 236 lines, no comment
+code). Review comments come from community mods (§10.5).
+
+Three facts matter for `comparison.md`:
+
+- omatty's camp, terminal session managers, lost its largest member's
+  attention, if not the member itself. herdr's growth and its maintainers'
+  commits now go to a desktop app. The TUI still exists and still has more
+  stars than everything else in the camp combined.
+- "Usage telemetry is on by default in releases. Turn it off in Settings →
+  Privacy" (herdr-app README). omatty has none: "No telemetry, no account"
+  (`README.md`).
+- "Mods are trusted code, not sandboxed extensions" (README). This is the
+  same trade Claude Code's mods make.
+
+### 10.4 The gate claim, re-checked: the referee is agent-facing
+
+§9.3 found that pullboard runs the project's own line per worktree, judges
+it by exit status, and splits it into stages. Twenty-one days on, two
+things changed: pullboard moved further from a person, and a second tool
+does the same thing for a different reason.
+
+**`pullboard-dev/pullboard` v0.9.4** (11-15, 846 stars, still one
+contributor) "rebuilt itself, on its own board, in under three weeks"
+(release notes, vendor-self-reported: "13,000+ commits across 4,500+
+items"). The gate moved out of `src/gate.js` into `packages/gate/`, and the
+verdict is still the exit code. `runShell`'s successor returns `isGreen:
+result.status === 0` on every path (`packages/gate/src/io/run/shell.js`),
+and keeps "each top-level stage's exit status and own output". What is
+new:
+
+- **Runners.** "The whole gate runs as one runner job and posts one
+  receipt. Nothing gate-related runs on the coordinator's machine." Landing
+  "runs itself", and "a machine-verified item lands on its proof without
+  waiting for a reviewer" (#2183). The release notes say so plainly: the
+  gate is now a machine talking to a machine.
+- **Proof is reused.** A green run is recorded for its exact tree, command
+  and tooling (`recordGreenRun`), and a later check of the same files at
+  the same tree takes it instead of re-running. So does a check after a
+  merge from main that "changed no file the check's files import"
+  (`reusableAcrossMerge`, `packages/gate/src/io/shards/green.js`). That is
+  §9's R22 idea grown into an import-closure cache, and it is the mechanism
+  #744 asks for.
+- The notes also say "a gate never reports green from a run that ran none of
+  the selected tests, printed nothing, edited its own checkout or hid an
+  early pipe failure" (#7276, #7484, #7489, #7494, #7516). The pipe half is
+  `set -o pipefail` (`shell.js`). The "printed nothing" half was not found
+  in the files this pass read. If it reads output to refuse a green, that
+  departs from invariant 12's rule, but **it is unread and not claimed**.
+
+**`muaaz9329/cheap-ag`** (336 stars, created 10-28, eight contributors) is
+not a session manager or a workspace. It hands typing from a frontier model
+to a cheap one inside Claude Code or Codex. Its referee is still the
+nearest new thing to a gate. The cheap model "has to prove its work with a
+test before anything reaches you", and "Cheap Agent runs the tests itself;
+it doesn't take the model's word for it" (README). In code, `runVerify`
+runs each command from the task's `doneWhen` list plus the project's test
+command and records `ok: code === 0` (`src/verify.ts`). `envFailure` treats
+exit 127 as "command not found", a missing tool rather than failing code,
+which is the line invariant 12 draws between `Missing` and `Fail`. The
+benchmark numbers in its README (63% fewer Opus tokens, SWE-bench Verified)
+are vendor-self-reported.
+
+Two more new orchestrators were checked and do not run a local gate.
+`KKKKhazix/agent-autoloop` (5,904 stars, created 11-03) waits on CI in its
+delivery pipeline: "审代码 → 等 CI → 合并 PR" ("review code → wait for CI → merge the
+PR"; README). `mdiri-ai/SoduWork` (2,888, created 10-29) verifies with "a
+separate AI review" against acceptance criteria, then "a person signs off"
+(README). `OrchestratorInc/agent-orchestrator`'s "gate job" in v0.15.3 is a
+GitHub Actions job it reads (`backend/internal/adapters/scm/github/`, PR
+#8149), not one it runs.
+
+**So the pattern §9.3 saw in one tool is now in two:** the exit-status
+verdict is becoming the referee *between agents*. pullboard uses it to
+admit a submit and land it with nobody reading. cheap-ag uses it to decide
+whether a cheap model's patch reaches the expensive one. Neither puts the
+verdict in front of a person watching a session. That half, R20's
+narrower claim, is still omatty's alone among everything read, and the
+field is moving away from it, not toward it.
+
+### 10.5 Anchoring: one keeps the text, and drops on a move
+
+| Project | Stars | Anchor, and the file it was read in |
+|---|---:|---|
+| `vytasgavelis/herdr-reviewer` (herdr-app mod) | 17 | `desc = { kind, number, text }`; looked up by the exact key `kind\|number\|text`, and `at()` returns -1 when nothing matches (`mods/reviewer/main.js`). The prompt says "Line numbers are new-file numbers". |
+| `iampedii/herdr-redline` (herdr-app mod) | 36 | Reviews GitLab MRs and GitHub PRs in a worktree next to an agent (README). No comment code was found in `mods/redline/main.js` or `lib.js`. Not read further. |
+
+herdr-reviewer is the nearest thing to a content anchor in the camp so far.
+It keeps the line's text in the anchor, so a comment whose line was
+*edited* stops matching. It never re-finds a line that *moved*, because the
+number is part of the key. A comment whose code shifts down by one line is
+dropped rather than misattached. That is safer than §9.4's three
+number-only anchors and still short of invariant 7, which follows the
+content to its new line. The claim holds.
+
+Neither the herdr-app's shipped `changes` mod nor any new tool read here
+anchors on content.
+
+### 10.6 What happened to §9's recommendations
+
+- **R20** (re-state the gate claim against pullboard): not done.
+  `comparison.md` still says "None of them has a gate in core" of the
+  terminal camp. That is true, but it is the wider claim §9 found a reader
+  will not grant.
+- **R21** (package paths): done as #786.
+- **R22** (pullboard's stamp and stages): open as #744. pullboard has since
+  grown the stamp into an import-closure cache (§10.4).
+- **R23** (OSC 7501 as a status source): never filed.
+- **R24** (finish §8 before §10): done. #736 and #743 merged, on 10-29 and
+  11-06.
+
+### 10.7 What this means for omatty
+
+Numbered on from §9.6. Inputs, not decisions.
+
+**R25. Re-describe herdr in `comparison.md` (§10.3).** The page names herdr
+as the largest member of omatty's camp, "Rust, ~41k stars, owns the PTYs".
+That is still true of the TUI, but herdr's own direction is a desktop app
+over a headless core, with JavaScript mods and telemetry on by default. A
+reader who knows herdr-app will read the row as stale. Name both, say which
+one is moving, and do not call the TUI dead.
+
+**R26. Do R20 now.** §10.4 makes it stronger: pullboard and cheap-ag both
+judge by exit status, and both hand the verdict to an agent. omatty's claim
+is the half both decline: *a person reads the verdict on the card of a
+session they are watching*. Written that way, a reader who knows pullboard
+or cheap-ag grants it at once.
+
+**R27. Set `CLAUDE_CODE_RESUME_HINT_COMMAND` when omatty launches claude
+(§10.2).** It is a per-invocation environment variable, so invariant 3 is
+not touched. It would stop claude's exit hint from pointing a person around
+the session row omatty keeps. What it should name, and whether codex or
+another agent has an equivalent, is for M17's session lifecycle to decide.
+
+**R28. File R23.** OSC 7501 now reports background work that the
+transcript tail has to infer. It is still a question for M17's status tiers
+and for invariant 2's wording, and both are easier to answer with an issue
+than with a third mention in this file.
+
+**R29. Before #744 is built, read pullboard's `green.js`.** Its reuse key is
+tree plus command plus tooling, and its merge case widens that to "no file
+the check's files import changed". omatty's version would be simpler,
+because the gate runs once per session and not per shard. But the key is
+the part that is easy to get wrong, and someone has already written it
+down.
 
 ## Reproducing the table
 
